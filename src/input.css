@@ -3,3 +3,68 @@
 /* Tell Tailwind v4 where to scan for class names */
 @source "../views/**/*.ejs";
 @source "../public/**/*.js";
+
+@theme {
+    --font-sans: 'Sofia Sans', sans-serif;
+
+    /* Minor Third scale (×1.200) — base: 15px */
+    --text-xs: 0.694rem;
+    /* ~10.4px */
+    --text-sm: 0.833rem;
+    /* ~12.5px */
+    --text-base: 1rem;
+    /*  15px   */
+    --text-lg: 1.2rem;
+    /*  18px   */
+    --text-xl: 1.44rem;
+    /*  21.6px */
+    --text-2xl: 1.728rem;
+    /*  25.9px */
+    --text-3xl: 2.074rem;
+    /*  31.1px */
+    --text-4xl: 2.488rem;
+    /*  37.3px */
+    --text-5xl: 2.986rem;
+    /*  44.8px */
+
+    --color-shark-50: #fafafa;
+    --color-shark-100: #f5f5f5;
+    --color-shark-200: #e6e6e6;
+    --color-shark-300: #d6d6d6;
+    --color-shark-400: #a5a5a5;
+    --color-shark-500: #767676;
+    --color-shark-600: #575757;
+    --color-shark-700: #434343;
+    --color-shark-800: #222222;
+    --color-shark-900: #1a1a1a;
+    --color-shark-950: #0a0a0a;
+
+    --color-charm-50: #fcf3f7;
+    --color-charm-100: #fae9f0;
+    --color-charm-200: #f6d4e2;
+    --color-charm-300: #f0b1ca;
+    --color-charm-400: #e680a6;
+    --color-charm-500: #dd6890;
+    --color-charm-600: #c73b64;
+    --color-charm-700: #ac2a4c;
+    --color-charm-800: #8e2640;
+    --color-charm-900: #772439;
+    --color-charm-950: #480f1d;
+
+    --color-lily-50: #f9f6f8;
+    --color-lily-100: #f4eff3;
+    --color-lily-200: #ebdfe8;
+    --color-lily-300: #dbc6d5;
+    --color-lily-400: #c9a9bf;
+    --color-lily-500: #b084a1;
+    --color-lily-600: #996986;
+    --color-lily-700: #81556f;
+    --color-lily-800: #6c485c;
+    --color-lily-900: #5c3f4f;
+    --color-lily-950: #35222d;
+}
+
+html {
+    font-size: 15px;
+    font-family: 'Sofia Sans', sans-serif;
+}

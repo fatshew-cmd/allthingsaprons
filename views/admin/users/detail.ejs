@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../../partials/head') %></head>
+<body class="min-h-screen bg-gray-50">
+  <%- include('../../partials/adminNav') %>
+
+  <main class="max-w-2xl mx-auto px-6 py-10">
+    <a href="/admin/users" class="text-sm text-gray-500 hover:underline mb-6 inline-block">&larr; Back to Users</a>
+
+    <h1 class="text-2xl font-bold mb-6"><%= user.email %></h1>
+
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100 text-sm">
+      <div class="px-6 py-4 flex justify-between">
+        <span class="text-gray-500">ID</span>
+        <span class="font-mono"><%= user._id %></span>
+      </div>
+      <div class="px-6 py-4 flex justify-between">
+        <span class="text-gray-500">Email</span>
+        <span><%= user.email %></span>
+      </div>
+      <div class="px-6 py-4 flex justify-between">
+        <span class="text-gray-500">Admin</span>
+        <span><%= user.isAdmin ? 'Yes' : 'No' %></span>
+      </div>
+      <div class="px-6 py-4 flex justify-between">
+        <span class="text-gray-500">Created</span>
+        <span><%= user.createdAt.toLocaleString() %></span>
+      </div>
+      <div class="px-6 py-4 flex justify-between">
+        <span class="text-gray-500">Updated</span>
+        <span><%= user.updatedAt.toLocaleString() %></span>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
