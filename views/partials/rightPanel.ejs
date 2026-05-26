@@ -1,0 +1,85 @@
+﻿<aside class="hidden xl:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-white/10 overflow-y-auto">
+
+  <!-- Trending section (default state) -->
+  <div class="p-5" id="panel-trending">
+    <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-4">Trending Now</h2>
+
+    <div class="flex flex-col gap-3">
+      <% if (typeof trendingItems !== 'undefined' && trendingItems.length) { %>
+        <% trendingItems.forEach((item, i) => { %>
+          <div class="flex items-center gap-3">
+            <span class="text-xl font-black w-5 text-center shrink-0
+                         <%= i === 0 ? 'text-charm-400' : 'text-white/20' %>"><%= i + 1 %></span>
+            <div class="w-11 h-11 rounded-md overflow-hidden shrink-0 bg-white/5">
+              <img src="<%= item.mediaUrl %>" class="w-full h-full object-cover" alt="" loading="lazy" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate"><%= item.title %></p>
+              <p class="text-xs text-white/40"><%= item.ratingScore.toFixed(1) %>★ · <%= item.ratingCount %> ratings</p>
+            </div>
+          </div>
+        <% }) %>
+      <% } else { %>
+        <% for (let i = 0; i < 5; i++) { %>
+          <div class="flex items-center gap-3 animate-pulse">
+            <span class="text-xl font-black w-5 text-white/10 text-center shrink-0"><%= i + 1 %></span>
+            <div class="w-11 h-11 rounded-md bg-white/5 shrink-0"></div>
+            <div class="flex-1 space-y-1.5">
+              <div class="h-3 bg-white/5 rounded-md w-3/4"></div>
+              <div class="h-2.5 bg-white/5 rounded-md w-1/2"></div>
+            </div>
+          </div>
+        <% } %>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Contests section -->
+  <% if (typeof contests !== 'undefined' && contests.length) { %>
+  <div class="p-5 border-t border-white/10">
+    <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-4">Contests</h2>
+    <div class="flex flex-col gap-3">
+      <% contests.forEach(comp => { %>
+        <div class="rounded-md bg-white/5 border border-white/8 p-3 hover:bg-white/8 transition-colors cursor-pointer">
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-md bg-white/10 overflow-hidden shrink-0">
+              <img src="<%= comp.coverUrl %>" class="w-full h-full object-cover" alt="" loading="lazy" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate"><%= comp.title %></p>
+              <p class="text-xs text-white/40 truncate"><%= comp.theme %></p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between mt-2.5">
+            <% if (comp.status === 'active') { %>
+              <span class="text-xs font-medium text-green-400"><%= comp.daysLeft %>d left</span>
+            <% } else { %>
+              <span class="text-xs font-medium text-yellow-400/80">Opens in <%= comp.daysLeft %>d</span>
+            <% } %>
+            <span class="text-xs text-white/25">by <%= comp.organizer %></span>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+  <% } %>
+
+  <!-- Item detail panel (shown via JS when actively rating) -->
+  <div id="panel-item-detail" class="hidden p-5 border-t border-white/10">
+    <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-4">Item Stats</h2>
+    <div id="item-detail-content" class="flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-white/40">Community avg</span>
+        <span id="detail-score" class="text-sm font-bold text-charm-400">—</span>
+      </div>
+      <div class="h-2 bg-white/10 rounded-md overflow-hidden">
+        <div id="detail-bar" class="h-full bg-charm-500 rounded-md transition-all duration-500" style="width: 0%;"></div>
+      </div>
+      <div class="flex items-center justify-between text-xs text-white/30">
+        <span id="detail-count">0 ratings</span>
+        <span class="text-white/20">Shop this — coming soon</span>
+      </div>
+    </div>
+  </div>
+
+</aside>

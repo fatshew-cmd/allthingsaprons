@@ -1,0 +1,39 @@
+      </main>
+
+      <%- include('rightPanel') %>
+    </div>
+
+  </div>
+
+  <!-- Mobile bottom nav -->
+  <nav class="md:hidden fixed bottom-0 inset-x-0 flex items-center justify-around px-2 py-3 border-t border-white/10 bg-shark-950 z-30">
+
+    <a href="/feed" class="flex flex-col items-center gap-1 <%= activePage === 'feed' ? 'text-charm-500' : 'text-white/40' %>">
+      <iconify-icon icon="<%= activePage === 'feed' ? 'boxicons:home-filled' : 'boxicons:home' %>" width="24" height="24"></iconify-icon>
+      <span class="text-[10px] font-medium">Feed</span>
+    </a>
+
+    <a href="/leaderboard" class="flex flex-col items-center gap-1 <%= activePage === 'leaderboard' ? 'text-charm-500' : 'text-white/40' %>">
+      <iconify-icon icon="boxicons:trending-up" width="24" height="24"></iconify-icon>
+      <span class="text-[10px] font-medium">Leaderboard</span>
+    </a>
+
+    <a href="/search" class="flex flex-col items-center gap-1 <%= activePage === 'search' ? 'text-charm-500' : 'text-white/40' %>">
+      <iconify-icon icon="boxicons:search" width="24" height="24"></iconify-icon>
+      <span class="text-[10px] font-medium">Search</span>
+    </a>
+
+    <a href="/profile" class="flex flex-col items-center gap-1 <%= activePage === 'profile' ? 'text-charm-500' : 'text-white/40' %>">
+      <iconify-icon icon="<%= activePage === 'profile' ? 'boxicons:user-filled' : 'boxicons:user' %>" width="24" height="24"></iconify-icon>
+      <span class="text-[10px] font-medium">Profile</span>
+    </a>
+
+    <a href="/submit" class="flex flex-col items-center gap-1 <%= activePage === 'submit' ? 'text-charm-500' : 'text-white/40' %>">
+      <iconify-icon icon="boxicons:plus" width="24" height="24"></iconify-icon>
+      <span class="text-[10px] font-medium">Submit</span>
+    </a>
+
+  </nav>
+
+</body>
+</html>

@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
 <body class="min-h-screen flex items-center justify-center bg-gray-50">
-  <div class="w-full max-w-sm bg-white rounded-xl shadow p-8 flex flex-col gap-6">
+  <div class="w-full max-w-sm bg-white rounded-md shadow p-8 flex flex-col gap-6">
     <h1 class="text-2xl font-bold text-center">Admin Login</h1>
 
     <% if (error) { %>
@@ -13,15 +13,15 @@
       <div class="flex flex-col gap-1">
         <label class="text-sm font-medium" for="email">Email</label>
         <input id="email" name="email" type="email" required
-          class="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+          class="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-sm font-medium" for="password">Password</label>
         <input id="password" name="password" type="password" required
-          class="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+          class="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
       </div>
       <button type="submit"
-        class="bg-black text-white rounded-lg py-2 text-sm font-semibold hover:bg-gray-800 transition">
+        class="bg-black text-white rounded-md py-2 text-sm font-semibold hover:bg-gray-800 transition">
         Sign in
       </button>
     </form>

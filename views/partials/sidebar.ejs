@@ -1,0 +1,50 @@
+﻿<aside class="hidden md:flex flex-col sticky top-0 h-screen w-16 xl:w-64 shrink-0 border-r border-white/10 overflow-hidden">
+
+  <!-- Logo -->
+  <div class="flex items-center h-16 px-4 xl:px-5 border-b border-white/10 shrink-0">
+    <span class="font-black text-charm-500 tracking-tight whitespace-nowrap overflow-hidden">
+      <span class="hidden xl:inline text-lg">AllThingsAprons</span>
+      <span class="xl:hidden text-xl">A</span>
+    </span>
+  </div>
+
+  <!-- Nav links -->
+  <nav class="flex flex-col gap-1 px-2 py-4 flex-1 overflow-y-auto">
+    <%
+      const navLinks = [
+        { href: '/feed',          label: 'Feed',          page: 'feed',          icon: 'boxicons:home',              iconActive: 'boxicons:home-filled' },
+        { href: '/search',        label: 'Search',        page: 'search',        icon: 'boxicons:search',            iconActive: 'boxicons:search' },
+        { href: '/leaderboard',   label: 'Leaderboard',   page: 'leaderboard',   icon: 'boxicons:trending-up',       iconActive: 'boxicons:trending-up' },
+        { href: '/contests',      label: 'Contests',      page: 'contests',      icon: 'boxicons:trophy',            iconActive: 'boxicons:trophy-filled' },
+        { href: '#',              label: 'Marketplace',   page: 'marketplace',   icon: 'boxicons:shopping-bag',      iconActive: 'boxicons:shopping-bag-filled', future: true },
+        { href: '/notifications', label: 'Notifications', page: 'notifications', icon: 'boxicons:bell',              iconActive: 'boxicons:bell-ring' },
+        { href: '/messages',      label: 'Messages',      page: 'messages',      icon: 'boxicons:message-bubble-dots',   iconActive: 'boxicons:message-bubble-dots-filled' },
+        { href: '/profile',       label: 'Profile',       page: 'profile',       icon: 'boxicons:user',              iconActive: 'boxicons:user-filled' },
+        { href: '/settings',      label: 'Settings',      page: 'settings',      icon: 'boxicons:cog',               iconActive: 'boxicons:cog-filled' },
+      ];
+    %>
+
+    <% navLinks.forEach(link => { %>
+      <a href="<%= link.href %>"
+         class="flex items-center gap-4 px-3 py-3 rounded-md transition-colors
+                <%= activePage === link.page ? 'text-charm-400 bg-charm-600/10' : 'text-white/50 hover:text-white hover:bg-white/5' %>
+                <%= link.future ? 'opacity-40 pointer-events-none cursor-not-allowed' : '' %>">
+        <iconify-icon icon="<%= activePage === link.page ? link.iconActive : link.icon %>" width="24" height="24" class="shrink-0"></iconify-icon>
+        <span class="hidden xl:inline font-medium text-sm truncate"><%= link.label %></span>
+        <% if (link.future) { %>
+          <span class="hidden xl:inline text-xs text-white/25 ml-auto">Soon</span>
+        <% } %>
+      </a>
+    <% }) %>
+  </nav>
+
+  <!-- Submit CTA -->
+  <div class="px-2 xl:px-3 py-4 border-t border-white/10 shrink-0">
+    <a href="/submit"
+       class="flex items-center justify-center gap-2 bg-charm-600 hover:bg-charm-500 text-white font-bold rounded-md py-3 transition-colors w-full">
+      <iconify-icon icon="boxicons:plus" width="20" height="20" class="shrink-0"></iconify-icon>
+      <span class="hidden xl:inline text-sm">Submit</span>
+    </a>
+  </div>
+
+</aside>

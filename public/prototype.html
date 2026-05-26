@@ -1,0 +1,385 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AllThingsAprons — UI Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #0a0a0a; color: #f0f0f0; font-family: 'Inter', system-ui, sans-serif; }
+
+    .card-enter { animation: cardEnter 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    @keyframes cardEnter {
+      from { opacity: 0; transform: scale(0.92) translateY(20px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .card-exit-left  { animation: exitLeft  0.3s ease-in both; }
+    .card-exit-right { animation: exitRight 0.3s ease-in both; }
+    @keyframes exitLeft  { to { opacity: 0; transform: translateX(-120%) rotate(-8deg); } }
+    @keyframes exitRight { to { opacity: 0; transform: translateX( 120%) rotate( 8deg); } }
+
+    .star-btn { transition: transform 0.1s, color 0.1s; }
+    .star-btn:hover { transform: scale(1.3); }
+    .star-btn.active { color: #facc15; }
+
+    .tab-active { background: #ffffff; color: #000000; }
+    .tab-inactive { background: transparent; color: #888; }
+
+    .vs-badge {
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+      border-radius: 50%;
+      width: 48px; height: 48px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 14px; letter-spacing: 1px;
+      box-shadow: 0 0 20px rgba(245,158,11,0.4);
+      flex-shrink: 0;
+    }
+
+    .compare-card { transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; }
+    .compare-card:hover { transform: scale(1.02); box-shadow: 0 0 30px rgba(250,204,21,0.25); }
+    .compare-card:active { transform: scale(0.98); }
+
+    .winner-overlay {
+      position: absolute; inset: 0;
+      background: rgba(250,204,21,0.15);
+      border: 3px solid #facc15;
+      border-radius: inherit;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .progress-bar { transition: width 0.6s ease; }
+
+    .nav-icon { transition: color 0.15s; }
+    .nav-icon.active { color: #facc15; }
+    .nav-icon:not(.active) { color: #555; }
+
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col max-w-sm mx-auto relative overflow-x-hidden">
+
+  <!-- TOP BAR -->
+  <header class="sticky top-0 z-20 flex items-center justify-between px-5 py-4 border-b border-white/10" style="background: #0a0a0a;">
+    <span class="font-black text-lg tracking-tight">AllThingsAprons</span>
+    <div class="flex items-center gap-2 bg-white/5 rounded-md p-1">
+      <button id="tab-rate"    onclick="switchMode('rate')"    class="tab-btn tab-active   text-xs font-semibold px-4 py-1.5 rounded-md transition-all">Rate</button>
+      <button id="tab-compare" onclick="switchMode('compare')" class="tab-btn tab-inactive text-xs font-semibold px-4 py-1.5 rounded-md transition-all">Compare</button>
+    </div>
+    <div class="w-8 h-8 rounded-md bg-white/10 flex items-center justify-center text-xs font-bold">JD</div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════
+       RATE MODE
+  ═══════════════════════════════════════════ -->
+  <div id="mode-rate" class="flex-1 flex flex-col px-4 py-4 gap-4">
+
+    <!-- Card -->
+    <div id="rate-card" class="card-enter relative rounded-md overflow-hidden bg-white/5 border border-white/10" style="aspect-ratio: 4/5;">
+      <img id="rate-img" src="https://picsum.photos/seed/apron1/500/625" class="w-full h-full object-cover" alt="item" />
+
+      <!-- Gradient overlay -->
+      <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+
+      <!-- Item info -->
+      <div class="absolute bottom-0 left-0 right-0 p-5">
+        <div class="flex items-start justify-between">
+          <div>
+            <p id="rate-tag" class="text-xs font-semibold text-yellow-400 uppercase tracking-widest mb-1">Apron Design</p>
+            <h2 id="rate-title" class="text-xl font-bold leading-tight">Classic Linen Bib Apron</h2>
+            <p class="text-sm text-white/60 mt-1">by @maker_studio</p>
+          </div>
+          <span class="bg-white/10 backdrop-blur text-xs px-3 py-1.5 rounded-md font-medium">3 of 8</span>
+        </div>
+      </div>
+
+      <!-- Skip button -->
+      <button onclick="skipCard()" class="absolute top-4 right-4 bg-black/40 backdrop-blur text-white/60 text-xs px-3 py-1.5 rounded-md hover:text-white transition-colors">Skip</button>
+    </div>
+
+    <!-- Rating -->
+    <div class="bg-white/5 rounded-md border border-white/10 p-5">
+      <p class="text-sm text-white/50 text-center mb-4">How would you rate this?</p>
+
+      <!-- Stars -->
+      <div class="flex items-center justify-center gap-2 mb-5">
+        <button class="star-btn text-4xl text-white/20" data-val="1" onclick="rateStar(1)">★</button>
+        <button class="star-btn text-4xl text-white/20" data-val="2" onclick="rateStar(2)">★</button>
+        <button class="star-btn text-4xl text-white/20" data-val="3" onclick="rateStar(3)">★</button>
+        <button class="star-btn text-4xl text-white/20" data-val="4" onclick="rateStar(4)">★</button>
+        <button class="star-btn text-4xl text-white/20" data-val="5" onclick="rateStar(5)">★</button>
+      </div>
+
+      <p id="star-label" class="text-center text-sm text-white/40 mb-5">Tap a star to rate</p>
+
+      <!-- Submit -->
+      <button id="submit-btn" onclick="submitRating()" disabled
+        class="w-full py-3 rounded-md font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+        style="background: #facc15; color: #000;">
+        Submit Rating
+      </button>
+    </div>
+
+    <!-- Community bar -->
+    <div class="bg-white/5 rounded-md border border-white/10 px-4 py-3 flex items-center gap-3">
+      <span class="text-xs text-white/40">Community avg</span>
+      <div class="flex-1 h-2 bg-white/10 rounded-md overflow-hidden">
+        <div class="progress-bar h-full rounded-md" style="width: 72%; background: #facc15;"></div>
+      </div>
+      <span class="text-sm font-bold text-yellow-400">3.6★</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       COMPARE MODE
+  ═══════════════════════════════════════════ -->
+  <div id="mode-compare" class="hidden flex-1 flex flex-col px-4 py-4 gap-4">
+
+    <div class="text-center">
+      <p class="text-sm text-white/40">Which do you prefer?</p>
+    </div>
+
+    <!-- The two cards + VS badge -->
+    <div class="flex items-center gap-3">
+
+      <!-- Card A -->
+      <div id="compare-a" class="compare-card relative rounded-md overflow-hidden flex-1 border border-white/10" style="aspect-ratio: 3/4;" onclick="pickWinner('a')">
+        <img src="https://picsum.photos/seed/apron2/300/400" class="w-full h-full object-cover" alt="A" />
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-3">
+          <p class="text-xs font-semibold text-yellow-400 uppercase tracking-wider mb-0.5">Style A</p>
+          <p class="text-sm font-bold leading-tight">Canvas Cross-Back</p>
+        </div>
+        <div id="winner-a" class="winner-overlay hidden rounded-md">
+          <div class="text-center">
+            <span class="text-3xl">✓</span>
+            <p class="text-xs font-bold text-yellow-400 mt-1">Your Pick</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- VS badge -->
+      <div class="vs-badge">VS</div>
+
+      <!-- Card B -->
+      <div id="compare-b" class="compare-card relative rounded-md overflow-hidden flex-1 border border-white/10" style="aspect-ratio: 3/4;" onclick="pickWinner('b')">
+        <img src="https://picsum.photos/seed/apron3/300/400" class="w-full h-full object-cover" alt="B" />
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-3">
+          <p class="text-xs font-semibold text-yellow-400 uppercase tracking-wider mb-0.5">Style B</p>
+          <p class="text-sm font-bold leading-tight">Waxed Cotton Chef</p>
+        </div>
+        <div id="winner-b" class="winner-overlay hidden rounded-md">
+          <div class="text-center">
+            <span class="text-3xl">✓</span>
+            <p class="text-xs font-bold text-yellow-400 mt-1">Your Pick</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result panel (hidden until pick) -->
+    <div id="compare-result" class="hidden bg-white/5 rounded-md border border-white/10 p-5">
+      <p class="text-sm text-white/50 text-center mb-4">Community said…</p>
+      <div class="flex items-center gap-3 mb-2">
+        <span class="text-xs text-white/60 w-14 text-right">Canvas</span>
+        <div class="flex-1 h-3 bg-white/10 rounded-md overflow-hidden flex">
+          <div id="bar-a" class="progress-bar h-full rounded-l-full" style="width: 0%; background: #facc15;"></div>
+        </div>
+        <span id="pct-a" class="text-xs font-bold text-yellow-400 w-8">0%</span>
+      </div>
+      <div class="flex items-center gap-3 mb-5">
+        <span class="text-xs text-white/60 w-14 text-right">Waxed</span>
+        <div class="flex-1 h-3 bg-white/10 rounded-md overflow-hidden">
+          <div id="bar-b" class="progress-bar h-full rounded-l-full" style="width: 0%; background: #60a5fa;"></div>
+        </div>
+        <span id="pct-b" class="text-xs font-bold text-blue-400 w-8">0%</span>
+      </div>
+      <button onclick="nextPair()" class="w-full py-3 rounded-md font-semibold text-sm" style="background: #facc15; color: #000;">
+        Next Pair →
+      </button>
+    </div>
+
+    <!-- Skip -->
+    <button onclick="nextPair()" class="text-sm text-white/30 text-center py-1 hover:text-white/60 transition-colors">
+      Too close to call — skip
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       BOTTOM NAV
+  ═══════════════════════════════════════════ -->
+  <nav class="sticky bottom-0 z-20 flex items-center justify-around px-2 py-3 border-t border-white/10" style="background: #0a0a0a;">
+    <button onclick="setNav(this)" class="nav-icon active flex flex-col items-center gap-1">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+      <span class="text-[10px] font-medium">Feed</span>
+    </button>
+    <button onclick="setNav(this)" class="nav-icon flex flex-col items-center gap-1">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      <span class="text-[10px] font-medium">Leaderboard</span>
+    </button>
+    <button onclick="setNav(this)" class="nav-icon flex flex-col items-center gap-1">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 11c0 2.21-1.79 4-4 4S8 13.21 8 11s1.79-4 4-4 4 1.79 4 4zM4 20c0-4 3.58-7 8-7s8 3 8 7"/></svg>
+      <span class="text-[10px] font-medium">Profile</span>
+    </button>
+    <button onclick="setNav(this)" class="nav-icon flex flex-col items-center gap-1">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+      <span class="text-[10px] font-medium">Submit</span>
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════
+       SUCCESS TOAST
+  ═══════════════════════════════════════════ -->
+  <div id="toast" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white text-sm font-semibold px-5 py-3 rounded-md shadow-lg" style="white-space: nowrap;"></div>
+
+<script>
+  // ── Data ────────────────────────────────────────────────────────────────────
+  const items = [
+    { seed: 'apron1', tag: 'Apron Design',  title: 'Classic Linen Bib Apron',  author: '@maker_studio',  avg: 3.6, idx: '1 of 8' },
+    { seed: 'apron4', tag: 'Kitchen Wear',  title: 'Rustic Denim Half Apron',  author: '@the_craft_den', avg: 4.1, idx: '2 of 8' },
+    { seed: 'apron5', tag: 'Chef Series',   title: 'Pro Butcher Apron',        author: '@protools_co',   avg: 4.7, idx: '3 of 8' },
+    { seed: 'apron6', tag: 'Garden Line',   title: 'Waxed Garden Apron',       author: '@greenthumbs',   avg: 3.2, idx: '4 of 8' },
+  ];
+
+  const pairs = [
+    { a: { seed:'apron2', name:'Canvas Cross-Back' }, b: { seed:'apron3', name:'Waxed Cotton Chef' }, pctA: 62 },
+    { a: { seed:'apron7', name:'Striped Bistro'    }, b: { seed:'apron8', name:'Raw Denim Bib'     }, pctA: 44 },
+    { a: { seed:'apron9', name:'Linen Pinafore'    }, b: { seed:'apron10',name:'Leather Barista'   }, pctA: 57 },
+  ];
+
+  let cardIndex = 0;
+  let pairIndex = 0;
+  let selectedStar = 0;
+
+  // ── Mode switch ──────────────────────────────────────────────────────────────
+  function switchMode(mode) {
+    document.getElementById('mode-rate').classList.toggle('hidden', mode !== 'rate');
+    document.getElementById('mode-compare').classList.toggle('hidden', mode !== 'compare');
+    document.getElementById('mode-rate').classList.toggle('flex', mode === 'rate');
+    document.getElementById('mode-compare').classList.toggle('flex', mode === 'compare');
+
+    document.getElementById('tab-rate').className    = 'tab-btn text-xs font-semibold px-4 py-1.5 rounded-md transition-all ' + (mode==='rate'    ? 'tab-active' : 'tab-inactive');
+    document.getElementById('tab-compare').className = 'tab-btn text-xs font-semibold px-4 py-1.5 rounded-md transition-all ' + (mode==='compare' ? 'tab-active' : 'tab-inactive');
+  }
+
+  // ── Rating mode ──────────────────────────────────────────────────────────────
+  const starLabels = ['','Terrible','Not great','OK, decent','Really good','Love it!'];
+
+  function rateStar(val) {
+    selectedStar = val;
+    document.querySelectorAll('.star-btn').forEach((s, i) => {
+      s.classList.toggle('active', i < val);
+      s.style.color = i < val ? '#facc15' : 'rgba(255,255,255,0.2)';
+    });
+    document.getElementById('star-label').textContent = starLabels[val];
+    document.getElementById('star-label').style.color = '#facc15';
+    document.getElementById('submit-btn').disabled = false;
+  }
+
+  function submitRating() {
+    const card = document.getElementById('rate-card');
+    card.classList.add('card-exit-right');
+    showToast(`Rated ${selectedStar}★ — nice!`);
+    setTimeout(() => {
+      card.classList.remove('card-exit-right');
+      advanceCard();
+    }, 300);
+  }
+
+  function skipCard() {
+    const card = document.getElementById('rate-card');
+    card.classList.add('card-exit-left');
+    setTimeout(() => {
+      card.classList.remove('card-exit-left');
+      advanceCard();
+    }, 300);
+  }
+
+  function advanceCard() {
+    cardIndex = (cardIndex + 1) % items.length;
+    const item = items[cardIndex];
+    document.getElementById('rate-img').src = `https://picsum.photos/seed/${item.seed}/500/625`;
+    document.getElementById('rate-tag').textContent  = item.tag;
+    document.getElementById('rate-title').textContent = item.title;
+
+    const avgPct = (item.avg / 5) * 100;
+    document.querySelector('.progress-bar').style.width = avgPct + '%';
+    document.querySelector('.text-yellow-400').textContent = item.avg + '★';
+
+    // reset stars
+    selectedStar = 0;
+    document.querySelectorAll('.star-btn').forEach(s => { s.classList.remove('active'); s.style.color = 'rgba(255,255,255,0.2)'; });
+    document.getElementById('star-label').textContent = 'Tap a star to rate';
+    document.getElementById('star-label').style.color = '';
+    document.getElementById('submit-btn').disabled = true;
+
+    const card = document.getElementById('rate-card');
+    card.classList.remove('card-enter');
+    void card.offsetWidth;
+    card.classList.add('card-enter');
+  }
+
+  // ── Compare mode ─────────────────────────────────────────────────────────────
+  function pickWinner(side) {
+    document.getElementById('compare-result').classList.remove('hidden');
+    document.getElementById('compare-a').classList.remove('compare-card');
+    document.getElementById('compare-b').classList.remove('compare-card');
+    document.getElementById('compare-a').style.cursor = 'default';
+    document.getElementById('compare-b').style.cursor = 'default';
+    document.getElementById('compare-a').onclick = null;
+    document.getElementById('compare-b').onclick = null;
+
+    document.getElementById('winner-' + side).classList.remove('hidden');
+
+    const pair = pairs[pairIndex % pairs.length];
+    const pA = pair.pctA, pB = 100 - pA;
+    setTimeout(() => {
+      document.getElementById('bar-a').style.width = pA + '%';
+      document.getElementById('bar-b').style.width = pB + '%';
+      document.getElementById('pct-a').textContent = pA + '%';
+      document.getElementById('pct-b').textContent = pB + '%';
+    }, 100);
+    showToast('Vote counted!');
+  }
+
+  function nextPair() {
+    pairIndex++;
+    const pair = pairs[pairIndex % pairs.length];
+
+    document.getElementById('compare-a').querySelector('img').src = `https://picsum.photos/seed/${pair.a.seed}/300/400`;
+    document.getElementById('compare-a').querySelector('.text-sm').textContent = pair.a.name;
+    document.getElementById('compare-b').querySelector('img').src = `https://picsum.photos/seed/${pair.b.seed}/300/400`;
+    document.getElementById('compare-b').querySelector('.text-sm').textContent = pair.b.name;
+
+    document.getElementById('winner-a').classList.add('hidden');
+    document.getElementById('winner-b').classList.add('hidden');
+    document.getElementById('compare-result').classList.add('hidden');
+    document.getElementById('bar-a').style.width = '0%';
+    document.getElementById('bar-b').style.width = '0%';
+    document.getElementById('pct-a').textContent = '0%';
+    document.getElementById('pct-b').textContent = '0%';
+
+    const ca = document.getElementById('compare-a');
+    const cb = document.getElementById('compare-b');
+    ca.classList.add('compare-card'); ca.style.cursor = 'pointer'; ca.onclick = () => pickWinner('a');
+    cb.classList.add('compare-card'); cb.style.cursor = 'pointer'; cb.onclick = () => pickWinner('b');
+  }
+
+  // ── Nav ──────────────────────────────────────────────────────────────────────
+  function setNav(btn) {
+    document.querySelectorAll('.nav-icon').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // ── Toast ────────────────────────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.remove('hidden');
+    setTimeout(() => t.classList.add('hidden'), 2000);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+﻿<%- include('partials/appStart', { title: title, activePage: 'profile' }) %>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <h1 class="font-black text-xl tracking-tight">Profile</h1>
+  </header>
+
+  <!-- Profile card -->
+  <div class="px-5 py-6 border-b border-white/10">
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-md bg-white/10 flex items-center justify-center text-2xl font-black text-white/20">
+        ?
+      </div>
+      <div>
+        <p class="font-bold text-lg">Guest User</p>
+        <p class="text-sm text-white/40">No ratings yet</p>
+      </div>
+    </div>
+    <div class="flex gap-8 mt-5">
+      <div>
+        <p class="text-xl font-black">0</p>
+        <p class="text-xs text-white/40 mt-0.5">Ratings</p>
+      </div>
+      <div>
+        <p class="text-xl font-black">0</p>
+        <p class="text-xs text-white/40 mt-0.5">Submitted</p>
+      </div>
+      <div>
+        <p class="text-xl font-black">—</p>
+        <p class="text-xs text-white/40 mt-0.5">Avg score</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
+    <p class="text-white/40 text-sm">Sign in to see your activity</p>
+    <a href="/signup" class="mt-4 px-6 py-2.5 rounded-md bg-charm-600 text-white text-sm font-bold hover:bg-charm-500 transition-colors">
+      Sign Up
+    </a>
+  </div>
+
+</div>
+
+<%- include('partials/appEnd') %>

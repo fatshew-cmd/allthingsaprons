@@ -1,0 +1,73 @@
+﻿<%- include('partials/appStart', { title: title, activePage: 'search' }) %>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <h1 class="font-black text-xl tracking-tight mb-3">Search</h1>
+    <div class="relative">
+      <input type="text" placeholder="Search items, creators, tags…"
+             class="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2.5 pl-10 text-sm placeholder-white/30 focus:outline-none focus:border-yellow-400/50 transition-colors" />
+      <iconify-icon icon="bx:search" width="16" height="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30"></iconify-icon>
+    </div>
+  </header>
+
+  <!-- Contests -->
+  <% if (typeof contests !== 'undefined' && contests.length) { %>
+  <section class="px-5 pt-6 pb-2">
+    <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-4">Contests</h2>
+    <div class="grid grid-cols-3 gap-3">
+      <% contests.forEach(comp => { %>
+        <div class="flex flex-col rounded-md bg-white/5 border border-white/10 overflow-hidden hover:bg-white/8 transition-colors cursor-pointer">
+          <!-- Cover image -->
+          <div class="w-full aspect-square bg-white/10 shrink-0">
+            <img src="<%= comp.coverUrl %>" class="w-full h-full object-cover" alt="<%= comp.title %>" loading="lazy" />
+          </div>
+          <!-- Body -->
+          <div class="flex flex-col flex-1 p-3">
+            <div class="flex items-start justify-between gap-1 mb-1">
+              <p class="text-sm font-bold leading-tight"><%= comp.title %></p>
+              <% if (comp.status === 'active') { %>
+                <span class="text-[9px] font-semibold uppercase tracking-wide text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded-md shrink-0">Live</span>
+              <% } else { %>
+                <span class="text-[9px] font-semibold uppercase tracking-wide text-yellow-400/80 bg-yellow-400/10 px-1.5 py-0.5 rounded-md shrink-0">Soon</span>
+              <% } %>
+            </div>
+            <p class="text-[11px] text-white/40 mb-1 leading-tight"><%= comp.theme %></p>
+            <p class="text-[11px] text-white/30 mb-2">by <%= comp.organizer %></p>
+            <div class="text-[11px] text-white/40 flex items-center gap-2 mb-3">
+              <% if (comp.status === 'active') { %>
+                <span class="text-green-400 font-medium"><%= comp.daysLeft %>d left</span>
+              <% } else { %>
+                <span class="text-yellow-400/70 font-medium">In <%= comp.daysLeft %>d</span>
+              <% } %>
+              <span>·</span>
+              <span><%= comp.submissionCount %> entries</span>
+            </div>
+            <!-- Enter button pinned to bottom -->
+            <div class="mt-auto">
+              <% if (comp.status === 'active') { %>
+                <button class="w-full py-2 rounded-md bg-charm-500/15 text-charm-400 text-xs font-semibold hover:bg-charm-500/25 transition-colors">Enter</button>
+              <% } else { %>
+                <button class="w-full py-2 rounded-md bg-white/5 text-white/25 text-xs font-semibold cursor-default">Coming soon</button>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+  <% } %>
+
+  <!-- Empty state -->
+  <div class="flex flex-col items-center justify-center py-16 px-5 text-center">
+    <div class="w-16 h-16 rounded-md bg-white/5 flex items-center justify-center mb-4">
+      <iconify-icon icon="bx:search" width="32" height="32" class="text-white/20"></iconify-icon>
+    </div>
+    <p class="text-white/40 text-sm">Full search coming soon</p>
+    <p class="text-white/20 text-xs mt-1">Items, creators, and tags</p>
+  </div>
+
+</div>
+
+<%- include('partials/appEnd') %>

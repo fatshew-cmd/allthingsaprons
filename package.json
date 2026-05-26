@@ -14,11 +14,13 @@
   "license": "ISC",
   "dependencies": {
     "@tailwindcss/cli": "^4.3.0",
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "ejs": "^5.0.2",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "mongoose": "^9.6.2",
+    "multer": "^2.1.1",
     "nodemon": "^3.1.14",
     "tailwindcss": "^4.3.0"
   }

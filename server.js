@@ -5,8 +5,9 @@ const session = require('express-session');
 require('dotenv').config();
 
 const pagesRouter = require('./routes/pages');
-const apiRouter = require('./routes/api');
+const apiRouter   = require('./routes/api');
 const adminRouter = require('./routes/admin');
+const authRouter  = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,6 +25,7 @@ app.use(session({
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+app.use('/', authRouter);
 app.use('/', pagesRouter);
 app.use('/api', apiRouter);
 app.use('/admin', adminRouter);

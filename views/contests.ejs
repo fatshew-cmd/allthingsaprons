@@ -1,0 +1,89 @@
+﻿<%- include('partials/appStart', { title: title, activePage: 'contests' }) %>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="font-black text-xl tracking-tight">Contests</h1>
+        <p class="text-sm text-white/40 mt-0.5">Compete, vote, and win</p>
+      </div>
+      <a href="/contests/new" class="flex items-center gap-2 bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors">
+        <iconify-icon icon="boxicons:plus" width="16" height="16"></iconify-icon>
+        <span>Launch</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Active Contests -->
+  <% const active = contests.filter(c => c.status === 'active'); %>
+  <% if (active.length) { %>
+  <section class="px-5 pt-6 pb-4">
+    <h2 class="text-xs font-bold text-white/40 uppercase tracking-wider mb-4">Live Now</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <% active.forEach(comp => { %>
+        <div class="flex flex-col rounded-md bg-white/5 border border-white/10 overflow-hidden hover:bg-white/8 transition-colors cursor-pointer">
+          <div class="w-full aspect-video bg-white/10 shrink-0 relative">
+            <img src="<%= comp.coverUrl %>" class="w-full h-full object-cover" alt="<%= comp.title %>" loading="lazy" />
+            <span class="absolute top-2 right-2 text-[9px] font-semibold uppercase tracking-wide text-green-400 bg-green-400/15 backdrop-blur-sm px-1.5 py-0.5 rounded-md">Live</span>
+            <% if (comp.visibility === 'private') { %>
+              <span class="absolute top-2 left-2 text-[9px] font-semibold uppercase tracking-wide text-white/60 bg-white/10 backdrop-blur-sm px-1.5 py-0.5 rounded-md">Private</span>
+            <% } %>
+          </div>
+          <div class="flex flex-col flex-1 p-4">
+            <p class="text-base font-bold leading-tight mb-0.5"><%= comp.title %></p>
+            <p class="text-xs text-white/40 mb-0.5"><%= comp.theme %></p>
+            <p class="text-xs text-white/25 mb-3">by <%= comp.organizer %></p>
+            <p class="text-xs text-white/50 leading-relaxed mb-4 line-clamp-2"><%= comp.description %></p>
+            <div class="flex items-center justify-between text-xs text-white/40 mb-4">
+              <span class="text-green-400 font-medium"><%= comp.daysLeft %>d left</span>
+              <span><%= comp.submissionCount %> entries</span>
+            </div>
+            <button class="w-full py-2.5 rounded-md bg-charm-500/15 text-charm-400 text-sm font-semibold hover:bg-charm-500/25 transition-colors mt-auto">Enter</button>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+  <% } %>
+
+  <!-- Upcoming Contests -->
+  <% const upcoming = contests.filter(c => c.status === 'upcoming'); %>
+  <% if (upcoming.length) { %>
+  <section class="px-5 pt-2 pb-6 border-t border-white/5">
+    <h2 class="text-xs font-bold text-white/40 uppercase tracking-wider mb-4 mt-4">Coming Up</h2>
+    <div class="flex flex-col gap-3">
+      <% upcoming.forEach(comp => { %>
+        <div class="flex items-center gap-4 p-3 rounded-md bg-white/5 border border-white/10 hover:bg-white/8 transition-colors cursor-pointer">
+          <div class="w-14 h-14 rounded-md overflow-hidden shrink-0 bg-white/10">
+            <img src="<%= comp.coverUrl %>" class="w-full h-full object-cover" alt="" loading="lazy" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-bold truncate"><%= comp.title %></p>
+            <p class="text-xs text-white/40 truncate"><%= comp.theme %></p>
+            <p class="text-xs text-white/25">by <%= comp.organizer %></p>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="text-xs font-medium text-yellow-400/80">In <%= comp.daysLeft %>d</p>
+            <button class="mt-1 text-[11px] text-white/30 bg-white/5 px-2 py-1 rounded-md">Notify me</button>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+  <% } %>
+
+  <% if (!contests || !contests.length) { %>
+  <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
+    <div class="w-16 h-16 rounded-md bg-white/5 flex items-center justify-center mb-4">
+      <iconify-icon icon="boxicons:trophy" width="32" height="32" class="text-white/20"></iconify-icon>
+    </div>
+    <p class="text-white/40 text-sm">No contests yet</p>
+    <p class="text-white/20 text-xs mt-1">Be the first to launch one</p>
+  </div>
+  <% } %>
+
+</div>
+
+<%- include('partials/appEnd') %>
