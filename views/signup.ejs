@@ -6,8 +6,6 @@
   <!-- Top bar -->
   <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
     <a href="/" class="font-black text-lg text-charm-500 tracking-tight">AllThingsAprons</a>
-
-    <!-- Step indicator -->
     <div class="flex items-center gap-3 text-sm">
       <div class="flex items-center gap-2">
         <div id="step-1-num" class="w-6 h-6 rounded-md bg-charm-600 text-white text-xs font-bold flex items-center justify-center transition-colors">1</div>
@@ -19,7 +17,6 @@
         <span id="step-2-label" class="text-white/30 hidden sm:inline transition-colors">Contest Entry</span>
       </div>
     </div>
-
     <div class="w-45"></div>
   </header>
 
@@ -27,49 +24,47 @@
     <form id="signup-form" action="/signup" method="POST" enctype="multipart/form-data" novalidate class="w-full">
 
       <!-- ── STEP 1 ── -->
-      <div id="step-1-content" class="max-w-xl mx-auto">
+      <div id="step-1-content" class="max-w-2xl mx-auto">
+        <div class="flex flex-col sm:flex-row gap-5 items-start">
 
-        <div class="mb-8">
-          <h1 class="text-2xl font-black">Create your profile</h1>
-          <p class="text-white/40 mt-1 text-sm">Tell us a bit about yourself to get started.</p>
-        </div>
-
-        <!-- Avatar upload -->
-        <div class="flex justify-center mb-7">
-          <label class="relative cursor-pointer group" title="Upload profile photo">
-            <div id="avatar-circle"
-              class="w-24 h-24 rounded-md bg-shark-800 border-2 border-dashed border-white/15 flex items-center justify-center overflow-hidden group-hover:border-charm-600/60 transition-colors bg-cover bg-center">
-              <div id="avatar-placeholder" class="flex flex-col items-center gap-1 text-white/35 group-hover:text-white/60 transition-colors pointer-events-none">
-                <iconify-icon icon="boxicons:camera" width="28"></iconify-icon>
-                <span class="text-xs">Photo</span>
+          <!-- Avatar column -->
+          <div class="shrink-0 self-start pt-0.5">
+            <label class="relative cursor-pointer group block" title="Upload profile photo">
+              <div id="avatar-circle"
+                class="w-40 h-40 rounded-md bg-shark-800 border-2 border-dashed border-white/15 flex items-center justify-center overflow-hidden group-hover:border-charm-600/60 transition-colors bg-cover bg-center">
+                <div id="avatar-placeholder" class="flex flex-col items-center gap-1 text-white/35 group-hover:text-white/60 transition-colors pointer-events-none">
+                  <iconify-icon icon="boxicons:camera" width="28"></iconify-icon>
+                  <span class="text-xs">Photo</span>
+                </div>
               </div>
-            </div>
-            <div class="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-md bg-charm-600 flex items-center justify-center shadow pointer-events-none">
-              <iconify-icon icon="boxicons:plus" width="14" class="text-white"></iconify-icon>
-            </div>
-            <input type="file" name="avatar" id="avatar-input" accept="image/*" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer">
-          </label>
-        </div>
-
-        <div class="bg-shark-900 border border-white/8 rounded-md p-6 flex flex-col gap-5">
-
-          <!-- Username -->
-          <div class="flex flex-col gap-1.5">
-            <label for="username" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-              Username <span class="text-charm-500">*</span>
+              <div class="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-md bg-shark-700 border border-white/15 flex items-center justify-center shadow pointer-events-none">
+                <iconify-icon icon="boxicons:plus" width="14" class="text-white/60"></iconify-icon>
+              </div>
+              <input type="file" name="avatar" id="avatar-input" accept="image/*" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer">
             </label>
-            <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
-              <input id="username" name="username" type="text" placeholder="yourhandle"
-                autocomplete="off" spellcheck="false" maxlength="20"
-                class="w-full bg-shark-800 border border-white/10 rounded-md pl-7 pr-9 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
-              <span id="username-status" class="absolute right-3 top-1/2 -translate-y-1/2 hidden"></span>
-            </div>
-            <p id="username-error" class="text-xs text-red-400 hidden"></p>
+            <p class="text-center mt-2 text-xs text-white/40 leading-relaxed">JPG, PNG, JPEG<br>Max 5 MB</p>
           </div>
 
-          <!-- Email + Password -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <!-- Form card -->
+          <div class="flex-1 min-w-0 bg-shark-900 border border-white/8 rounded-md p-6 flex flex-col gap-5">
+
+            <!-- Username -->
+            <div class="flex flex-col gap-1.5">
+              <label for="username" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+                Username <span class="text-charm-500">*</span>
+              </label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
+                <input id="username" name="username" type="text" placeholder="yourhandle"
+                  autocomplete="off" spellcheck="false" maxlength="15"
+                  class="w-full bg-shark-800 border border-white/10 rounded-md pl-7 pr-9 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+                <span id="username-status" class="absolute right-3 top-1/2 -translate-y-1/2 hidden"></span>
+              </div>
+              <p id="username-hint" class="text-xs text-white/25">Letters &amp; digits only. Must start with a letter. 3–15 chars.</p>
+              <p id="username-error" class="text-xs text-red-400 hidden"></p>
+            </div>
+
+            <!-- Email -->
             <div class="flex flex-col gap-1.5">
               <label for="email" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
                 Email <span class="text-charm-500">*</span>
@@ -79,94 +74,201 @@
               <p id="email-error" class="text-xs text-red-400 hidden"></p>
             </div>
 
+            <!-- Password -->
             <div class="flex flex-col gap-1.5">
               <label for="password" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
                 Password <span class="text-charm-500">*</span>
               </label>
               <div class="relative">
-                <input id="password" name="password" type="password" placeholder="Min. 8 characters"
+                <input id="password" name="password" type="password" placeholder="Min. 12 characters"
                   autocomplete="new-password"
                   class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-9 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
                 <button type="button" id="toggle-password"
                   class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
-                  <iconify-icon id="pw-eye-icon" icon="boxicons:show" width="17"></iconify-icon>
+                  <iconify-icon id="pw-eye-icon" icon="boxicons:eye" width="17"></iconify-icon>
                 </button>
               </div>
-            </div>
-          </div>
-
-          <!-- Confirm Password -->
-          <div class="flex flex-col gap-1.5">
-            <label for="confirm-password" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-              Confirm Password <span class="text-charm-500">*</span>
-            </label>
-            <input id="confirm-password" name="confirmPassword" type="password" placeholder="Repeat password"
-              autocomplete="new-password"
-              class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
-            <p id="confirm-password-error" class="text-xs text-red-400 hidden"></p>
-          </div>
-
-          <!-- Bio -->
-          <div class="flex flex-col gap-1.5">
-            <label for="bio" class="text-xs font-semibold text-white/50 uppercase tracking-wide">Bio</label>
-            <textarea id="bio" name="bio" rows="3"
-              placeholder="Tell people about yourself and your passion for aprons..."
-              class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"></textarea>
-          </div>
-
-          <!-- Sex + Location -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div class="flex flex-col gap-1.5">
-              <label for="sex" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-                Sex <span class="text-charm-500">*</span>
-              </label>
-              <div class="relative">
-                <select id="sex" name="sex"
-                  class="w-full appearance-none bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-8 text-sm focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors"
-                  style="color: rgba(255,255,255,0.22);">
-                  <option value="" disabled selected>Select…</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                  <option value="prefer-not-to-say">Prefer not to say</option>
-                </select>
-                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/30">
-                  <iconify-icon icon="boxicons:chevron-down" width="16"></iconify-icon>
+              <!-- Password requirement pills -->
+              <div id="password-reqs" class="grid grid-cols-2 gap-2 mt-1.5" style="display:none">
+                <div id="req-lower" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
+                  <iconify-icon id="req-lower-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
+                  3 lowercase
+                </div>
+                <div id="req-upper" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
+                  <iconify-icon id="req-upper-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
+                  3 uppercase
+                </div>
+                <div id="req-digit" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
+                  <iconify-icon id="req-digit-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
+                  3 digits
+                </div>
+                <div id="req-special" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
+                  <iconify-icon id="req-special-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
+                  3 special chars
+                </div>
+                <div id="req-length" class="col-span-2 flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
+                  <iconify-icon id="req-length-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
+                  12+ characters
                 </div>
               </div>
-              <p id="sex-error" class="text-xs text-red-400 hidden"></p>
             </div>
 
+            <!-- Confirm Password -->
+            <div class="flex flex-col gap-1.5">
+              <label for="confirm-password" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+                Confirm Password <span class="text-charm-500">*</span>
+              </label>
+              <div class="relative">
+                <input id="confirm-password" name="confirmPassword" type="password" placeholder="Repeat password"
+                  autocomplete="new-password"
+                  class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-9 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+                <button type="button" id="toggle-confirm-password"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                  <iconify-icon id="confirm-pw-eye-icon" icon="boxicons:eye" width="17"></iconify-icon>
+                </button>
+              </div>
+              <p id="confirm-password-error" class="text-xs text-red-400 hidden"></p>
+            </div>
+
+            <!-- Bio -->
+            <div class="flex flex-col gap-1.5">
+              <div class="flex items-center justify-between">
+                <label for="bio" class="text-xs font-semibold text-white/50 uppercase tracking-wide">Bio</label>
+                <span id="bio-counter" class="text-xs" style="color:rgba(255,255,255,0.3)">0 / 220</span>
+              </div>
+              <textarea id="bio" name="bio" rows="3" maxlength="220"
+                placeholder="Tell people about yourself and your passion for aprons..."
+                class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"></textarea>
+              <p id="bio-error" class="text-xs text-red-400 hidden"></p>
+            </div>
+
+            <!-- Sex + Orientation -->
+            <div class="grid grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+                  Sex <span class="text-charm-500">*</span>
+                </label>
+                <div class="custom-dropdown relative" id="sex-dropdown">
+                  <input type="hidden" name="sex" id="sex">
+                  <button type="button" data-dropdown-trigger
+                    class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-left flex items-center justify-between focus:outline-none transition-colors">
+                    <span class="dropdown-label text-sm" style="color:rgba(255,255,255,0.22)">Select…</span>
+                    <iconify-icon data-chevron icon="boxicons:chevron-down" width="16" class="text-white/30 shrink-0" style="transition:transform 0.15s ease"></iconify-icon>
+                  </button>
+                  <div class="dropdown-panel absolute z-20 w-full mt-1 bg-shark-800 border border-white/10 rounded-md shadow-xl overflow-hidden" style="display:none">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="male" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Male</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="female" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Female</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="other" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Other</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="prefer-not-to-say" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Prefer not to say</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                  </div>
+                </div>
+                <p id="sex-error" class="text-xs text-red-400 hidden"></p>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-white/50 uppercase tracking-wide">Orientation</label>
+                <div class="custom-dropdown relative" id="orientation-dropdown">
+                  <input type="hidden" name="orientation" id="orientation">
+                  <button type="button" data-dropdown-trigger
+                    class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-left flex items-center justify-between focus:outline-none transition-colors">
+                    <span class="dropdown-label text-sm" style="color:rgba(255,255,255,0.22)">Select…</span>
+                    <iconify-icon data-chevron icon="boxicons:chevron-down" width="16" class="text-white/30 shrink-0" style="transition:transform 0.15s ease"></iconify-icon>
+                  </button>
+                  <div class="dropdown-panel absolute z-20 w-full mt-1 bg-shark-800 border border-white/10 rounded-md shadow-xl overflow-y-auto max-h-52 overflow-hidden" style="display:none">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="straight" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Straight</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="gay" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Gay</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="lesbian" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Lesbian</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="bisexual" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Bisexual</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="pansexual" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Pansexual</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="other" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Other</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="prefer-not-to-say" style="color:rgba(255,255,255,0.5)">
+                      <span class="opt-label">Prefer not to say</span>
+                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Location (own row) -->
             <div class="flex flex-col gap-1.5">
               <label for="location" class="text-xs font-semibold text-white/50 uppercase tracking-wide">Location</label>
               <input id="location" name="location" type="text" placeholder="City, Country"
                 class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
             </div>
-          </div>
 
-          <!-- Birthdate -->
-          <div class="flex flex-col gap-1.5">
-            <label for="birthdate" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-              Date of Birth <span class="text-charm-500">*</span>
-            </label>
-            <input id="birthdate" name="birthdate" type="date"
-              max="<%= new Date(Date.now() - 13*365.25*24*60*60*1000).toISOString().split('T')[0] %>"
-              min="1920-01-01"
-              style="color-scheme: dark;"
-              class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
-            <p id="birthdate-error" class="text-xs text-red-400 hidden"></p>
-          </div>
+            <!-- Birthdate -->
+            <div class="flex flex-col gap-1.5">
+              <label for="birthdate" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+                Date of Birth <span class="text-charm-500">*</span>
+              </label>
+              <input id="birthdate" name="birthdate" type="date"
+                max="<%= new Date(Date.now() - 13*365.25*24*60*60*1000).toISOString().split('T')[0] %>"
+                min="1920-01-01"
+                style="color-scheme:dark"
+                class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+              <p id="birthdate-error" class="text-xs text-red-400 hidden"></p>
+            </div>
 
-          <p id="step1-general-error" class="text-sm text-red-400 hidden"></p>
+            <p id="step1-general-error" class="text-sm text-red-400 hidden"></p>
 
-          <!-- Continue -->
-          <button type="button" id="next-btn"
-            class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-md py-3 text-sm transition-colors flex items-center justify-center gap-2">
-            Continue
-            <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>
-          </button>
-        </div>
-      </div>
+            <!-- Consent checkboxes -->
+            <div class="flex flex-col gap-3">
+              <label class="flex items-start gap-2.5 cursor-pointer group">
+                <input type="checkbox" id="agree-terms" name="agreeTerms" value="1" class="sr-only">
+                <iconify-icon id="agree-terms-icon" icon="boxicons:square" width="17" class="shrink-0 mt-0.5 transition-colors" style="color:rgba(255,255,255,0.25)"></iconify-icon>
+                <span class="text-xs text-white/45 leading-relaxed group-hover:text-white/60 transition-colors">
+                  I agree to the <a href="/terms" target="_blank" class="text-charm-400 hover:text-charm-300 underline underline-offset-2">Terms of Service</a> and <a href="/privacy" target="_blank" class="text-charm-400 hover:text-charm-300 underline underline-offset-2">Privacy Policy</a> <span class="text-charm-500">*</span>
+                </span>
+              </label>
+              <label class="flex items-start gap-2.5 cursor-pointer group">
+                <input type="checkbox" id="agree-marketing" name="agreeMarketing" value="1" class="sr-only">
+                <iconify-icon id="agree-marketing-icon" icon="boxicons:square" width="17" class="shrink-0 mt-0.5 transition-colors" style="color:rgba(255,255,255,0.25)"></iconify-icon>
+                <span class="text-xs text-white/45 leading-relaxed group-hover:text-white/60 transition-colors">
+                  I'd like to receive updates, promotions, and newsletter emails from AllThingsAprons
+                </span>
+              </label>
+            </div>
+
+            <button type="button" id="next-btn" disabled
+              class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-charm-600 text-white font-bold rounded-md py-3 text-sm transition-colors flex items-center justify-center gap-2">
+              Continue
+              <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>
+            </button>
+
+          </div><!-- /form card -->
+        </div><!-- /flex row -->
+      </div><!-- /step-1 -->
 
       <!-- ── STEP 2 ── -->
       <div id="step-2-content" class="hidden max-w-2xl mx-auto">
@@ -182,10 +284,8 @@
           <p class="text-white/40 mt-1 text-sm">Pick one contest and submit your apron to complete your signup.</p>
         </div>
 
-        <!-- Hidden contest ID -->
         <input type="hidden" name="contestId" id="contestId" value="">
 
-        <!-- Contest cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <% contests.forEach(c => { %>
           <div class="contest-card cursor-pointer rounded-md overflow-hidden border border-white/10 bg-shark-900 transition-all hover:border-charm-600/40"
@@ -208,13 +308,11 @@
           <% }) %>
         </div>
 
-        <!-- Entry form -->
         <div id="entry-form" class="hidden mt-8 bg-shark-900 border border-white/8 rounded-md p-6">
           <h3 class="font-semibold text-base mb-5">
             Your entry for <span id="selected-contest-name" class="text-charm-400"></span>
           </h3>
 
-          <!-- Photo upload zone -->
           <div class="flex flex-col gap-1.5 mb-5">
             <label class="text-xs font-semibold text-white/50 uppercase tracking-wide">
               Apron Photo <span class="text-charm-500">*</span>
@@ -240,7 +338,6 @@
             <p id="entry-error" class="text-xs text-red-400 hidden"></p>
           </div>
 
-          <!-- Entry title -->
           <div class="flex flex-col gap-1.5 mb-5">
             <label for="entry-title" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
               Entry Title <span class="text-charm-500">*</span>
@@ -250,7 +347,6 @@
             <p id="entry-title-error" class="text-xs text-red-400 hidden"></p>
           </div>
 
-          <!-- Description -->
           <div class="flex flex-col gap-1.5 mb-6">
             <label for="entry-description" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
               Description <span class="text-white/25 font-normal normal-case">(optional)</span>
@@ -273,13 +369,17 @@
           </button>
         </div>
 
-      </div>
+      </div><!-- /step-2 -->
 
     </form>
   </div>
 
 <script>
 (function () {
+
+  // ── State ──────────────────────────────────────────────────
+  var usernameStatus     = 'unknown';
+  var allPasswordReqsMet = false;
 
   // ── Utilities ──────────────────────────────────────────────
   function showErr(id, msg) {
@@ -294,10 +394,64 @@
     el.textContent = '';
     el.classList.add('hidden');
   }
-  function clearStep1Errors() {
-    ['username-error','email-error','confirm-password-error','sex-error','birthdate-error','step1-general-error']
-      .forEach(clearErr);
+
+  // ── Custom dropdown ────────────────────────────────────────
+  var allDropdownClosers = [];
+
+  function initDropdown(containerId, onChange) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var trigger = container.querySelector('[data-dropdown-trigger]');
+    var panel   = container.querySelector('.dropdown-panel');
+    var label   = container.querySelector('.dropdown-label');
+    var chevron = container.querySelector('[data-chevron]');
+    var hidden  = container.querySelector('input[type="hidden"]');
+    var options = container.querySelectorAll('.dropdown-option');
+    var isOpen  = false;
+
+    function openDropdown() {
+      allDropdownClosers.forEach(function (fn) { fn(); });
+      panel.style.display = 'block';
+      chevron.style.transform = 'rotate(180deg)';
+      trigger.style.borderColor = 'rgba(199,59,100,0.5)';
+      isOpen = true;
+    }
+    function closeDropdown() {
+      panel.style.display = 'none';
+      chevron.style.transform = 'rotate(0deg)';
+      trigger.style.borderColor = '';
+      isOpen = false;
+    }
+    allDropdownClosers.push(closeDropdown);
+
+    trigger.addEventListener('click', function (e) {
+      e.stopPropagation();
+      isOpen ? closeDropdown() : openDropdown();
+    });
+
+    options.forEach(function (opt) {
+      opt.addEventListener('click', function () {
+        hidden.value = this.dataset.value;
+        label.textContent = this.querySelector('.opt-label').textContent;
+        label.style.color = 'white';
+        options.forEach(function (o) {
+          o.style.color = 'rgba(255,255,255,0.5)';
+          o.querySelector('.check-icon').style.display = 'none';
+        });
+        this.style.color = 'white';
+        this.querySelector('.check-icon').style.display = 'block';
+        closeDropdown();
+        if (onChange) onChange(hidden.value);
+      });
+    });
+
+    document.addEventListener('click', function (e) {
+      if (isOpen && !container.contains(e.target)) closeDropdown();
+    });
   }
+
+  initDropdown('sex-dropdown', function () { checkContinueEnabled(); });
+  initDropdown('orientation-dropdown');
 
   // ── Step navigation ────────────────────────────────────────
   function showStep(n) {
@@ -307,22 +461,18 @@
     var l1 = document.getElementById('step-1-label');
     var n2 = document.getElementById('step-2-num');
     var l2 = document.getElementById('step-2-label');
-
-    var activeNum   = 'bg-charm-600 text-white';
-    var inactiveNum = 'bg-shark-700 text-white/35';
-
+    var active   = 'bg-charm-600 text-white';
+    var inactive = 'bg-shark-700 text-white/35';
     if (n === 1) {
-      s1.classList.remove('hidden');
-      s2.classList.add('hidden');
-      n1.className = n1.className.replace(inactiveNum, activeNum);
-      n2.className = n2.className.replace(activeNum, inactiveNum);
+      s1.classList.remove('hidden'); s2.classList.add('hidden');
+      n1.className = n1.className.replace(inactive, active);
+      n2.className = n2.className.replace(active, inactive);
       l1.className = l1.className.replace('text-white/30', 'text-white/60');
       l2.className = l2.className.replace('text-white/60', 'text-white/30');
     } else {
-      s1.classList.add('hidden');
-      s2.classList.remove('hidden');
-      n2.className = n2.className.replace(inactiveNum, activeNum);
-      n1.className = n1.className.replace(activeNum, inactiveNum);
+      s1.classList.add('hidden'); s2.classList.remove('hidden');
+      n2.className = n2.className.replace(inactive, active);
+      n1.className = n1.className.replace(active, inactive);
       l2.className = l2.className.replace('text-white/30', 'text-white/60');
       l1.className = l1.className.replace('text-white/60', 'text-white/30');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -331,7 +481,6 @@
 
   document.getElementById('back-btn').addEventListener('click', function () { showStep(1); });
 
-  // If server returned an error, jump straight to step 2 + show entry form
   <% if (typeof error !== 'undefined' && error) { %>
   showStep(2);
   document.getElementById('entry-form').classList.remove('hidden');
@@ -350,129 +499,210 @@
     reader.readAsDataURL(file);
   });
 
-  // ── Password show/hide ─────────────────────────────────────
-  document.getElementById('toggle-password').addEventListener('click', function () {
-    var pw   = document.getElementById('password');
-    var icon = document.getElementById('pw-eye-icon');
-    if (pw.type === 'password') {
-      pw.type = 'text';
-      icon.setAttribute('icon', 'boxicons:hide');
-    } else {
-      pw.type = 'password';
-      icon.setAttribute('icon', 'boxicons:show');
+  // ── Password toggles ───────────────────────────────────────
+  function makeToggle(btnId, inputId, iconId) {
+    document.getElementById(btnId).addEventListener('click', function () {
+      var inp  = document.getElementById(inputId);
+      var icon = document.getElementById(iconId);
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        icon.setAttribute('icon', 'boxicons:eye-closed');
+      } else {
+        inp.type = 'password';
+        icon.setAttribute('icon', 'boxicons:eye');
+      }
+    });
+  }
+  makeToggle('toggle-password',         'password',         'pw-eye-icon');
+  makeToggle('toggle-confirm-password', 'confirm-password', 'confirm-pw-eye-icon');
+
+  // ── Password requirements ──────────────────────────────────
+  function setReq(key, met) {
+    var row  = document.getElementById('req-' + key);
+    var icon = document.getElementById('req-' + key + '-icon');
+    row.style.color       = met ? '#4ade80'               : 'rgba(255,255,255,0.4)';
+    row.style.borderColor = met ? 'rgba(74,222,128,0.22)' : 'rgba(255,255,255,0.1)';
+    icon.setAttribute('icon', met ? 'boxicons:check' : 'boxicons:x');
+  }
+
+  function checkPasswordReqs(pw) {
+    var reqs = {
+      length:  pw.length >= 12,
+      lower:   (pw.match(/[a-z]/g) || []).length >= 3,
+      upper:   (pw.match(/[A-Z]/g) || []).length >= 3,
+      digit:   (pw.match(/[0-9]/g) || []).length >= 3,
+      special: (pw.match(/[^a-zA-Z0-9]/g) || []).length >= 3,
+    };
+    document.getElementById('password-reqs').style.display = pw.length === 0 ? 'none' : 'grid';
+    setReq('length',  reqs.length);
+    setReq('lower',   reqs.lower);
+    setReq('upper',   reqs.upper);
+    setReq('digit',   reqs.digit);
+    setReq('special', reqs.special);
+    allPasswordReqsMet = reqs.length && reqs.lower && reqs.upper && reqs.digit && reqs.special;
+  }
+
+  document.getElementById('password').addEventListener('input', function () {
+    checkPasswordReqs(this.value);
+    var confirm = document.getElementById('confirm-password').value;
+    if (confirm) {
+      clearErr('confirm-password-error');
+      if (this.value !== confirm) showErr('confirm-password-error', 'Passwords do not match');
     }
+    checkContinueEnabled();
   });
 
-  // ── Sex select placeholder color ───────────────────────────
-  document.getElementById('sex').addEventListener('change', function () {
-    this.style.color = this.value ? 'white' : 'rgba(255,255,255,0.22)';
+  document.getElementById('confirm-password').addEventListener('input', function () {
+    var pw = document.getElementById('password').value;
+    clearErr('confirm-password-error');
+    if (this.value && this.value !== pw) showErr('confirm-password-error', 'Passwords do not match');
+    checkContinueEnabled();
   });
 
-  // ── Username availability (debounced) ──────────────────────
+  // ── Bio counter ────────────────────────────────────────────
+  document.getElementById('bio').addEventListener('input', function () {
+    var len     = this.value.length;
+    var counter = document.getElementById('bio-counter');
+    counter.textContent = len + ' / 220';
+    if (len === 0)       counter.style.color = 'rgba(255,255,255,0.3)';
+    else if (len < 20)   counter.style.color = '#f87171';
+    else if (len >= 215) counter.style.color = '#fbbf24';
+    else                 counter.style.color = '#4ade80';
+    clearErr('bio-error');
+    if (len > 0 && len < 20) showErr('bio-error', len + ' / 20 minimum characters reached');
+    checkContinueEnabled();
+  });
+
+  // ── Username availability ──────────────────────────────────
   var usernameTimer = null;
+  var USERNAME_RE   = /^[a-zA-Z][a-zA-Z0-9]{2,14}$/;
+
   document.getElementById('username').addEventListener('input', function () {
     clearTimeout(usernameTimer);
     clearErr('username-error');
-    var val = this.value.trim().toLowerCase();
+    var val      = this.value.trim();
     var statusEl = document.getElementById('username-status');
     statusEl.classList.add('hidden');
-
-    if (val.length < 3) return;
-
-    if (!/^[a-z0-9_]{3,20}$/.test(val)) {
-      statusEl.innerHTML = '<iconify-icon icon="boxicons:x-circle" width="15" style="color:#f87171;display:block"></iconify-icon>';
+    if (val.length === 0) { usernameStatus = 'unknown'; checkContinueEnabled(); return; }
+    if (!USERNAME_RE.test(val)) {
+      statusEl.innerHTML = mkIcon('boxicons:x-circle', '#f87171');
       statusEl.classList.remove('hidden');
+      usernameStatus = 'invalid';
+      checkContinueEnabled();
       return;
     }
-
-    statusEl.innerHTML = '<iconify-icon icon="boxicons:loader-alt" width="15" style="color:rgba(255,255,255,0.3);display:block"></iconify-icon>';
+    usernameStatus = 'checking';
+    statusEl.innerHTML = mkIcon('boxicons:loader-alt', 'rgba(255,255,255,0.3)');
     statusEl.classList.remove('hidden');
-
+    checkContinueEnabled();
     usernameTimer = setTimeout(function () {
-      fetch('/api/check-signup?username=' + encodeURIComponent(val))
+      fetch('/api/check-signup?username=' + encodeURIComponent(val.toLowerCase()))
         .then(function (r) { return r.json(); })
         .then(function (data) {
           if (data.usernameAvailable) {
-            statusEl.innerHTML = '<iconify-icon icon="boxicons:check-circle" width="15" style="color:#4ade80;display:block"></iconify-icon>';
+            statusEl.innerHTML = mkIcon('boxicons:check-circle', '#4ade80');
+            usernameStatus = 'available';
           } else {
-            statusEl.innerHTML = '<iconify-icon icon="boxicons:x-circle" width="15" style="color:#f87171;display:block"></iconify-icon>';
+            statusEl.innerHTML = mkIcon('boxicons:x-circle', '#f87171');
             showErr('username-error', 'Username already taken');
+            usernameStatus = 'taken';
           }
+          checkContinueEnabled();
         })
-        .catch(function () { statusEl.classList.add('hidden'); });
+        .catch(function () { statusEl.classList.add('hidden'); usernameStatus = 'unknown'; checkContinueEnabled(); });
     }, 450);
   });
 
-  // ── Step 1 validation ──────────────────────────────────────
-  function validateStep1() {
-    clearStep1Errors();
-    var valid    = true;
-    var username = document.getElementById('username').value.trim();
-    var email    = document.getElementById('email').value.trim();
-    var password = document.getElementById('password').value;
-    var confirm  = document.getElementById('confirm-password').value;
-    var sex      = document.getElementById('sex').value;
+  function mkIcon(name, color) {
+    return '<iconify-icon icon="' + name + '" width="15" style="color:' + color + ';display:block"></iconify-icon>';
+  }
+
+  // ── Enable / disable Continue ──────────────────────────────
+  function checkContinueEnabled() {
+    var username  = document.getElementById('username').value.trim();
+    var email     = document.getElementById('email').value.trim();
+    var password  = document.getElementById('password').value;
+    var confirm   = document.getElementById('confirm-password').value;
+    var sex       = document.getElementById('sex').value;
     var birthdate = document.getElementById('birthdate').value;
+    var bio       = document.getElementById('bio').value.trim();
+    var terms     = document.getElementById('agree-terms').checked;
+    var ok = (
+      USERNAME_RE.test(username) &&
+      usernameStatus !== 'taken' && usernameStatus !== 'invalid' &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) &&
+      allPasswordReqsMet &&
+      confirm.length > 0 && password === confirm &&
+      sex !== '' &&
+      birthdate !== '' &&
+      (bio.length === 0 || bio.length >= 20) &&
+      terms
+    );
+    document.getElementById('next-btn').disabled = !ok;
+  }
 
-    if (!username) {
-      showErr('username-error', 'Username is required'); valid = false;
-    } else if (!/^[a-z0-9_]{3,20}$/.test(username.toLowerCase())) {
-      showErr('username-error', 'Only letters, numbers, underscores (3–20 chars)'); valid = false;
-    }
+  ['email', 'birthdate'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input',  checkContinueEnabled);
+    document.getElementById(id).addEventListener('change', checkContinueEnabled);
+  });
+  function initCheckboxIcon(inputId, iconId, onChange) {
+    var input = document.getElementById(inputId);
+    var icon  = document.getElementById(iconId);
+    input.addEventListener('change', function () {
+      icon.setAttribute('icon', this.checked ? 'boxicons:check-square-filled' : 'boxicons:checkbox');
+      icon.style.color = this.checked ? '#c73b64' : 'rgba(255,255,255,0.25)';
+      if (onChange) onChange();
+    });
+  }
+  initCheckboxIcon('agree-terms',     'agree-terms-icon',     checkContinueEnabled);
+  initCheckboxIcon('agree-marketing', 'agree-marketing-icon');
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      showErr('email-error', 'A valid email is required'); valid = false;
-    }
-
-    if (!password || password.length < 8) {
-      showErr('confirm-password-error', 'Password must be at least 8 characters'); valid = false;
-    } else if (password !== confirm) {
-      showErr('confirm-password-error', 'Passwords do not match'); valid = false;
-    }
-
-    if (!sex) {
-      showErr('sex-error', 'Please select your sex'); valid = false;
-    }
-
-    if (!birthdate) {
-      showErr('birthdate-error', 'Date of birth is required'); valid = false;
-    } else {
-      var age = Math.floor((Date.now() - new Date(birthdate)) / (365.25 * 24 * 60 * 60 * 1000));
-      if (age < 13) { showErr('birthdate-error', 'You must be at least 13 years old'); valid = false; }
-    }
-
+  // ── Step 1 final validation ────────────────────────────────
+  function validateStep1() {
+    var valid    = true;
+    var username  = document.getElementById('username').value.trim();
+    var email     = document.getElementById('email').value.trim();
+    var password  = document.getElementById('password').value;
+    var confirm   = document.getElementById('confirm-password').value;
+    var sex       = document.getElementById('sex').value;
+    var birthdate = document.getElementById('birthdate').value;
+    var bio       = document.getElementById('bio').value.trim();
+    if (!USERNAME_RE.test(username)) { showErr('username-error', 'Must start with a letter, letters & digits only, 3–15 chars'); valid = false; }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('email-error', 'A valid email is required'); valid = false; }
+    if (!allPasswordReqsMet) { valid = false; }
+    if (!confirm || password !== confirm) { showErr('confirm-password-error', 'Passwords do not match'); valid = false; }
+    if (!sex) { showErr('sex-error', 'Please select your sex'); valid = false; }
+    if (!birthdate) { showErr('birthdate-error', 'Date of birth is required'); valid = false; }
+    if (bio.length > 0 && bio.length < 20) { showErr('bio-error', 'Bio must be at least 20 characters'); valid = false; }
     return valid;
   }
 
   // ── Continue button ────────────────────────────────────────
   document.getElementById('next-btn').addEventListener('click', function () {
     if (!validateStep1()) return;
-
     var btn = document.getElementById('next-btn');
     btn.disabled = true;
     btn.textContent = 'Checking…';
-
     var username = document.getElementById('username').value.trim().toLowerCase();
     var email    = document.getElementById('email').value.trim().toLowerCase();
-
     fetch('/api/check-signup?username=' + encodeURIComponent(username) + '&email=' + encodeURIComponent(email))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.usernameAvailable) {
           showErr('username-error', 'Username already taken');
-          showStep(1);
+          usernameStatus = 'taken';
+          checkContinueEnabled();
+          btn.disabled = false;
+          btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
         } else if (!data.emailAvailable) {
           showErr('email-error', 'Email already registered');
-          showStep(1);
+          btn.disabled = false;
+          btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
         } else {
           showStep(2);
         }
       })
-      .catch(function () { showStep(2); })
-      .finally(function () {
-        btn.disabled = false;
-        btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
-      });
+      .catch(function () { showStep(2); });
   });
 
   // ── Contest selection ──────────────────────────────────────
@@ -484,19 +714,15 @@
       });
       card.classList.add('ring-2', 'ring-charm-600', 'border-charm-600');
       card.querySelector('.contest-check-overlay').classList.replace('opacity-0', 'opacity-100');
-
       document.getElementById('contestId').value = card.dataset.contestId;
       document.getElementById('selected-contest-name').textContent = card.dataset.contestTitle;
-
-      var entryForm = document.getElementById('entry-form');
-      entryForm.classList.remove('hidden');
-      setTimeout(function () {
-        entryForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 80);
+      var ef = document.getElementById('entry-form');
+      ef.classList.remove('hidden');
+      setTimeout(function () { ef.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 80);
     });
   });
 
-  // ── Entry photo preview ────────────────────────────────────
+  // ── Entry photo ────────────────────────────────────────────
   function showEntryPreview(file) {
     var reader = new FileReader();
     reader.onload = function (e) {
@@ -506,29 +732,18 @@
     };
     reader.readAsDataURL(file);
   }
-
   document.getElementById('entry-input').addEventListener('change', function () {
     if (this.files[0]) showEntryPreview(this.files[0]);
   });
-
   var zone = document.getElementById('entry-upload-zone');
-  zone.addEventListener('dragover', function (e) {
-    e.preventDefault();
-    var ph = document.getElementById('entry-placeholder');
-    if (ph) ph.classList.add('border-charm-600/60');
-  });
-  zone.addEventListener('dragleave', function () {
-    var ph = document.getElementById('entry-placeholder');
-    if (ph) ph.classList.remove('border-charm-600/60');
-  });
+  zone.addEventListener('dragover',  function (e) { e.preventDefault(); document.getElementById('entry-placeholder').classList.add('border-charm-600/60'); });
+  zone.addEventListener('dragleave', function ()  { document.getElementById('entry-placeholder').classList.remove('border-charm-600/60'); });
   zone.addEventListener('drop', function (e) {
     e.preventDefault();
-    var ph = document.getElementById('entry-placeholder');
-    if (ph) ph.classList.remove('border-charm-600/60');
+    document.getElementById('entry-placeholder').classList.remove('border-charm-600/60');
     var file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      var dt = new DataTransfer();
-      dt.items.add(file);
+      var dt = new DataTransfer(); dt.items.add(file);
       document.getElementById('entry-input').files = dt.files;
       showEntryPreview(file);
     }
@@ -536,35 +751,15 @@
 
   // ── Form submit validation ─────────────────────────────────
   document.getElementById('signup-form').addEventListener('submit', function (e) {
-    clearErr('entry-error');
-    clearErr('entry-title-error');
-
+    clearErr('entry-error'); clearErr('entry-title-error');
     var contestId  = document.getElementById('contestId').value;
     var entryInput = document.getElementById('entry-input');
     var entryTitle = document.getElementById('entry-title').value.trim();
     var valid = true;
-
-    if (!contestId) {
-      e.preventDefault();
-      showErr('entry-error', 'Please select a contest above');
-      valid = false;
-    }
-    if (!entryInput.files || !entryInput.files[0]) {
-      e.preventDefault();
-      showErr('entry-error', 'Please upload your apron photo');
-      valid = false;
-    }
-    if (!entryTitle) {
-      e.preventDefault();
-      showErr('entry-title-error', 'Entry title is required');
-      valid = false;
-    }
-
-    if (valid) {
-      var btn = document.getElementById('submit-btn');
-      btn.disabled = true;
-      btn.textContent = 'Creating your account…';
-    }
+    if (!contestId)                              { e.preventDefault(); showErr('entry-error', 'Please select a contest above'); valid = false; }
+    if (!entryInput.files || !entryInput.files[0]) { e.preventDefault(); showErr('entry-error', 'Please upload your apron photo'); valid = false; }
+    if (!entryTitle)                             { e.preventDefault(); showErr('entry-title-error', 'Entry title is required'); valid = false; }
+    if (valid) { var btn = document.getElementById('submit-btn'); btn.disabled = true; btn.textContent = 'Creating your account…'; }
   });
 
 }());

@@ -50,21 +50,28 @@ router.post('/signup', upload.fields([
   try {
     const {
       username, email, password, confirmPassword,
-      bio, sex, location, birthdate,
+      bio, sex, orientation, location, birthdate,
       contestId, entryTitle, entryDescription,
     } = req.body;
 
     if (!username || !email || !password || !sex || !birthdate) {
       return renderError('Please complete all required fields.');
     }
-    if (!/^[a-z0-9_]{3,20}$/.test(username.toLowerCase())) {
-      return renderError('Username must be 3–20 characters: letters, numbers, and underscores only.');
+    if (!/^[a-zA-Z][a-zA-Z0-9]{2,14}$/.test(username)) {
+      return renderError('Username must start with a letter, contain only letters and digits, and be 3–15 characters.');
+    }
+    if (bio && bio.trim().length > 0 && (bio.trim().length < 20 || bio.trim().length > 220)) {
+      return renderError('Bio must be between 20 and 220 characters.');
     }
     if (password !== confirmPassword) {
       return renderError('Passwords do not match.');
     }
-    if (password.length < 8) {
-      return renderError('Password must be at least 8 characters.');
+    const pwLower   = (password.match(/[a-z]/g) || []).length;
+    const pwUpper   = (password.match(/[A-Z]/g) || []).length;
+    const pwDigit   = (password.match(/[0-9]/g) || []).length;
+    const pwSpecial = (password.match(/[^a-zA-Z0-9]/g) || []).length;
+    if (password.length < 12 || pwLower < 3 || pwUpper < 3 || pwDigit < 3 || pwSpecial < 3) {
+      return renderError('Password must be at least 12 characters with 3+ lowercase, 3+ uppercase, 3+ digits, and 3+ special characters.');
     }
     if (!contestId) {
       return renderError('Please select a contest to enter.');
@@ -94,9 +101,10 @@ router.post('/signup', upload.fields([
       username:  username.toLowerCase().trim(),
       email:     email.toLowerCase().trim(),
       password:  hashedPassword,
-      bio:       bio || undefined,
+      bio:         bio || undefined,
       sex,
-      location:  location || undefined,
+      orientation: orientation || undefined,
+      location:    location || undefined,
       birthdate: new Date(birthdate),
       avatar:    avatarPath,
     });
