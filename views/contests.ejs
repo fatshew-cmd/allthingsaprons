@@ -9,7 +9,7 @@
         <h1 class="font-black text-xl tracking-tight">Contests</h1>
         <p class="text-sm text-white/40 mt-0.5">Compete, vote, and win</p>
       </div>
-      <a href="/contests/new" class="flex items-center gap-2 bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors">
+      <a href="/contests/new" class="flex items-center gap-2 bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer">
         <iconify-icon icon="boxicons:plus" width="16" height="16"></iconify-icon>
         <span>Launch</span>
       </a>
@@ -40,7 +40,7 @@
               <span class="text-green-400 font-medium"><%= comp.daysLeft %>d left</span>
               <span><%= comp.submissionCount %> entries</span>
             </div>
-            <button class="w-full py-2.5 rounded-md bg-charm-500/15 text-charm-400 text-sm font-semibold hover:bg-charm-500/25 transition-colors mt-auto">Enter</button>
+            <button class="w-full py-2.5 rounded-md bg-charm-500/15 text-charm-400 text-sm font-semibold hover:bg-charm-500/25 transition-colors mt-auto cursor-pointer">Enter</button>
           </div>
         </div>
       <% }) %>
@@ -66,7 +66,7 @@
           </div>
           <div class="text-right shrink-0">
             <p class="text-xs font-medium text-yellow-400/80">In <%= comp.daysLeft %>d</p>
-            <button class="mt-1 text-[11px] text-white/30 bg-white/5 px-2 py-1 rounded-md">Notify me</button>
+            <button class="mt-1 text-[11px] text-white/30 bg-white/5 px-2 py-1 rounded-md cursor-pointer">Notify me</button>
           </div>
         </div>
       <% }) %>

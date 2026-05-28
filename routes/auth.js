@@ -5,38 +5,44 @@ const User    = require('../models/User');
 const Item    = require('../models/Item');
 const upload  = require('../middleware/upload');
 
-const activeContests = [
+const signupContests = [
   {
     _id: 'cont1',
     title: 'The Great Grill-Off',
     theme: 'BBQ & Outdoor Cooking',
+    description: 'Design the ultimate apron for summer grilling. Bold, heat-resistant, and built for the pit.',
+    organizer: '@atap',
     status: 'active',
     daysLeft: 8,
     submissionCount: 47,
-    coverUrl: 'https://picsum.photos/seed/grill1/400/225',
+    coverUrl: 'https://picsum.photos/seed/grill1/400/400',
   },
   {
     _id: 'cont2',
     title: 'Garden Party',
     theme: 'Botanical & Garden',
+    description: 'Nature-inspired aprons for the green-thumb crowd. Think linen, flora, and earthy tones.',
+    organizer: '@atap',
     status: 'active',
     daysLeft: 14,
     submissionCount: 31,
-    coverUrl: 'https://picsum.photos/seed/garden2/400/225',
+    coverUrl: 'https://picsum.photos/seed/garden2/400/400',
   },
   {
     _id: 'cont3',
     title: 'Studio Craft',
     theme: 'Artisan & Workshop',
+    description: 'Celebrate the maker spirit. Raw materials, handcrafted details, and workshop aesthetics.',
+    organizer: '@atap',
     status: 'active',
     daysLeft: 5,
     submissionCount: 19,
-    coverUrl: 'https://picsum.photos/seed/craft3/400/225',
+    coverUrl: 'https://picsum.photos/seed/craft3/400/400',
   },
 ];
 
 router.get('/signup', (req, res) => {
-  res.render('signup', { title: 'Sign Up', contests: activeContests, error: null });
+  res.render('signup', { title: 'Sign Up', contests: signupContests, error: null });
 });
 
 router.post('/signup', upload.fields([
@@ -45,7 +51,7 @@ router.post('/signup', upload.fields([
 ]), async (req, res) => {
 
   const renderError = (msg) =>
-    res.render('signup', { title: 'Sign Up', contests: activeContests, error: msg });
+    res.render('signup', { title: 'Sign Up', contests: signupContests, error: msg });
 
   try {
     const {

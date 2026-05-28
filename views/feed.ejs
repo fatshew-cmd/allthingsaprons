@@ -5,9 +5,9 @@
   <!-- Sticky header -->
   <header class="sticky top-0 z-10 flex items-center justify-center border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
     <button id="tab-rate"    onclick="switchMode('rate')"
-            class="tab-btn tab-active text-sm font-semibold px-6 py-4 transition-all">Rating</button>
+            class="tab-btn tab-active text-sm font-semibold px-6 py-4 transition-all cursor-pointer">Rating</button>
     <button id="tab-compare" onclick="switchMode('compare')"
-            class="tab-btn tab-inactive text-sm font-semibold px-6 py-4 transition-all">Head To Head</button>
+            class="tab-btn tab-inactive text-sm font-semibold px-6 py-4 transition-all cursor-pointer">Head To Head</button>
   </header>
 
   <!-- ── Rate Mode ── -->
@@ -28,7 +28,7 @@
         </div>
       </div>
       <button onclick="skipCard()"
-              class="absolute top-4 right-4 bg-black/40 backdrop-blur-sm text-white/60 text-xs px-3 py-1.5 rounded-md hover:text-white transition-colors">
+              class="absolute top-4 right-4 bg-black/40 backdrop-blur-sm text-white/60 text-xs px-3 py-1.5 rounded-md hover:text-white transition-colors cursor-pointer">
         Skip
       </button>
     </div>
@@ -45,7 +45,7 @@
       </div>
       <p id="star-label" class="text-center text-sm text-white/40 mb-5">Tap a star to rate</p>
       <button id="submit-btn" onclick="submitRating()" disabled
-              class="w-full py-3 rounded-md font-semibold text-sm bg-charm-600 text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+              class="w-full py-3 rounded-md font-semibold text-sm bg-charm-600 text-white transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
         Submit Rating
       </button>
     </div>
@@ -127,12 +127,12 @@
         </div>
         <span id="pct-b" class="text-xs font-bold text-blue-400 w-8">0%</span>
       </div>
-      <button onclick="nextPair()" class="w-full py-3 rounded-md bg-charm-600 text-white font-bold text-sm">
+      <button onclick="nextPair()" class="w-full py-3 rounded-md bg-charm-600 text-white font-bold text-sm cursor-pointer">
         Next Pair →
       </button>
     </div>
 
-    <button onclick="nextPair()" class="text-sm text-white/30 text-center py-1 hover:text-white/60 transition-colors">
+    <button onclick="nextPair()" class="text-sm text-white/30 text-center py-1 hover:text-white/60 transition-colors cursor-pointer">
       Too close to call — skip
     </button>
 
@@ -221,8 +221,8 @@
     rateEl.classList.toggle('flex',   mode === 'rate');
     compareEl.classList.toggle('hidden', mode !== 'compare');
     compareEl.classList.toggle('flex',   mode === 'compare');
-    document.getElementById('tab-rate').className    = 'tab-btn text-sm font-semibold px-6 py-4 transition-all ' + (mode === 'rate'    ? 'tab-active' : 'tab-inactive');
-    document.getElementById('tab-compare').className = 'tab-btn text-sm font-semibold px-6 py-4 transition-all ' + (mode === 'compare' ? 'tab-active' : 'tab-inactive');
+    document.getElementById('tab-rate').className    = 'tab-btn text-sm font-semibold px-6 py-4 transition-all cursor-pointer ' + (mode === 'rate'    ? 'tab-active' : 'tab-inactive');
+    document.getElementById('tab-compare').className = 'tab-btn text-sm font-semibold px-6 py-4 transition-all cursor-pointer ' + (mode === 'compare' ? 'tab-active' : 'tab-inactive');
   }
 
   function rateStar(val) {

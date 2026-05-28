@@ -28,7 +28,7 @@
       <a href="<%= link.href %>"
          class="flex items-center gap-4 px-3 py-3 rounded-md transition-colors
                 <%= activePage === link.page ? 'text-charm-400 bg-charm-600/10' : 'text-white/50 hover:text-white hover:bg-white/5' %>
-                <%= link.future ? 'opacity-40 pointer-events-none cursor-not-allowed' : '' %>">
+                <%= link.future ? 'opacity-40 pointer-events-none cursor-not-allowed' : 'cursor-pointer' %>">
         <iconify-icon icon="<%= activePage === link.page ? link.iconActive : link.icon %>" width="24" height="24" class="shrink-0"></iconify-icon>
         <span class="hidden xl:inline font-medium text-sm truncate"><%= link.label %></span>
         <% if (link.future) { %>
@@ -41,7 +41,7 @@
   <!-- Submit CTA -->
   <div class="px-2 xl:px-3 py-4 border-t border-white/10 shrink-0">
     <a href="/submit"
-       class="flex items-center justify-center gap-2 bg-charm-600 hover:bg-charm-500 text-white font-bold rounded-md py-3 transition-colors w-full">
+       class="flex items-center justify-center gap-2 bg-charm-600 hover:bg-charm-500 text-white font-bold rounded-md py-3 transition-colors w-full cursor-pointer">
       <iconify-icon icon="boxicons:plus" width="20" height="20" class="shrink-0"></iconify-icon>
       <span class="hidden xl:inline text-sm">Submit</span>
     </a>

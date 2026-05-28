@@ -3,6 +3,25 @@
 <head><%- include('partials/head') %></head>
 <body class="min-h-screen bg-shark-950 text-white">
 
+  <!-- Mature content gate -->
+  <div id="content-gate" style="position:fixed;inset:0;z-index:9999;background:rgba(10,10,10,0.88);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:16px">
+    <div class="bg-shark-900 border border-white/10 rounded-md p-8 w-full max-w-sm text-center">
+      <iconify-icon icon="boxicons:shield-quarter" width="42" class="text-charm-500 mb-5 block mx-auto"></iconify-icon>
+      <h2 class="text-xl font-black mb-2">Mature Content</h2>
+      <p class="text-sm text-white/45 leading-relaxed mb-7">AllThingsAprons contains mature themes and community content. By continuing you confirm that you are at least <strong class="text-white/70">18 years old</strong> and agree to our community guidelines.</p>
+      <div class="flex flex-col gap-3">
+        <button id="gate-confirm"
+          class="w-full bg-charm-600 hover:bg-charm-500 text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
+          I'm 18 or older — continue
+        </button>
+        <button id="gate-leave"
+          class="w-full bg-white/5 hover:bg-white/8 text-white/40 hover:text-white/60 rounded-md py-3 text-sm transition-colors cursor-pointer">
+          Leave
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Top bar -->
   <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
     <a href="/" class="font-black text-lg text-charm-500 tracking-tight">AllThingsAprons</a>
@@ -17,7 +36,7 @@
         <span id="step-2-label" class="text-white/30 hidden sm:inline transition-colors">Contest Entry</span>
       </div>
     </div>
-    <div class="w-45"></div>
+    <a href="/login" class="text-sm text-white/35 hover:text-white/60 transition-colors">Log in</a>
   </header>
 
   <div class="flex justify-center px-4 py-10 pb-20">
@@ -25,6 +44,10 @@
 
       <!-- ── STEP 1 ── -->
       <div id="step-1-content" class="max-w-2xl mx-auto">
+        <div class="mb-7">
+          <h2 class="text-2xl font-black">Create your profile</h2>
+          <p class="text-white/40 mt-1 text-sm">Tell us a bit about yourself to get started.</p>
+        </div>
         <div class="flex flex-col sm:flex-row gap-5 items-start">
 
           <!-- Avatar column -->
@@ -84,7 +107,7 @@
                   autocomplete="new-password"
                   class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-9 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
                 <button type="button" id="toggle-password"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors cursor-pointer">
                   <iconify-icon id="pw-eye-icon" icon="boxicons:eye" width="17"></iconify-icon>
                 </button>
               </div>
@@ -123,7 +146,7 @@
                   autocomplete="new-password"
                   class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-9 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
                 <button type="button" id="toggle-confirm-password"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors cursor-pointer">
                   <iconify-icon id="confirm-pw-eye-icon" icon="boxicons:eye" width="17"></iconify-icon>
                 </button>
               </div>
@@ -151,24 +174,24 @@
                 <div class="custom-dropdown relative" id="sex-dropdown">
                   <input type="hidden" name="sex" id="sex">
                   <button type="button" data-dropdown-trigger
-                    class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-left flex items-center justify-between focus:outline-none transition-colors">
+                    class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-left flex items-center justify-between focus:outline-none transition-colors cursor-pointer">
                     <span class="dropdown-label text-sm" style="color:rgba(255,255,255,0.22)">Select…</span>
                     <iconify-icon data-chevron icon="boxicons:chevron-down" width="16" class="text-white/30 shrink-0" style="transition:transform 0.15s ease"></iconify-icon>
                   </button>
                   <div class="dropdown-panel absolute z-20 w-full mt-1 bg-shark-800 border border-white/10 rounded-md shadow-xl overflow-hidden" style="display:none">
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="male" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="male" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Male</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="female" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="female" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Female</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="other" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="other" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Other</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="prefer-not-to-say" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="prefer-not-to-say" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Prefer not to say</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
@@ -182,36 +205,36 @@
                 <div class="custom-dropdown relative" id="orientation-dropdown">
                   <input type="hidden" name="orientation" id="orientation">
                   <button type="button" data-dropdown-trigger
-                    class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-left flex items-center justify-between focus:outline-none transition-colors">
+                    class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-left flex items-center justify-between focus:outline-none transition-colors cursor-pointer">
                     <span class="dropdown-label text-sm" style="color:rgba(255,255,255,0.22)">Select…</span>
                     <iconify-icon data-chevron icon="boxicons:chevron-down" width="16" class="text-white/30 shrink-0" style="transition:transform 0.15s ease"></iconify-icon>
                   </button>
                   <div class="dropdown-panel absolute z-20 w-full mt-1 bg-shark-800 border border-white/10 rounded-md shadow-xl overflow-y-auto max-h-52 overflow-hidden" style="display:none">
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="straight" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="straight" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Straight</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="gay" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="gay" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Gay</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="lesbian" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="lesbian" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Lesbian</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="bisexual" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="bisexual" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Bisexual</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="pansexual" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="pansexual" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Pansexual</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="other" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="other" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Other</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors" data-value="prefer-not-to-say" style="color:rgba(255,255,255,0.5)">
+                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="prefer-not-to-say" style="color:rgba(255,255,255,0.5)">
                       <span class="opt-label">Prefer not to say</span>
                       <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
                     </button>
@@ -261,10 +284,12 @@
             </div>
 
             <button type="button" id="next-btn" disabled
-              class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-charm-600 text-white font-bold rounded-md py-3 text-sm transition-colors flex items-center justify-center gap-2">
+              class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-charm-600 text-white font-bold rounded-md py-3 text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer">
               Continue
               <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>
             </button>
+
+            <p class="text-center text-xs text-white/30">Already have an account? <a href="/login" class="text-charm-400 hover:text-charm-300 transition-colors">Log in</a></p>
 
           </div><!-- /form card -->
         </div><!-- /flex row -->
@@ -274,39 +299,62 @@
       <div id="step-2-content" class="hidden max-w-2xl mx-auto">
 
         <button type="button" id="back-btn"
-          class="flex items-center gap-1.5 text-white/40 hover:text-white transition-colors text-sm mb-7">
+          class="flex items-center gap-1.5 text-white/40 hover:text-white transition-colors text-sm mb-7 cursor-pointer">
           <iconify-icon icon="boxicons:left-arrow-alt" width="18"></iconify-icon>
           Back
         </button>
 
-        <div class="mb-7">
+        <div class="mb-6">
           <h2 class="text-2xl font-black">Enter a live contest</h2>
           <p class="text-white/40 mt-1 text-sm">Pick one contest and submit your apron to complete your signup.</p>
         </div>
 
+        <!-- Search -->
+        <div class="relative mb-6">
+          <iconify-icon icon="boxicons:search" width="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"></iconify-icon>
+          <input id="contest-search" type="text" placeholder="Search by name or theme…"
+            class="w-full bg-shark-900 border border-white/10 rounded-md pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+        </div>
+
         <input type="hidden" name="contestId" id="contestId" value="">
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <% contests.forEach(c => { %>
-          <div class="contest-card cursor-pointer rounded-md overflow-hidden border border-white/10 bg-shark-900 transition-all hover:border-charm-600/40"
-               data-contest-id="<%= c._id %>" data-contest-title="<%= c.title %>">
-            <div class="aspect-video relative overflow-hidden bg-shark-800">
-              <img src="<%= c.coverUrl %>" alt="<%= c.title %>" class="w-full h-full object-cover">
-              <div class="contest-check-overlay absolute inset-0 bg-charm-600/50 flex items-center justify-center opacity-0 transition-opacity pointer-events-none">
-                <iconify-icon icon="boxicons:check-circle" width="44" class="text-white"></iconify-icon>
+        <!-- Live Now -->
+        <% const activeC = contests.filter(c => c.status === 'active'); %>
+        <% if (activeC.length) { %>
+        <section id="section-active" class="mb-6">
+          <h3 class="text-xs font-bold text-white/40 uppercase tracking-wider mb-4">Live Now</h3>
+          <div class="grid grid-cols-3 gap-3" id="active-grid">
+            <% activeC.forEach(comp => { %>
+            <div class="contest-card flex flex-col rounded-md bg-white/5 border border-white/10 overflow-hidden hover:bg-white/8 transition-all cursor-pointer"
+                 data-contest-id="<%= comp._id %>" data-contest-title="<%= comp.title %>" data-status="active"
+                 data-search="<%= (comp.title + ' ' + comp.theme).toLowerCase() %>">
+              <div class="w-full aspect-square bg-white/10 shrink-0 relative">
+                <img src="<%= comp.coverUrl %>" class="w-full h-full object-cover" alt="<%= comp.title %>" loading="lazy" />
+                <span class="absolute top-2 right-2 text-[9px] font-semibold uppercase tracking-wide text-green-400 bg-green-400/15 backdrop-blur-sm px-1.5 py-0.5 rounded-md">Live</span>
+                <div class="contest-check-overlay absolute inset-0 bg-charm-600/50 flex items-center justify-center opacity-0 transition-opacity pointer-events-none">
+                  <iconify-icon icon="boxicons:check-circle" width="36" class="text-white"></iconify-icon>
+                </div>
+              </div>
+              <div class="flex flex-col flex-1 p-3">
+                <p class="text-sm font-bold leading-tight mb-0.5 truncate"><%= comp.title %></p>
+                <p class="text-xs text-white/40 truncate"><%= comp.theme %></p>
+                <div class="flex items-center justify-between text-xs text-white/35 mt-2">
+                  <span class="text-green-400 font-medium"><%= comp.daysLeft %>d left</span>
+                  <span><%= comp.submissionCount %> entries</span>
+                </div>
               </div>
             </div>
-            <div class="p-4">
-              <h3 class="font-bold text-sm text-white leading-snug"><%= c.title %></h3>
-              <span class="inline-block mt-1.5 text-xs px-2 py-0.5 bg-charm-600/15 text-charm-400 rounded-md"><%= c.theme %></span>
-              <p class="text-xs text-white/35 mt-2 flex items-center gap-3">
-                <span><%= c.daysLeft %> days left</span>
-                <span><%= c.submissionCount %> entries</span>
-              </p>
-            </div>
+            <% }) %>
           </div>
-          <% }) %>
+        </section>
+        <% } %>
+
+        <% if (!activeC || !activeC.length) { %>
+        <div class="flex flex-col items-center justify-center py-16 text-center">
+          <iconify-icon icon="boxicons:trophy" width="36" class="text-white/15 mb-3"></iconify-icon>
+          <p class="text-white/40 text-sm">No contests available right now</p>
         </div>
+        <% } %>
 
         <div id="entry-form" class="hidden mt-8 bg-shark-900 border border-white/8 rounded-md p-6">
           <h3 class="font-semibold text-base mb-5">
@@ -364,7 +412,7 @@
           <% } %>
 
           <button type="submit" id="submit-btn"
-            class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-md py-3 text-sm transition-colors">
+            class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
             Complete Sign Up
           </button>
         </div>
@@ -380,6 +428,8 @@
   // ── State ──────────────────────────────────────────────────
   var usernameStatus     = 'unknown';
   var allPasswordReqsMet = false;
+  var currentStep        = 1;
+  var STORAGE_KEY        = 'atap_signup';
 
   // ── Utilities ──────────────────────────────────────────────
   function showErr(id, msg) {
@@ -450,11 +500,31 @@
     });
   }
 
-  initDropdown('sex-dropdown', function () { checkContinueEnabled(); });
-  initDropdown('orientation-dropdown');
+  function selectDropdown(containerId, value) {
+    var container = document.getElementById(containerId);
+    if (!container || !value) return;
+    var hidden  = container.querySelector('input[type="hidden"]');
+    var label   = container.querySelector('.dropdown-label');
+    var options = container.querySelectorAll('.dropdown-option');
+    options.forEach(function (opt) {
+      var isMatch = opt.dataset.value === value;
+      opt.style.color = isMatch ? 'white' : 'rgba(255,255,255,0.5)';
+      opt.querySelector('.check-icon').style.display = isMatch ? 'block' : 'none';
+      if (isMatch) {
+        hidden.value      = value;
+        label.textContent = opt.querySelector('.opt-label').textContent;
+        label.style.color = 'white';
+      }
+    });
+  }
+
+  initDropdown('sex-dropdown', function () { checkContinueEnabled(); saveSignupState(); });
+  initDropdown('orientation-dropdown', function () { saveSignupState(); });
 
   // ── Step navigation ────────────────────────────────────────
   function showStep(n) {
+    currentStep = n;
+    saveSignupState();
     var s1 = document.getElementById('step-1-content');
     var s2 = document.getElementById('step-2-content');
     var n1 = document.getElementById('step-1-num');
@@ -649,7 +719,7 @@
     var input = document.getElementById(inputId);
     var icon  = document.getElementById(iconId);
     input.addEventListener('change', function () {
-      icon.setAttribute('icon', this.checked ? 'boxicons:check-square-filled' : 'boxicons:checkbox');
+      icon.setAttribute('icon', this.checked ? 'boxicons:check-square-filled' : 'boxicons:square');
       icon.style.color = this.checked ? '#c73b64' : 'rgba(255,255,255,0.25)';
       if (onChange) onChange();
     });
@@ -705,6 +775,14 @@
       .catch(function () { showStep(2); });
   });
 
+  // ── Contest search ─────────────────────────────────────────
+  document.getElementById('contest-search').addEventListener('input', function () {
+    var q = this.value.trim().toLowerCase();
+    document.querySelectorAll('#active-grid .contest-card').forEach(function (card) {
+      card.style.display = (!q || card.dataset.search.includes(q)) ? '' : 'none';
+    });
+  });
+
   // ── Contest selection ──────────────────────────────────────
   document.querySelectorAll('.contest-card').forEach(function (card) {
     card.addEventListener('click', function () {
@@ -749,6 +827,83 @@
     }
   });
 
+  // ── Persist & restore state ────────────────────────────────
+  function saveSignupState() {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        step:                 currentStep,
+        username:             document.getElementById('username').value,
+        email:                document.getElementById('email').value,
+        password:             document.getElementById('password').value,
+        confirmPassword:      document.getElementById('confirm-password').value,
+        bio:                  document.getElementById('bio').value,
+        sex:                  document.getElementById('sex').value,
+        orientation:          document.getElementById('orientation').value,
+        location:             document.getElementById('location').value,
+        birthdate:            document.getElementById('birthdate').value,
+        contestId:            document.getElementById('contestId').value,
+        contestTitle:         document.getElementById('selected-contest-name').textContent,
+        entryTitle:           document.getElementById('entry-title').value,
+        entryDescription:     document.getElementById('entry-description').value,
+      }));
+    } catch (e) {}
+  }
+
+  function restoreSignupState() {
+    var raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    var s;
+    try { s = JSON.parse(raw); } catch (e) { return; }
+
+    if (s.username)        document.getElementById('username').value         = s.username;
+    if (s.email)           document.getElementById('email').value            = s.email;
+    if (s.location)        document.getElementById('location').value         = s.location;
+    if (s.birthdate)       document.getElementById('birthdate').value        = s.birthdate;
+    if (s.entryTitle)      document.getElementById('entry-title').value      = s.entryTitle;
+    if (s.entryDescription) document.getElementById('entry-description').value = s.entryDescription;
+
+    if (s.password) {
+      document.getElementById('password').value = s.password;
+      checkPasswordReqs(s.password);
+    }
+    if (s.confirmPassword) {
+      document.getElementById('confirm-password').value = s.confirmPassword;
+    }
+    if (s.bio) {
+      var bioEl  = document.getElementById('bio');
+      var ctr    = document.getElementById('bio-counter');
+      bioEl.value        = s.bio;
+      ctr.textContent    = s.bio.length + ' / 220';
+      ctr.style.color    = s.bio.length === 0 ? 'rgba(255,255,255,0.3)' : s.bio.length < 20 ? '#f87171' : s.bio.length >= 215 ? '#fbbf24' : '#4ade80';
+    }
+
+    if (s.sex)         selectDropdown('sex-dropdown',         s.sex);
+    if (s.orientation) selectDropdown('orientation-dropdown', s.orientation);
+
+    if (s.contestId) {
+      document.getElementById('contestId').value = s.contestId;
+      var card = document.querySelector('[data-contest-id="' + s.contestId + '"]');
+      if (card) {
+        card.classList.add('ring-2', 'ring-charm-600', 'border-charm-600');
+        var overlay = card.querySelector('.contest-check-overlay');
+        if (overlay) overlay.classList.replace('opacity-0', 'opacity-100');
+      }
+      if (s.contestTitle) document.getElementById('selected-contest-name').textContent = s.contestTitle;
+      document.getElementById('entry-form').classList.remove('hidden');
+    }
+
+    if (s.username) {
+      document.getElementById('username').dispatchEvent(new Event('input'));
+    }
+
+    if (s.step === 2) showStep(2);
+
+    checkContinueEnabled();
+  }
+
+  document.getElementById('signup-form').addEventListener('input',  saveSignupState);
+  document.getElementById('signup-form').addEventListener('change', saveSignupState);
+
   // ── Form submit validation ─────────────────────────────────
   document.getElementById('signup-form').addEventListener('submit', function (e) {
     clearErr('entry-error'); clearErr('entry-title-error');
@@ -759,8 +914,28 @@
     if (!contestId)                              { e.preventDefault(); showErr('entry-error', 'Please select a contest above'); valid = false; }
     if (!entryInput.files || !entryInput.files[0]) { e.preventDefault(); showErr('entry-error', 'Please upload your apron photo'); valid = false; }
     if (!entryTitle)                             { e.preventDefault(); showErr('entry-title-error', 'Entry title is required'); valid = false; }
-    if (valid) { var btn = document.getElementById('submit-btn'); btn.disabled = true; btn.textContent = 'Creating your account…'; }
+    if (valid) { sessionStorage.removeItem(STORAGE_KEY); var btn = document.getElementById('submit-btn'); btn.disabled = true; btn.textContent = 'Creating your account…'; }
   });
+
+  // ── Mature content gate ────────────────────────────────────
+  var AGE_GATE_KEY = 'atap_age_ok';
+  var contentGate  = document.getElementById('content-gate');
+  if (localStorage.getItem(AGE_GATE_KEY)) {
+    contentGate.remove();
+  } else {
+    contentGate.style.display = 'flex';
+  }
+  document.getElementById('gate-confirm').addEventListener('click', function () {
+    localStorage.setItem(AGE_GATE_KEY, '1');
+    contentGate.style.opacity = '0';
+    contentGate.style.transition = 'opacity 0.2s ease';
+    setTimeout(function () { contentGate.remove(); }, 220);
+  });
+  document.getElementById('gate-leave').addEventListener('click', function () {
+    window.location.replace('https://www.google.com');
+  });
+
+  restoreSignupState();
 
 }());
 </script>

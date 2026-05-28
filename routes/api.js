@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 
+router.get('/me', (req, res) => {
+  res.json({ authenticated: !!req.session.userId });
+});
+
 router.get('/has-user', async (req, res) => {
   try {
     const count = await User.countDocuments();
