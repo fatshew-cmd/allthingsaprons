@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
 const session = require('express-session');
+const { MongoStore } = require('connect-mongo');
 require('dotenv').config();
 
 const pagesRouter      = require('./routes/pages');
@@ -21,7 +22,8 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax' },
+  store: MongoStore.create({ mongoUrl: process.env.MONGO_URI || 'mongodb://localhost:27017/allthingsaprons' }),
+  cookie: { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000 },
 }));
 
 app.set('view engine', 'ejs');

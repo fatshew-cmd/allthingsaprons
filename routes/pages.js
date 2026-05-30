@@ -60,6 +60,19 @@ router.get('/messages', (req, res) => {
   });
 });
 
+// ── Entry page (stub — fleshed out next) ─────────────────────────
+
+router.get('/entry/:id', async (req, res) => {
+  const entry = await Entry.findById(req.params.id).populate('userId', 'username avatar').catch(() => null);
+  if (!entry) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  res.render('entry', {
+    title:      entry.caption ? entry.caption.slice(0, 60) : 'Entry',
+    activePage: '',
+    currentUser: req.currentUser,
+    entry,
+  });
+});
+
 // ── Profile ───────────────────────────────────────────────────────
 
 router.get(['/profile', '/profile/:id'], async (req, res) => {
@@ -71,7 +84,7 @@ router.get(['/profile', '/profile/:id'], async (req, res) => {
     Entry.find({ userId: targetId }).sort({ createdAt: -1 }),
   ]);
 
-  if (!user) return res.status(404).render('404', { title: 'Not Found' });
+  if (!user) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
 
   const totalRatings = entries.reduce((s, e) => s + e.ratingCount, 0);
   const avgScore = entries.length
@@ -102,6 +115,49 @@ router.get('/settings', async (req, res) => {
     success: req.query.saved || null,
     error:   null,
   });
+});
+
+// ── Submit Entry ──────────────────────────────────────────────────
+
+router.get('/submit', (req, res) => {
+  res.render('submit', {
+    title:      'Submit Entry',
+    activePage: 'submit',
+    currentUser: req.currentUser,
+    error: null,
+  });
+});
+
+router.post('/submit', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), async (req, res) => {
+  const renderError = (msg) => res.render('submit', {
+    title: 'Submit Entry', activePage: 'submit', currentUser: req.currentUser, error: msg,
+  });
+
+  const file = req.files?.entryMedia?.[0];
+  if (!file) return renderError('Please upload a photo or video.');
+
+  const isVideo = file.mimetype.startsWith('video/');
+  if (!isVideo && file.size > 10 * 1024 * 1024) return renderError('Photo files must be under 10 MB.');
+
+  let tags = [];
+  if (req.body.tags) {
+    const raw = Array.isArray(req.body.tags) ? req.body.tags : [req.body.tags];
+    tags = raw.map(t => t.trim().toLowerCase()).filter(Boolean).slice(0, 6);
+  }
+
+  try {
+    const entry = await Entry.create({
+      userId:    req.session.userId,
+      mediaUrl:  `/uploads/entries/${file.filename}`,
+      mediaType: isVideo ? 'video' : 'photo',
+      caption:   req.body.caption?.trim() || undefined,
+      tags,
+    });
+    res.redirect(`/entry/${entry._id}`);
+  } catch (err) {
+    console.error('Entry submit error:', err);
+    renderError('Something went wrong. Please try again.');
+  }
 });
 
 router.post('/settings/profile', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (req, res) => {

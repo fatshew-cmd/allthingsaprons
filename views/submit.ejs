@@ -1,0 +1,237 @@
+<%- include('partials/appStart', { title: 'Submit Entry', activePage: 'submit' }) %>
+
+<div class="max-w-2xl mx-auto px-4 py-8 pb-24 md:pb-8">
+
+  <div class="mb-6">
+    <h1 class="text-xl font-black">Submit Entry</h1>
+    <p class="text-sm text-white/40 mt-1">Share your apron with the community — ratings start the moment you submit.</p>
+  </div>
+
+  <% if (error) { %>
+  <div class="flex items-center gap-2 text-sm text-red-400 bg-red-400/8 border border-red-400/20 rounded-md px-3 py-2.5 mb-6">
+    <iconify-icon icon="boxicons:error-circle" width="15" class="shrink-0"></iconify-icon>
+    <%= error %>
+  </div>
+  <% } %>
+
+  <form action="/submit" method="POST" enctype="multipart/form-data" id="submit-form" novalidate>
+
+    <!-- Media upload -->
+    <div class="flex flex-col gap-1.5 mb-5">
+      <label class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+        Photo or Video <span class="text-charm-500">*</span>
+      </label>
+      <label id="upload-zone" class="cursor-pointer block">
+        <div id="upload-placeholder"
+          class="border-2 border-dashed border-white/12 rounded-md p-14 flex flex-col items-center gap-3 text-white/35 hover:border-charm-600/40 hover:text-white/55 transition-colors">
+          <iconify-icon icon="boxicons:image-add" width="48"></iconify-icon>
+          <div class="text-center">
+            <p class="text-sm font-medium">Click to upload or drag &amp; drop</p>
+            <p class="text-xs mt-1 text-white/25">PNG, JPG, WEBP — max 10 MB &nbsp;·&nbsp; MP4, MOV — max 100 MB</p>
+          </div>
+        </div>
+        <div id="media-preview" class="hidden relative rounded-md overflow-hidden bg-shark-900">
+          <img id="preview-img" src="" alt="" class="hidden w-full max-h-96 object-contain">
+          <video id="preview-vid" src="" controls class="hidden w-full max-h-96"></video>
+          <div class="absolute top-2 right-2 bg-shark-950/80 rounded-md px-2 py-1 text-xs text-white/60 flex items-center gap-1.5 pointer-events-none">
+            <iconify-icon icon="boxicons:pencil" width="11"></iconify-icon>
+            Change
+          </div>
+        </div>
+        <input type="file" id="media-input" name="entryMedia" accept="image/*,video/*" class="hidden">
+      </label>
+      <p id="media-error" class="text-xs text-red-400 hidden"></p>
+    </div>
+
+    <!-- Caption -->
+    <div class="flex flex-col gap-1.5 mb-5">
+      <label for="caption" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+        Caption <span class="text-white/25 font-normal normal-case">(optional)</span>
+      </label>
+      <textarea id="caption" name="caption" rows="3" maxlength="500"
+        placeholder="Describe your design, materials, inspiration..."
+        class="w-full bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"></textarea>
+      <p class="text-xs text-white/25 text-right"><span id="caption-count">0</span>/500</p>
+    </div>
+
+    <!-- Tags -->
+    <div class="flex flex-col gap-1.5 mb-8">
+      <label class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+        Tags <span class="text-white/25 font-normal normal-case">(optional, up to 6)</span>
+      </label>
+      <div id="tag-input-wrap"
+        class="flex flex-wrap gap-2 items-center bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 min-h-11 cursor-text focus-within:border-charm-600/50 focus-within:ring-1 focus-within:ring-charm-600/25 transition-colors">
+        <input id="tag-input" type="text" placeholder="Add a tag…"
+          class="flex-1 min-w-24 bg-transparent text-sm text-white placeholder:text-white/20 outline-none">
+      </div>
+      <p class="text-xs text-white/25"><span id="tag-count">0</span>/6 &nbsp;·&nbsp; press Enter or comma to add</p>
+    </div>
+
+    <button type="submit" id="submit-btn"
+      class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-50 text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
+      Submit Entry
+    </button>
+
+  </form>
+
+</div>
+
+<style>
+  #upload-placeholder.drag-active {
+    border-color: rgba(221, 104, 144, 0.5);
+    background-color: rgba(221, 104, 144, 0.04);
+    color: rgba(255,255,255,0.55);
+  }
+</style>
+
+<script>
+(function () {
+  var form        = document.getElementById('submit-form');
+  var mediaInput  = document.getElementById('media-input');
+  var placeholder = document.getElementById('upload-placeholder');
+  var preview     = document.getElementById('media-preview');
+  var previewImg  = document.getElementById('preview-img');
+  var previewVid  = document.getElementById('preview-vid');
+  var mediaError  = document.getElementById('media-error');
+
+  // ── Media preview ────────────────────────────────────────────────
+
+  function showPreview(file) {
+    mediaError.classList.add('hidden');
+    var url = URL.createObjectURL(file);
+    if (file.type.startsWith('video/')) {
+      previewImg.classList.add('hidden');
+      previewVid.src = url;
+      previewVid.classList.remove('hidden');
+    } else {
+      previewVid.classList.add('hidden');
+      previewImg.src = url;
+      previewImg.classList.remove('hidden');
+    }
+    placeholder.classList.add('hidden');
+    preview.classList.remove('hidden');
+  }
+
+  mediaInput.addEventListener('change', function () {
+    if (this.files[0]) showPreview(this.files[0]);
+  });
+
+  // Drag and drop
+  var zone = document.getElementById('upload-zone');
+  zone.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    placeholder.classList.add('drag-active');
+  });
+  zone.addEventListener('dragleave', function () {
+    placeholder.classList.remove('drag-active');
+  });
+  zone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    placeholder.classList.remove('drag-active');
+    var file = e.dataTransfer.files[0];
+    if (!file) return;
+    var dt = new DataTransfer();
+    dt.items.add(file);
+    mediaInput.files = dt.files;
+    showPreview(file);
+  });
+
+  // ── Caption counter ──────────────────────────────────────────────
+
+  document.getElementById('caption').addEventListener('input', function () {
+    document.getElementById('caption-count').textContent = this.value.length;
+  });
+
+  // ── Tag input ────────────────────────────────────────────────────
+
+  var MAX_TAGS  = 6;
+  var tags      = [];
+  var tagInput  = document.getElementById('tag-input');
+  var tagWrap   = document.getElementById('tag-input-wrap');
+  var tagCountEl = document.getElementById('tag-count');
+
+  function updateTagUI() {
+    tagCountEl.textContent = tags.length;
+    tagInput.style.display = tags.length >= MAX_TAGS ? 'none' : '';
+    if (tags.length > 0 && tags.length < MAX_TAGS) tagInput.placeholder = 'Add another…';
+    if (tags.length === 0) tagInput.placeholder = 'Add a tag…';
+  }
+
+  function addTag(text) {
+    text = text.trim().toLowerCase().replace(/,/g, '');
+    if (!text || tags.includes(text) || tags.length >= MAX_TAGS) return;
+    tags.push(text);
+
+    var chip = document.createElement('span');
+    chip.className = 'inline-flex items-center gap-1 bg-shark-800 border border-white/15 rounded-md px-2 py-1 text-xs text-white/70';
+    chip.dataset.tag = text;
+    chip.innerHTML = '#' + text +
+      '<button type="button" class="text-white/30 hover:text-white/70 transition-colors cursor-pointer ml-0.5 leading-none">' +
+      '<iconify-icon icon="boxicons:x" width="12"></iconify-icon></button>';
+    chip.querySelector('button').addEventListener('click', function () {
+      removeTag(text, chip);
+    });
+    tagWrap.insertBefore(chip, tagInput);
+
+    var hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'tags';
+    hidden.value = text;
+    hidden.dataset.tag = text;
+    form.appendChild(hidden);
+
+    updateTagUI();
+  }
+
+  function removeTag(text, chip) {
+    tags = tags.filter(function (t) { return t !== text; });
+    chip.remove();
+    var hidden = form.querySelector('input[type="hidden"][data-tag="' + text + '"]');
+    if (hidden) hidden.remove();
+    updateTagUI();
+  }
+
+  tagInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addTag(this.value);
+      this.value = '';
+    } else if ((e.key === ',' || e.key === ' ') && this.value.trim()) {
+      e.preventDefault();
+      addTag(this.value);
+      this.value = '';
+    } else if (e.key === 'Backspace' && !this.value && tags.length) {
+      var lastTag = tags[tags.length - 1];
+      var chips = tagWrap.querySelectorAll('span[data-tag]');
+      var lastChip = chips[chips.length - 1];
+      if (lastChip) removeTag(lastTag, lastChip);
+    }
+  });
+
+  tagInput.addEventListener('input', function () {
+    if (this.value.includes(',')) {
+      this.value.split(',').forEach(function (p) { addTag(p); });
+      this.value = '';
+    }
+  });
+
+  tagWrap.addEventListener('click', function () { tagInput.focus(); });
+
+  // ── Form submit ──────────────────────────────────────────────────
+
+  form.addEventListener('submit', function (e) {
+    if (!mediaInput.files[0]) {
+      e.preventDefault();
+      mediaError.textContent = 'Please upload a photo or video.';
+      mediaError.classList.remove('hidden');
+      return;
+    }
+    var btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+  });
+
+}());
+</script>
+
+<%- include('partials/appEnd') %>

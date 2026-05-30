@@ -6,6 +6,7 @@
 
 @theme {
     --font-sans: 'Sofia Sans', sans-serif;
+    --font-gochi: 'Gochi Hand', cursive;
 
     /* Minor Third scale (×1.200) — base: 18px */
     --text-xs: 0.75rem;
