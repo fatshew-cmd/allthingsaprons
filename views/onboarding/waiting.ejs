@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <%- include('../partials/head') %>
-  <meta http-equiv="refresh" content="20">
 </head>
 <body class="min-h-screen bg-shark-950 text-white">
 
@@ -29,7 +28,7 @@
       <h1 class="text-2xl font-black mb-3">Your entry is under review</h1>
       <p class="text-white/40 text-sm leading-relaxed mb-8">
         <% if (username) { %><span class="text-white/70">@<%= username %></span>, your<% } else { %>Your<% } %>
-        submission is waiting for organizer approval. This usually takes a few minutes.
+        submission is waiting for organizer approval.
         Once approved, you'll have full access to the platform.
       </p>
 
@@ -60,7 +59,11 @@
         </div>
       </div>
 
-      <p class="text-xs text-white/20">This page refreshes automatically every 20 seconds.</p>
+      <button type="button" onclick="window.location.reload()"
+        class="w-full flex items-center justify-center gap-2 h-10 bg-shark-900 border border-white/10 rounded-md text-sm text-white/50 hover:text-white hover:bg-shark-800 transition-colors cursor-pointer">
+        <iconify-icon icon="boxicons:refresh" width="15"></iconify-icon>
+        Refresh
+      </button>
 
     </div>
   </div>

@@ -18,11 +18,14 @@
 
         <!-- Profile summary badge -->
         <div class="flex items-center gap-3.5 bg-shark-900 border border-white/8 rounded-md px-4 py-3 mb-5">
-          <div class="shrink-0 w-11 h-11 rounded-md overflow-hidden bg-shark-800 flex items-center justify-center">
+          <div class="shrink-0 w-11 h-11 rounded-full overflow-hidden bg-shark-800 flex items-center justify-center">
             <% if (profileUser.avatar) { %>
             <img src="<%= profileUser.avatar %>" alt="" class="w-full h-full object-cover">
             <% } else { %>
-            <iconify-icon icon="boxicons:user" width="22" class="text-white/25"></iconify-icon>
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" class="text-white/25">
+              <path d="M0 0h24v24H0z" fill="none" />
+              <path fill="currentColor" d="M12 2a5 5 0 1 0 0 10a5 5 0 1 0 0-10M4 22h16c.55 0 1-.45 1-1v-1c0-3.86-3.14-7-7-7h-4c-3.86 0-7 3.14-7 7v1c0 .55.45 1 1 1" />
+            </svg>
             <% } %>
           </div>
           <div class="min-w-0 flex-1 flex flex-col gap-0.5">
@@ -56,7 +59,7 @@
           Onboarding — Step 1 of 2 — Submit Your Entry
         </div>
         <h1 class="text-2xl font-black">
-          <% if (wasRejected) { %>Your previous entry was rejected.<br>Submit a new one to try again.<% } else { %>Submit your entry to get started<% } %>
+          <% if (wasRejected) { %>Your previous entry was rejected.<br>Submit a new one to try again.<% } else { %>Submit your first ever entry to validate your account<% } %>
         </h1>
         <p class="text-white/40 mt-2 text-sm leading-relaxed">
           Membership is earned through competition. Submit an entry to one of the open tournaments below — once an organizer approves it, you'll have full access.
@@ -88,28 +91,33 @@
 
         <!-- Tournament selection -->
         <div class="mb-8">
-          <h2 class="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Open Tournaments</h2>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-xs font-bold text-white/40 uppercase tracking-wider">Open Tournaments</h2>
+            <span class="text-xs text-white/30"><%= tournaments.length %> open</span>
+          </div>
           <div class="relative mb-4">
             <iconify-icon icon="boxicons:search" width="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"></iconify-icon>
             <input id="tournament-search" type="text" placeholder="Search tournaments…"
               class="w-full h-10 bg-shark-900 border border-white/10 rounded-md pl-8 pr-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-charm-600/40 transition-colors" />
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="tournament-list">
-            <% tournaments.forEach(function(t) { %>
+            <% tournaments.forEach(function(t, idx) { %>
             <div class="tournament-card cursor-pointer bg-shark-900 border border-white/10 rounded-md overflow-hidden hover:bg-shark-800 transition-colors"
-                 data-id="<%= t._id %>" data-name="<%= t.name %>">
+                 data-id="<%= t._id %>" data-name="<%= t.name %>" data-index="<%= idx %>">
 
               <!-- Cover (square, placeholder) -->
-              <div class="aspect-square relative flex items-center justify-center <%= t.type === 'platform' ? 'bg-charm-600/8' : 'bg-blue-600/8' %>">
+              <div class="aspect-square flex items-center justify-center <%= t.type === 'platform' ? 'bg-charm-600/8' : 'bg-blue-600/8' %>">
                 <iconify-icon icon="boxicons:trophy" width="56" class="<%= t.type === 'platform' ? 'text-charm-400/20' : 'text-blue-400/20' %>"></iconify-icon>
-                <div class="absolute top-2 right-2 w-5 h-5 rounded-md border-2 border-white/25 bg-shark-950/60 flex items-center justify-center" id="check-<%= t._id %>"></div>
               </div>
 
               <!-- Body -->
               <div class="p-4 flex flex-col gap-2.5">
-                <p class="font-bold text-sm leading-snug" style="-webkit-line-clamp:2;-webkit-box-orient:vertical;display:-webkit-box;overflow:hidden"><%= t.name %></p>
+                <p class="font-bold text-sm leading-snug" style="-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;display:-webkit-box;overflow:hidden"><%= t.name %></p>
                 <% if (t.description) { %>
-                <p class="text-xs text-white/40 leading-relaxed" style="-webkit-line-clamp:2;-webkit-box-orient:vertical;display:-webkit-box;overflow:hidden"><%= t.description %></p>
+                <div>
+                  <p class="desc-text text-xs text-white/40 leading-relaxed" style="-webkit-line-clamp:3;line-clamp:3;-webkit-box-orient:vertical;display:-webkit-box;overflow:hidden"><%= t.description %></p>
+                  <button type="button" class="read-more-btn hidden text-xs text-charm-400/70 hover:text-charm-400 mt-1 transition-colors cursor-pointer">Read more</button>
+                </div>
                 <% } %>
 
                 <!-- Tags -->
@@ -132,10 +140,8 @@
                 <!-- Organizer -->
                 <div class="flex items-center gap-1.5 text-xs text-white/30 border-t border-white/6 pt-2.5">
                   <span class="text-white/45">by @<%= t.createdBy && t.createdBy.username ? t.createdBy.username : 'admin' %></span>
-                  <% if (t.organizerCount > 1) { %>
                   <span class="text-white/20">—</span>
-                  <span><%= t.organizerCount %> tournaments</span>
-                  <% } %>
+                  <span><%= t.organizerCount %> <%= t.organizerCount === 1 ? 'tournament' : 'tournaments' %></span>
                 </div>
 
                 <!-- Participate -->
@@ -151,6 +157,14 @@
           </div>
           <p id="tournament-error" class="text-xs text-red-400 hidden mt-2"></p>
           <div id="search-empty" class="hidden py-14 text-center text-white/30 text-sm">No tournaments match your search.</div>
+
+          <!-- Load More -->
+          <div id="load-more-wrap" class="mt-6 flex justify-center">
+            <button type="button" id="load-more-btn"
+              class="px-6 py-2.5 bg-shark-900 border border-white/10 rounded-md text-sm text-white/60 hover:text-white hover:bg-shark-800 transition-colors cursor-pointer">
+              Load More
+            </button>
+          </div>
         </div>
 
         <!-- Participate modal -->
@@ -219,29 +233,62 @@
 
 <script>
 (function () {
-  var selectedId = '';
-  var modal      = document.getElementById('participate-modal');
+  var PAGE_SIZE   = 6;
+  var visibleLimit = PAGE_SIZE;
+  var allCards    = Array.from(document.querySelectorAll('.tournament-card'));
+  var totalCards  = allCards.length;
+  var searching   = false;
+
+  // ── Pagination ─────────────────────────────────────────────
+  function applyPageLimit() {
+    allCards.forEach(function (card) {
+      var idx = parseInt(card.dataset.index, 10);
+      card.style.display = idx < visibleLimit ? '' : 'none';
+    });
+    var wrap = document.getElementById('load-more-wrap');
+    if (wrap) wrap.style.display = visibleLimit >= totalCards ? 'none' : '';
+  }
+
+  applyPageLimit();
+
+  var loadMoreBtn = document.getElementById('load-more-btn');
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', function () {
+      visibleLimit += PAGE_SIZE;
+      applyPageLimit();
+    });
+  }
+
+  // ── Read more ──────────────────────────────────────────────
+  allCards.forEach(function (card) {
+    var desc = card.querySelector('.desc-text');
+    var btn  = card.querySelector('.read-more-btn');
+    if (!desc || !btn) return;
+    if (desc.scrollHeight > desc.clientHeight) {
+      btn.classList.remove('hidden');
+    }
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      desc.style.webkitLineClamp = '';
+      desc.style.webkitBoxOrient = '';
+      desc.style.display         = '';
+      desc.style.overflow        = '';
+      btn.classList.add('hidden');
+    });
+  });
 
   // ── Modal helpers ──────────────────────────────────────────
+  var modal = document.getElementById('participate-modal');
+
   function openModal(id, name) {
-    selectedId = id;
     document.getElementById('tournamentId').value = id;
     document.getElementById('modal-tournament-name').textContent = name;
 
-    document.querySelectorAll('.tournament-card').forEach(function (c) {
+    allCards.forEach(function (c) {
       c.classList.remove('border-charm-600', 'bg-charm-600/5');
-      var chk = document.getElementById('check-' + c.dataset.id);
-      if (chk) { chk.innerHTML = ''; chk.style.borderColor = ''; }
     });
     var card = document.querySelector('.tournament-card[data-id="' + id + '"]');
-    if (card) {
-      card.classList.add('border-charm-600', 'bg-charm-600/5');
-      var chk = document.getElementById('check-' + id);
-      if (chk) {
-        chk.innerHTML = '<iconify-icon icon="boxicons:check" width="12" class="text-charm-400"></iconify-icon>';
-        chk.style.borderColor = 'rgba(199,59,100,0.6)';
-      }
-    }
+    if (card) card.classList.add('border-charm-600', 'bg-charm-600/5');
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -297,15 +344,24 @@
   var searchInput = document.getElementById('tournament-search');
   if (searchInput) {
     searchInput.addEventListener('input', function () {
-      var q     = this.value.trim().toLowerCase();
-      var cards = document.querySelectorAll('.tournament-card');
+      var q    = this.value.trim().toLowerCase();
+      var wrap = document.getElementById('load-more-wrap');
       var shown = 0;
-      cards.forEach(function (card) {
-        var text  = card.textContent.toLowerCase();
-        var match = !q || text.includes(q);
-        card.style.display = match ? '' : 'none';
-        if (match) shown++;
-      });
+
+      if (q) {
+        searching = true;
+        allCards.forEach(function (card) {
+          var match = card.textContent.toLowerCase().includes(q);
+          card.style.display = match ? '' : 'none';
+          if (match) shown++;
+        });
+        if (wrap) wrap.style.display = 'none';
+      } else {
+        searching = false;
+        applyPageLimit();
+        shown = Math.min(visibleLimit, totalCards);
+      }
+
       var empty = document.getElementById('search-empty');
       if (empty) empty.classList.toggle('hidden', shown > 0);
     });

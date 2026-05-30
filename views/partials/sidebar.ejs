@@ -2,7 +2,8 @@
 
   <!-- Logo -->
   <div class="flex items-center justify-center xl:justify-start h-16 px-4 xl:px-5 border-b border-white/10 shrink-0">
-    <img src="/images/logo.png" alt="All Things Aprons" class="h-9 w-9 object-contain shrink-0" />
+    <img src="/assets/logo/ata_logo_concept_001.png" alt="All Things Aprons" class="h-12 w-12 object-contain shrink-0" />
+    <span class="font-black text-charm-500 tracking-tight whitespace-nowrap overflow-hidden hidden xl:inline ml-2.5 text-lg">AllThingsAprons</span>
   </div>
 
   <!-- Nav links -->
@@ -16,8 +17,7 @@
         { href: '#',              label: 'Marketplace',   page: 'marketplace',   icon: 'boxicons:shopping-bag',      iconActive: 'boxicons:shopping-bag-filled', future: true },
         { href: '/notifications', label: 'Notifications', page: 'notifications', icon: 'boxicons:bell',              iconActive: 'boxicons:bell-ring' },
         { href: '/messages',      label: 'Messages',      page: 'messages',      icon: 'boxicons:message-bubble-dots',   iconActive: 'boxicons:message-bubble-dots-filled' },
-        { href: '/profile',       label: 'Profile',       page: 'profile',       icon: 'boxicons:user',              iconActive: 'boxicons:user-filled' },
-        { href: '/settings',      label: 'Settings',      page: 'settings',      icon: 'boxicons:cog',               iconActive: 'boxicons:cog-filled' },
+{ href: '/settings',      label: 'Settings',      page: 'settings',      icon: 'boxicons:cog',               iconActive: 'boxicons:cog-filled' },
       ];
     %>
 
@@ -34,6 +34,28 @@
       </a>
     <% }) %>
   </nav>
+
+  <!-- Profile Card -->
+  <% if (typeof currentUser !== 'undefined' && currentUser) { %>
+  <div class="px-2 xl:px-3 py-3 shrink-0">
+    <a href="/profile" class="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-white/5 transition-colors">
+      <div class="w-12 h-12 rounded-full shrink-0 overflow-hidden bg-charm-700/30 flex items-center justify-center">
+        <% if (currentUser.avatar) { %>
+          <img src="<%= currentUser.avatar %>" alt="<%= currentUser.username %>" class="w-full h-full object-cover" />
+        <% } else { %>
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" class="text-charm-400">
+            <path d="M0 0h24v24H0z" fill="none" />
+            <path fill="currentColor" d="M12 2a5 5 0 1 0 0 10a5 5 0 1 0 0-10M4 22h16c.55 0 1-.45 1-1v-1c0-3.86-3.14-7-7-7h-4c-3.86 0-7 3.14-7 7v1c0 .55.45 1 1 1" />
+          </svg>
+        <% } %>
+      </div>
+      <div class="hidden xl:flex flex-col min-w-0">
+        <span class="text-sm font-semibold text-white truncate">@<%= currentUser.username || 'user' %></span>
+        <span class="text-xs text-white/40 truncate"><%= currentUser.email %></span>
+      </div>
+    </a>
+  </div>
+  <% } %>
 
   <!-- Submit CTA -->
   <div class="px-2 xl:px-3 py-4 border-t border-white/10 shrink-0">

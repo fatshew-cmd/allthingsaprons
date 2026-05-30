@@ -21,13 +21,14 @@ function genOtp() {
 router.get('/signup', async (req, res) => {
   if (req.session.userId) {
     const user = await User.findById(req.session.userId)
-      .select('accountStatus username email avatar bio sex orientation location birthdate');
+      .select('accountStatus username displayName email avatar bio sex orientation location birthdate');
     if (!user || user.accountStatus !== 'onboarding') return res.redirect('/onboarding');
     return res.render('signup', {
       title: 'Edit Profile',
       error: null,
       editUser: {
         username:    user.username    || '',
+        displayName: user.displayName || '',
         email:       user.email       || '',
         bio:         user.bio         || '',
         sex:         user.sex         || '',
@@ -88,7 +89,7 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
 
   try {
     const {
-      username, email, password, confirmPassword,
+      username, displayName, email, password, confirmPassword,
       bio, sex, orientation, location, birthdate, otp,
     } = req.body;
 
@@ -97,12 +98,17 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
       return renderError('Invalid or expired verification code. Please go back and try again.');
     }
 
-    if (!username || !email || !sex || !birthdate) {
+    if (!username || !displayName || !email || !sex || !birthdate) {
       return renderError('Please complete all required fields.');
     }
     if (!/^[a-zA-Z][a-zA-Z0-9]{2,14}$/.test(username)) {
       return renderError('Username must start with a letter, contain only letters and digits, and be 3–15 characters.');
     }
+    const displayNameTrimmed = displayName.trim();
+    const displayNameWords   = displayNameTrimmed.split(/\s+/).filter(Boolean).length;
+    if (!displayNameTrimmed) return renderError('Display name is required.');
+    if (displayNameWords > 3) return renderError('Display name can be at most 3 words.');
+    if (displayNameTrimmed.length > 50) return renderError('Display name cannot exceed 50 characters.');
     if (bio && bio.trim().length > 0 && (bio.trim().length < 20 || bio.trim().length > 220)) {
       return renderError('Bio must be between 20 and 220 characters.');
     }
@@ -125,6 +131,7 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
 
       const updateData = {
         username:       username.toLowerCase().trim(),
+        displayName:    displayNameTrimmed,
         email:          email.toLowerCase().trim(),
         bio:            bio || undefined,
         sex,
@@ -185,6 +192,7 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
 
     const user = await User.create({
       username:         username.toLowerCase().trim(),
+      displayName:      displayNameTrimmed,
       email:            email.toLowerCase().trim(),
       password:         hashedPassword,
       bio:              bio || undefined,

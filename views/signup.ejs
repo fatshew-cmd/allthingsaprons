@@ -25,7 +25,7 @@
   <!-- Top bar -->
   <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
     <a href="/">
-      <img src="/images/logo.png" alt="All Things Aprons" class="h-12 w-12 object-contain" />
+      <img src="/assets/logo/ata_logo_concept_001.png" alt="All Things Aprons" class="h-12 w-12 object-contain" />
     </a>
     <div class="flex items-center gap-3 text-sm">
       <div class="flex items-center gap-2">
@@ -88,6 +88,21 @@
               </div>
               <p id="username-hint" class="text-xs text-white/25">Letters &amp; digits only. Must start with a letter. 3–15 chars.</p>
               <p id="username-error" class="text-xs text-red-400 hidden"></p>
+            </div>
+
+            <!-- Display Name -->
+            <div class="flex flex-col gap-1.5">
+              <div class="flex items-center justify-between">
+                <label for="display-name" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+                  Display Name <span class="text-charm-500">*</span>
+                </label>
+                <span id="display-name-counter" class="text-xs" style="color:rgba(255,255,255,0.3)">0 / 50</span>
+              </div>
+              <input id="display-name" name="displayName" type="text" placeholder="Your Name"
+                autocomplete="off" maxlength="50"
+                class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+              <p class="text-xs text-white/25">Your public name. Up to 3 words, 50 chars max.</p>
+              <p id="display-name-error" class="text-xs text-red-400 hidden"></p>
             </div>
 
             <!-- Email -->
@@ -570,6 +585,19 @@
     checkContinueEnabled();
   });
 
+  // ── Display name validation ────────────────────────────────
+  document.getElementById('display-name').addEventListener('input', function () {
+    var val     = this.value;
+    var trimmed = val.trim();
+    var words   = trimmed.length ? trimmed.split(/\s+/).filter(Boolean).length : 0;
+    var counter = document.getElementById('display-name-counter');
+    counter.textContent = val.length + ' / 50';
+    counter.style.color = val.length === 0 ? 'rgba(255,255,255,0.3)' : val.length > 45 ? '#fbbf24' : '#4ade80';
+    clearErr('display-name-error');
+    if (words > 3) showErr('display-name-error', 'Display name can be at most 3 words');
+    checkContinueEnabled();
+  });
+
   // ── Username availability ──────────────────────────────────
   var usernameTimer = null;
   var USERNAME_RE   = /^[a-zA-Z][a-zA-Z0-9]{2,14}$/;
@@ -623,7 +651,9 @@
 
   // ── Enable / disable Continue ──────────────────────────────
   function checkContinueEnabled() {
-    var username  = document.getElementById('username').value.trim();
+    var username    = document.getElementById('username').value.trim();
+    var displayName = document.getElementById('display-name').value.trim();
+    var displayNameWords = displayName.length ? displayName.split(/\s+/).filter(Boolean).length : 0;
     var email     = document.getElementById('email').value.trim();
     var password  = document.getElementById('password').value;
     var confirm   = document.getElementById('confirm-password').value;
@@ -637,6 +667,7 @@
     var ok = (
       USERNAME_RE.test(username) &&
       usernameStatus !== 'taken' && usernameStatus !== 'invalid' &&
+      displayName.length > 0 && displayName.length <= 50 && displayNameWords <= 3 &&
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) &&
       passwordOk &&
       sex !== '' &&
@@ -666,7 +697,8 @@
   // ── Step 1 final validation ────────────────────────────────
   function validateStep1() {
     var valid    = true;
-    var username  = document.getElementById('username').value.trim();
+    var username    = document.getElementById('username').value.trim();
+    var displayName = document.getElementById('display-name').value.trim();
     var email     = document.getElementById('email').value.trim();
     var password  = document.getElementById('password').value;
     var confirm   = document.getElementById('confirm-password').value;
@@ -674,6 +706,8 @@
     var birthdate = document.getElementById('birthdate').value;
     var bio       = document.getElementById('bio').value.trim();
     if (!USERNAME_RE.test(username)) { showErr('username-error', 'Must start with a letter, letters & digits only, 3–15 chars'); valid = false; }
+    if (!displayName) { showErr('display-name-error', 'Display name is required'); valid = false; }
+    else if (displayName.split(/\s+/).filter(Boolean).length > 3) { showErr('display-name-error', 'Display name can be at most 3 words'); valid = false; }
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('email-error', 'A valid email is required'); valid = false; }
     if (SERVER_EDIT) {
       if (password.length > 0 || confirm.length > 0) {
@@ -762,6 +796,7 @@
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
         step:            currentStep,
         username:        document.getElementById('username').value,
+        displayName:     document.getElementById('display-name').value,
         email:           document.getElementById('email').value,
         password:        document.getElementById('password').value,
         confirmPassword: document.getElementById('confirm-password').value,
@@ -786,6 +821,13 @@
     if (!s) return;
 
     if (s.username)        document.getElementById('username').value    = s.username;
+    if (s.displayName) {
+      var dnEl  = document.getElementById('display-name');
+      var dnCtr = document.getElementById('display-name-counter');
+      dnEl.value     = s.displayName;
+      dnCtr.textContent = s.displayName.length + ' / 50';
+      dnCtr.style.color = s.displayName.length === 0 ? 'rgba(255,255,255,0.3)' : s.displayName.length > 45 ? '#fbbf24' : '#4ade80';
+    }
     if (s.email)           document.getElementById('email').value       = s.email;
     if (s.location)        document.getElementById('location').value    = s.location;
     if (s.birthdate)       document.getElementById('birthdate').value   = s.birthdate;
