@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="min-h-screen bg-gray-50">
+  <%- include('../partials/adminNav') %>
+
+  <main class="max-w-5xl mx-auto px-6 py-10">
+    <h1 class="text-2xl font-bold mb-2">Entry Review</h1>
+    <p class="text-gray-500 mb-8">Approve or reject pending tournament submissions.</p>
+
+    <% if (!entries || !entries.length) { %>
+    <div class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+      <p class="text-gray-400 font-medium">No pending entries.</p>
+      <p class="text-gray-300 text-sm mt-1">All submissions have been reviewed.</p>
+    </div>
+    <% } else { %>
+
+    <div class="flex flex-col gap-6">
+      <% entries.forEach(function(e) { %>
+      <div class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+        <div class="flex flex-col sm:flex-row">
+
+          <!-- Entry photo -->
+          <div class="sm:w-48 sm:shrink-0 bg-gray-100">
+            <% if (e.entryId && e.entryId.mediaUrl) { %>
+            <img src="<%= e.entryId.mediaUrl %>" alt="Entry" class="w-full h-48 sm:h-full object-cover">
+            <% } else { %>
+            <div class="w-full h-48 flex items-center justify-center text-gray-300">No photo</div>
+            <% } %>
+          </div>
+
+          <!-- Info -->
+          <div class="flex-1 p-5 flex flex-col gap-3">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="font-bold text-lg">
+                  <%= e.userId ? '@' + (e.userId.username || 'unknown') : 'Unknown user' %>
+                </p>
+                <p class="text-sm text-gray-400"><%= e.userId ? e.userId.email : '' %></p>
+              </div>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                Pending
+              </span>
+            </div>
+
+            <% if (e.tournamentId) { %>
+            <p class="text-sm text-gray-500">
+              <span class="font-medium text-gray-700">Tournament:</span> <%= e.tournamentId.name %>
+            </p>
+            <% } %>
+
+            <% if (e.entryId && e.entryId.caption) { %>
+            <p class="text-sm text-gray-600 italic">"<%= e.entryId.caption %>"</p>
+            <% } %>
+
+            <p class="text-xs text-gray-400">
+              Submitted: <%= new Date(e.submittedAt).toLocaleString() %>
+            </p>
+
+            <!-- Actions -->
+            <div class="flex gap-3 mt-auto pt-2">
+              <form action="/admin/entries/<%= e._id %>/approve" method="POST">
+                <button type="submit"
+                  class="px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+                  Approve
+                </button>
+              </form>
+              <form action="/admin/entries/<%= e._id %>/reject" method="POST">
+                <button type="submit"
+                  class="px-5 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+                  Reject
+                </button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <% }); %>
+    </div>
+
+    <% } %>
+  </main>
+</body>
+</html>

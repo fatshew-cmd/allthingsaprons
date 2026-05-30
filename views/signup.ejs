@@ -24,7 +24,9 @@
 
   <!-- Top bar -->
   <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
-    <a href="/" class="font-black text-lg text-charm-500 tracking-tight">AllThingsAprons</a>
+    <a href="/">
+      <img src="/images/logo.png" alt="All Things Aprons" class="h-12 w-12 object-contain" />
+    </a>
     <div class="flex items-center gap-3 text-sm">
       <div class="flex items-center gap-2">
         <div id="step-1-num" class="w-6 h-6 rounded-md bg-charm-600 text-white text-xs font-bold flex items-center justify-center transition-colors">1</div>
@@ -33,7 +35,7 @@
       <div class="w-8 h-px bg-white/15"></div>
       <div class="flex items-center gap-2">
         <div id="step-2-num" class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center transition-colors">2</div>
-        <span id="step-2-label" class="text-white/30 hidden sm:inline transition-colors">Contest Entry</span>
+        <span id="step-2-label" class="text-white/30 hidden sm:inline transition-colors">Verify Email</span>
       </div>
     </div>
     <a href="/login" class="text-sm text-white/35 hover:text-white/60 transition-colors">Log in</a>
@@ -41,6 +43,7 @@
 
   <div class="flex justify-center px-4 py-10 pb-20">
     <form id="signup-form" action="/signup" method="POST" enctype="multipart/form-data" novalidate class="w-full">
+      <input type="hidden" name="otp" id="otp-hidden">
 
       <!-- ── STEP 1 ── -->
       <div id="step-1-content" class="max-w-2xl mx-auto">
@@ -295,8 +298,8 @@
         </div><!-- /flex row -->
       </div><!-- /step-1 -->
 
-      <!-- ── STEP 2 ── -->
-      <div id="step-2-content" class="hidden max-w-2xl mx-auto">
+      <!-- ── STEP 2: OTP Verification ── -->
+      <div id="step-2-content" class="hidden max-w-sm mx-auto">
 
         <button type="button" id="back-btn"
           class="flex items-center gap-1.5 text-white/40 hover:text-white transition-colors text-sm mb-7 cursor-pointer">
@@ -304,117 +307,41 @@
           Back
         </button>
 
-        <div class="mb-6">
-          <h2 class="text-2xl font-black">Enter a live contest</h2>
-          <p class="text-white/40 mt-1 text-sm">Pick one contest and submit your apron to complete your signup.</p>
+        <div class="text-center mb-8">
+          <iconify-icon icon="boxicons:envelope-open" width="40" class="text-charm-400 mb-4 block mx-auto"></iconify-icon>
+          <h2 class="text-2xl font-black">Check your email</h2>
+          <p id="otp-sent-to" class="text-white/40 mt-2 text-sm leading-relaxed">We sent a 6-digit code to your email address.</p>
         </div>
 
-        <!-- Search -->
-        <div class="relative mb-6">
-          <iconify-icon icon="boxicons:search" width="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"></iconify-icon>
-          <input id="contest-search" type="text" placeholder="Search by name or theme…"
-            class="w-full bg-shark-900 border border-white/10 rounded-md pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
-        </div>
+        <div class="bg-shark-900 border border-white/8 rounded-md p-6 flex flex-col gap-5">
 
-        <input type="hidden" name="contestId" id="contestId" value="">
-
-        <!-- Live Now -->
-        <% const activeC = contests.filter(c => c.status === 'active'); %>
-        <% if (activeC.length) { %>
-        <section id="section-active" class="mb-6">
-          <h3 class="text-xs font-bold text-white/40 uppercase tracking-wider mb-4">Live Now</h3>
-          <div class="grid grid-cols-3 gap-3" id="active-grid">
-            <% activeC.forEach(comp => { %>
-            <div class="contest-card flex flex-col rounded-md bg-white/5 border border-white/10 overflow-hidden hover:bg-white/8 transition-all cursor-pointer"
-                 data-contest-id="<%= comp._id %>" data-contest-title="<%= comp.title %>" data-status="active"
-                 data-search="<%= (comp.title + ' ' + comp.theme).toLowerCase() %>">
-              <div class="w-full aspect-square bg-white/10 shrink-0 relative">
-                <img src="<%= comp.coverUrl %>" class="w-full h-full object-cover" alt="<%= comp.title %>" loading="lazy" />
-                <span class="absolute top-2 right-2 text-[9px] font-semibold uppercase tracking-wide text-green-400 bg-green-400/15 backdrop-blur-sm px-1.5 py-0.5 rounded-md">Live</span>
-                <div class="contest-check-overlay absolute inset-0 bg-charm-600/50 flex items-center justify-center opacity-0 transition-opacity pointer-events-none">
-                  <iconify-icon icon="boxicons:check-circle" width="36" class="text-white"></iconify-icon>
-                </div>
-              </div>
-              <div class="flex flex-col flex-1 p-3">
-                <p class="text-sm font-bold leading-tight mb-0.5 truncate"><%= comp.title %></p>
-                <p class="text-xs text-white/40 truncate"><%= comp.theme %></p>
-                <div class="flex items-center justify-between text-xs text-white/35 mt-2">
-                  <span class="text-green-400 font-medium"><%= comp.daysLeft %>d left</span>
-                  <span><%= comp.submissionCount %> entries</span>
-                </div>
-              </div>
-            </div>
-            <% }) %>
-          </div>
-        </section>
-        <% } %>
-
-        <% if (!activeC || !activeC.length) { %>
-        <div class="flex flex-col items-center justify-center py-16 text-center">
-          <iconify-icon icon="boxicons:trophy" width="36" class="text-white/15 mb-3"></iconify-icon>
-          <p class="text-white/40 text-sm">No contests available right now</p>
-        </div>
-        <% } %>
-
-        <div id="entry-form" class="hidden mt-8 bg-shark-900 border border-white/8 rounded-md p-6">
-          <h3 class="font-semibold text-base mb-5">
-            Your entry for <span id="selected-contest-name" class="text-charm-400"></span>
-          </h3>
-
-          <div class="flex flex-col gap-1.5 mb-5">
+          <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-              Apron Photo <span class="text-charm-500">*</span>
+              Verification Code <span class="text-charm-500">*</span>
             </label>
-            <label id="entry-upload-zone" class="cursor-pointer block">
-              <div id="entry-placeholder"
-                class="border-2 border-dashed border-white/12 rounded-md p-10 flex flex-col items-center gap-3 text-white/35 hover:border-charm-600/40 hover:text-white/55 transition-colors">
-                <iconify-icon icon="boxicons:image-add" width="40"></iconify-icon>
-                <div class="text-center">
-                  <p class="text-sm font-medium">Click to upload or drag & drop</p>
-                  <p class="text-xs mt-0.5 text-white/25">PNG, JPG, WEBP — max 10 MB</p>
-                </div>
-              </div>
-              <div id="entry-preview-container" class="hidden relative rounded-md overflow-hidden">
-                <img id="entry-preview-img" src="" alt="Entry preview" class="w-full max-h-80 object-cover rounded-md">
-                <div class="absolute top-2 right-2 bg-shark-950/80 rounded-md px-2 py-1 text-xs text-white/60 flex items-center gap-1 pointer-events-none">
-                  <iconify-icon icon="boxicons:pencil" width="11"></iconify-icon>
-                  Change
-                </div>
-              </div>
-              <input type="file" name="entryPhoto" id="entry-input" accept="image/*" class="hidden">
-            </label>
-            <p id="entry-error" class="text-xs text-red-400 hidden"></p>
-          </div>
-
-          <div class="flex flex-col gap-1.5 mb-5">
-            <label for="entry-title" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-              Entry Title <span class="text-charm-500">*</span>
-            </label>
-            <input id="entry-title" name="entryTitle" type="text" placeholder="Give your apron a name"
-              class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
-            <p id="entry-title-error" class="text-xs text-red-400 hidden"></p>
-          </div>
-
-          <div class="flex flex-col gap-1.5 mb-6">
-            <label for="entry-description" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-              Description <span class="text-white/25 font-normal normal-case">(optional)</span>
-            </label>
-            <textarea id="entry-description" name="entryDescription" rows="3"
-              placeholder="Describe your design, materials, inspiration..."
-              class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"></textarea>
+            <input id="otp-input" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+              placeholder="000000" autocomplete="one-time-code"
+              class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-3 text-xl text-white text-center tracking-[0.5em] placeholder:text-white/20 placeholder:tracking-normal focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+            <p id="otp-error" class="text-xs text-red-400 hidden"></p>
           </div>
 
           <% if (typeof error !== 'undefined' && error) { %>
-          <p class="text-sm text-red-400 mb-4 flex items-center gap-1.5">
+          <p class="text-sm text-red-400 flex items-center gap-1.5">
             <iconify-icon icon="boxicons:error-circle" width="15"></iconify-icon>
             <%= error %>
           </p>
           <% } %>
 
           <button type="submit" id="submit-btn"
-            class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
-            Complete Sign Up
+            class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-35 disabled:cursor-not-allowed text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
+            Verify &amp; Create Account
           </button>
+
+          <p class="text-center text-xs text-white/30">
+            Didn't get it?
+            <button type="button" id="resend-otp-btn" class="text-charm-400 hover:text-charm-300 transition-colors cursor-pointer">Resend code</button>
+          </p>
+
         </div>
 
       </div><!-- /step-2 -->
@@ -430,6 +357,7 @@
   var allPasswordReqsMet = false;
   var currentStep        = 1;
   var STORAGE_KEY        = 'atap_signup';
+  var SERVER_EDIT        = <%- (typeof editUser !== 'undefined' && editUser) ? JSON.stringify(editUser) : 'null' %>;
 
   // ── Utilities ──────────────────────────────────────────────
   function showErr(id, msg) {
@@ -553,7 +481,6 @@
 
   <% if (typeof error !== 'undefined' && error) { %>
   showStep(2);
-  document.getElementById('entry-form').classList.remove('hidden');
   <% } %>
 
   // ── Avatar preview ─────────────────────────────────────────
@@ -661,6 +588,13 @@
       checkContinueEnabled();
       return;
     }
+    if (SERVER_EDIT && val.toLowerCase() === (SERVER_EDIT.username || '').toLowerCase()) {
+      statusEl.innerHTML = mkIcon('boxicons:check-circle', '#4ade80');
+      statusEl.classList.remove('hidden');
+      usernameStatus = 'available';
+      checkContinueEnabled();
+      return;
+    }
     usernameStatus = 'checking';
     statusEl.innerHTML = mkIcon('boxicons:loader-alt', 'rgba(255,255,255,0.3)');
     statusEl.classList.remove('hidden');
@@ -697,12 +631,14 @@
     var birthdate = document.getElementById('birthdate').value;
     var bio       = document.getElementById('bio').value.trim();
     var terms     = document.getElementById('agree-terms').checked;
+    var passwordOk = SERVER_EDIT
+      ? (password.length === 0 || (allPasswordReqsMet && confirm === password))
+      : (allPasswordReqsMet && confirm.length > 0 && password === confirm);
     var ok = (
       USERNAME_RE.test(username) &&
       usernameStatus !== 'taken' && usernameStatus !== 'invalid' &&
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) &&
-      allPasswordReqsMet &&
-      confirm.length > 0 && password === confirm &&
+      passwordOk &&
       sex !== '' &&
       birthdate !== '' &&
       (bio.length === 0 || bio.length >= 20) &&
@@ -739,128 +675,120 @@
     var bio       = document.getElementById('bio').value.trim();
     if (!USERNAME_RE.test(username)) { showErr('username-error', 'Must start with a letter, letters & digits only, 3–15 chars'); valid = false; }
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('email-error', 'A valid email is required'); valid = false; }
-    if (!allPasswordReqsMet) { valid = false; }
-    if (!confirm || password !== confirm) { showErr('confirm-password-error', 'Passwords do not match'); valid = false; }
+    if (SERVER_EDIT) {
+      if (password.length > 0 || confirm.length > 0) {
+        if (!allPasswordReqsMet) { valid = false; }
+        if (password !== confirm) { showErr('confirm-password-error', 'Passwords do not match'); valid = false; }
+      }
+    } else {
+      if (!allPasswordReqsMet) { valid = false; }
+      if (!confirm || password !== confirm) { showErr('confirm-password-error', 'Passwords do not match'); valid = false; }
+    }
     if (!sex) { showErr('sex-error', 'Please select your sex'); valid = false; }
     if (!birthdate) { showErr('birthdate-error', 'Date of birth is required'); valid = false; }
     if (bio.length > 0 && bio.length < 20) { showErr('bio-error', 'Bio must be at least 20 characters'); valid = false; }
     return valid;
   }
 
-  // ── Continue button ────────────────────────────────────────
-  document.getElementById('next-btn').addEventListener('click', function () {
+  // ── Continue button — sends OTP ───────────────────────────
+  document.getElementById('next-btn').addEventListener('click', async function () {
     if (!validateStep1()) return;
-    var btn = document.getElementById('next-btn');
+    var btn      = document.getElementById('next-btn');
     btn.disabled = true;
-    btn.textContent = 'Checking…';
+    btn.textContent = 'Sending code…';
     var username = document.getElementById('username').value.trim().toLowerCase();
     var email    = document.getElementById('email').value.trim().toLowerCase();
-    fetch('/api/check-signup?username=' + encodeURIComponent(username) + '&email=' + encodeURIComponent(email))
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data.usernameAvailable) {
-          showErr('username-error', 'Username already taken');
-          usernameStatus = 'taken';
-          checkContinueEnabled();
-          btn.disabled = false;
-          btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
-        } else if (!data.emailAvailable) {
-          showErr('email-error', 'Email already registered');
-          btn.disabled = false;
-          btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
-        } else {
-          showStep(2);
-        }
-      })
-      .catch(function () { showStep(2); });
-  });
-
-  // ── Contest search ─────────────────────────────────────────
-  document.getElementById('contest-search').addEventListener('input', function () {
-    var q = this.value.trim().toLowerCase();
-    document.querySelectorAll('#active-grid .contest-card').forEach(function (card) {
-      card.style.display = (!q || card.dataset.search.includes(q)) ? '' : 'none';
-    });
-  });
-
-  // ── Contest selection ──────────────────────────────────────
-  document.querySelectorAll('.contest-card').forEach(function (card) {
-    card.addEventListener('click', function () {
-      document.querySelectorAll('.contest-card').forEach(function (c) {
-        c.classList.remove('ring-2', 'ring-charm-600', 'border-charm-600');
-        c.querySelector('.contest-check-overlay').classList.replace('opacity-100', 'opacity-0');
+    try {
+      var res  = await fetch('/auth/send-otp', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: email, username: username }),
       });
-      card.classList.add('ring-2', 'ring-charm-600', 'border-charm-600');
-      card.querySelector('.contest-check-overlay').classList.replace('opacity-0', 'opacity-100');
-      document.getElementById('contestId').value = card.dataset.contestId;
-      document.getElementById('selected-contest-name').textContent = card.dataset.contestTitle;
-      var ef = document.getElementById('entry-form');
-      ef.classList.remove('hidden');
-      setTimeout(function () { ef.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 80);
-    });
-  });
-
-  // ── Entry photo ────────────────────────────────────────────
-  function showEntryPreview(file) {
-    var reader = new FileReader();
-    reader.onload = function (e) {
-      document.getElementById('entry-preview-img').src = e.target.result;
-      document.getElementById('entry-placeholder').classList.add('hidden');
-      document.getElementById('entry-preview-container').classList.remove('hidden');
-    };
-    reader.readAsDataURL(file);
-  }
-  document.getElementById('entry-input').addEventListener('change', function () {
-    if (this.files[0]) showEntryPreview(this.files[0]);
-  });
-  var zone = document.getElementById('entry-upload-zone');
-  zone.addEventListener('dragover',  function (e) { e.preventDefault(); document.getElementById('entry-placeholder').classList.add('border-charm-600/60'); });
-  zone.addEventListener('dragleave', function ()  { document.getElementById('entry-placeholder').classList.remove('border-charm-600/60'); });
-  zone.addEventListener('drop', function (e) {
-    e.preventDefault();
-    document.getElementById('entry-placeholder').classList.remove('border-charm-600/60');
-    var file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      var dt = new DataTransfer(); dt.items.add(file);
-      document.getElementById('entry-input').files = dt.files;
-      showEntryPreview(file);
+      var data = await res.json();
+      if (!data.ok) {
+        if (data.field === 'email')    showErr('email-error',    data.message);
+        if (data.field === 'username') showErr('username-error', data.message);
+        showErr('step1-general-error', data.message || 'Could not send code. Please try again.');
+        btn.disabled = false;
+        btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
+      } else {
+        if (data.devCode) {
+          document.getElementById('otp-sent-to').innerHTML =
+            '<span style="color:rgba(255,255,255,0.4)">No email provider configured. </span>' +
+            '<strong style="color:#f59e0b">Dev code: ' + data.devCode + '</strong>';
+          document.getElementById('otp-input').value  = data.devCode;
+          document.getElementById('otp-hidden').value = data.devCode;
+        } else {
+          document.getElementById('otp-sent-to').textContent = 'We sent a 6-digit code to ' + email + '.';
+        }
+        showStep(2);
+        btn.disabled = false;
+        btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
+      }
+    } catch (e) {
+      showErr('step1-general-error', 'Could not send code. Please try again.');
+      btn.disabled = false;
+      btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
     }
   });
+
+  // ── OTP input sync ─────────────────────────────────────────
+  document.getElementById('otp-input').addEventListener('input', function () {
+    document.getElementById('otp-hidden').value = this.value.trim();
+  });
+
+  // ── Resend OTP ─────────────────────────────────────────────
+  document.getElementById('resend-otp-btn').addEventListener('click', async function () {
+    var username = document.getElementById('username').value.trim().toLowerCase();
+    var email    = document.getElementById('email').value.trim().toLowerCase();
+    this.textContent = 'Sending…';
+    this.disabled    = true;
+    try {
+      await fetch('/auth/send-otp', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: email, username: username }),
+      });
+    } catch (e) {}
+    this.textContent = 'Sent!';
+    var btn = this;
+    setTimeout(function () { btn.textContent = 'Resend code'; btn.disabled = false; }, 3000);
+  });
+
 
   // ── Persist & restore state ────────────────────────────────
   function saveSignupState() {
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-        step:                 currentStep,
-        username:             document.getElementById('username').value,
-        email:                document.getElementById('email').value,
-        password:             document.getElementById('password').value,
-        confirmPassword:      document.getElementById('confirm-password').value,
-        bio:                  document.getElementById('bio').value,
-        sex:                  document.getElementById('sex').value,
-        orientation:          document.getElementById('orientation').value,
-        location:             document.getElementById('location').value,
-        birthdate:            document.getElementById('birthdate').value,
-        contestId:            document.getElementById('contestId').value,
-        contestTitle:         document.getElementById('selected-contest-name').textContent,
-        entryTitle:           document.getElementById('entry-title').value,
-        entryDescription:     document.getElementById('entry-description').value,
+        step:            currentStep,
+        username:        document.getElementById('username').value,
+        email:           document.getElementById('email').value,
+        password:        document.getElementById('password').value,
+        confirmPassword: document.getElementById('confirm-password').value,
+        bio:             document.getElementById('bio').value,
+        sex:             document.getElementById('sex').value,
+        orientation:     document.getElementById('orientation').value,
+        location:        document.getElementById('location').value,
+        birthdate:       document.getElementById('birthdate').value,
+        otpInput:        (document.getElementById('otp-input') || {}).value || '',
       }));
     } catch (e) {}
   }
 
   function restoreSignupState() {
-    var raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
     var s;
-    try { s = JSON.parse(raw); } catch (e) { return; }
+    if (SERVER_EDIT) {
+      s = SERVER_EDIT;
+    } else {
+      var raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) { try { s = JSON.parse(raw); } catch (e) { s = null; } }
+    }
+    if (!s) return;
 
-    if (s.username)        document.getElementById('username').value         = s.username;
-    if (s.email)           document.getElementById('email').value            = s.email;
-    if (s.location)        document.getElementById('location').value         = s.location;
-    if (s.birthdate)       document.getElementById('birthdate').value        = s.birthdate;
-    if (s.entryTitle)      document.getElementById('entry-title').value      = s.entryTitle;
-    if (s.entryDescription) document.getElementById('entry-description').value = s.entryDescription;
+    if (s.username)        document.getElementById('username').value    = s.username;
+    if (s.email)           document.getElementById('email').value       = s.email;
+    if (s.location)        document.getElementById('location').value    = s.location;
+    if (s.birthdate)       document.getElementById('birthdate').value   = s.birthdate;
 
     if (s.password) {
       document.getElementById('password').value = s.password;
@@ -870,35 +798,51 @@
       document.getElementById('confirm-password').value = s.confirmPassword;
     }
     if (s.bio) {
-      var bioEl  = document.getElementById('bio');
-      var ctr    = document.getElementById('bio-counter');
-      bioEl.value        = s.bio;
-      ctr.textContent    = s.bio.length + ' / 220';
-      ctr.style.color    = s.bio.length === 0 ? 'rgba(255,255,255,0.3)' : s.bio.length < 20 ? '#f87171' : s.bio.length >= 215 ? '#fbbf24' : '#4ade80';
+      var bioEl = document.getElementById('bio');
+      var ctr   = document.getElementById('bio-counter');
+      bioEl.value     = s.bio;
+      ctr.textContent = s.bio.length + ' / 220';
+      ctr.style.color = s.bio.length === 0 ? 'rgba(255,255,255,0.3)' : s.bio.length < 20 ? '#f87171' : s.bio.length >= 215 ? '#fbbf24' : '#4ade80';
     }
 
     if (s.sex)         selectDropdown('sex-dropdown',         s.sex);
     if (s.orientation) selectDropdown('orientation-dropdown', s.orientation);
 
-    if (s.contestId) {
-      document.getElementById('contestId').value = s.contestId;
-      var card = document.querySelector('[data-contest-id="' + s.contestId + '"]');
-      if (card) {
-        card.classList.add('ring-2', 'ring-charm-600', 'border-charm-600');
-        var overlay = card.querySelector('.contest-check-overlay');
-        if (overlay) overlay.classList.replace('opacity-0', 'opacity-100');
-      }
-      if (s.contestTitle) document.getElementById('selected-contest-name').textContent = s.contestTitle;
-      document.getElementById('entry-form').classList.remove('hidden');
-    }
-
     if (s.username) {
       document.getElementById('username').dispatchEvent(new Event('input'));
     }
 
-    if (s.step === 2) showStep(2);
+    // In edit mode: update password placeholder, pre-load avatar, auto-accept terms
+    if (SERVER_EDIT) {
+      document.getElementById('password').placeholder         = 'Leave blank to keep current password';
+      document.getElementById('confirm-password').placeholder = 'Leave blank to keep current password';
+      if (SERVER_EDIT.avatar) {
+        var circle = document.getElementById('avatar-circle');
+        circle.style.backgroundImage = 'url(' + SERVER_EDIT.avatar + ')';
+        document.getElementById('avatar-placeholder').classList.add('hidden');
+      }
+      var termsInput = document.getElementById('agree-terms');
+      var termsIcon  = document.getElementById('agree-terms-icon');
+      if (!termsInput.checked) {
+        termsInput.checked = true;
+        termsIcon.setAttribute('icon', 'boxicons:check-square-filled');
+        termsIcon.style.color = '#c73b64';
+      }
+    }
 
     checkContinueEnabled();
+
+    if (s.step === 2) {
+      if (s.otpInput) {
+        document.getElementById('otp-input').value  = s.otpInput;
+        document.getElementById('otp-hidden').value = s.otpInput;
+      }
+      showStep(2);
+      var email = s.email || '';
+      document.getElementById('otp-sent-to').textContent = email
+        ? 'We sent a 6-digit code to ' + email + '.'
+        : 'We sent a 6-digit code to your email address.';
+    }
   }
 
   document.getElementById('signup-form').addEventListener('input',  saveSignupState);
@@ -906,15 +850,16 @@
 
   // ── Form submit validation ─────────────────────────────────
   document.getElementById('signup-form').addEventListener('submit', function (e) {
-    clearErr('entry-error'); clearErr('entry-title-error');
-    var contestId  = document.getElementById('contestId').value;
-    var entryInput = document.getElementById('entry-input');
-    var entryTitle = document.getElementById('entry-title').value.trim();
-    var valid = true;
-    if (!contestId)                              { e.preventDefault(); showErr('entry-error', 'Please select a contest above'); valid = false; }
-    if (!entryInput.files || !entryInput.files[0]) { e.preventDefault(); showErr('entry-error', 'Please upload your apron photo'); valid = false; }
-    if (!entryTitle)                             { e.preventDefault(); showErr('entry-title-error', 'Entry title is required'); valid = false; }
-    if (valid) { sessionStorage.removeItem(STORAGE_KEY); var btn = document.getElementById('submit-btn'); btn.disabled = true; btn.textContent = 'Creating your account…'; }
+    var otp = document.getElementById('otp-hidden').value.trim();
+    if (!otp || otp.length !== 6) {
+      e.preventDefault();
+      showErr('otp-error', 'Please enter the 6-digit code from your email.');
+      return;
+    }
+    sessionStorage.removeItem(STORAGE_KEY);
+    var btn = document.getElementById('submit-btn');
+    btn.disabled    = true;
+    btn.textContent = 'Creating your account…';
   });
 
   // ── Mature content gate ────────────────────────────────────
@@ -924,16 +869,16 @@
     contentGate.remove();
   } else {
     contentGate.style.display = 'flex';
+    document.getElementById('gate-confirm').addEventListener('click', function () {
+      localStorage.setItem(AGE_GATE_KEY, '1');
+      contentGate.style.opacity = '0';
+      contentGate.style.transition = 'opacity 0.2s ease';
+      setTimeout(function () { contentGate.remove(); }, 220);
+    });
+    document.getElementById('gate-leave').addEventListener('click', function () {
+      window.location.replace('https://www.google.com');
+    });
   }
-  document.getElementById('gate-confirm').addEventListener('click', function () {
-    localStorage.setItem(AGE_GATE_KEY, '1');
-    contentGate.style.opacity = '0';
-    contentGate.style.transition = 'opacity 0.2s ease';
-    setTimeout(function () { contentGate.remove(); }, 220);
-  });
-  document.getElementById('gate-leave').addEventListener('click', function () {
-    window.location.replace('https://www.google.com');
-  });
 
   restoreSignupState();
 

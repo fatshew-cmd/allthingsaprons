@@ -1,6 +1,7 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const User = require('../models/User');
+const bcrypt   = require('bcrypt');
+const User     = require('../models/User');
 
 const { MONGO_URI, ADMIN_PASSWORD } = process.env;
 
@@ -10,9 +11,10 @@ if (!ADMIN_PASSWORD) {
 }
 
 mongoose.connect(MONGO_URI || 'mongodb://localhost:27017/allthingsaprons').then(async () => {
+  const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 12);
   await User.findOneAndUpdate(
     { email: 'fatshew@gmail.com' },
-    { email: 'fatshew@gmail.com', password: ADMIN_PASSWORD, isAdmin: true },
+    { email: 'fatshew@gmail.com', password: hashedPassword, role: 'admin', emailConfirmed: true, onboardingStatus: 'approved' },
     { upsert: true, new: true }
   );
   console.log('Admin account ready — fatshew@gmail.com');

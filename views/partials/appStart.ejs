@@ -5,33 +5,7 @@
 </head>
 <body class="bg-shark-950 text-white min-h-screen">
 
-  <!-- Auth loading gate — inline styles so it renders before Tailwind -->
-  <style>@keyframes _spin{to{transform:rotate(360deg)}}</style>
-  <div id="auth-gate" style="position:fixed;inset:0;z-index:9999;background:#0a0a0a;display:flex;align-items:center;justify-content:center;transition:opacity 0.2s ease">
-    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" style="animation:_spin 0.75s linear infinite">
-      <circle cx="17" cy="17" r="14" stroke="rgba(255,255,255,0.07)" stroke-width="2.5"/>
-      <path d="M17 3A14 14 0 0 1 31 17" stroke="#c73b64" stroke-width="2.5" stroke-linecap="round"/>
-    </svg>
-  </div>
-  <script>
-    (function () {
-      var gate = document.getElementById('auth-gate');
-      fetch('/api/me')
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          if (!data.authenticated) {
-            window.location.replace('/signup');
-          } else {
-            gate.style.opacity = '0';
-            setTimeout(function () { gate.remove(); }, 220);
-          }
-        })
-        .catch(function () {
-          gate.style.opacity = '0';
-          setTimeout(function () { gate.remove(); }, 220);
-        });
-    }());
-  </script>
+  <!-- Auth gate disabled temporarily -->
 
   <div class="max-w-7xl mx-auto flex min-h-screen">
 

@@ -5,10 +5,7 @@
 
 ## Platform Concept
 
-A social platform where users rate media (images/videos) submitted by creators.
-Two core interaction modes:
-- **Rate** — single item, scored by the user
-- **Compare** — head-to-head between two items, user picks a winner
+A social platform where users rate and compete with media (images/videos) submitted by creators.
 
 Future domain: **Marketplace** — rated items can eventually be listed for sale.
 
@@ -49,7 +46,7 @@ The active page content. Key pages:
 
 | Route | Content |
 |---|---|
-| `/feed` | Card-by-card rating loop (Rate or Compare mode toggle at top) |
+| `/feed` | Main content feed — design TBD |
 | `/leaderboard` | Top-rated items, filterable by category/time |
 | `/search` | Search items, creators, tags |
 | `/marketplace` | Browsable shop fed by rating scores *(future)* |
@@ -62,76 +59,24 @@ The active page content. Key pages:
 
 Default state: **Trending / Leaderboard** — top items right now.
 
-When a user is actively rating an item: shifts to **Item Detail** — community score breakdown, vote count, comments, and a "Shop this" CTA slot (hidden until marketplace launches).
+When a user is actively viewing an entry: shifts to **Entry Detail** — community score breakdown, vote count, and a "Shop this" CTA slot (hidden until marketplace launches).
 
 This approach means zero layout changes when the marketplace goes live — just unhide the CTA.
 
 ---
 
-## Feed Interaction (Card Loop)
+## Feed Interaction
 
-Located in the center column. Two modes toggled at the top of the feed:
-
-### Rate Mode
-- Full (or near-full) card showing item media
-- Star rating input below (1–5)
-- Community average bar shown after submission
-- Skip button
-
-### Compare Mode
-- Two cards side by side with a VS badge between them
-- Tap to pick a winner
-- After pick: reveal community percentage split
-- "Too close to call" skip option
-
-Both modes advance to the next item/pair automatically after action.
+Design TBD. The rating and contest card UI will be defined as part of the new UI build.
 
 ---
 
-## Data Model (planned, not yet built)
+## Data Model
 
-```js
-// Item
-{
-  mediaUrl: String,
-  mediaType: 'image' | 'video',
-  title: String,
-  description: String,
-  tags: [String],
-  creator: { type: ObjectId, ref: 'User' },
-  ratingScore: Number,       // aggregated average
-  ratingCount: Number,
-  price: Number,             // null until marketplace
-  isListed: Boolean,         // marketplace toggle
-  createdAt: Date,
-}
-
-// Rating
-{
-  user:   { type: ObjectId, ref: 'User' },
-  item:   { type: ObjectId, ref: 'Item' },
-  mode:   'rate' | 'compare',
-  score:  Number,            // 1–5 for rate; 1 (won) / 0 (lost) for compare
-  createdAt: Date,
-}
-```
+See `plans/May/platform-core-concepts.md` — authoritative source for all schema decisions.
 
 ---
 
-## Prototype
+## Next Steps
 
-A standalone visual prototype was built at `public/prototype.html`.
-Open at `http://localhost:3000/prototype.html` while the server is running.
-
-Demonstrates: card enter/exit animations, star rating, compare pick + community reveal, bottom nav (mobile layout).
-
----
-
-## Next Steps (when building)
-
-1. Build the 3-column layout shell (EJS layout partial or `layout.ejs`)
-2. Create the `Item` and `Rating` Mongoose models
-3. Build the `/feed` route + card loop UI (Rate mode first, Compare second)
-4. Wire right panel to show item stats during rating
-5. Leaderboard page
-6. Marketplace domain (later phase)
+See `plans/June/june-action-plan.md`.

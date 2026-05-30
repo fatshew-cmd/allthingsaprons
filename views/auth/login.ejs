@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="min-h-screen bg-shark-950 text-white">
+
+  <!-- Top bar -->
+  <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
+    <a href="/" class="font-black text-lg text-charm-500 tracking-tight">AllThingsAprons</a>
+    <a href="/signup" class="text-sm text-white/35 hover:text-white/60 transition-colors">Sign up</a>
+  </header>
+
+  <div class="flex justify-center px-4 py-16">
+    <div class="w-full max-w-sm">
+
+      <div class="mb-8 text-center">
+        <h1 class="text-2xl font-black">Welcome back</h1>
+        <p class="text-white/40 mt-1 text-sm">Log in to your account</p>
+      </div>
+
+      <form action="/login" method="POST" class="bg-shark-900 border border-white/8 rounded-md p-6 flex flex-col gap-5">
+
+        <% if (error) { %>
+        <div class="flex items-center gap-2 text-sm text-red-400 bg-red-400/8 border border-red-400/20 rounded-md px-3 py-2.5">
+          <iconify-icon icon="boxicons:error-circle" width="15" class="shrink-0"></iconify-icon>
+          <%= error %>
+        </div>
+        <% } %>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="email" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+            Email <span class="text-charm-500">*</span>
+          </label>
+          <input id="email" name="email" type="email" placeholder="you@email.com" autocomplete="email" required
+            class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <label for="password" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+              Password <span class="text-charm-500">*</span>
+            </label>
+          </div>
+          <div class="relative">
+            <input id="password" name="password" type="password" placeholder="Your password" autocomplete="current-password" required
+              class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-9 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+            <button type="button" id="toggle-password"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors cursor-pointer">
+              <iconify-icon id="pw-eye-icon" icon="boxicons:eye" width="17"></iconify-icon>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit"
+          class="w-full bg-charm-600 hover:bg-charm-500 text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
+          Log In
+        </button>
+
+        <p class="text-center text-xs text-white/30">
+          Don't have an account? <a href="/signup" class="text-charm-400 hover:text-charm-300 transition-colors">Sign up</a>
+        </p>
+
+      </form>
+    </div>
+  </div>
+
+<script>
+(function () {
+  document.getElementById('toggle-password').addEventListener('click', function () {
+    var inp  = document.getElementById('password');
+    var icon = document.getElementById('pw-eye-icon');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      icon.setAttribute('icon', 'boxicons:eye-closed');
+    } else {
+      inp.type = 'password';
+      icon.setAttribute('icon', 'boxicons:eye');
+    }
+  });
+}());
+</script>
+
+</body>
+</html>

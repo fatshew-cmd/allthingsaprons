@@ -1,46 +1,86 @@
-﻿<%- include('partials/appStart', { title: title, activePage: 'profile' }) %>
+<%- include('partials/appStart', { title: title, activePage: activePage }) %>
 
 <div class="flex flex-col pb-20 md:pb-0">
 
   <!-- Header -->
   <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
-    <h1 class="font-black text-xl tracking-tight">Profile</h1>
+    <h1 class="font-black text-xl tracking-tight">
+      <% if (isOwn) { %>Profile<% } else { %>@<%= profileUser.username %><% } %>
+    </h1>
   </header>
 
   <!-- Profile card -->
   <div class="px-5 py-6 border-b border-white/10">
     <div class="flex items-center gap-4">
-      <div class="w-16 h-16 rounded-md bg-white/10 flex items-center justify-center text-2xl font-black text-white/20">
-        ?
+      <% if (profileUser.avatar) { %>
+      <img src="<%= profileUser.avatar %>" alt="@<%= profileUser.username %>"
+        class="w-16 h-16 rounded-md object-cover bg-shark-800">
+      <% } else { %>
+      <div class="w-16 h-16 rounded-md bg-charm-600/20 flex items-center justify-center text-charm-400 text-2xl font-black uppercase">
+        <%= profileUser.username ? profileUser.username[0] : '?' %>
       </div>
+      <% } %>
       <div>
-        <p class="font-bold text-lg">Guest User</p>
-        <p class="text-sm text-white/40">No ratings yet</p>
+        <p class="font-bold text-lg">@<%= profileUser.username %></p>
+        <% if (profileUser.location) { %>
+        <p class="text-sm text-white/40 flex items-center gap-1 mt-0.5">
+          <iconify-icon icon="boxicons:map-pin" width="13"></iconify-icon>
+          <%= profileUser.location %>
+        </p>
+        <% } %>
       </div>
     </div>
+
+    <% if (profileUser.bio) { %>
+    <p class="text-sm text-white/60 leading-relaxed mt-4"><%= profileUser.bio %></p>
+    <% } %>
+
     <div class="flex gap-8 mt-5">
       <div>
-        <p class="text-xl font-black">0</p>
-        <p class="text-xs text-white/40 mt-0.5">Ratings</p>
+        <p class="text-xl font-black"><%= totalRatings %></p>
+        <p class="text-xs text-white/40 mt-0.5">Ratings received</p>
       </div>
       <div>
-        <p class="text-xl font-black">0</p>
-        <p class="text-xs text-white/40 mt-0.5">Submitted</p>
+        <p class="text-xl font-black"><%= entries.length %></p>
+        <p class="text-xs text-white/40 mt-0.5">Entries</p>
       </div>
       <div>
-        <p class="text-xl font-black">—</p>
+        <p class="text-xl font-black"><%= avgScore || '—' %></p>
         <p class="text-xs text-white/40 mt-0.5">Avg score</p>
       </div>
     </div>
+
+    <% if (isOwn) { %>
+    <a href="/settings" class="inline-flex items-center gap-2 mt-5 px-4 py-2 bg-white/5 hover:bg-white/8 border border-white/10 rounded-md text-sm text-white/60 hover:text-white transition-colors">
+      <iconify-icon icon="boxicons:pencil" width="14"></iconify-icon>
+      Edit Profile
+    </a>
+    <% } %>
   </div>
 
-  <!-- Empty state -->
+  <!-- Entries grid -->
+  <% if (!entries || !entries.length) { %>
   <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
-    <p class="text-white/40 text-sm">Sign in to see your activity</p>
-    <a href="/signup" class="mt-4 px-6 py-2.5 rounded-md bg-charm-600 text-white text-sm font-bold hover:bg-charm-500 transition-colors cursor-pointer">
-      Sign Up
-    </a>
+    <iconify-icon icon="boxicons:image" width="36" class="text-white/15 mb-3"></iconify-icon>
+    <p class="text-white/40 text-sm">No entries yet</p>
   </div>
+  <% } else { %>
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-white/5 p-px">
+    <% entries.forEach(function(entry) { %>
+    <div class="relative aspect-square bg-shark-900 overflow-hidden group">
+      <img src="<%= entry.mediaUrl %>" alt="Entry"
+        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+      <div class="absolute bottom-0 inset-x-0 bg-linear-to-t from-shark-950/80 to-transparent px-2 py-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div class="flex items-center gap-1 text-xs text-white/80">
+          <iconify-icon icon="boxicons:star-filled" width="11" class="text-amber-400"></iconify-icon>
+          <%= entry.ratingAvg > 0 ? entry.ratingAvg.toFixed(1) : '—' %>
+          <span class="text-white/40 ml-1">(<%= entry.ratingCount %>)</span>
+        </div>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+  <% } %>
 
 </div>
 
