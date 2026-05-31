@@ -1,0 +1,60 @@
+<div id="toast-container"
+  class="fixed bottom-20 md:bottom-5 right-4 md:right-5 z-[200] flex flex-col gap-2 pointer-events-none"
+  aria-live="polite"></div>
+
+<style>
+  @keyframes _toast-in  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes _toast-out { from { opacity:1; transform:translateY(0); } to { opacity:0; transform:translateY(4px); } }
+  ._toast-enter { animation: _toast-in  0.18s ease forwards; }
+  ._toast-exit  { animation: _toast-out 0.16s ease forwards; }
+</style>
+
+<script>
+(function () {
+  var container = document.getElementById('toast-container');
+
+  var CONFIGS = {
+    success: { icon: 'boxicons:check-circle',  cls: 'text-green-400 bg-green-400/8 border-green-400/20' },
+    error:   { icon: 'boxicons:error-circle',   cls: 'text-red-400   bg-red-400/8   border-red-400/20'   },
+    info:    { icon: 'boxicons:info-circle',    cls: 'text-white/60  bg-white/5     border-white/10'      },
+  };
+
+  function dismiss(el) {
+    if (!el.parentNode) return;
+    el.classList.remove('_toast-enter');
+    el.classList.add('_toast-exit');
+    el.addEventListener('animationend', function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, { once: true });
+  }
+
+  window.showToast = function (message, type, duration) {
+    var cfg = CONFIGS[type] || CONFIGS.info;
+    duration = (duration === undefined) ? 4000 : duration;
+
+    var el = document.createElement('div');
+    el.className = 'pointer-events-auto flex items-center gap-2.5 rounded-md border px-3.5 py-2.5 text-sm shadow-xl min-w-56 max-w-xs bg-shark-900 _toast-enter ' + cfg.cls;
+    el.innerHTML =
+      '<iconify-icon icon="' + cfg.icon + '" width="15" class="shrink-0"></iconify-icon>' +
+      '<span class="flex-1">' + message + '</span>' +
+      '<button type="button" class="shrink-0 ml-1 opacity-40 hover:opacity-80 transition-opacity cursor-pointer">' +
+        '<iconify-icon icon="bx:x" width="16"></iconify-icon>' +
+      '</button>';
+
+    el.querySelector('button').addEventListener('click', function () { dismiss(el); });
+    container.appendChild(el);
+
+    if (duration > 0) setTimeout(function () { dismiss(el); }, duration);
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var params = new URLSearchParams(window.location.search);
+
+    if (params.get('saved') === '1') {
+      window.showToast('Profile saved.', 'success');
+      params.delete('saved');
+      history.replaceState(null, '', window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash);
+    }
+  });
+}());
+</script>

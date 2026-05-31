@@ -30,8 +30,13 @@ router.post('/logout', (req, res) => {
 
 router.use(isAdmin);
 
-router.get('/', (req, res) => {
-  res.render('admin/dashboard', { title: 'Dashboard' });
+router.get('/', async (req, res) => {
+  const [pendingCount, totalUsers, activeUsers] = await Promise.all([
+    TournamentEntry.countDocuments({ approvalStatus: 'pending' }),
+    User.countDocuments(),
+    User.countDocuments({ accountStatus: 'active' }),
+  ]);
+  res.render('admin/dashboard', { title: 'Dashboard', pendingCount, totalUsers, activeUsers });
 });
 
 router.get('/users', async (req, res) => {

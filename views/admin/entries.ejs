@@ -1,81 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
-<body class="min-h-screen bg-gray-50">
+<body class="min-h-screen bg-gray-50 flex flex-col">
   <%- include('../partials/adminNav') %>
 
-  <main class="max-w-5xl mx-auto px-6 py-10">
-    <h1 class="text-2xl font-bold mb-2">Entry Review</h1>
-    <p class="text-gray-500 mb-8">Approve or reject pending tournament submissions.</p>
+  <main class="max-w-5xl mx-auto w-full px-6 py-10">
+
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold">Entry Review</h1>
+        <p class="text-sm text-gray-400 mt-1">Approve or reject pending onboarding submissions.</p>
+      </div>
+      <% if (entries && entries.length) { %>
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+        <%= entries.length %> pending
+      </span>
+      <% } %>
+    </div>
 
     <% if (!entries || !entries.length) { %>
-    <div class="bg-white border border-gray-200 rounded-lg p-12 text-center">
-      <p class="text-gray-400 font-medium">No pending entries.</p>
-      <p class="text-gray-300 text-sm mt-1">All submissions have been reviewed.</p>
+
+    <div class="bg-white border border-gray-200 rounded-md p-16 text-center">
+      <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <p class="font-semibold text-gray-700">All caught up</p>
+      <p class="text-sm text-gray-400 mt-1">No pending submissions to review.</p>
     </div>
+
     <% } else { %>
 
-    <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-4">
       <% entries.forEach(function(e) { %>
-      <div class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+
+      <div class="bg-white border border-gray-200 rounded-md overflow-hidden">
         <div class="flex flex-col sm:flex-row">
 
-          <!-- Entry photo -->
-          <div class="sm:w-48 sm:shrink-0 bg-gray-100">
+          <!-- Media -->
+          <div class="sm:w-52 sm:shrink-0 bg-gray-100 relative">
             <% if (e.entryId && e.entryId.mediaUrl) { %>
-            <img src="<%= e.entryId.mediaUrl %>" alt="Entry" class="w-full h-48 sm:h-full object-cover">
+              <% if (e.entryId.mediaType === 'video') { %>
+              <video src="<%= e.entryId.mediaUrl %>" class="w-full h-52 sm:h-full object-cover" muted playsinline loop
+                onmouseenter="this.play()" onmouseleave="this.pause()"></video>
+              <div class="absolute top-2 left-2 bg-black/60 text-white text-xs font-semibold px-1.5 py-0.5 rounded">VIDEO</div>
+              <% } else { %>
+              <img src="<%= e.entryId.mediaUrl %>" alt="Entry" class="w-full h-52 sm:h-full object-cover">
+              <% } %>
             <% } else { %>
-            <div class="w-full h-48 flex items-center justify-center text-gray-300">No photo</div>
+            <div class="w-full h-52 sm:h-full flex items-center justify-center text-gray-300 text-sm">No media</div>
             <% } %>
           </div>
 
           <!-- Info -->
-          <div class="flex-1 p-5 flex flex-col gap-3">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <p class="font-bold text-lg">
-                  <%= e.userId ? '@' + (e.userId.username || 'unknown') : 'Unknown user' %>
-                </p>
-                <p class="text-sm text-gray-400"><%= e.userId ? e.userId.email : '' %></p>
+          <div class="flex-1 p-5 flex flex-col gap-4 min-w-0">
+
+            <!-- User row -->
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <% if (e.userId && e.userId.avatar) { %>
+                <img src="<%= e.userId.avatar %>" alt="" class="w-9 h-9 rounded-md object-cover shrink-0 bg-gray-100">
+                <% } else { %>
+                <div class="w-9 h-9 rounded-md bg-gray-100 shrink-md shrink-0 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-300"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <% } %>
+                <div class="min-w-0">
+                  <p class="font-semibold text-sm truncate">
+                    <%= e.userId ? ('@' + (e.userId.username || 'no username')) : 'Unknown user' %>
+                  </p>
+                  <p class="text-xs text-gray-400 truncate"><%= e.userId ? e.userId.email : '' %></p>
+                </div>
               </div>
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+              <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
                 Pending
               </span>
             </div>
 
+            <!-- Tournament -->
             <% if (e.tournamentId) { %>
-            <p class="text-sm text-gray-500">
-              <span class="font-medium text-gray-700">Tournament:</span> <%= e.tournamentId.name %>
-            </p>
+            <div class="flex items-center gap-1.5 text-sm text-gray-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 text-gray-300"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+              <span><%= e.tournamentId.name %></span>
+            </div>
             <% } %>
 
+            <!-- Caption -->
             <% if (e.entryId && e.entryId.caption) { %>
-            <p class="text-sm text-gray-600 italic">"<%= e.entryId.caption %>"</p>
+            <p class="text-sm text-gray-600 italic line-clamp-2">"<%= e.entryId.caption %>"</p>
             <% } %>
 
+            <!-- Meta -->
             <p class="text-xs text-gray-400">
-              Submitted: <%= new Date(e.submittedAt).toLocaleString() %>
+              Submitted <%= new Date(e.submittedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) %>
             </p>
 
             <!-- Actions -->
-            <div class="flex gap-3 mt-auto pt-2">
+            <div class="flex gap-2 mt-auto pt-1">
               <form action="/admin/entries/<%= e._id %>/approve" method="POST">
                 <button type="submit"
-                  class="px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+                  class="px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-md transition-colors cursor-pointer">
                   Approve
                 </button>
               </form>
               <form action="/admin/entries/<%= e._id %>/reject" method="POST">
                 <button type="submit"
-                  class="px-5 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+                  class="px-5 py-2 border border-red-200 hover:bg-red-50 text-red-500 text-sm font-semibold rounded-md transition-colors cursor-pointer">
                   Reject
                 </button>
               </form>
             </div>
-          </div>
 
+          </div>
         </div>
       </div>
+
       <% }); %>
     </div>
 

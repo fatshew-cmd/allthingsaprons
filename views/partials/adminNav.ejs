@@ -1,10 +1,11 @@
-<nav class="bg-white border-b px-6 py-3 flex items-center justify-between">
-  <a href="/admin" class="font-bold text-sm">All Things Aprons — Admin</a>
+<nav class="bg-white border-b border-gray-200 px-6 h-14 flex items-center justify-between shrink-0">
+  <a href="/admin" class="font-black text-sm tracking-tight">ATA <span class="text-gray-400 font-medium">Admin</span></a>
   <div class="flex items-center gap-6 text-sm">
-    <a href="/admin/users" class="text-gray-600 hover:text-black">Users</a>
-    <a href="/admin/entries" class="text-gray-600 hover:text-black">Entry Review</a>
+    <a href="/admin" class="text-gray-500 hover:text-black transition-colors">Dashboard</a>
+    <a href="/admin/entries" class="text-gray-500 hover:text-black transition-colors">Entry Review</a>
+    <a href="/admin/users" class="text-gray-500 hover:text-black transition-colors">Users</a>
     <form method="POST" action="/admin/logout">
-      <button type="submit" class="text-gray-400 hover:text-black cursor-pointer">Logout</button>
+      <button type="submit" class="text-gray-400 hover:text-black transition-colors cursor-pointer">Logout</button>
     </form>
   </div>
 </nav>

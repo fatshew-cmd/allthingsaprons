@@ -88,6 +88,7 @@
             class="absolute bottom-2 left-2 w-8 h-8 flex items-center justify-center bg-shark-950/75 hover:bg-shark-950/95 rounded-md transition-colors cursor-pointer text-white/70 hover:text-white">
             <iconify-icon icon="boxicons:play-filled" width="14" id="play-icon"></iconify-icon>
           </button>
+          <span id="trim-current-time" class="absolute bottom-2 left-11 h-8 flex items-center text-xs text-white/55 tabular-nums pointer-events-none">0:00.0</span>
           <button type="button" id="change-trim-btn"
             class="absolute top-2 right-2 bg-shark-950/80 hover:bg-shark-800 rounded-md px-2 py-1 text-xs text-white/60 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer">
             <iconify-icon icon="boxicons:pencil" width="11"></iconify-icon>Change
@@ -112,7 +113,7 @@
                 style="min-width:100%;">
 
                 <!-- Thumbnail strip (position + width set by JS to cover visible area) -->
-                <div id="thumb-strip" class="absolute top-0 bottom-0 flex pointer-events-none opacity-55" style="left:0;width:100%;"></div>
+                <div id="thumb-strip" class="absolute top-0 bottom-0 pointer-events-none opacity-55" style="left:0;width:100%;position:absolute;"></div>
 
                 <!-- Dim overlays -->
                 <div id="dim-before" class="absolute top-0 left-0 h-full bg-shark-950/65 pointer-events-none"></div>
@@ -174,18 +175,21 @@
         </div>
       </div>
 
+      <!-- Trim cards (up to 3) -->
+      <div id="trim-cards" class="hidden gap-2"></div>
+
       <p id="media-error" class="text-xs text-red-400 hidden"></p>
     </div>
 
     <!-- ── Caption ───────────────────────────────────────────────── -->
     <div class="flex flex-col gap-1.5 mb-4">
       <label for="caption" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-        Caption <span class="text-white/25 font-normal normal-case">(optional)</span>
+        Description <span class="text-white/25 font-normal normal-case">(optional)</span>
       </label>
-      <textarea id="caption" name="caption" rows="3" maxlength="500"
-        placeholder="Describe your design, materials, inspiration..."
+      <textarea id="caption" name="caption" rows="3" maxlength="280"
+        placeholder="Describe your apron…"
         class="w-full bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"></textarea>
-      <p class="text-xs text-white/25 text-right"><span id="caption-count">0</span>/500</p>
+      <p class="text-xs text-white/25 text-right"><span id="caption-count">0</span>/280</p>
     </div>
 
     <!-- ── Tags ──────────────────────────────────────────────────── -->
@@ -201,8 +205,8 @@
       <p class="text-xs text-white/25"><span id="tag-count">0</span>/6 &nbsp;·&nbsp; press Enter or comma to add</p>
     </div>
 
-    <button type="submit" id="submit-btn"
-      class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-50 text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
+    <button type="submit" id="submit-btn" disabled
+      class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
       Submit Entry
     </button>
 
@@ -247,6 +251,9 @@
   var dragMode          = null; // 'left' | 'right' | 'move' | 'playhead' | null
   var moveDragOffset    = 0;
   var autoScrollLocked  = false;
+  var trimCards         = [];   // [{id, blob, start, end, url}]
+  var trimNextId        = 0;
+  var selectedCardId    = -1;
 
   // ── DOM ──────────────────────────────────────────────────────────
   var form           = document.getElementById('submit-form');
@@ -283,6 +290,8 @@
   var thumbStrip        = document.getElementById('thumb-strip');
   var playhead          = document.getElementById('playhead');
   var thumbParseOverlay = document.getElementById('thumb-parse-overlay');
+  var trimCurrentTime   = document.getElementById('trim-current-time');
+  var trimCardsEl       = document.getElementById('trim-cards');
 
   // ── Helpers ──────────────────────────────────────────────────────
 
@@ -300,6 +309,167 @@
   function setError(msg) {
     mediaError.textContent = msg;
     mediaError.classList.toggle('hidden', !msg);
+  }
+
+  function updateApplyBtn() {
+    var atLimit = trimCards.length >= 3;
+    applyBtn.disabled = atLimit;
+    applyBtn.classList.toggle('opacity-50', atLimit);
+    applyBtn.classList.toggle('cursor-not-allowed', atLimit);
+    applyBtn.classList.toggle('cursor-pointer', !atLimit);
+  }
+
+  function syncSubmitBtn() {
+    var hasImage = rawFile && rawFile.type.startsWith('image/');
+    submitBtn.disabled = !(hasImage || trimCards.length > 0);
+  }
+
+  function clearTrimCards() {
+    trimCards.forEach(function (tc) { URL.revokeObjectURL(tc.url); });
+    trimCards = [];
+    selectedCardId = -1;
+    trimCardsEl.innerHTML = '';
+    trimCardsEl.classList.add('hidden');
+    trimCardsEl.classList.remove('flex');
+    var captionEl = document.getElementById('caption');
+    if (captionEl) { captionEl.value = ''; captionEl.dispatchEvent(new Event('input')); }
+    if (typeof tags !== 'undefined') {
+      tags.slice().forEach(function (t) {
+        var chip = tagWrap.querySelector('span[data-tag="' + t + '"]');
+        if (chip) removeTag(t, chip);
+      });
+    }
+    updateApplyBtn();
+    syncSubmitBtn();
+  }
+
+  function selectTrimCard(id) {
+    // Save current card's caption + tags before switching
+    if (selectedCardId !== -1) {
+      var prev = trimCards.find(function (c) { return c.id === selectedCardId; });
+      if (prev) {
+        prev.caption = document.getElementById('caption').value;
+        prev.tags    = tags.slice();
+      }
+    }
+
+    selectedCardId = id;
+
+    // Load the new card's caption + tags
+    var tc = trimCards.find(function (c) { return c.id === id; });
+    if (tc) {
+      var captionEl = document.getElementById('caption');
+      captionEl.value = tc.caption;
+      captionEl.dispatchEvent(new Event('input'));
+
+      tags.slice().forEach(function (t) {
+        var chip = tagWrap.querySelector('span[data-tag="' + t + '"]');
+        if (chip) removeTag(t, chip);
+      });
+      tc.tags.forEach(function (t) { addTag(t); });
+
+      var dt = new DataTransfer();
+      dt.items.add(new File([tc.blob], 'trimmed.mp4', { type: 'video/mp4' }));
+      mediaInput.files = dt.files;
+    }
+
+    // Update card visuals
+    trimCardsEl.querySelectorAll('.trim-card').forEach(function (cardEl) {
+      var isSel = parseInt(cardEl.dataset.cardId) === id;
+      var icon  = cardEl.querySelector('.card-check-icon');
+      cardEl.classList.toggle('border-white/10', !isSel);
+      cardEl.classList.toggle('border-charm-500/40', isSel);
+      cardEl.classList.toggle('border-2', isSel);
+      if (icon) {
+        icon.setAttribute('icon', isSel ? 'boxicons:check-square-filled' : 'boxicons:square');
+        icon.style.color = isSel ? '#dd6890' : 'rgba(255,255,255,0.25)';
+      }
+    });
+  }
+
+  function removeTrimCard(id, cardEl) {
+    var tc = trimCards.find(function (c) { return c.id === id; });
+    if (tc) URL.revokeObjectURL(tc.url);
+    trimCards = trimCards.filter(function (c) { return c.id !== id; });
+    cardEl.remove();
+    if (trimCards.length === 0) {
+      trimCardsEl.classList.add('hidden');
+      trimCardsEl.classList.remove('flex');
+      selectedCardId = -1;
+      mediaInput.value = '';
+      var captionEl = document.getElementById('caption');
+      captionEl.value = '';
+      captionEl.dispatchEvent(new Event('input'));
+      tags.slice().forEach(function (t) {
+        var chip = tagWrap.querySelector('span[data-tag="' + t + '"]');
+        if (chip) removeTag(t, chip);
+      });
+    } else if (selectedCardId === id) {
+      selectTrimCard(trimCards[trimCards.length - 1].id);
+    }
+    updateApplyBtn();
+    syncSubmitBtn();
+  }
+
+  function createTrimCard(blob, start, end) {
+    var id       = ++trimNextId;
+    var url      = URL.createObjectURL(blob);
+    var clipLen  = end - start;
+    var estBytes = rawFile ? rawFile.size * (clipLen / videoDuration) : blob.size;
+    // Snapshot current caption + tags as this card's initial data
+    trimCards.push({
+      id:      id,
+      blob:    blob,
+      start:   start,
+      end:     end,
+      url:     url,
+      caption: document.getElementById('caption').value,
+      tags:    tags.slice(),
+    });
+
+    var card = document.createElement('div');
+    card.className = 'trim-card flex flex-col w-1/3 border border-white/10 rounded-md overflow-hidden bg-shark-900 transition-colors';
+    card.dataset.cardId = id;
+
+    var vid = document.createElement('video');
+    vid.src = url;
+    vid.className = 'w-full max-h-28 object-contain bg-black';
+    vid.controls = true;
+    vid.setAttribute('playsinline', '');
+    card.appendChild(vid);
+
+    var footer = document.createElement('div');
+    footer.className = 'flex flex-col px-2.5 pt-2 pb-2.5 gap-2 cursor-pointer';
+    footer.innerHTML =
+      '<div class="flex flex-col gap-0.5 min-w-0">' +
+        '<p class="text-sm font-semibold text-white/70 truncate">Trim ' + id + '</p>' +
+        '<p class="text-xs text-white/30">' + clipLen.toFixed(1) + 's &nbsp;·&nbsp; ' + fmtSize(estBytes) + '</p>' +
+      '</div>' +
+      '<div class="flex items-center gap-1.5">' +
+        '<iconify-icon class="card-check-icon shrink-0 transition-colors" icon="boxicons:square" width="1rem" style="color:rgba(255,255,255,0.25)"></iconify-icon>' +
+        '<span class="text-xs text-white/35 tabular-nums">' + fmt(start) + ' – ' + fmt(end) + '</span>' +
+        '<div class="flex-1"></div>' +
+        '<button type="button" class="remove-trim-btn text-white/25 hover:text-red-400 transition-colors cursor-pointer p-0.5 shrink-0">' +
+          '<iconify-icon icon="boxicons:trash-filled" width="1rem"></iconify-icon>' +
+        '</button>' +
+      '</div>';
+    card.appendChild(footer);
+
+    footer.addEventListener('click', function (e) {
+      if (!e.target.closest('.remove-trim-btn')) selectTrimCard(id);
+    });
+    footer.querySelector('.remove-trim-btn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      removeTrimCard(id, card);
+    });
+
+    trimCardsEl.appendChild(card);
+    trimCardsEl.classList.remove('hidden');
+    trimCardsEl.classList.add('flex');
+
+    selectTrimCard(id);
+    updateApplyBtn();
+    syncSubmitBtn();
   }
 
   function stopPlayback() {
@@ -323,6 +493,7 @@
     thumbStrip.innerHTML = '';
     trimTimeline.style.minWidth = '100%';
     playhead.style.display = 'none';
+    clearTrimCards();
 
     uploadZone.classList.remove('hidden');
     imgPreview.classList.add('hidden');
@@ -344,6 +515,7 @@
     vidPreview.classList.add('hidden');
     trimPanel.classList.add('hidden');
     trimPanel.classList.remove('flex');
+    syncSubmitBtn();
   }
 
   function showVideoPreview(source, wasTrimmed) {
@@ -362,6 +534,7 @@
   function showTrimPanel(file) {
     stopPlayback();
     thumbStrip.innerHTML = '';
+    clearTrimCards();
     trimVideo.src = URL.createObjectURL(file);
     uploadZone.classList.add('hidden');
     imgPreview.classList.add('hidden');
@@ -409,6 +582,7 @@
     }
 
     trimTotal.textContent = fmt(videoDuration);
+    trimCurrentTime.textContent = fmt(0);
     trimStart = 0;
     trimEnd   = Math.min(MAX_CLIP, videoDuration);
     setTimelineWidth();
@@ -437,7 +611,9 @@
 
   // ── Thumbnail strip ──────────────────────────────────────────────
 
-  var thumbGenId = 0;
+  var thumbGenId      = 0;
+  var renderedPages   = new Set();
+  var thumbRenderBusy = false;
 
   function showParseOverlay() {
     thumbParseOverlay.classList.remove('hidden');
@@ -448,46 +624,101 @@
     thumbParseOverlay.classList.remove('flex');
   }
 
+  // Kick off initial render: first 4 viewports.
   async function generateThumbnails() {
     var genId = ++thumbGenId;
     thumbStrip.innerHTML = '';
+    renderedPages.clear();
+    thumbRenderBusy = false;
+
+    await new Promise(function (r) { setTimeout(r, 0); });
+    if (genId !== thumbGenId) return;
+
+    await renderPageBatch(genId, 0);
+  }
+
+  // Render up to 4 viewport-sized pages starting at startPage.
+  async function renderPageBatch(genId, startPage) {
+    if (genId !== thumbGenId) return;
+
     showParseOverlay();
 
-    // Let layout settle before reading dimensions
-    await new Promise(function (r) { setTimeout(r, 0); });
-    if (genId !== thumbGenId) { hideParseOverlay(); return; }
-
-    var totalW = trimTimeline.offsetWidth || 400;
-    var tlH    = trimTimeline.clientHeight || 56;
-
-    // Cover the full timeline from 0 to videoDuration
-    thumbStrip.style.left  = '0';
-    thumbStrip.style.width = '100%';
-
-    // 1 frame per 60px of timeline width — no ceiling
-    var NUM = Math.max(12, Math.round(totalW / 60));
-    var tw  = Math.max(1, Math.round(totalW / NUM));
+    var totalW    = trimTimeline.offsetWidth || 400;
+    var tlH       = trimTimeline.clientHeight || 56;
+    var wrapW     = timelineWrap.clientWidth || totalW;
+    var totalPgs  = Math.ceil(totalW / wrapW);
+    // ~4 frames per viewport width, minimum 4
+    var framesPerVP = Math.max(4, Math.round(wrapW / 60));
+    var frameW      = Math.max(1, Math.round(wrapW / framesPerVP));
 
     var canvas = document.createElement('canvas');
-    canvas.width  = tw;
+    canvas.width  = frameW;
     canvas.height = tlH;
     var ctx = canvas.getContext('2d');
 
-    for (var i = 0; i < NUM; i++) {
+    var endPage = Math.min(startPage + 4, totalPgs);
+
+    for (var p = startPage; p < endPage; p++) {
       if (genId !== thumbGenId) { hideParseOverlay(); return; }
-      var t = (NUM === 1) ? 0 : (i / (NUM - 1)) * videoDuration;
-      await seekVideoTo(t);
-      if (genId !== thumbGenId) { hideParseOverlay(); return; }
-      ctx.drawImage(trimVideo, 0, 0, tw, tlH);
-      var img = document.createElement('img');
-      img.src = canvas.toDataURL('image/jpeg', 0.6);
-      img.style.cssText = 'flex:1;min-width:0;height:100%;object-fit:cover;';
-      thumbStrip.appendChild(img);
+      if (renderedPages.has(p)) continue;
+      renderedPages.add(p);
+
+      var pageStartPx = p * wrapW;
+      var pageEndPx   = Math.min((p + 1) * wrapW, totalW);
+      var pageW       = pageEndPx - pageStartPx;
+      var pageFrames  = Math.max(1, Math.round(pageW / frameW));
+
+      for (var i = 0; i < pageFrames; i++) {
+        if (genId !== thumbGenId) { hideParseOverlay(); return; }
+
+        var framePx = pageStartPx + (i / pageFrames) * pageW;
+        var t = (framePx / totalW) * videoDuration;
+
+        await seekVideoTo(t);
+        if (genId !== thumbGenId) { hideParseOverlay(); return; }
+
+        ctx.drawImage(trimVideo, 0, 0, frameW, tlH);
+        var img = document.createElement('img');
+        img.src = canvas.toDataURL('image/jpeg', 0.6);
+        img.style.cssText = 'position:absolute;top:0;height:100%;object-fit:cover;'
+          + 'left:'  + ((framePx / totalW) * 100).toFixed(4) + '%;'
+          + 'width:' + ((frameW  / totalW) * 100).toFixed(4) + '%;';
+        thumbStrip.appendChild(img);
+      }
     }
 
     hideParseOverlay();
     if (!isPlaying && !dragMode) trimVideo.currentTime = trimStart;
   }
+
+  // On scroll: if the current viewport has unrendered pages, render the next batch.
+  function scheduleThumbnailRender() {
+    if (!videoDuration || thumbRenderBusy) return;
+
+    var totalW   = trimTimeline.offsetWidth || 400;
+    var wrapW    = timelineWrap.clientWidth || totalW;
+    var totalPgs = Math.ceil(totalW / wrapW);
+    var curPage  = Math.floor(timelineWrap.scrollLeft / wrapW);
+
+    for (var p = curPage; p < Math.min(curPage + 4, totalPgs); p++) {
+      if (!renderedPages.has(p)) {
+        var currentGenId = thumbGenId;
+        thumbRenderBusy  = true;
+        renderPageBatch(currentGenId, p).then(function () {
+          thumbRenderBusy = false;
+          // Re-check in case scrolling continued during render
+          scheduleThumbnailRender();
+        }).catch(function () { thumbRenderBusy = false; });
+        return;
+      }
+    }
+  }
+
+  var thumbScrollTimer = null;
+  timelineWrap.addEventListener('scroll', function () {
+    clearTimeout(thumbScrollTimer);
+    thumbScrollTimer = setTimeout(scheduleThumbnailRender, 200);
+  });
 
   function seekVideoTo(t) {
     return new Promise(function (resolve) {
@@ -538,6 +769,7 @@
   function updatePlayhead(t) {
     if (!videoDuration) return;
     playhead.style.left = ((t / videoDuration) * 100) + '%';
+    trimCurrentTime.textContent = fmt(t);
   }
 
   // ── Drag system ──────────────────────────────────────────────────
@@ -597,16 +829,17 @@
     if (autoScrollLocked) return;
     var wrapW  = timelineWrap.clientWidth;
     var scroll = timelineWrap.scrollLeft;
+    var edge   = Math.round(wrapW * 0.4); // keep handle 20% from the edge
     var target = -1;
-    if (handlePx < scroll) {
-      target = Math.max(0, scroll - wrapW);
-    } else if (handlePx > scroll + wrapW) {
-      target = Math.min(trimTimeline.offsetWidth - wrapW, scroll + wrapW);
+    if (handlePx < scroll + edge) {
+      target = Math.max(0, handlePx - edge);
+    } else if (handlePx > scroll + wrapW - edge) {
+      target = Math.min(trimTimeline.offsetWidth - wrapW, handlePx - wrapW + edge);
     }
     if (target < 0) return;
     autoScrollLocked = true;
     timelineWrap.scrollTo({ left: target, behavior: 'smooth' });
-    setTimeout(function () { autoScrollLocked = false; }, 400);
+    setTimeout(function () { autoScrollLocked = false; }, 250);
   }
 
   function onDragMove(e) {
@@ -699,32 +932,34 @@
     var clipLen  = parseFloat((trimEnd - trimStart).toFixed(3));
 
     trimMsg.textContent = 'Loading video trimmer…';
+    trimMsg.classList.remove('animate-pulse');
     trimBar.style.width = '8%';
 
     var ffmpegMod = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
     var utilMod   = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js');
 
     var FFmpeg    = ffmpegMod.FFmpeg;
-    var toBlobURL = utilMod.toBlobURL;
     var fetchFile = utilMod.fetchFile;
 
     trimBar.style.width = '15%';
     trimMsg.textContent = 'Loading wasm (one-time download, ~30 MB)…';
 
     var ffmpeg = new FFmpeg();
-    var BASE   = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
 
     ffmpeg.on('progress', function (p) {
       trimBar.style.width = (55 + Math.round(p.progress * 35)) + '%';
     });
 
+    var origin = window.location.origin;
     await ffmpeg.load({
-      coreURL: await toBlobURL(BASE + '/ffmpeg-core.js',   'text/javascript'),
-      wasmURL: await toBlobURL(BASE + '/ffmpeg-core.wasm', 'application/wasm'),
+      classWorkerURL: origin + '/wasm/ffmpeg-worker.js',
+      coreURL:        origin + '/wasm/ffmpeg-core.js',
+      wasmURL:        origin + '/wasm/ffmpeg-core.wasm',
     });
 
     trimBar.style.width = '55%';
     trimMsg.textContent = 'Trimming…';
+    trimMsg.classList.add('animate-pulse');
 
     var ext       = (rawFile.name.match(/\.[^.]+$/) || ['.mp4'])[0].toLowerCase();
     var inputName = 'input' + ext;
@@ -755,7 +990,20 @@
     trimBar.style.width = '100%';
     await new Promise(function (r) { setTimeout(r, 250); });
 
-    showVideoPreview(trimmedBlob, true);
+    var capturedStart = trimStart;
+    var capturedEnd   = trimEnd;
+
+    trimLoading.classList.add('hidden');
+    trimLoading.classList.remove('flex');
+    applyBtn.classList.remove('hidden');
+    trimBar.style.width = '0%';
+
+    // Reset handles to full range so user can make another trim
+    trimStart = 0;
+    trimEnd   = Math.min(MAX_CLIP, videoDuration);
+    renderTrimUI();
+
+    createTrimCard(trimmedBlob, capturedStart, capturedEnd);
   }
 
   // ── Drag & drop on upload zone ───────────────────────────────────
@@ -778,9 +1026,13 @@
     mediaInput.dispatchEvent(new Event('change'));
   });
 
-  document.getElementById('change-image-btn').addEventListener('click', resetState);
-  document.getElementById('change-video-btn').addEventListener('click', resetState);
-  document.getElementById('change-trim-btn').addEventListener('click', resetState);
+  function openFilePicker() {
+    mediaInput.value = '';
+    mediaInput.click();
+  }
+  document.getElementById('change-image-btn').addEventListener('click', openFilePicker);
+  document.getElementById('change-video-btn').addEventListener('click', openFilePicker);
+  document.getElementById('change-trim-btn').addEventListener('click', openFilePicker);
 
   // ── Media type dropdown ──────────────────────────────────────────
 
@@ -905,19 +1157,67 @@
 
   // ── Form submit ──────────────────────────────────────────────────
 
-  form.addEventListener('submit', function (e) {
-    if (!trimPanel.classList.contains('hidden')) {
-      e.preventDefault();
-      setError('Apply your trim before submitting.');
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    if (rawFile && rawFile.type.startsWith('video/') && trimCards.length === 0) {
+      setError('Apply at least one trim before submitting.');
       return;
     }
-    if (!mediaInput.files[0]) {
-      e.preventDefault();
+    if (!rawFile) {
       setError('Please upload a photo or video.');
       return;
     }
+
     submitBtn.disabled    = true;
     submitBtn.textContent = 'Submitting…';
+    setError('');
+
+    // Flush the active card's current caption + tags into trimCards before iterating
+    if (selectedCardId !== -1) {
+      var cur = trimCards.find(function (c) { return c.id === selectedCardId; });
+      if (cur) {
+        cur.caption = document.getElementById('caption').value;
+        cur.tags    = tags.slice();
+      }
+    }
+
+    async function postEntry(file, caption, entryTags) {
+      var fd = new FormData();
+      fd.append('entryMedia', file);
+      fd.append('caption', caption || '');
+      entryTags.forEach(function (t) { fd.append('tags', t); });
+      var r    = await fetch('/api/entries', { method: 'POST', body: fd });
+      var data = await r.json();
+      if (!r.ok || data.error) throw new Error(data.error || 'Upload failed');
+      return data.entryId;
+    }
+
+    try {
+      var firstId;
+      if (trimCards.length > 0) {
+        var ids = await Promise.all(trimCards.map(function (tc) {
+          return postEntry(
+            new File([tc.blob], 'trimmed.mp4', { type: 'video/mp4' }),
+            tc.caption,
+            tc.tags || []
+          );
+        }));
+        firstId = ids[0];
+      } else {
+        firstId = await postEntry(
+          rawFile,
+          document.getElementById('caption').value,
+          tags.slice()
+        );
+      }
+      window.location.href = '/entry/' + firstId;
+    } catch (err) {
+      console.error('Submit error:', err);
+      setError(err.message || 'Something went wrong. Please try again.');
+      submitBtn.disabled    = false;
+      submitBtn.textContent = 'Submit Entry';
+    }
   });
 
 }());

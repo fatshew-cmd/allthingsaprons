@@ -31,9 +31,9 @@ app.set('views', path.join(__dirname, 'views'));
 
 app.use('/', authRouter);
 app.use('/onboarding', onboardingRouter);
+app.use('/admin', adminRouter);
 app.use('/', pagesRouter);
 app.use('/api', apiRouter);
-app.use('/admin', adminRouter);
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/allthingsaprons';
 
