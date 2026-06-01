@@ -28,23 +28,42 @@
     }, { once: true });
   }
 
-  window.showToast = function (message, type, duration) {
+  window.showToast = function (message, type, duration, actions) {
     var cfg = CONFIGS[type] || CONFIGS.info;
-    duration = (duration === undefined) ? 4000 : duration;
+    var hasActions = actions && actions.length > 0;
+    if (duration === undefined) duration = hasActions ? 0 : 4000;
 
     var el = document.createElement('div');
-    el.className = 'pointer-events-auto flex items-center gap-2.5 rounded-md border px-3.5 py-2.5 text-sm shadow-xl min-w-56 max-w-xs bg-shark-900 _toast-enter ' + cfg.cls;
-    el.innerHTML =
+    el.className = 'pointer-events-auto flex flex-col rounded-md border shadow-xl min-w-56 max-w-xs bg-shark-900 _toast-enter ' + cfg.cls;
+
+    var header = document.createElement('div');
+    header.className = 'flex items-center gap-2.5 px-3.5 py-2.5 text-sm';
+    header.innerHTML =
       '<iconify-icon icon="' + cfg.icon + '" width="15" class="shrink-0"></iconify-icon>' +
       '<span class="flex-1">' + message + '</span>' +
       '<button type="button" class="shrink-0 ml-1 opacity-40 hover:opacity-80 transition-opacity cursor-pointer">' +
         '<iconify-icon icon="bx:x" width="16"></iconify-icon>' +
       '</button>';
+    header.querySelector('button').addEventListener('click', function () { dismiss(el); });
+    el.appendChild(header);
 
-    el.querySelector('button').addEventListener('click', function () { dismiss(el); });
+    if (hasActions) {
+      var actRow = document.createElement('div');
+      actRow.className = 'flex items-center justify-end gap-2 px-3 pb-3';
+      actions.forEach(function (a) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'text-xs font-semibold px-3 py-1.5 rounded-md transition-colors cursor-pointer ' + (a.cls || 'bg-white/10 text-white/60 hover:bg-white/15');
+        b.textContent = a.label;
+        b.addEventListener('click', function () { dismiss(el); if (a.fn) a.fn(); });
+        actRow.appendChild(b);
+      });
+      el.appendChild(actRow);
+    }
+
     container.appendChild(el);
-
     if (duration > 0) setTimeout(function () { dismiss(el); }, duration);
+    return el;
   };
 
   document.addEventListener('DOMContentLoaded', function () {

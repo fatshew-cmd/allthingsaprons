@@ -75,13 +75,20 @@ router.get('/messages', (req, res) => {
 // ── Entry page (stub — fleshed out next) ─────────────────────────
 
 router.get('/entry/:id', async (req, res) => {
-  const entry = await Entry.findById(req.params.id).populate('userId', 'username avatar').catch(() => null);
+  const entry = await Entry.findById(req.params.id).populate('userId', 'username displayName avatar').catch(() => null);
   if (!entry) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  const ownerId = entry.userId._id;
+  const isOwn = ownerId.toString() === req.session.userId;
+  const isFollowing = (!isOwn && req.session.userId)
+    ? !!(await Follow.findOne({ followerId: req.session.userId, followingId: ownerId }).lean())
+    : false;
   res.render('entry', {
     title:      entry.caption ? entry.caption.slice(0, 60) : 'Entry',
     activePage: '',
     currentUser: req.currentUser,
     entry,
+    isFollowing,
+    currentUserId: req.session.userId || null,
   });
 });
 
@@ -356,7 +363,7 @@ router.get('/:username', async (req, res) => {
 
   const entryIds = entries.map(e => e._id);
 
-  const [followerCount, followingCount, nominationsAccepted, firstPrizes, secondPrizes, thirdPrizes, userContests, userTournamentEntries] = await Promise.all([
+  const [followerCount, followingCount, nominationsAccepted, firstPrizes, secondPrizes, thirdPrizes, userContests, userTournamentEntries, followDoc] = await Promise.all([
     Follow.countDocuments({ followingId: user._id }),
     Follow.countDocuments({ followerId: user._id }),
     Nomination.countDocuments({ nomineeId: user._id, status: 'accepted' }),
@@ -365,7 +372,10 @@ router.get('/:username', async (req, res) => {
     entryIds.length ? Tournament.countDocuments({ 'prizes.third.entryId': { $in: entryIds }, status: 'closed' }) : Promise.resolve(0),
     Contest.find({ 'entries.userId': user._id }).sort({ createdAt: -1 }).populate('entries.entryId', 'mediaUrl caption').lean(),
     TournamentEntry.find({ userId: user._id }).sort({ submittedAt: -1 }).populate('tournamentId', 'name status type prizes').populate('entryId', 'mediaUrl caption').lean(),
+    (!isOwn && req.session.userId) ? Follow.findOne({ followerId: req.session.userId, followingId: user._id }).lean() : Promise.resolve(null),
   ]);
+
+  const isFollowing = !!followDoc;
 
   const ratedEntries = entries.filter(e => e.ratingCount > 0);
   const overallRank = ratedEntries.length
@@ -390,6 +400,7 @@ router.get('/:username', async (req, res) => {
     thirdPrizes,
     overallRank,
     isOwn,
+    isFollowing,
     userContests,
     userTournamentEntries,
     editError: typeof req.query.editError === 'string' ? req.query.editError : null,

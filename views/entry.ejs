@@ -1,55 +1,13 @@
 <%- include('partials/appStart', { title: title, activePage: '' }) %>
 
-<div class="max-w-2xl mx-auto px-4 py-8 pb-24 md:pb-8">
-
-  <!-- Media -->
-  <div class="rounded-md overflow-hidden bg-shark-900 mb-5">
-    <% if (entry.mediaType === 'video') { %>
-    <video src="<%= entry.mediaUrl %>" controls class="w-full max-h-[70vh] object-contain"></video>
-    <% } else { %>
-    <img src="<%= entry.mediaUrl %>" alt="<%= entry.caption || 'Entry' %>" class="w-full max-h-[70vh] object-contain">
-    <% } %>
-  </div>
-
-  <!-- Owner + meta -->
-  <div class="flex items-center gap-3 mb-4">
-    <a href="/profile/<%= entry.userId._id %>" class="flex items-center gap-2.5 group">
-      <div class="w-9 h-9 rounded-full overflow-hidden bg-shark-800 shrink-0">
-        <% if (entry.userId.avatar) { %>
-        <img src="<%= entry.userId.avatar %>" alt="" class="w-full h-full object-cover">
-        <% } else { %>
-        <div class="w-full h-full flex items-center justify-center">
-          <iconify-icon icon="boxicons:user" width="18" class="text-white/25"></iconify-icon>
-        </div>
-        <% } %>
-      </div>
-      <span class="text-sm font-semibold text-white/70 group-hover:text-white transition-colors">@<%= entry.userId.username %></span>
-    </a>
-    <span class="text-white/20 text-xs ml-auto"><%= new Date(entry.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></span>
-  </div>
-
-  <% if (entry.caption) { %>
-  <p class="text-sm text-white/70 leading-relaxed mb-4"><%= entry.caption %></p>
-  <% } %>
-
-  <% if (entry.tags && entry.tags.length) { %>
-  <div class="flex flex-wrap gap-2 mb-4">
-    <% entry.tags.forEach(function(tag) { %>
-    <span class="text-xs text-white/40 bg-shark-900 border border-white/10 rounded-md px-2 py-1">#<%= tag %></span>
-    <% }); %>
-  </div>
-  <% } %>
-
-  <!-- Rating placeholder -->
-  <div class="flex items-center gap-2 text-sm text-white/35 border-t border-white/8 pt-4">
-    <iconify-icon icon="boxicons:star" width="16" class="text-white/25"></iconify-icon>
-    <% if (entry.ratingCount > 0) { %>
-    <span><%= entry.ratingAvg.toFixed(1) %> &nbsp;·&nbsp; <%= entry.ratingCount %> <%= entry.ratingCount === 1 ? 'rating' : 'ratings' %></span>
-    <% } else { %>
-    <span>No ratings yet</span>
-    <% } %>
-  </div>
-
+<div class="max-w-2xl mx-auto py-6 pb-24 md:pb-6">
+  <%- include('partials/entryCard', {
+    entry:         entry,
+    owner:         entry.userId,
+    currentUserId: currentUserId,
+    isFollowing:   isFollowing,
+    mediaFull:     true
+  }) %>
 </div>
 
 <%- include('partials/appEnd') %>

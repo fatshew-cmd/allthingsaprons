@@ -65,4 +65,31 @@ router.post('/entries', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), as
   }
 });
 
+router.get('/profile/:username/entries', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const page  = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = 12;
+  const skip  = (page - 1) * limit;
+
+  try {
+    const user = await User.findOne({ username: req.params.username.toLowerCase() }).select('_id');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const [entries, total] = await Promise.all([
+      Entry.find({ userId: user._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('mediaUrl mediaType caption tags ratingAvg ratingCount')
+        .lean(),
+      Entry.countDocuments({ userId: user._id }),
+    ]);
+
+    res.json({ entries, hasMore: skip + entries.length < total });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

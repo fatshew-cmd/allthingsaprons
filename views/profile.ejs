@@ -183,7 +183,7 @@
   %>
 
   <!-- Tab bar -->
-  <div class="border-b border-white/10 flex sticky top-0 bg-shark-950 z-20">
+  <div class="border-b border-white/10 flex sticky top-0 bg-shark-950 z-20 mb-4">
     <button data-tab="entries" class="tab-btn flex-1 py-3 px-2 text-sm font-semibold border-b-2 transition-colors text-white border-charm-500">
       Entries
     </button>
@@ -203,20 +203,20 @@
       <p class="text-white/40 text-sm">No entries yet</p>
     </div>
     <% } else { %>
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-white/5 p-px">
-      <% entries.forEach(function(entry) { %>
-      <div class="relative aspect-square bg-shark-900 overflow-hidden group">
-        <img src="<%= entry.mediaUrl %>" alt="Entry"
-          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-        <div class="absolute bottom-0 inset-x-0 bg-linear-to-t from-shark-950/80 to-transparent px-2 py-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div class="flex items-center gap-1 text-xs text-white/80">
-            <iconify-icon icon="boxicons:star-filled" width="11" class="text-amber-400"></iconify-icon>
-            <%= entry.ratingAvg > 0 ? entry.ratingAvg.toFixed(1) : '—' %>
-            <span class="text-white/40 ml-1">(<%= entry.ratingCount %>)</span>
-          </div>
-        </div>
-      </div>
+    <div id="entries-grid" class="grid grid-cols-1 gap-3 px-3 pb-3">
+      <% entries.slice(0, 12).forEach(function(entry) { %>
+      <%- include('partials/entryCard', { entry: entry, owner: profileUser, currentUserId: currentUser ? currentUser._id.toString() : null, isFollowing: isFollowing }) %>
       <% }); %>
+    </div>
+    <div id="entries-sentinel"></div>
+    <div id="entries-spinner" class="justify-center py-6" style="display:none">
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" class="text-charm-400">
+        <path d="M0 0h24v24H0z" fill="none" />
+        <path fill="currentColor" d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25" />
+        <path fill="currentColor" d="M12,4a8,8,0,0,1,7.89,6.7A1.53,1.53,0,0,0,21.38,12h0a1.5,1.5,0,0,0,1.48-1.75,11,11,0,0,0-21.72,0A1.5,1.5,0,0,0,2.62,12h0a1.53,1.53,0,0,0,1.49-1.3A8,8,0,0,1,12,4Z">
+          <animateTransform attributeName="transform" dur="0.75s" repeatCount="indefinite" type="rotate" values="0 12 12;360 12 12" />
+        </path>
+      </svg>
     </div>
     <% } %>
   </div>
@@ -672,6 +672,94 @@
 
   var hash = window.location.hash.slice(1);
   activate(validTabs.includes(hash) ? hash : 'entries');
+}());
+</script>
+
+<script>
+(function () {
+  var grid     = document.getElementById('entries-grid');
+  var sentinel = document.getElementById('entries-sentinel');
+  var spinner  = document.getElementById('entries-spinner');
+  if (!grid || !sentinel || !spinner) return;
+
+  var page    = 1;
+  var loading = false;
+  var hasMore = <%= entries && entries.length > 12 ? 'true' : 'false' %>;
+  var username = <%- JSON.stringify(profileUser.username) %>;
+
+  if (!hasMore) { sentinel.remove(); return; }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function buildCard(entry) {
+    var mediaSrc = esc(entry.mediaUrl);
+    var mediaHtml = entry.mediaType === 'video'
+      ? '<video src="' + mediaSrc + '" class="w-full h-full object-cover" muted preload="none"></video>' +
+        '<div class="absolute inset-0 flex items-center justify-center">' +
+          '<iconify-icon icon="bx:play-circle" width="30" class="text-white/80 drop-shadow-md"></iconify-icon>' +
+        '</div>'
+      : '<img src="' + mediaSrc + '" alt="" class="w-full h-full object-cover">';
+
+    var ratingHtml = '';
+    if (entry.ratingCount > 0) {
+      ratingHtml = '<div class="absolute bottom-1.5 left-1.5 flex items-center gap-0.5 bg-shark-950/80 rounded-md px-1.5 py-0.5">' +
+        '<iconify-icon icon="boxicons:star-filled" width="10" class="text-amber-400"></iconify-icon>' +
+        '<span class="text-xs font-semibold text-white ml-0.5">' + esc(entry.ratingAvg.toFixed(1)) + '</span>' +
+        '</div>';
+    }
+
+    var captionHtml = entry.caption
+      ? '<p class="text-sm leading-relaxed text-white/65 line-clamp-2">' + esc(entry.caption) + '</p>'
+      : '';
+
+    var tagsHtml = '';
+    if (entry.tags && entry.tags.length > 0) {
+      tagsHtml = '<div class="flex flex-wrap gap-x-1.5 gap-y-0.5">' +
+        entry.tags.map(function (t) { return '<span class="text-xs text-charm-400/80">#' + esc(t) + '</span>'; }).join('') +
+        '</div>';
+    }
+
+    var card = document.createElement('a');
+    card.href = '/entry/' + entry._id;
+    card.className = 'bg-shark-900 flex flex-col overflow-hidden';
+    card.innerHTML =
+      '<div class="relative aspect-video overflow-hidden bg-shark-950">' +
+        mediaHtml + ratingHtml +
+      '</div>' +
+      '<div class="px-2 pt-2 pb-2.5 flex flex-col gap-1">' +
+        captionHtml + tagsHtml +
+      '</div>';
+    return card;
+  }
+
+  function loadMore() {
+    if (loading || !hasMore) return;
+    loading = true;
+    spinner.style.display = 'flex';
+    page++;
+
+    fetch('/api/profile/' + username + '/entries?page=' + page + '&limit=12')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        data.entries.forEach(function (entry) { grid.appendChild(buildCard(entry)); });
+        hasMore = data.hasMore;
+        if (!hasMore) sentinel.remove();
+      })
+      .catch(function () {})
+      .finally(function () {
+        loading = false;
+        spinner.style.display = 'none';
+      });
+  }
+
+  var observer = new IntersectionObserver(function (entries) {
+    if (entries[0].isIntersecting) loadMore();
+  }, { rootMargin: '300px' });
+
+  observer.observe(sentinel);
 }());
 </script>
 
