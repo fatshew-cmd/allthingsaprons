@@ -21,8 +21,10 @@ function genOtp() {
 router.get('/signup', async (req, res) => {
   if (req.session.userId) {
     const user = await User.findById(req.session.userId)
-      .select('accountStatus username displayName email avatar bio sex orientation location birthdate');
+      .select('accountStatus onboardingStatus username displayName email avatar bio sex orientation location birthdate');
     if (!user || user.accountStatus !== 'onboarding') return res.redirect('/onboarding');
+    const lockedStatuses = ['pending_id_verification', 'pending_approval', 'approved'];
+    if (lockedStatuses.includes(user.onboardingStatus)) return res.redirect('/onboarding');
     return res.render('signup', {
       title: 'Edit Profile',
       error: null,
@@ -115,9 +117,13 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
 
     // ── Edit path ────────────────────────────────────────────────────
     if (isEdit) {
-      const currentUser = await User.findById(req.session.userId).select('accountStatus');
+      const currentUser = await User.findById(req.session.userId).select('accountStatus onboardingStatus');
       if (!currentUser || currentUser.accountStatus !== 'onboarding') {
         return renderError('Cannot edit profile at this stage.');
+      }
+      const lockedStatuses = ['pending_id_verification', 'pending_approval', 'approved'];
+      if (lockedStatuses.includes(currentUser.onboardingStatus)) {
+        return res.redirect('/onboarding');
       }
 
       const conflict = await User.findOne({
@@ -202,7 +208,6 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
       birthdate:        new Date(birthdate),
       avatar:           avatarPath,
       emailConfirmed:   true,
-      onboardingStatus: 'pending_submission',
     });
 
     delete req.session.pendingOtp;

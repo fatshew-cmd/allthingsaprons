@@ -130,7 +130,7 @@ A tournament is an admin-created collection of contests where all participants c
 
 ### 4.1 Creation & Scheduling
 
-Any registered user can create a tournament, but **the organizer must commit the prize funds upfront** before the tournament goes live. The platform holds those funds until winners are determined. Admin-created tournaments are platform-funded.
+Any registered user with **`idVerified: true`** can create a tournament. The organizer must also **commit the prize funds upfront** before the tournament goes live. The platform holds those funds until winners are determined. Admin-created tournaments are platform-funded.
 
 The organizer sets the maximum number of participants and the prize structure (amounts per place).
 
@@ -213,7 +213,7 @@ Three prizes are awarded at tournament close:
 
 ---
 
-## 5. Vote Economics
+## 5. Vote Economics _(designed; implementation deferred to July)_
 
 Votes have monetary value — the platform pays voters for participating. Value is computed at vote time and stored on the vote record for auditability.
 
@@ -239,7 +239,7 @@ The reason vote value is $0 in user-organized tournaments: the organizer deposit
 
 | Role | Capabilities |
 |---|---|
-| Anonymous | Read-only access. Redirected to signup for any interaction. |
+| Anonymous | No access — redirected to signup. There is no read-only browsing mode. |
 | Registered | Rate entries, vote in contests, create contests, submit entries, nominate others, create user-organized tournaments (with funds + ID verification + admin review) |
 | Admin | All of the above + create platform-funded tournaments, approve user-organized tournaments |
 
@@ -252,12 +252,13 @@ Every new user must pass through a mandatory onboarding sequence before accessin
 **Onboarding states:**
 
 ```
-account_created → pending_submission → pending_approval → approved
-                                                        → rejected → pending_submission
+account_created → pending_id_verification → pending_submission → pending_approval → approved
+                                                                                  → rejected → pending_submission
 ```
 
 | State | What the user sees |
 |---|---|
+| `pending_id_verification` | Identity verification screen — generate a code, upload a selfie with the code visible, upload a government ID. Stays here until an admin approves the documents and sets `idVerified: true`. |
 | `pending_submission` | Prompted to submit an entry to an open tournament. If no tournament is open, a holding screen tells them to come back later. |
 | `pending_approval` | Waiting screen. The organizer is reviewing their entry. No platform access yet. |
 | `approved` | Full platform access. Email confirmation and ID verification requirements apply (see below). |
@@ -270,14 +271,26 @@ account_created → pending_submission → pending_approval → approved
 - Until approved, the user cannot leave the onboarding domain.
 - If the tournament a user submitted to is canceled while their entry is `pending_approval`, they are returned to `pending_submission`.
 
-**Post-approval requirements:**
+**Post-signup gate:**
 
 | Requirement | When required | How |
 |---|---|---|
 | Email confirmation | During signup — before account is created | OTP sent via **Resend** to the provided email. User enters OTP on the signup page. Account is only created once OTP is verified. |
-| ID verification | Only when user attempts to create a tournament | Lazy gate — no friction during normal onboarding |
 
-Email confirmation is synchronous and inline — it is a step within the signup form, not a post-signup async flow. There is no timer, no blocked state, and no re-send complication. `emailConfirmed` will always be `true` by the time an account exists.
+Email confirmation is synchronous and inline — it is a step within the signup form, not a post-signup async flow. `emailConfirmed` will always be `true` by the time an account exists.
+
+**ID Verification — Onboarding Step 1**
+
+After account creation, the user must complete identity verification before they can submit an entry. The flow:
+
+1. Generate an 8-character verification code.
+2. Upload a selfie with the code visibly held (5-minute window before code expires).
+3. Upload a government-issued ID document (passport, driver's license, or national ID).
+4. Submission sets `idVerificationStatus: 'pending'`. An admin reviews manually and sets `idVerified: true`, which advances the user to `pending_submission`.
+
+Abuse prevention: each code generation increments `idVerifyFailedAttempts`. After 3 failed attempts, the account is temporarily blocked for 2 hours (`idVerifyBlockedUntil`).
+
+`idVerified: true` is also a prerequisite for creating a user-organized tournament (see Section 4.1).
 
 ---
 
@@ -285,6 +298,8 @@ Email confirmation is synchronous and inline — it is a step within the signup 
 
 These apply across the entire platform, regardless of system:
 
+- Anonymous users cannot access any platform page — redirected to signup
+- Users with `onboardingStatus !== 'approved'` cannot leave the onboarding domain
 - A user cannot rate or vote for their own entry, anywhere
 - A user cannot rate the same entry more than once
 - A user cannot vote in the same contest more than once
@@ -304,24 +319,51 @@ These apply across the entire platform, regardless of system:
 ```js
 {
   _id: ObjectId,
-  username: String,
-  email: String,           // unique index
+  username: String,              // unique index
+  email: String,                 // unique index
   passwordHash: String,
-  role: String,               // 'user' | 'admin'
-  onboardingStatus: String,   // 'pending_submission' | 'pending_approval' | 'approved' | 'rejected'
-  emailConfirmed: Boolean,    // always true post-signup — OTP verified inline during registration via Resend
-  idVerified: Boolean,        // default: false — required only for tournament creation
+  displayName: String,
+  bio: String,
+  avatar: String,                // path to uploaded avatar file
+  banner: String,                // path to uploaded banner file
+
+  // Profile attributes
+  sex: String,                   // 'male' | 'female' | 'other' | 'prefer-not-to-say'
+  orientation: String,
+  location: String,
+  url: String,
+  birthdate: Date,
+
+  // Account status
+  accountStatus: String,         // 'onboarding' | 'active'
+  role: String,                  // 'user' | 'admin'
+  onboardingStatus: String,      // 'pending_id_verification' | 'pending_submission' | 'pending_approval' | 'approved' | 'rejected'
+  emailConfirmed: Boolean,       // always true post-signup — OTP verified inline during registration via Resend
+
+  // Identity verification
+  idVerified: Boolean,           // default: false — required to create a tournament
+  idVerificationStatus: String,  // 'none' | 'pending'
+  idSelfieUrl: String,           // path to uploaded selfie file
+  idDocUrl: String,              // path to uploaded government ID file
+  idVerificationCode: String,    // 8-char code user holds in selfie
+  idVerifyFailedAttempts: Number, // default: 0 — incremented each time a code is generated
+  idVerifyBlockedUntil: Date,    // set to +2h after 3 failed attempts; null when not blocked
+
   wallet: {
-    balanceCents: Number,  // default: 0 — accumulated vote earnings
+    balanceCents: Number,        // default: 0 — accumulated vote earnings
     updatedAt: Date
   },
-  createdAt: Date
+
+  createdAt: Date,
+  updatedAt: Date
 }
 ```
 
 **Indexes:** `email` (unique), `username` (unique)
 
 `wallet` is embedded — it is always fetched alongside the user and is a 1-to-1 relationship.
+
+`accountStatus` is a top-level gate: `'onboarding'` until the user reaches `approved`, then `'active'`. It can be checked without inspecting `onboardingStatus`.
 
 ---
 
@@ -604,6 +646,7 @@ Application enforces: `userId` must not equal the submitting contestant's `userI
 ## 9. Open Questions
 
 - **Payment processor:** CCBill selected as first option. Epoch does not support US-based businesses. Verify CCBill's current ToS covers the platform's content category and escrow/payout requirements before integrating.
+- **Follow system:** A `follows` collection exists in the data model (follower/followee user relationships) but the feature is not yet documented. Scope, UI surface, and notification behavior TBD.
 
 ## 10. Post-MVP: Open Challenges
 

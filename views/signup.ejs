@@ -25,18 +25,36 @@
   <!-- Top bar -->
   <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
     <a href="/" class="font-gochi text-charm-500 text-2xl leading-none" style="-webkit-text-stroke: 1px currentColor">AllThingsAprons</a>
-    <div class="flex items-center gap-3 text-sm">
+    <div class="flex items-center gap-1.5 text-sm">
       <div class="flex items-center gap-2">
         <div id="step-1-num" class="w-6 h-6 rounded-md bg-charm-600 text-white text-xs font-bold flex items-center justify-center transition-colors">1</div>
-        <span id="step-1-label" class="text-white/60 hidden sm:inline transition-colors">Profile</span>
+        <span id="step-1-label" class="text-white/60 hidden lg:inline transition-colors">Profile Creation</span>
       </div>
-      <div class="w-8 h-px bg-white/15"></div>
+      <div class="w-6 h-px bg-white/15"></div>
       <div class="flex items-center gap-2">
         <div id="step-2-num" class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center transition-colors">2</div>
-        <span id="step-2-label" class="text-white/30 hidden sm:inline transition-colors">Verify Email</span>
+        <span id="step-2-label" class="text-white/30 hidden lg:inline transition-colors">Email Verification</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">3</div>
+        <span class="text-white/30 hidden lg:inline">Identity Verification</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">4</div>
+        <span class="text-white/30 hidden lg:inline">Entry Submission</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">5</div>
+        <span class="text-white/30 hidden lg:inline">Pending Approval</span>
       </div>
     </div>
-    <a href="/login" class="text-sm text-white/35 hover:text-white/60 transition-colors">Log in</a>
+    <div class="flex items-center gap-4">
+      <button type="button" id="header-cancel-btn" class="hidden text-xs text-white capitalize hover:text-white/70 transition-colors cursor-pointer">Cancel sign up</button>
+      <a href="/login" class="text-sm text-white/35 hover:text-white/60 transition-colors">Log in</a>
+    </div>
   </header>
 
   <div class="flex justify-center px-4 py-10 pb-20">
@@ -314,14 +332,7 @@
       <!-- ── STEP 2: OTP Verification ── -->
       <div id="step-2-content" class="hidden max-w-sm mx-auto">
 
-        <button type="button" id="back-btn"
-          class="flex items-center gap-1.5 text-white/40 hover:text-white transition-colors text-sm mb-7 cursor-pointer">
-          <iconify-icon icon="boxicons:left-arrow-alt" width="18"></iconify-icon>
-          Back
-        </button>
-
         <div class="text-center mb-8">
-          <iconify-icon icon="boxicons:envelope-open" width="40" class="text-charm-400 mb-4 block mx-auto"></iconify-icon>
           <h2 class="text-2xl font-black">Check your email</h2>
           <p id="otp-sent-to" class="text-white/40 mt-2 text-sm leading-relaxed">We sent a 6-digit code to your email address.</p>
         </div>
@@ -361,6 +372,7 @@
 
     </form>
   </div>
+  <form id="cancel-signup-form" action="/onboarding/cancel" method="POST" class="hidden"></form>
 
 <script>
 (function () {
@@ -474,23 +486,25 @@
     var l2 = document.getElementById('step-2-label');
     var active   = 'bg-charm-600 text-white';
     var inactive = 'bg-shark-700 text-white/35';
+    var cancelBtn = document.getElementById('header-cancel-btn');
     if (n === 1) {
       s1.classList.remove('hidden'); s2.classList.add('hidden');
       n1.className = n1.className.replace(inactive, active);
       n2.className = n2.className.replace(active, inactive);
       l1.className = l1.className.replace('text-white/30', 'text-white/60');
       l2.className = l2.className.replace('text-white/60', 'text-white/30');
+      if (cancelBtn && !SERVER_EDIT) cancelBtn.classList.add('hidden');
     } else {
       s1.classList.add('hidden'); s2.classList.remove('hidden');
       n2.className = n2.className.replace(inactive, active);
       n1.className = n1.className.replace(active, inactive);
       l2.className = l2.className.replace('text-white/30', 'text-white/60');
       l1.className = l1.className.replace('text-white/60', 'text-white/30');
+      if (cancelBtn) cancelBtn.classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
-  document.getElementById('back-btn').addEventListener('click', function () { showStep(1); });
 
   <% if (typeof error !== 'undefined' && error) { %>
   showStep(2);
@@ -722,46 +736,62 @@
     return valid;
   }
 
-  // ── Continue button — sends OTP ───────────────────────────
-  document.getElementById('next-btn').addEventListener('click', async function () {
+  // ── Continue button — confirmation toast then OTP ─────────
+  document.getElementById('next-btn').addEventListener('click', function () {
     if (!validateStep1()) return;
-    var btn      = document.getElementById('next-btn');
-    btn.disabled = true;
-    btn.textContent = 'Sending code…';
-    var username = document.getElementById('username').value.trim().toLowerCase();
-    var email    = document.getElementById('email').value.trim().toLowerCase();
-    try {
-      var res  = await fetch('/auth/send-otp', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email: email, username: username }),
-      });
-      var data = await res.json();
-      if (!data.ok) {
-        if (data.field === 'email')    showErr('email-error',    data.message);
-        if (data.field === 'username') showErr('username-error', data.message);
-        showErr('step1-general-error', data.message || 'Could not send code. Please try again.');
-        btn.disabled = false;
-        btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
-      } else {
-        if (data.devCode) {
-          document.getElementById('otp-sent-to').innerHTML =
-            '<span style="color:rgba(255,255,255,0.4)">No email provider configured. </span>' +
-            '<strong style="color:#f59e0b">Dev code: ' + data.devCode + '</strong>';
-          document.getElementById('otp-input').value  = data.devCode;
-          document.getElementById('otp-hidden').value = data.devCode;
-        } else {
-          document.getElementById('otp-sent-to').textContent = 'We sent a 6-digit code to ' + email + '.';
-        }
-        showStep(2);
-        btn.disabled = false;
-        btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
-      }
-    } catch (e) {
-      showErr('step1-general-error', 'Could not send code. Please try again.');
-      btn.disabled = false;
-      btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
-    }
+    var btn = document.getElementById('next-btn');
+
+    window.showToast(
+      'Once you proceed, you won\'t be able to edit your profile until your account is fully approved.',
+      'info',
+      0,
+      [
+        { label: 'Cancel' },
+        {
+          label: 'Proceed',
+          cls:   'bg-charm-600 text-white hover:bg-charm-500',
+          fn: async function () {
+            btn.disabled    = true;
+            btn.textContent = 'Sending code…';
+            var username = document.getElementById('username').value.trim().toLowerCase();
+            var email    = document.getElementById('email').value.trim().toLowerCase();
+            try {
+              var res  = await fetch('/auth/send-otp', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ email: email, username: username }),
+              });
+              var data = await res.json();
+              if (!data.ok) {
+                if (data.field === 'email')    showErr('email-error',    data.message);
+                if (data.field === 'username') showErr('username-error', data.message);
+                showErr('step1-general-error', data.message || 'Could not send code. Please try again.');
+                btn.disabled = false;
+                btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
+              } else {
+                if (data.devCode) {
+                  document.getElementById('otp-sent-to').innerHTML =
+                    '<span style="color:rgba(255,255,255,0.4)">No email provider configured. </span>' +
+                    '<strong style="color:#f59e0b">Dev code: ' + data.devCode + '</strong>';
+                  document.getElementById('otp-input').value  = data.devCode;
+                  document.getElementById('otp-hidden').value = data.devCode;
+                } else {
+                  document.getElementById('otp-sent-to').textContent = 'We sent a 6-digit code to ' + email + '.';
+                }
+                showStep(2);
+                btn.disabled = false;
+                btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
+              }
+            } catch (e) {
+              showErr('step1-general-error', 'Could not send code. Please try again.');
+              btn.disabled = false;
+              btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
+            }
+          },
+        },
+      ],
+      { noIcon: true, noClose: true }
+    );
   });
 
   // ── OTP input sync ─────────────────────────────────────────
@@ -920,10 +950,31 @@
     });
   }
 
+  // ── Cancel sign up ─────────────────────────────────────────
+  var headerCancelBtn = document.getElementById('header-cancel-btn');
+  if (headerCancelBtn) {
+    if (SERVER_EDIT) headerCancelBtn.classList.remove('hidden');
+    headerCancelBtn.addEventListener('click', function () {
+      var msg = SERVER_EDIT
+        ? 'Cancel your sign up? Your account will be permanently deleted and you\'ll need to start over.'
+        : 'Cancel your sign up? All progress will be lost.';
+      if (confirm(msg)) {
+        if (SERVER_EDIT) {
+          document.getElementById('cancel-signup-form').submit();
+        } else {
+          try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
+          window.location.href = '/signup';
+        }
+      }
+    });
+  }
+
   restoreSignupState();
 
 }());
 </script>
+
+<%- include('partials/toasts') %>
 
 </body>
 </html>

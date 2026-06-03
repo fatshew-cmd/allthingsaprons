@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="flex overflow-hidden bg-zinc-50" style="height:100vh;font-family:'Sofia Sans',sans-serif">
+
+  <%- include('../partials/adminSidebar', { currentPage: 'verification' }) %>
+
+  <div class="flex-1 flex flex-col overflow-hidden">
+
+    <div class="bg-white border-b border-zinc-200 px-8 py-5 shrink-0">
+      <h1 class="text-xl font-bold text-zinc-900 m-0">ID Verification</h1>
+      <p class="text-sm text-zinc-400 mt-0.5 mb-0">Review selfie and government ID submissions</p>
+    </div>
+
+    <main class="flex-1 overflow-y-auto p-8 flex items-start justify-center">
+      <div class="bg-white rounded-md border border-zinc-200 p-12 max-w-md w-full text-center mt-8">
+        <div class="w-14 h-14 rounded-full bg-violet-50 flex items-center justify-center mx-auto mb-5">
+          <iconify-icon icon="lucide:shield-check" width="24" style="color:#7c3aed;display:block"></iconify-icon>
+        </div>
+        <span class="inline-block px-2.5 py-1 rounded-md text-xs font-bold bg-zinc-100 text-zinc-500 mb-4">Phase 6</span>
+        <h2 class="text-lg font-bold text-zinc-800 mt-0 mb-2">ID Verification Queue</h2>
+        <p class="text-sm text-zinc-400 mb-6 leading-relaxed">This section will list users with a pending identity verification submission for manual review.</p>
+        <ul class="text-sm text-zinc-500 text-left flex flex-col gap-2">
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Selfie with verification code</li>
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Government-issued ID document</li>
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Approve → sets <code class="text-xs bg-zinc-100 px-1 rounded">idVerified: true</code>, advances to pending_submission</li>
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Reject → user notified, can resubmit</li>
+        </ul>
+      </div>
+    </main>
+
+  </div>
+</body>
+</html>

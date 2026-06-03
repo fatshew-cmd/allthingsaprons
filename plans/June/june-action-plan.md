@@ -1,33 +1,34 @@
 # June Action Plan
 
-## Current State (end of May)
+## Current State (June 2)
 
-The project has meaningful scaffolding already in place. Before building new features, some existing models need to be aligned with the finalized design from `platform-core-concepts.md`.
+Phase 1 (schema alignment) and the bulk of Phase 2 (auth + user foundation) are complete — both finished ahead of the original schedule. Entry upload and ratings are also done. What remains is primarily content display (feed, leaderboard, comments) and the contest system.
 
-### What exists
+### What is done
 | Asset | Status |
 |---|---|
-| `User` model | Exists — needs `idVerified`, `wallet`, role alignment |
-| `Item` model | Exists — is functionally our `Entry`, needs rename + field cleanup |
-| `Rating` model | Exists — references `Item`, has `mode` field that no longer applies. Needs rebuild. |
-| `Contest` model | Exists — completely different concept. Needs full replacement. |
-| Auth routes | Exists (`routes/auth.js`) |
-| Admin middleware | Exists (`middleware/isAdmin.js`) |
-| Upload middleware | Exists (`middleware/upload.js`) |
-| Views | Stubs exist for: feed, profile, contests, notifications, messages, leaderboard, search, settings, signup |
-| Admin dashboard | Stub exists |
+| All models | Complete and aligned with `platform-core-concepts.md` |
+| Auth routes | Signup (OTP via Resend), login, logout — fully working |
+| Onboarding flow | ID verification → submit entry → pending approval → approved/rejected — fully working |
+| ID verification | Selfie + government ID upload, code generation, attempt limiting, 2hr block after 3 failures — fully working |
+| Admin entry review | Approve/reject tournament entries, sets `onboardingStatus` — fully working |
+| `requireAuth` middleware | Unauthenticated users redirected to signup |
+| `requireApproved` middleware | Non-approved users confined to onboarding domain |
+| Entry upload | Photo + video, tags, caption — fully working |
+| Entry display page | Media, owner info, rating avg/count — fully working |
+| Rating flow | 1–10, no self-rate, no duplicate, denormalized onto entry — fully working |
+| Profile page | Entries, follow counts, stats, contest/tournament history — fully working |
+| Settings page | Edit username, bio, avatar, banner — fully working |
 
-### What does not exist yet
-- `Entry` model (replacing `Item`)
-- `Contest` model (replacing the old one entirely)
-- `Nomination` model
-- `ContestVote` model
-- `Tournament` model
-- `TournamentEntry` model
-- `RatingsChallenge` model
-- `RatingsChallengeVote` model
-- Background job scheduler (for deadline enforcement)
-- Notification system (logic and delivery)
+### What is not done yet
+- Feed content (tabs exist, all three are empty)
+- Leaderboard (route is broken — passes no data to the template)
+- Right panel trending/contests data (shows skeleton permanently)
+- Follow / Unfollow action (model + counts exist, no POST routes)
+- Comments, replies, moderation, reporting
+- Notifications (no model, no routes)
+- Messages (stub only)
+- Standalone contests (full lifecycle)
 
 ---
 
@@ -40,7 +41,7 @@ The foundation. Nothing else gets built until the data models match the design.
 **Tasks:**
 - [x] Rename `Item` → `Entry`. Update all references across routes, views, and other models.
 - [x] Update `Entry` schema: remove `title`, `price`, `isListed`, `contest` (link managed separately). Keep `mediaUrl`, `mediaType`, `caption`, `creator`, `ratingCount`, `ratingAvg`.
-- [x] Update `User` schema: replace `isAdmin: Boolean` with `role: enum('user', 'admin')`. Add `onboardingStatus`, `emailConfirmed`, `emailConfirmSentAt`, `idVerified`. Add embedded `wallet`.
+- [x] Update `User` schema: replace `isAdmin: Boolean` with `role: enum('user', 'admin')`. Add `onboardingStatus` (initial value: `pending_id_verification`), `emailConfirmed`, `idVerified`, `idVerificationStatus`, `idSelfieUrl`, `idDocUrl`, `idVerificationCode`, `idVerifyFailedAttempts`, `idVerifyBlockedUntil`, `accountStatus`. Add embedded `wallet`.
 - [x] Rebuild `Rating` schema: reference `Entry` (not `Item`). Remove `mode` field. Add unique compound index on `{ entryId, userId }`.
 - [x] Delete old `Contest` model. Create new `Contest` schema per design (entries embedded, designatedVoters embedded, status lifecycle, windowHours, deadlines, etc.).
 - [x] Create `Nomination` schema.
@@ -56,46 +57,43 @@ The foundation. Nothing else gets built until the data models match the design.
 
 ---
 
-### Phase 2 — Auth + User Foundation (June 8–14)
-
-Build the user layer that everything else depends on.
+### Phase 2 — Auth + User Foundation ✅ (completed early)
 
 **Tasks:**
-- [ ] Complete signup flow: form validates, hashes password, creates user + wallet. Set `onboardingStatus: 'pending_submission'` on creation.
-- [ ] Redirect middleware: any request from an unauthenticated user goes to signup — no exceptions, no read-only browsing.
-- [ ] Onboarding middleware: any authenticated user with `onboardingStatus !== 'approved'` is confined to the onboarding domain. They cannot access the main platform.
-- [ ] Install and configure **Resend** for transactional email.
-- [ ] OTP email verification step within the signup form: user submits their email → Resend sends a 6-digit OTP → user enters it on the next signup step → verified before account is created. No async flow, no expiry timers. `emailConfirmed` is always `true` on any account that exists.
-- [ ] Onboarding flow (multi-step, replaces normal post-login redirect):
-  - **Step 1 — Submit entry:** query tournaments with `status: 'open'`. If found, show them. User picks one and submits an entry. `onboardingStatus` → `pending_approval`. If none found → holding screen ("No tournament is accepting entries right now. Come back later.").
-  - **Step 2 — Waiting for approval:** user sees a waiting screen. Organizer reviews the submission in their dashboard. On approval → `onboardingStatus: 'approved'`, user gains full platform access. On rejection or `timed_out` → `onboardingStatus: 'rejected'`, user is notified and sent back to Step 1.
-- [ ] Organizer entry review dashboard: list of `pending` tournament entries for each tournament they created. Approve or reject with one action. Rejected entries trigger a notification to the submitting user.
-- [ ] Complete login flow: session or JWT, protect routes with auth middleware.
-- [ ] Profile page: display user's entries, average rating, username, avatar, bio.
-- [ ] Settings page: edit username, bio, avatar upload.
-
-**Exit criteria:** A new user completes signup, submits an entry, waits for approval, and upon approval lands on the main platform. Rejection loops them back cleanly. Anonymous users never reach any platform page.
-
-**Exit criteria:** A user can register, log in, view and edit their profile, and be redirected to signup when trying to access protected routes without a session.
+- [x] Complete signup flow: form validates, hashes password, creates user + wallet. Set `onboardingStatus: 'pending_id_verification'` on creation.
+- [x] Redirect middleware: any request from an unauthenticated user goes to signup — no exceptions, no read-only browsing.
+- [x] Onboarding middleware: any authenticated user with `onboardingStatus !== 'approved'` is confined to the onboarding domain. They cannot access the main platform.
+- [x] Install and configure **Resend** for transactional email.
+- [x] OTP email verification step within the signup form: user submits their email → Resend sends a 6-digit OTP → user enters it on the next signup step → verified before account is created. No async flow, no expiry timers. `emailConfirmed` is always `true` on any account that exists.
+- [x] Onboarding flow (multi-step, replaces normal post-login redirect):
+  - **Step 1 — ID verification:** user generates an 8-character code, uploads a selfie with the code visible, and uploads a government-issued ID. Submission sets `idVerificationStatus: 'pending'`. Admin reviews manually; approval sets `idVerified: true` and advances user to `pending_submission`. Failed attempts are tracked; 3 failures trigger a 2-hour block.
+  - **Step 2 — Submit entry:** query tournaments with `status: 'open'`. If found, show them. User picks one and submits an entry. `onboardingStatus` → `pending_approval`. If none found → holding screen ("No tournament is accepting entries right now. Come back later.").
+  - **Step 3 — Waiting for approval:** user sees a waiting screen. Organizer reviews the submission in their dashboard. On approval → `onboardingStatus: 'approved'`, user gains full platform access. On rejection or `timed_out` → `onboardingStatus: 'rejected'`, user is notified and sent back to Step 2.
+- [x] Organizer entry review dashboard: list of `pending` tournament entries for each tournament they created. Approve or reject with one action. Rejected entries trigger a notification to the submitting user.
+- [x] Complete login flow: session + `requireAuth` middleware, protect routes.
+- [x] Profile page: display user's entries, average rating, username, avatar, bio, follow counts, contest/tournament history.
+- [x] Settings page: edit username, bio, avatar upload, banner upload, account deletion.
+- [ ] Follow / Unfollow: `Follow` model and `isFollowing` flag exist on profiles, but there are no POST routes to actually follow or unfollow. Add `POST /follow/:username` and `POST /unfollow/:username`, wire up the button in the profile view.
 
 ---
 
-### Phase 3 — Entries + Ratings (June 8–14, parallel with Phase 2)
+### Phase 3 — Entries + Ratings (June 8–14)
 
 The default engagement layer. Every user on the platform interacts with this.
 
 **Tasks:**
-- [ ] Entry upload: photo and video via existing `upload` middleware. Store `mediaUrl`, `mediaType`, link to user.
-- [ ] Entry display: entry page showing media, owner info, current rating average and count.
-- [ ] Rating flow: authenticated user submits 1–10 score. Enforce no self-rating, no duplicate rating. Update `ratingCount` and `ratingAvg` on the entry document.
-- [ ] Tags: entry owner can add, edit, or remove up to 6 free-form tags on their entry at any time.
+- [x] Entry upload: photo and video via existing `upload` middleware. Store `mediaUrl`, `mediaType`, link to user.
+- [x] Entry display: entry page showing media, owner info, current rating average and count.
+- [x] Rating flow: authenticated user submits 1–10 score. Enforce no self-rating, no duplicate rating. Update `ratingCount` and `ratingAvg` on the entry document.
+- [x] Tags: entry owner can add, edit, or remove up to 6 free-form tags on their entry at any time.
+- [ ] **Fix leaderboard route (broken):** `leaderboard.ejs` iterates an `items` variable that the route never passes — the page will throw on load. Wire up the route to query top entries by `ratingAvg` (minimum 3 ratings) and pass them as `items`.
+- [ ] **Wire up right panel data:** `rightPanel.ejs` references `trendingItems` and `contests` that no route ever populates — the panel shows skeleton placeholders permanently. Feed and leaderboard routes should query and pass this data.
+- [ ] Feed page: build out the Ratings tab — show recent entries from all users as cards with rating UI. The tab structure and layout exist; the content does not.
 - [ ] Comment flow: any registered user can comment on an entry. Users can delete their own comments. Entry owner can hide any comment (hidden comments move to a private "hidden comments" section, visible only to the owner). Any user can report a comment.
 - [ ] Reply flow: any registered user can reply to a top-level comment (one level only). Reply body is automatically prefixed with @username of the parent commenter.
 - [ ] Comment notifications: notify entry owner when someone comments on their entry. Notify parent commenter when someone replies to their comment.
-- [ ] Feed page: show recent entries from all users, sortable by rating.
-- [ ] Leaderboard page: top entries by `ratingAvg` (minimum rating count threshold TBD).
 
-**Exit criteria:** A user can upload an entry, other users can rate it 1–10, and the feed and leaderboard reflect live data.
+**Exit criteria:** A user can upload an entry, other users can rate it 1–10, and the feed and leaderboard reflect live data. Comments work end to end. Right panel shows real trending data.
 
 ---
 
@@ -126,13 +124,34 @@ The system that makes everything time-sensitive work reliably.
 - [ ] Implement void deadline job: runs every 15 minutes, voids pending contests past their `voidDeadline`.
 - [ ] Implement voting deadline job: runs every 15 minutes, closes active contests past their `votingDeadline`.
 - [ ] Implement entry review timeout job: runs every 5 minutes. Finds `tournament_entries` with `approvalStatus: 'pending'` and `submittedAt < now - 30min`. For each: set `approvalStatus: 'timed_out'`, increment `tournament.missedReviews`, notify the submitting user (`onboardingStatus` → `rejected`). If `tournament.missedReviews >= 3`: cancel the tournament, notify all `pending_approval` users to resubmit elsewhere.
-- [ ] Gate tournament creation behind `idVerified: true` check — prompt ID verification if user tries to create a tournament without it.
+- [ ] Gate tournament creation behind `idVerified: true` check — server-side safeguard only. Since all approved users complete ID verification during onboarding, the "prompt ID verification" path is unreachable under normal flow; this is a hard server-side guard against bypasses.
 - [ ] Notification model or in-document array: store unread notifications per user.
 - [ ] Notifications page: show nominations received, contest results, contest voided.
 - [ ] Messages page: show nomination messages from viewers (viewer HTH suggestions with message).
 - [ ] Viewer nomination flow: any registered user can nominate two other users for a HTH, with an optional message. Both nominees receive a notification.
 
 **Exit criteria:** Time-based contest state transitions happen automatically without manual intervention. Users receive in-app notifications for all nomination and contest events.
+
+---
+
+### Phase 6 — Admin UI
+
+A dedicated admin area covering platform oversight, user management, content moderation, and tournament administration.
+
+**Pages and tasks:**
+
+- [ ] **Admin dashboard:** platform health metrics (total users, active contests, active tournaments, open ID verification queue count, pending tournament review count) + recent activity feed (new signups, new reports, tournament status transitions)
+- [ ] **User management — list:** paginated user list with filters for role, onboarding status, account status, and `idVerified`
+- [ ] **User management — detail:** profile info, uploaded entries, contest/tournament history, onboarding status, ID verification documents, wallet balance; admin actions (role change, account suspension)
+- [ ] **ID verification queue:** list of users with `idVerificationStatus: 'pending'`; review view showing selfie and government ID side by side; approve / reject action (approval sets `idVerified: true` and advances user to `pending_submission`)
+- [ ] **Tournament management — list:** all tournaments with status filter; entry point for creating a platform-funded tournament
+- [ ] **Tournament management — create:** form to create a platform-funded tournament (name, description, participant cap, time config, prize amounts); starts directly at `open` status
+- [ ] **Tournament management — detail:** participant list, matchup grid, missed reviews counter, prize config; admin override actions
+- [ ] **Tournament review queue:** user-organized tournaments with `reviewStatus: 'pending_review'`; review view showing tournament config and organizer profile; approve / reject action
+- [ ] **Content moderation — reported comments:** queue from `comment_reports`; each item shows the comment in context, who reported it, and when; dismiss / remove actions
+- [ ] **Entries moderation:** browse all entries with search and filter; entry detail with moderation actions (hide, remove)
+
+**Exit criteria:** Admin can manage users, process ID verification queue, create and review tournaments, and action reported comments — all from a dedicated admin-only UI.
 
 ---
 
@@ -147,7 +166,6 @@ These are defined but deliberately deferred:
 | CCBill integration | No payments until tournament prize flow is ready |
 | Ratings Challenge (tie-breaker) | Part of tournament system |
 | Open challenges (post-MVP) | Explicitly post-MVP |
-| ID verification | No user-organized tournaments yet |
 
 ---
 

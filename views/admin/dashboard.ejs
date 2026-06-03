@@ -1,66 +1,142 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
-<body class="min-h-screen bg-gray-50 flex flex-col">
-  <%- include('../partials/adminNav') %>
+<body class="flex overflow-hidden bg-zinc-50" style="height:100vh;font-family:'Sofia Sans',sans-serif">
 
-  <main class="max-w-5xl mx-auto w-full px-6 py-10">
+  <%- include('../partials/adminSidebar', { currentPage: 'dashboard' }) %>
 
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold">Dashboard</h1>
-      <p class="text-sm text-gray-400 mt-1">All Things Aprons administration</p>
-    </div>
+  <div class="flex-1 flex flex-col overflow-hidden">
 
-    <!-- Stats -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-
-      <a href="/admin/entries" class="bg-white border border-gray-200 rounded-md p-5 flex items-center gap-4 hover:border-amber-300 hover:shadow-sm transition group">
-        <div class="w-10 h-10 rounded-md bg-amber-50 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-600"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </div>
-        <div>
-          <p class="text-2xl font-bold text-amber-600"><%= pendingCount %></p>
-          <p class="text-xs text-gray-400 mt-0.5">Pending reviews</p>
-        </div>
-      </a>
-
-      <a href="/admin/users" class="bg-white border border-gray-200 rounded-md p-5 flex items-center gap-4 hover:border-blue-300 hover:shadow-sm transition group">
-        <div class="w-10 h-10 rounded-md bg-blue-50 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div>
-          <p class="text-2xl font-bold text-blue-600"><%= totalUsers %></p>
-          <p class="text-xs text-gray-400 mt-0.5">Total users</p>
-        </div>
-      </a>
-
-      <div class="bg-white border border-gray-200 rounded-md p-5 flex items-center gap-4">
-        <div class="w-10 h-10 rounded-md bg-green-50 flex items-center justify-center shrink-0">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        </div>
-        <div>
-          <p class="text-2xl font-bold text-green-600"><%= activeUsers %></p>
-          <p class="text-xs text-gray-400 mt-0.5">Active users</p>
-        </div>
+    <!-- Header -->
+    <div class="bg-white border-b border-zinc-200 px-8 py-5 flex items-center justify-between shrink-0">
+      <div>
+        <h1 class="text-xl font-bold text-zinc-900 m-0">Dashboard</h1>
+        <p class="text-sm text-zinc-400 mt-0.5 mb-0">Platform overview</p>
       </div>
-
-    </div>
-
-    <!-- Quick links -->
-    <div>
-      <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Quick access</h2>
-      <div class="flex flex-col gap-2">
-        <a href="/admin/entries" class="flex items-center justify-between bg-white border border-gray-200 rounded-md px-4 py-3 hover:border-gray-300 hover:shadow-sm transition text-sm">
-          <span class="font-medium">Entry Review</span>
-          <span class="text-gray-400">→</span>
-        </a>
-        <a href="/admin/users" class="flex items-center justify-between bg-white border border-gray-200 rounded-md px-4 py-3 hover:border-gray-300 hover:shadow-sm transition text-sm">
-          <span class="font-medium">User Management</span>
-          <span class="text-gray-400">→</span>
-        </a>
+      <div class="flex items-center gap-2 text-xs text-zinc-400">
+        <iconify-icon icon="lucide:clock" width="13" style="display:block"></iconify-icon>
+        <%= new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) %>
       </div>
     </div>
 
-  </main>
+    <!-- Content -->
+    <main class="flex-1 overflow-y-auto p-8">
+
+      <!-- Stat cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+        <a href="/admin/users" class="bg-white rounded-md border border-zinc-200 p-5 flex items-center gap-4 hover:border-blue-300 hover:shadow-sm transition group no-underline">
+          <div class="w-10 h-10 rounded-md bg-blue-50 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition">
+            <iconify-icon icon="lucide:users" width="17" style="color:#2563eb;display:block"></iconify-icon>
+          </div>
+          <div>
+            <p class="text-2xl font-bold text-zinc-900 leading-none mb-0.5"><%= totalUsers %></p>
+            <p class="text-xs text-zinc-400 m-0">Total users</p>
+          </div>
+        </a>
+
+        <a href="/admin/users" class="bg-white rounded-md border border-zinc-200 p-5 flex items-center gap-4 hover:border-green-300 hover:shadow-sm transition group no-underline">
+          <div class="w-10 h-10 rounded-md bg-green-50 flex items-center justify-center shrink-0 group-hover:bg-green-100 transition">
+            <iconify-icon icon="lucide:user-check" width="17" style="color:#16a34a;display:block"></iconify-icon>
+          </div>
+          <div>
+            <p class="text-2xl font-bold text-zinc-900 leading-none mb-0.5"><%= activeUsers %></p>
+            <p class="text-xs text-zinc-400 m-0">Active</p>
+          </div>
+        </a>
+
+        <a href="/admin/users" class="bg-white rounded-md border border-zinc-200 p-5 flex items-center gap-4 hover:border-violet-300 hover:shadow-sm transition group no-underline">
+          <div class="w-10 h-10 rounded-md bg-violet-50 flex items-center justify-center shrink-0 group-hover:bg-violet-100 transition">
+            <iconify-icon icon="lucide:loader" width="17" style="color:#7c3aed;display:block"></iconify-icon>
+          </div>
+          <div>
+            <p class="text-2xl font-bold text-zinc-900 leading-none mb-0.5"><%= onboardingUsers %></p>
+            <p class="text-xs text-zinc-400 m-0">Onboarding</p>
+          </div>
+        </a>
+
+        <a href="/admin/entries" class="bg-white rounded-md border border-zinc-200 p-5 flex items-center gap-4 hover:border-amber-300 hover:shadow-sm transition group no-underline">
+          <div class="w-10 h-10 rounded-md bg-amber-50 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition">
+            <iconify-icon icon="lucide:inbox" width="17" style="color:#d97706;display:block"></iconify-icon>
+          </div>
+          <div>
+            <p class="text-2xl font-bold text-zinc-900 leading-none mb-0.5"><%= pendingCount %></p>
+            <p class="text-xs text-zinc-400 m-0">Pending reviews</p>
+          </div>
+        </a>
+
+      </div>
+
+      <!-- Active queues -->
+      <h2 class="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Active queues</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+
+        <a href="/admin/entries" class="bg-white rounded-md border border-zinc-200 px-5 py-4 flex items-center gap-4 hover:border-amber-300 hover:shadow-sm transition group no-underline">
+          <div class="w-9 h-9 rounded-md bg-amber-50 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition">
+            <iconify-icon icon="lucide:inbox" width="16" style="color:#d97706;display:block"></iconify-icon>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-zinc-800 m-0">Entry Review</p>
+            <p class="text-xs text-zinc-400 mt-0.5 mb-0">Approve or reject onboarding submissions</p>
+          </div>
+          <% if (pendingCount > 0) { %>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500 text-stone-900"><%= pendingCount %></span>
+          <% } else { %>
+          <iconify-icon icon="lucide:chevron-right" width="14" style="color:#a1a1aa;display:block"></iconify-icon>
+          <% } %>
+        </a>
+
+        <a href="/admin/users" class="bg-white rounded-md border border-zinc-200 px-5 py-4 flex items-center gap-4 hover:border-zinc-300 hover:shadow-sm transition group no-underline">
+          <div class="w-9 h-9 rounded-md bg-zinc-100 flex items-center justify-center shrink-0 group-hover:bg-zinc-200 transition">
+            <iconify-icon icon="lucide:users" width="16" style="color:#52525b;display:block"></iconify-icon>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-zinc-800 m-0">User Management</p>
+            <p class="text-xs text-zinc-400 mt-0.5 mb-0">View and manage all registered users</p>
+          </div>
+          <iconify-icon icon="lucide:chevron-right" width="14" style="color:#a1a1aa;display:block"></iconify-icon>
+        </a>
+
+      </div>
+
+      <!-- Coming in Phase 6 -->
+      <h2 class="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Coming in Phase 6</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+        <div class="bg-white rounded-md border border-zinc-200 border-dashed px-5 py-4 flex items-center gap-4 opacity-60">
+          <div class="w-9 h-9 rounded-md bg-zinc-100 flex items-center justify-center shrink-0">
+            <iconify-icon icon="lucide:shield-check" width="16" style="color:#52525b;display:block"></iconify-icon>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-zinc-500 m-0">ID Verification</p>
+            <p class="text-xs text-zinc-400 mt-0.5 mb-0">Review selfie + ID submissions</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-md border border-zinc-200 border-dashed px-5 py-4 flex items-center gap-4 opacity-60">
+          <div class="w-9 h-9 rounded-md bg-zinc-100 flex items-center justify-center shrink-0">
+            <iconify-icon icon="lucide:trophy" width="16" style="color:#52525b;display:block"></iconify-icon>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-zinc-500 m-0">Tournaments</p>
+            <p class="text-xs text-zinc-400 mt-0.5 mb-0">Create and manage tournaments</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-md border border-zinc-200 border-dashed px-5 py-4 flex items-center gap-4 opacity-60">
+          <div class="w-9 h-9 rounded-md bg-zinc-100 flex items-center justify-center shrink-0">
+            <iconify-icon icon="lucide:flag" width="16" style="color:#52525b;display:block"></iconify-icon>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-zinc-500 m-0">Reported Comments</p>
+            <p class="text-xs text-zinc-400 mt-0.5 mb-0">Action flagged content</p>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
 </body>
 </html>

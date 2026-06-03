@@ -8,18 +8,43 @@
   <!-- Top bar -->
   <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
     <a href="/" class="font-gochi text-charm-500 text-2xl leading-none" style="-webkit-text-stroke: 1px currentColor">AllThingsAprons</a>
-    <form action="/logout" method="POST">
-      <button type="submit" class="text-sm text-white/35 hover:text-white/60 transition-colors cursor-pointer">Sign out</button>
-    </form>
+    <div class="flex items-center gap-1.5 text-sm">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">1</div>
+        <span class="text-white/45 hidden lg:inline">Profile Creation</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">2</div>
+        <span class="text-white/45 hidden lg:inline">Email Verification</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">3</div>
+        <span class="text-white/45 hidden lg:inline">Identity Verification</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">4</div>
+        <span class="text-white/45 hidden lg:inline">Entry Submission</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600 text-white text-xs font-bold flex items-center justify-center">5</div>
+        <span class="text-white/60 hidden lg:inline">Pending Approval</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <button type="button" id="cancel-signup-btn" class="text-xs text-white capitalize hover:text-white/70 transition-colors cursor-pointer">Cancel sign up</button>
+      <form action="/logout" method="POST">
+        <button type="submit" class="text-sm text-white capitalize hover:text-white/70 transition-colors cursor-pointer">Sign out</button>
+      </form>
+    </div>
   </header>
+  <form id="cancel-signup-form" action="/onboarding/cancel" method="POST" class="hidden"></form>
 
   <div class="flex flex-col items-center justify-center min-h-[calc(100vh-3.5rem)] px-4 text-center">
     <div class="max-w-sm">
-
-      <div class="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 rounded-md px-3 py-1.5 text-xs text-amber-400 font-semibold mb-6">
-        <iconify-icon icon="boxicons:time" width="13"></iconify-icon>
-        Step 2 of 2 — Pending Review
-      </div>
 
       <div class="w-16 h-16 rounded-md bg-amber-400/10 flex items-center justify-center mx-auto mb-6">
         <iconify-icon icon="boxicons:hourglass" width="32" class="text-amber-400"></iconify-icon>
@@ -38,6 +63,12 @@
             <iconify-icon icon="boxicons:check" width="13" class="text-green-400"></iconify-icon>
           </div>
           <span class="text-white/60">Account created</span>
+        </div>
+        <div class="flex items-center gap-3 text-sm">
+          <div class="w-6 h-6 rounded-md bg-green-400/15 flex items-center justify-center shrink-0">
+            <iconify-icon icon="boxicons:check" width="13" class="text-green-400"></iconify-icon>
+          </div>
+          <span class="text-white/60">Identity verified</span>
         </div>
         <div class="flex items-center gap-3 text-sm">
           <div class="w-6 h-6 rounded-md bg-green-400/15 flex items-center justify-center shrink-0">
@@ -67,6 +98,14 @@
 
     </div>
   </div>
+
+<script>
+document.getElementById('cancel-signup-btn').addEventListener('click', function () {
+  if (confirm('Cancel your sign up? Your account will be permanently deleted and you\'ll need to start over.')) {
+    document.getElementById('cancel-signup-form').submit();
+  }
+});
+</script>
 
 </body>
 </html>

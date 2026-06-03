@@ -8,6 +8,8 @@ const storage = multer.diskStorage({
       ? 'avatars'
       : file.fieldname === 'banner'
       ? 'banners'
+      : (file.fieldname === 'idSelfie' || file.fieldname === 'idDoc')
+      ? 'id-docs'
       : 'entries';
     const dir = path.join(__dirname, `../public/uploads/${subdir}`);
     fs.mkdirSync(dir, { recursive: true });

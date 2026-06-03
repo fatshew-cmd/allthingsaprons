@@ -118,6 +118,12 @@
 
   <!-- Rating panel -->
   <div class="ec-panel hidden border-t border-white/8 px-3 py-4" data-eid="<%= _eid %>" data-panel="rating">
+    <% if (_isOwner) { %>
+    <div class="flex flex-col items-center gap-2 text-center py-2">
+      <iconify-icon icon="bx:lock" width="22" class="text-white/15"></iconify-icon>
+      <p class="text-xs text-white/30">You can't rate your own entry</p>
+    </div>
+    <% } else { %>
     <p class="text-xs text-white/30 text-center mb-3 tracking-wide uppercase">Rate this entry</p>
     <div class="flex items-center gap-1">
       <% for (var _i = 1; _i <= 10; _i++) { %>
@@ -125,6 +131,7 @@
       <% } %>
     </div>
     <div class="ec-rlabel mt-2 text-center text-sm text-amber-400/70 min-h-4" data-eid="<%= _eid %>"></div>
+    <% } %>
   </div>
 
   <!-- Comments panel -->
@@ -137,10 +144,17 @@
 
   <!-- Likes panel -->
   <div class="ec-panel hidden border-t border-white/8 px-3 py-6" data-eid="<%= _eid %>" data-panel="likes">
+    <% if (_isOwner) { %>
+    <div class="flex flex-col items-center gap-2 text-center">
+      <iconify-icon icon="bx:lock" width="22" class="text-white/15"></iconify-icon>
+      <p class="text-xs text-white/30">You can't like your own entry</p>
+    </div>
+    <% } else { %>
     <div class="flex flex-col items-center gap-2 text-center">
       <iconify-icon icon="bx:heart" width="28" class="text-white/15"></iconify-icon>
       <p class="text-xs text-white/30">No likes yet</p>
     </div>
+    <% } %>
   </div>
 
 </div>
@@ -255,6 +269,11 @@
     .then(function (data) {
       if (data.error) { window.showToast(data.error, 'error'); return; }
       lockRatingPanel(eid, score);
+      var card = getCard(eid);
+      if (card) {
+        var avgSpan = card.querySelector('.ec-tab-btn.ec-rat span');
+        if (avgSpan) avgSpan.textContent = parseFloat(data.ratingAvg).toFixed(1);
+      }
       window.showToast('Rating submitted.', 'success');
     })
     .catch(function () { window.showToast('Something went wrong.', 'error'); });
@@ -273,8 +292,13 @@
         _pendingToasts[eid].dispatchEvent(new Event('ec-dismiss'));
       }
 
-      burstConfetti(score);
       selectTile(eid, score);
+
+      if (localStorage.getItem('ec-skip-rating-confirm') === '1') {
+        burstConfetti(score);
+        submitRating(eid, score);
+        return;
+      }
 
       var t = window.showToast(
         'Your rating can\'t be changed after you confirm.',
@@ -288,10 +312,22 @@
           {
             label: 'Confirm rating',
             cls: 'bg-amber-500 text-black hover:bg-amber-400',
-            fn: function () { delete _pendingToasts[eid]; submitRating(eid, score); }
+            fn: function () {
+              if (t.querySelector('.ec-skip-cb') && t.querySelector('.ec-skip-cb').checked) {
+                localStorage.setItem('ec-skip-rating-confirm', '1');
+              }
+              delete _pendingToasts[eid];
+              burstConfetti(score);
+              submitRating(eid, score);
+            }
           }
         ]
       );
+
+      var skipRow = document.createElement('div');
+      skipRow.className = 'px-3 pb-1';
+      skipRow.innerHTML = '<label class="flex items-center gap-2 text-xs text-white/35 cursor-pointer select-none"><input type="checkbox" class="ec-skip-cb cursor-pointer accent-amber-500"> Don\'t show again</label>';
+      t.insertBefore(skipRow, t.lastElementChild);
 
       _pendingToasts[eid] = t;
       t.addEventListener('ec-dismiss', function () {

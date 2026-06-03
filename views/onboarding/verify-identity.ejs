@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="min-h-screen bg-shark-950 text-white">
+
+  <!-- Top bar -->
+  <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
+    <a href="/" class="font-gochi text-charm-500 text-2xl leading-none" style="-webkit-text-stroke: 1px currentColor">AllThingsAprons</a>
+    <div class="flex items-center gap-1.5 text-sm">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">1</div>
+        <span class="text-white/45 hidden lg:inline">Profile Creation</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">2</div>
+        <span class="text-white/45 hidden lg:inline">Email Verification</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600 text-white text-xs font-bold flex items-center justify-center">3</div>
+        <span class="text-white/60 hidden lg:inline">Identity Verification</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">4</div>
+        <span class="text-white/30 hidden lg:inline">Entry Submission</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">5</div>
+        <span class="text-white/30 hidden lg:inline">Pending Approval</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <button type="button" id="cancel-signup-btn" class="text-xs text-white capitalize hover:text-white/70 transition-colors cursor-pointer">Cancel sign up</button>
+      <form action="/logout" method="POST">
+        <button type="submit" class="text-sm text-white capitalize hover:text-white/70 transition-colors cursor-pointer">Sign out</button>
+      </form>
+    </div>
+  </header>
+  <form id="cancel-signup-form" action="/onboarding/cancel" method="POST" class="hidden"></form>
+
+  <div class="max-w-2xl mx-auto px-4 py-10 pb-20">
+
+    <div class="mb-6">
+      <h1 class="text-2xl font-black">Verify your identity</h1>
+      <p class="text-sm text-white/40 mt-1">Required before you can submit your entry and access the platform.</p>
+    </div>
+
+    <% if (blocked) { %>
+
+    <!-- Blocked state -->
+    <div class="flex flex-col items-center gap-4 py-10 text-center">
+      <div class="w-14 h-14 rounded-md bg-red-400/10 border border-red-400/20 flex items-center justify-center">
+        <iconify-icon icon="bx:lock" width="28" class="text-red-400"></iconify-icon>
+      </div>
+      <div>
+        <p class="text-base font-semibold text-white">Verification temporarily blocked</p>
+        <p class="text-sm text-white/40 mt-1 max-w-sm">You've exceeded the maximum number of attempts. You can try again after <span class="text-white/70 font-medium"><%= new Date(blockedUntil).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) %></span>.</p>
+      </div>
+    </div>
+
+    <% } else if (pending) { %>
+
+    <!-- Pending state -->
+    <div class="flex flex-col items-center gap-4 py-10 text-center">
+      <div class="w-14 h-14 rounded-md bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
+        <iconify-icon icon="boxicons:time" width="28" class="text-amber-400"></iconify-icon>
+      </div>
+      <div>
+        <p class="text-base font-semibold text-white">Documents under review</p>
+        <p class="text-sm text-white/40 mt-1 max-w-sm">Your submission is being reviewed by our team. We typically complete verification within 24 hours. You'll be notified once approved.</p>
+      </div>
+      <button type="button" onclick="window.location.reload()"
+        class="mt-2 flex items-center gap-2 bg-shark-900 border border-white/10 rounded-md px-4 py-2 text-sm text-white/50 hover:text-white hover:bg-shark-800 transition-colors cursor-pointer">
+        <iconify-icon icon="boxicons:refresh" width="14"></iconify-icon>
+        Refresh
+      </button>
+    </div>
+
+    <% } else { %>
+
+    <% if (error) { %>
+    <div class="flex items-center gap-2 text-sm text-red-400 bg-red-400/8 border border-red-400/20 rounded-md px-3 py-2.5 mb-5">
+      <iconify-icon icon="boxicons:error-circle" width="15" class="shrink-0"></iconify-icon>
+      <%= error %>
+    </div>
+    <% } %>
+
+    <!-- Disclaimer -->
+    <div class="flex flex-col gap-3 bg-white/4 border border-white/10 rounded-md px-4 py-4 mb-6">
+      <div class="flex items-center gap-2">
+        <iconify-icon icon="boxicons:shield-quarter" width="16" class="text-charm-400 shrink-0"></iconify-icon>
+        <p class="font-bold text-white/50 uppercase tracking-wide">Disclaimer - Please, read carefully.</p>
+      </div>
+      <div class="flex flex-col gap-2.5 text-sm text-white/55 leading-relaxed">
+        <p>Identity verification is required by law to ensure that anyone accessing adult-oriented content platforms is of legal age. Beyond the legal requirement, AllThingsAprons policy sets the minimum age at <span class="text-white/75 font-medium">19 years and 1 day old</span> — regardless of your region or jurisdiction. This applies to everyone, no exceptions.</p>
+        <p>On this form, you will be prompted to provide a <span class="text-white/75 font-medium">selfie verification</span> to confirm your identity and prove that you are a real person, and a <span class="text-white/75 font-medium">government-issued ID</span> so we can verify your age. By proceeding, you confirm that you meet the age requirement, as outlined in our <a href="/terms" class="text-charm-400 hover:text-charm-300 underline underline-offset-2 transition-colors">Terms of Service</a>.</p>
+        <p>Your selfie and ID document are stored securely and used solely to complete this verification. They will not be shared, sold, or used for any other purpose — ever. Once your account is verified, your documents are scheduled for deletion and you will receive a confirmation email when that deletion takes place. You have the right, at any time, to request a copy of your personal data or to request its deletion by contacting us directly.</p>
+        <p>We use <span class="text-white/75 font-medium">real human reviewers</span> instead of automated tools — this reduces false positives and ensures a fair review for every submission. Because of this, verification may take longer than 12 hours. We appreciate your patience.</p>
+      </div>
+
+      <!-- Acknowledgment checkbox -->
+      <label id="ack-label" style="display:none" class="flex items-start gap-3 cursor-pointer pt-3 border-t border-white/8">
+        <input type="checkbox" id="ack-check" class="mt-0.5 accent-charm-500 cursor-pointer shrink-0 w-4 h-4">
+        <span class="text-sm text-white/55 select-none">I acknowledge that I have fully read the stated disclaimer, understood what it entails, and am ready to proceed.</span>
+      </label>
+    </div>
+
+    <form action="/onboarding/verify-identity" method="POST" enctype="multipart/form-data" id="verify-form" novalidate>
+
+      <!-- ── Step 1: Verification Selfie ───────────────────────────── -->
+      <div id="step1" class="hidden mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="w-6 h-6 rounded-md bg-charm-500/15 text-charm-400 text-xs font-bold flex items-center justify-center shrink-0">1</span>
+          <p class="text-sm font-semibold text-white">Verification Selfie</p>
+        </div>
+
+        <!-- Generate code button -->
+        <div id="code-generate-state">
+          <button type="button" id="generate-btn"
+            class="w-full flex items-center justify-center gap-2 bg-shark-900 hover:bg-shark-800 border border-white/10 hover:border-white/20 text-white/60 hover:text-white rounded-md py-3.5 text-sm font-medium transition-colors cursor-pointer">
+            <iconify-icon icon="boxicons:key" width="16" class="shrink-0"></iconify-icon>
+            Generate verification code and instructions
+          </button>
+        </div>
+
+        <!-- Active code + countdown -->
+        <div id="code-active-state" class="hidden">
+          <div class="bg-shark-900 border border-white/10 rounded-md px-4 py-3.5 mb-3">
+            <div class="flex items-center justify-between mb-1.5">
+              <p class="text-xs font-semibold text-white/50 uppercase tracking-wide">Your verification code</p>
+              <div class="flex items-center gap-1.5">
+                <iconify-icon icon="boxicons:time" width="13" class="shrink-0 text-amber-400" id="countdown-icon"></iconify-icon>
+                <span id="countdown" class="text-xs font-mono font-bold tabular-nums text-amber-400">5:00</span>
+              </div>
+            </div>
+            <p id="code-display" class="text-2xl font-black tracking-[0.2em] text-charm-400"></p>
+            <p class="text-xs text-white/35 mt-2 leading-relaxed">Write this code on a piece of paper, hold it clearly in your selfie, and make sure your face is fully visible. You have <span class="font-medium text-white/50">5 minutes</span> — once the timer expires, the code is invalidated and you will need to generate a new one.</p>
+          </div>
+
+          <!-- Selfie upload zone -->
+          <label id="selfie-zone" class="cursor-pointer block">
+            <div id="selfie-placeholder"
+              class="border-2 border-dashed border-white/12 rounded-md p-8 flex flex-col items-center gap-3 text-white/35 hover:border-charm-600/40 hover:text-white/55 transition-colors">
+              <iconify-icon icon="boxicons:camera" width="36"></iconify-icon>
+              <div class="text-center">
+                <p class="text-sm font-medium">Upload selfie with code</p>
+                <p class="text-xs mt-1 text-white/25">JPG, PNG, WEBP — max 10 MB</p>
+              </div>
+            </div>
+            <div id="selfie-preview" class="hidden relative rounded-md overflow-hidden bg-shark-900">
+              <img id="selfie-img" src="" alt="" class="w-full max-h-64 object-contain">
+              <button type="button" id="selfie-change-btn"
+                class="absolute top-2 right-2 bg-shark-950/80 hover:bg-shark-800 rounded-md px-2 py-1 text-xs text-white/60 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer">
+                <iconify-icon icon="boxicons:pencil" width="11"></iconify-icon>Change
+              </button>
+            </div>
+            <input type="file" id="selfie-input" name="idSelfie" accept="image/*" class="hidden">
+          </label>
+          <p id="selfie-error" class="text-xs text-red-400 mt-1.5 hidden"></p>
+        </div>
+
+        <!-- Expired state -->
+        <div id="code-expired-state" class="hidden">
+          <div class="flex flex-col items-center gap-3 py-7 border border-red-400/15 rounded-md bg-red-400/5">
+            <iconify-icon icon="boxicons:time-five" width="28" class="text-red-400/60"></iconify-icon>
+            <div id="expired-body" class="text-center px-4">
+              <p class="text-sm font-semibold text-white/70">Verification code expired</p>
+              <p class="text-xs text-white/35 mt-1">Your 5-minute window has passed and the code was invalidated. Generate a new one to try again.</p>
+            </div>
+            <div id="blocked-body" class="hidden text-center px-4">
+              <p class="text-sm font-semibold text-white/70">Too many failed attempts</p>
+              <p class="text-xs text-white/35 mt-1 leading-relaxed">You've been temporarily blocked from generating new codes. Try again in <span id="block-countdown" class="font-mono font-bold text-white/55"></span>.</p>
+            </div>
+            <button type="button" id="regenerate-btn"
+              class="flex items-center gap-2 bg-shark-900 hover:bg-shark-800 border border-white/10 hover:border-white/20 text-white/60 hover:text-white rounded-md px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer">
+              <iconify-icon icon="boxicons:refresh" width="14" class="shrink-0"></iconify-icon>
+              Generate a new code
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Step 2: Government-Issued ID ──────────────────────────── -->
+      <div id="step2" class="hidden mb-7">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="w-6 h-6 rounded-md bg-charm-500/15 text-charm-400 text-xs font-bold flex items-center justify-center shrink-0">2</span>
+          <p class="text-sm font-semibold text-white">Government-Issued ID</p>
+        </div>
+
+        <p class="text-xs text-white/40 mb-3">Accepted: passport, driver's license, national ID card. The name and date of birth must be clearly readable.</p>
+
+        <label id="doc-zone" class="cursor-pointer block">
+          <div id="doc-placeholder"
+            class="border-2 border-dashed border-white/12 rounded-md p-8 flex flex-col items-center gap-3 text-white/35 hover:border-charm-600/40 hover:text-white/55 transition-colors">
+            <iconify-icon icon="boxicons:id-card" width="36"></iconify-icon>
+            <div class="text-center">
+              <p class="text-sm font-medium">Upload ID document</p>
+              <p class="text-xs mt-1 text-white/25">JPG, PNG, WEBP — max 10 MB</p>
+            </div>
+          </div>
+          <div id="doc-preview" class="hidden relative rounded-md overflow-hidden bg-shark-900">
+            <img id="doc-img" src="" alt="" class="w-full max-h-64 object-contain">
+            <button type="button" id="doc-change-btn"
+              class="absolute top-2 right-2 bg-shark-950/80 hover:bg-shark-800 rounded-md px-2 py-1 text-xs text-white/60 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer">
+              <iconify-icon icon="boxicons:pencil" width="11"></iconify-icon>Change
+            </button>
+          </div>
+          <input type="file" id="doc-input" name="idDoc" accept="image/*" class="hidden">
+        </label>
+        <p id="doc-error" class="text-xs text-red-400 mt-1.5 hidden"></p>
+      </div>
+
+      <!-- Submit -->
+      <div id="submit-wrap" class="hidden">
+        <button type="submit" id="verify-btn" disabled
+          class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
+          Submit for Review
+        </button>
+      </div>
+
+    </form>
+
+    <% } %>
+
+  </div>
+
+<script>
+(function () {
+  var ackCheck          = document.getElementById('ack-check');
+  var step1             = document.getElementById('step1');
+  var step2             = document.getElementById('step2');
+  var submitWrap        = document.getElementById('submit-wrap');
+  var verifyBtn         = document.getElementById('verify-btn');
+
+  var codeGenerateState = document.getElementById('code-generate-state');
+  var codeActiveState   = document.getElementById('code-active-state');
+  var codeExpiredState  = document.getElementById('code-expired-state');
+  var generateBtn       = document.getElementById('generate-btn');
+  var regenerateBtn     = document.getElementById('regenerate-btn');
+  var codeDisplay       = document.getElementById('code-display');
+  var countdownEl       = document.getElementById('countdown');
+  var countdownIcon     = document.getElementById('countdown-icon');
+
+  var selfieInput       = document.getElementById('selfie-input');
+  var selfiePlaceholder = document.getElementById('selfie-placeholder');
+  var selfiePreview     = document.getElementById('selfie-preview');
+  var selfieImg         = document.getElementById('selfie-img');
+  var selfieChangeBtn   = document.getElementById('selfie-change-btn');
+  var selfieError       = document.getElementById('selfie-error');
+
+  var docInput          = document.getElementById('doc-input');
+  var docPlaceholder    = document.getElementById('doc-placeholder');
+  var docPreview        = document.getElementById('doc-preview');
+  var docImg            = document.getElementById('doc-img');
+  var docChangeBtn      = document.getElementById('doc-change-btn');
+  var docError          = document.getElementById('doc-error');
+
+  var countdownTimer      = null;
+  var secondsLeft         = 300;
+  var blockCountdownTimer = null;
+
+  // ── Disclaimer reveal ─────────────────────────────────────────────
+  var ackLabel = document.getElementById('ack-label');
+  function revealAck() {
+    ackLabel.style.removeProperty('display');
+    localStorage.setItem('vi-ack-seen', '1');
+  }
+  if (localStorage.getItem('vi-ack-seen') === '1') {
+    revealAck();
+  } else {
+    setTimeout(revealAck, 15000);
+  }
+
+  // ── Checkbox ─────────────────────────────────────────────────────
+  if (sessionStorage.getItem('vi-ack-checked') === '1') {
+    ackCheck.checked = true;
+    step1.classList.remove('hidden');
+  }
+
+  ackCheck.addEventListener('change', function () {
+    if (this.checked) {
+      sessionStorage.setItem('vi-ack-checked', '1');
+      step1.classList.remove('hidden');
+    } else {
+      sessionStorage.removeItem('vi-ack-checked');
+      step1.classList.add('hidden');
+      resetCodeState();
+    }
+  });
+
+  // ── Restore active code on reload ────────────────────────────────
+  <% if (activeCode && codeGeneratedAt) { %>
+  (function () {
+    var elapsed   = Math.floor((Date.now() - <%= codeGeneratedAt %>) / 1000);
+    var remaining = 300 - elapsed;
+    if (remaining > 0) {
+      codeDisplay.textContent = '<%= activeCode %>';
+      codeGenerateState.classList.add('hidden');
+      codeActiveState.classList.remove('hidden');
+      startCountdown(remaining);
+    } else {
+      codeGenerateState.classList.add('hidden');
+      codeExpiredState.classList.remove('hidden');
+    }
+  }());
+  <% } %>
+
+  // ── Code fetch ───────────────────────────────────────────────────
+  function fetchAndShowCode() {
+    fetch('/onboarding/verify-identity/code')
+      .then(function (r) { return r.json().then(function (d) { return { status: r.status, data: d }; }); })
+      .then(function (res) {
+        if (res.status === 429) {
+          codeGenerateState.classList.add('hidden');
+          codeActiveState.classList.add('hidden');
+          codeExpiredState.classList.remove('hidden');
+          document.getElementById('expired-body').classList.add('hidden');
+          document.getElementById('blocked-body').classList.remove('hidden');
+          regenerateBtn.disabled = true;
+          regenerateBtn.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+          startBlockCountdown(new Date(res.data.blockedUntil));
+          return;
+        }
+        codeDisplay.textContent = res.data.code;
+        codeGenerateState.classList.add('hidden');
+        codeExpiredState.classList.add('hidden');
+        codeActiveState.classList.remove('hidden');
+        startCountdown();
+      })
+      .catch(function () {
+        if (window.showToast) window.showToast('Failed to generate code. Please try again.', 'error');
+      });
+  }
+
+  generateBtn.addEventListener('click', fetchAndShowCode);
+  regenerateBtn.addEventListener('click', fetchAndShowCode);
+
+  // ── Block countdown ───────────────────────────────────────────────
+  var blockEl = document.getElementById('block-countdown');
+  function startBlockCountdown(until) {
+    clearInterval(blockCountdownTimer);
+    function tick() {
+      var diff = Math.max(0, Math.floor((until - Date.now()) / 1000));
+      var h = Math.floor(diff / 3600);
+      var m = Math.floor((diff % 3600) / 60);
+      var s = diff % 60;
+      blockEl.textContent = (h > 0 ? h + 'h ' : '') + m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+      if (diff <= 0) clearInterval(blockCountdownTimer);
+    }
+    tick();
+    blockCountdownTimer = setInterval(tick, 1000);
+  }
+
+  // ── Countdown ────────────────────────────────────────────────────
+  function startCountdown(initialSeconds) {
+    clearInterval(countdownTimer);
+    secondsLeft = (initialSeconds !== undefined) ? initialSeconds : 300;
+    tickCountdown();
+    countdownTimer = setInterval(function () {
+      secondsLeft--;
+      tickCountdown();
+      if (secondsLeft <= 0) {
+        clearInterval(countdownTimer);
+        expireCode();
+      }
+    }, 1000);
+  }
+
+  function tickCountdown() {
+    var m = Math.floor(secondsLeft / 60);
+    var s = secondsLeft % 60;
+    countdownEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    var urgent = secondsLeft <= 30;
+    countdownEl.className   = 'text-xs font-mono font-bold tabular-nums ' + (urgent ? 'text-red-400' : 'text-amber-400');
+    countdownIcon.className = 'shrink-0 ' + (urgent ? 'text-red-400' : 'text-amber-400');
+  }
+
+  function expireCode() {
+    resetSelfie();
+    hideStep2();
+    codeActiveState.classList.add('hidden');
+    codeExpiredState.classList.remove('hidden');
+  }
+
+  function resetCodeState() {
+    clearInterval(countdownTimer);
+    codeGenerateState.classList.remove('hidden');
+    codeActiveState.classList.add('hidden');
+    codeExpiredState.classList.add('hidden');
+    resetSelfie();
+    hideStep2();
+  }
+
+  // ── Selfie ───────────────────────────────────────────────────────
+  function resetSelfie() {
+    selfieInput.value = '';
+    selfiePreview.classList.add('hidden');
+    selfiePlaceholder.classList.remove('hidden');
+    selfieError.classList.add('hidden');
+  }
+
+  selfieInput.addEventListener('change', function () {
+    var file = this.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      selfieError.textContent = 'File must be under 10 MB.';
+      selfieError.classList.remove('hidden');
+      this.value = '';
+      return;
+    }
+    selfieError.classList.add('hidden');
+    selfieImg.src = URL.createObjectURL(file);
+    selfiePlaceholder.classList.add('hidden');
+    selfiePreview.classList.remove('hidden');
+    showStep2();
+    syncSubmit();
+  });
+
+  selfieChangeBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    resetSelfie();
+    hideStep2();
+    syncSubmit();
+  });
+
+  // ── ID doc ───────────────────────────────────────────────────────
+  docInput.addEventListener('change', function () {
+    var file = this.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      docError.textContent = 'File must be under 10 MB.';
+      docError.classList.remove('hidden');
+      this.value = '';
+      return;
+    }
+    docError.classList.add('hidden');
+    docImg.src = URL.createObjectURL(file);
+    docPlaceholder.classList.add('hidden');
+    docPreview.classList.remove('hidden');
+    syncSubmit();
+  });
+
+  docChangeBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    docInput.value = '';
+    docPreview.classList.add('hidden');
+    docPlaceholder.classList.remove('hidden');
+    syncSubmit();
+  });
+
+  // ── Step 2 visibility ────────────────────────────────────────────
+  function showStep2() {
+    step2.classList.remove('hidden');
+    submitWrap.classList.remove('hidden');
+  }
+
+  function hideStep2() {
+    step2.classList.add('hidden');
+    submitWrap.classList.add('hidden');
+    docInput.value = '';
+    docPreview.classList.add('hidden');
+    docPlaceholder.classList.remove('hidden');
+    docError.classList.add('hidden');
+    syncSubmit();
+  }
+
+  // ── Submit gate ──────────────────────────────────────────────────
+  function syncSubmit() {
+    var hasSelfie = selfieInput.files && selfieInput.files.length > 0;
+    var hasDoc    = docInput.files && docInput.files.length > 0;
+    verifyBtn.disabled = !(hasSelfie && hasDoc);
+  }
+
+}());
+
+document.getElementById('cancel-signup-btn').addEventListener('click', function () {
+  if (confirm('Cancel your sign up? Your account will be permanently deleted and you\'ll need to start over.')) {
+    document.getElementById('cancel-signup-form').submit();
+  }
+});
+</script>
+
+</body>
+</html>

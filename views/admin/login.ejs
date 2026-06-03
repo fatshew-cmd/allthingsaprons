@@ -1,30 +1,56 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
-<body class="min-h-screen flex items-center justify-center bg-gray-50">
-  <div class="w-full max-w-sm bg-white rounded-md shadow p-8 flex flex-col gap-6">
-    <h1 class="text-2xl font-bold text-center">Admin Login</h1>
+<body class="min-h-screen flex items-center justify-center p-4 bg-zinc-950" style="font-family:'Sofia Sans',sans-serif">
 
-    <% if (error) { %>
-      <p class="text-sm text-red-600 text-center"><%= error %></p>
-    <% } %>
+  <div class="w-full max-w-90">
 
-    <form method="POST" action="/admin/login" class="flex flex-col gap-4">
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-medium" for="email">Email</label>
-        <input id="email" name="email" type="email" required
-          class="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+    <!-- Logo -->
+    <div class="flex items-center justify-center gap-3 mb-8">
+      <div class="w-10 h-10 rounded-md bg-amber-500 flex items-center justify-center shrink-0">
+        <iconify-icon icon="lucide:chef-hat" width="18" style="color:#1c1917;display:block"></iconify-icon>
       </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-medium" for="password">Password</label>
-        <input id="password" name="password" type="password" required
-          class="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+      <div>
+        <p class="text-white font-bold text-base leading-tight m-0">ATA Admin</p>
+        <p class="text-zinc-500 text-xs leading-tight m-0">All Things Aprons</p>
       </div>
-      <button type="submit"
-        class="bg-black text-white rounded-md py-2 text-sm font-semibold hover:bg-gray-800 transition cursor-pointer">
-        Sign in
-      </button>
-    </form>
+    </div>
+
+    <!-- Card -->
+    <div class="rounded-md border border-zinc-800 bg-zinc-900 p-8">
+
+      <h1 class="text-white font-bold text-xl mb-1">Sign in</h1>
+      <p class="text-zinc-500 text-sm mb-6">Admin access only</p>
+
+      <% if (error) { %>
+      <div class="mb-5 px-4 py-3 rounded-md bg-red-500/10 border border-red-500/20 flex items-center gap-2.5">
+        <iconify-icon icon="lucide:alert-circle" width="15" style="color:#f87171;flex-shrink:0;display:block"></iconify-icon>
+        <p class="text-red-400 text-sm m-0"><%= error %></p>
+      </div>
+      <% } %>
+
+      <form method="POST" action="/admin/login" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-zinc-300 text-sm font-medium" for="email">Email</label>
+          <input id="email" name="email" type="email" required autocomplete="email"
+            placeholder="you@example.com"
+            class="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-amber-500 transition" />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-zinc-300 text-sm font-medium" for="password">Password</label>
+          <input id="password" name="password" type="password" required autocomplete="current-password"
+            placeholder="••••••••"
+            class="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-amber-500 transition" />
+        </div>
+        <button type="submit"
+          class="mt-1 bg-amber-500 hover:bg-amber-400 text-stone-900 rounded-md py-2.5 text-sm font-bold transition cursor-pointer">
+          Sign in
+        </button>
+      </form>
+
+    </div>
+
   </div>
+
 </body>
 </html>

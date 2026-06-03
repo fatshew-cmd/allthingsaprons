@@ -28,23 +28,26 @@
     }, { once: true });
   }
 
-  window.showToast = function (message, type, duration, actions) {
+  window.showToast = function (message, type, duration, actions, opts) {
     var cfg = CONFIGS[type] || CONFIGS.info;
     var hasActions = actions && actions.length > 0;
     if (duration === undefined) duration = hasActions ? 0 : 4000;
+    opts = opts || {};
 
     var el = document.createElement('div');
     el.className = 'pointer-events-auto flex flex-col rounded-md border shadow-xl min-w-56 max-w-xs bg-shark-900 _toast-enter ' + cfg.cls;
 
     var header = document.createElement('div');
     header.className = 'flex items-center gap-2.5 px-3.5 py-2.5 text-sm';
-    header.innerHTML =
-      '<iconify-icon icon="' + cfg.icon + '" width="15" class="shrink-0"></iconify-icon>' +
-      '<span class="flex-1">' + message + '</span>' +
+    var inner = '';
+    if (!opts.noIcon) inner += '<iconify-icon icon="' + cfg.icon + '" width="15" class="shrink-0"></iconify-icon>';
+    inner += '<span class="flex-1">' + message + '</span>';
+    if (!opts.noClose) inner +=
       '<button type="button" class="shrink-0 ml-1 opacity-40 hover:opacity-80 transition-opacity cursor-pointer">' +
         '<iconify-icon icon="bx:x" width="16"></iconify-icon>' +
       '</button>';
-    header.querySelector('button').addEventListener('click', function () { dismiss(el); });
+    header.innerHTML = inner;
+    if (!opts.noClose) header.querySelector('button').addEventListener('click', function () { dismiss(el); });
     el.appendChild(header);
 
     if (hasActions) {

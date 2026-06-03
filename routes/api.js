@@ -1,8 +1,10 @@
-const express = require('express');
-const router = express.Router();
-const User  = require('../models/User');
-const Entry = require('../models/Entry');
-const upload = require('../middleware/upload');
+const express  = require('express');
+const router    = express.Router();
+const mongoose  = require('mongoose');
+const User      = require('../models/User');
+const Entry     = require('../models/Entry');
+const Rating    = require('../models/Rating');
+const upload    = require('../middleware/upload');
 
 router.get('/me', (req, res) => {
   res.json({ authenticated: !!req.session.userId });
@@ -89,6 +91,39 @@ router.get('/profile/:username/entries', async (req, res) => {
     res.json({ entries, hasMore: skip + entries.length < total });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/entries/:eid/rate', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const { eid } = req.params;
+  const score   = parseInt(req.body.score, 10);
+
+  if (!mongoose.isValidObjectId(eid))      return res.status(404).json({ error: 'Entry not found' });
+  if (isNaN(score) || score < 1 || score > 10) return res.status(400).json({ error: 'Score must be between 1 and 10' });
+
+  try {
+    const entry = await Entry.findById(eid).select('userId ratingCount ratingAvg').lean();
+    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+    if (entry.userId.toString() === req.session.userId.toString()) {
+      return res.status(400).json({ error: "You can't rate your own entry" });
+    }
+
+    await Rating.create({ entryId: eid, userId: req.session.userId, score });
+
+    const [stats] = await Rating.aggregate([
+      { $match: { entryId: new mongoose.Types.ObjectId(eid) } },
+      { $group: { _id: null, avg: { $avg: '$score' }, count: { $sum: 1 } } },
+    ]);
+
+    await Entry.updateOne({ _id: eid }, { ratingAvg: stats.avg, ratingCount: stats.count });
+
+    res.json({ ratingAvg: stats.avg, ratingCount: stats.count });
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: "You've already rated this entry" });
+    console.error('Rate entry error:', err);
+    res.status(500).json({ error: 'Something went wrong' });
   }
 });
 

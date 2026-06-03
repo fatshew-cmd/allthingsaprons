@@ -6,9 +6,38 @@
   <!-- Top bar -->
   <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
     <a href="/" class="font-gochi text-charm-500 text-2xl leading-none" style="-webkit-text-stroke: 1px currentColor">AllThingsAprons</a>
-    <form action="/logout" method="POST">
-      <button type="submit" class="text-sm text-white/35 hover:text-white/60 transition-colors cursor-pointer">Sign out</button>
-    </form>
+    <div class="flex items-center gap-1.5 text-sm">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">1</div>
+        <span class="text-white/45 hidden lg:inline">Profile Creation</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">2</div>
+        <span class="text-white/45 hidden lg:inline">Email Verification</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">3</div>
+        <span class="text-white/45 hidden lg:inline">Identity Verification</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-charm-600 text-white text-xs font-bold flex items-center justify-center">4</div>
+        <span class="text-white/60 hidden lg:inline">Entry Submission</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">5</div>
+        <span class="text-white/30 hidden lg:inline">Pending Approval</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <button type="button" id="header-cancel-btn" class="text-xs text-white capitalize hover:text-white/70 transition-colors cursor-pointer">Cancel sign up</button>
+      <form action="/logout" method="POST">
+        <button type="submit" class="text-sm text-white capitalize hover:text-white/70 transition-colors cursor-pointer">Sign out</button>
+      </form>
+    </div>
   </header>
 
   <div class="flex justify-center px-4 py-10 pb-20">
@@ -54,10 +83,6 @@
         </div>
         <form id="cancel-signup-form" action="/onboarding/cancel" method="POST" class="hidden"></form>
 
-        <div class="inline-flex items-center gap-2 bg-charm-600/10 border border-charm-600/20 rounded-md px-3 py-1.5 text-xs text-charm-400 font-semibold mb-4">
-          <iconify-icon icon="boxicons:shield-quarter" width="13"></iconify-icon>
-          Onboarding — Step 1 of 2 — Submit Your Entry
-        </div>
         <h1 class="text-2xl font-black">
           <% if (wasRejected) { %>Your previous entry was rejected.<br>Submit a new one to try again.<% } else { %>Submit your first ever entry to validate your account<% } %>
         </h1>
@@ -368,14 +393,15 @@
   }
 
   // ── Cancel sign up ─────────────────────────────────────────
-  var cancelBtn = document.getElementById('cancel-signup-btn');
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', function () {
-      if (confirm('Cancel your sign up? Your account will be permanently deleted and you\'ll need to start over.')) {
-        document.getElementById('cancel-signup-form').submit();
-      }
-    });
+  function confirmCancel() {
+    if (confirm('Cancel your sign up? Your account will be permanently deleted and you\'ll need to start over.')) {
+      document.getElementById('cancel-signup-form').submit();
+    }
   }
+  var cancelBtn = document.getElementById('cancel-signup-btn');
+  if (cancelBtn) cancelBtn.addEventListener('click', confirmCancel);
+  var headerCancelBtn = document.getElementById('header-cancel-btn');
+  if (headerCancelBtn) headerCancelBtn.addEventListener('click', confirmCancel);
 }());
 </script>
 

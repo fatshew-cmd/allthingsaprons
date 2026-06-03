@@ -1,123 +1,134 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
-<body class="min-h-screen bg-gray-50 flex flex-col">
-  <%- include('../partials/adminNav') %>
+<body class="flex overflow-hidden bg-zinc-50" style="height:100vh;font-family:'Sofia Sans',sans-serif">
 
-  <main class="max-w-5xl mx-auto w-full px-6 py-10">
+  <%- include('../partials/adminSidebar', { currentPage: 'entries' }) %>
 
-    <div class="flex items-center justify-between mb-8">
+  <div class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <div class="bg-white border-b border-zinc-200 px-8 py-5 flex items-center justify-between shrink-0">
       <div>
-        <h1 class="text-2xl font-bold">Entry Review</h1>
-        <p class="text-sm text-gray-400 mt-1">Approve or reject pending onboarding submissions.</p>
+        <h1 class="text-xl font-bold text-zinc-900 m-0">Entry Review</h1>
+        <p class="text-sm text-zinc-400 mt-0.5 mb-0">Approve or reject pending onboarding submissions</p>
       </div>
       <% if (entries && entries.length) { %>
-      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-amber-500 text-stone-900">
+        <iconify-icon icon="lucide:clock" width="12" style="display:block"></iconify-icon>
         <%= entries.length %> pending
       </span>
       <% } %>
     </div>
 
-    <% if (!entries || !entries.length) { %>
+    <!-- Content -->
+    <main class="flex-1 overflow-y-auto p-8">
 
-    <div class="bg-white border border-gray-200 rounded-md p-16 text-center">
-      <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <% if (!entries || !entries.length) { %>
+
+      <div class="bg-white border border-zinc-200 rounded-md p-16 text-center">
+        <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+          <iconify-icon icon="lucide:check-circle-2" width="22" style="color:#16a34a;display:block"></iconify-icon>
+        </div>
+        <p class="font-semibold text-zinc-700 m-0">All caught up</p>
+        <p class="text-sm text-zinc-400 mt-1 mb-0">No pending submissions to review.</p>
       </div>
-      <p class="font-semibold text-gray-700">All caught up</p>
-      <p class="text-sm text-gray-400 mt-1">No pending submissions to review.</p>
-    </div>
 
-    <% } else { %>
+      <% } else { %>
 
-    <div class="flex flex-col gap-4">
-      <% entries.forEach(function(e) { %>
+      <div class="flex flex-col gap-4">
+        <% entries.forEach(function(e) { %>
 
-      <div class="bg-white border border-gray-200 rounded-md overflow-hidden">
-        <div class="flex flex-col sm:flex-row">
+        <div class="bg-white border border-zinc-200 rounded-md overflow-hidden">
+          <div class="flex flex-col sm:flex-row">
 
-          <!-- Media -->
-          <div class="sm:w-52 sm:shrink-0 bg-gray-100 relative">
-            <% if (e.entryId && e.entryId.mediaUrl) { %>
-              <% if (e.entryId.mediaType === 'video') { %>
-              <video src="<%= e.entryId.mediaUrl %>" class="w-full h-52 sm:h-full object-cover" muted playsinline loop
-                onmouseenter="this.play()" onmouseleave="this.pause()"></video>
-              <div class="absolute top-2 left-2 bg-black/60 text-white text-xs font-semibold px-1.5 py-0.5 rounded">VIDEO</div>
-              <% } else { %>
-              <img src="<%= e.entryId.mediaUrl %>" alt="Entry" class="w-full h-52 sm:h-full object-cover">
-              <% } %>
-            <% } else { %>
-            <div class="w-full h-52 sm:h-full flex items-center justify-center text-gray-300 text-sm">No media</div>
-            <% } %>
-          </div>
-
-          <!-- Info -->
-          <div class="flex-1 p-5 flex flex-col gap-4 min-w-0">
-
-            <!-- User row -->
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-3 min-w-0">
-                <% if (e.userId && e.userId.avatar) { %>
-                <img src="<%= e.userId.avatar %>" alt="" class="w-9 h-9 rounded-md object-cover shrink-0 bg-gray-100">
+            <!-- Media -->
+            <div class="sm:w-52 shrink-0 bg-zinc-100 relative">
+              <% if (e.entryId && e.entryId.mediaUrl) { %>
+                <% if (e.entryId.mediaType === 'video') { %>
+                <video src="<%= e.entryId.mediaUrl %>" class="w-full h-52 sm:h-full object-cover" muted playsinline loop
+                  onmouseenter="this.play()" onmouseleave="this.pause()"></video>
+                <div class="absolute top-2 left-2 bg-black/60 text-white text-xs font-bold px-1.5 py-0.5 rounded">VIDEO</div>
                 <% } else { %>
-                <div class="w-9 h-9 rounded-md bg-gray-100 shrink-md shrink-0 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-300"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                </div>
+                <img src="<%= e.entryId.mediaUrl %>" alt="Entry" class="w-full h-52 sm:h-full object-cover">
                 <% } %>
-                <div class="min-w-0">
-                  <p class="font-semibold text-sm truncate">
-                    <%= e.userId ? ('@' + (e.userId.username || 'no username')) : 'Unknown user' %>
-                  </p>
-                  <p class="text-xs text-gray-400 truncate"><%= e.userId ? e.userId.email : '' %></p>
+              <% } else { %>
+              <div class="w-full h-52 sm:h-full flex items-center justify-center text-zinc-300 text-sm">No media</div>
+              <% } %>
+            </div>
+
+            <!-- Info -->
+            <div class="flex-1 p-6 flex flex-col gap-4 min-w-0">
+
+              <!-- User row -->
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                  <% if (e.userId && e.userId.avatar) { %>
+                  <img src="<%= e.userId.avatar %>" alt="" class="w-9 h-9 rounded-md object-cover shrink-0 bg-zinc-100">
+                  <% } else { %>
+                  <div class="w-9 h-9 rounded-md bg-zinc-100 shrink-0 flex items-center justify-center">
+                    <iconify-icon icon="lucide:user" width="15" style="color:#d4d4d8;display:block"></iconify-icon>
+                  </div>
+                  <% } %>
+                  <div class="min-w-0">
+                    <p class="font-semibold text-sm text-zinc-800 truncate m-0">
+                      <%= e.userId ? ('@' + (e.userId.username || 'no username')) : 'Unknown user' %>
+                    </p>
+                    <p class="text-xs text-zinc-400 truncate mt-0.5 mb-0"><%= e.userId ? e.userId.email : '' %></p>
+                  </div>
                 </div>
+                <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                  <iconify-icon icon="lucide:clock" width="10" style="display:block"></iconify-icon>
+                  Pending
+                </span>
               </div>
-              <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                Pending
-              </span>
+
+              <!-- Tournament -->
+              <% if (e.tournamentId) { %>
+              <div class="flex items-center gap-1.5 text-sm text-zinc-500">
+                <iconify-icon icon="lucide:trophy" width="13" style="color:#d4d4d8;flex-shrink:0;display:block"></iconify-icon>
+                <span><%= e.tournamentId.name %></span>
+              </div>
+              <% } %>
+
+              <!-- Caption -->
+              <% if (e.entryId && e.entryId.caption) { %>
+              <p class="text-sm text-zinc-500 italic line-clamp-2 m-0">"<%= e.entryId.caption %>"</p>
+              <% } %>
+
+              <!-- Meta -->
+              <p class="text-xs text-zinc-400 m-0">
+                Submitted <%= new Date(e.submittedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) %>
+              </p>
+
+              <!-- Actions -->
+              <div class="flex gap-2 mt-auto">
+                <form action="/admin/entries/<%= e._id %>/approve" method="POST">
+                  <button type="submit"
+                    class="px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5">
+                    <iconify-icon icon="lucide:check" width="14" style="display:block"></iconify-icon>
+                    Approve
+                  </button>
+                </form>
+                <form action="/admin/entries/<%= e._id %>/reject" method="POST">
+                  <button type="submit"
+                    class="px-5 py-2 border border-red-200 hover:bg-red-50 text-red-500 text-sm font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5">
+                    <iconify-icon icon="lucide:x" width="14" style="display:block"></iconify-icon>
+                    Reject
+                  </button>
+                </form>
+              </div>
+
             </div>
-
-            <!-- Tournament -->
-            <% if (e.tournamentId) { %>
-            <div class="flex items-center gap-1.5 text-sm text-gray-500">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 text-gray-300"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-              <span><%= e.tournamentId.name %></span>
-            </div>
-            <% } %>
-
-            <!-- Caption -->
-            <% if (e.entryId && e.entryId.caption) { %>
-            <p class="text-sm text-gray-600 italic line-clamp-2">"<%= e.entryId.caption %>"</p>
-            <% } %>
-
-            <!-- Meta -->
-            <p class="text-xs text-gray-400">
-              Submitted <%= new Date(e.submittedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) %>
-            </p>
-
-            <!-- Actions -->
-            <div class="flex gap-2 mt-auto pt-1">
-              <form action="/admin/entries/<%= e._id %>/approve" method="POST">
-                <button type="submit"
-                  class="px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-md transition-colors cursor-pointer">
-                  Approve
-                </button>
-              </form>
-              <form action="/admin/entries/<%= e._id %>/reject" method="POST">
-                <button type="submit"
-                  class="px-5 py-2 border border-red-200 hover:bg-red-50 text-red-500 text-sm font-semibold rounded-md transition-colors cursor-pointer">
-                  Reject
-                </button>
-              </form>
-            </div>
-
           </div>
         </div>
+
+        <% }); %>
       </div>
 
-      <% }); %>
-    </div>
+      <% } %>
+    </main>
+  </div>
 
-    <% } %>
-  </main>
 </body>
 </html>
