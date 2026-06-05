@@ -12,11 +12,34 @@ if (!ADMIN_PASSWORD) {
 
 mongoose.connect(MONGO_URI || 'mongodb://localhost:27017/allthingsaprons').then(async () => {
   const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 12);
-  await User.findOneAndUpdate(
-    { email: 'fatshew@gmail.com' },
-    { email: 'fatshew@gmail.com', password: hashedPassword, role: 'admin', emailConfirmed: true, onboardingStatus: 'approved' },
-    { upsert: true, new: true }
-  );
+  const now            = new Date();
+
+  const existing = await User.findOne({ 'email.value': 'fatshew@gmail.com' });
+
+  if (existing) {
+    await User.findByIdAndUpdate(existing._id, {
+      $set: {
+        password:         hashedPassword,
+        role:             'admin',
+        accountStatus:    'active',
+        onboardingStatus: 'approved',
+        'email.confirmed': true,
+      },
+    });
+  } else {
+    await User.create({
+      password:         hashedPassword,
+      role:             'admin',
+      accountStatus:    'active',
+      onboardingStatus: 'approved',
+      email: {
+        value:     'fatshew@gmail.com',
+        confirmed: true,
+        history:   [{ value: 'fatshew@gmail.com', setAt: now, source: 'admin' }],
+      },
+    });
+  }
+
   console.log('Admin account ready — fatshew@gmail.com');
   process.exit(0);
 }).catch(err => {

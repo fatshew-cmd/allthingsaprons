@@ -35,7 +35,10 @@
 
     <a href="/admin/verification" class="<%= lnk('verification') %>">
       <iconify-icon icon="lucide:shield-check" width="14" style="flex-shrink:0;display:block"></iconify-icon>
-      ID Verification
+      <span class="flex-1">ID Verification</span>
+      <% if (typeof sidebarCounts !== 'undefined' && sidebarCounts.pendingVerifications > 0) { %>
+      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none"><%= sidebarCounts.pendingVerifications %></span>
+      <% } %>
     </a>
 
     <span class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Content</span>
@@ -70,6 +73,16 @@
     <a href="/admin/moderation" class="<%= lnk('moderation') %>">
       <iconify-icon icon="lucide:flag" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Reported Comments
+    </a>
+
+    <span class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Support</span>
+
+    <a href="/admin/support" class="<%= lnk('support') %>">
+      <iconify-icon icon="lucide:message-square" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <span class="flex-1">Messages</span>
+      <% if (typeof sidebarCounts !== 'undefined' && sidebarCounts.unreadMessages > 0) { %>
+      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-charm-500 text-white leading-none"><%= sidebarCounts.unreadMessages %></span>
+      <% } %>
     </a>
 
   </nav>

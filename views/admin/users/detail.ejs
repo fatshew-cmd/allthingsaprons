@@ -14,7 +14,7 @@
         Users
       </a>
       <span class="text-zinc-300">·</span>
-      <h1 class="text-xl font-bold text-zinc-900 m-0"><%= user.username ? '@' + user.username : user.email %></h1>
+      <h1 class="text-xl font-bold text-zinc-900 m-0"><%= user.username?.value ? '@' + user.username.value : user.email?.value %></h1>
     </div>
 
     <!-- Content -->
@@ -26,16 +26,16 @@
 
           <!-- Banner -->
           <div class="h-24 bg-zinc-100 relative">
-            <% if (user.banner) { %>
-            <img src="<%= user.banner %>" alt="" class="w-full h-full object-cover">
+            <% if (user.banner?.value) { %>
+            <img src="<%= user.banner.value %>" alt="" class="w-full h-full object-cover">
             <% } %>
           </div>
 
           <!-- Avatar + name -->
           <div class="px-6 pb-6">
             <div class="-mt-8 mb-4">
-              <% if (user.avatar) { %>
-              <img src="<%= user.avatar %>" alt="" class="w-16 h-16 rounded-md object-cover border-2 border-white bg-zinc-100">
+              <% if (user.avatar?.value) { %>
+              <img src="<%= user.avatar.value %>" alt="" class="w-16 h-16 rounded-md object-cover border-2 border-white bg-zinc-100">
               <% } else { %>
               <div class="w-16 h-16 rounded-md bg-zinc-200 border-2 border-white flex items-center justify-center">
                 <iconify-icon icon="lucide:user" width="22" style="color:#a1a1aa;display:block"></iconify-icon>
@@ -44,9 +44,9 @@
             </div>
             <div class="flex items-start justify-between gap-4">
               <div>
-                <p class="font-bold text-zinc-900 text-lg m-0"><%= user.displayName || user.username || '—' %></p>
-                <% if (user.username) { %><p class="text-zinc-400 text-sm mt-0.5 mb-0">@<%= user.username %></p><% } %>
-                <% if (user.bio) { %><p class="text-zinc-600 text-sm mt-2 mb-0"><%= user.bio %></p><% } %>
+                <p class="font-bold text-zinc-900 text-lg m-0"><%= user.displayName?.value || user.username?.value || '—' %></p>
+                <% if (user.username?.value) { %><p class="text-zinc-400 text-sm mt-0.5 mb-0">@<%= user.username.value %></p><% } %>
+                <% if (user.bio?.value) { %><p class="text-zinc-600 text-sm mt-2 mb-0"><%= user.bio.value %></p><% } %>
               </div>
               <div class="flex flex-col items-end gap-1.5 shrink-0">
                 <% if (user.accountStatus === 'active') { %>
@@ -82,7 +82,7 @@
           </div>
           <div class="px-5 py-3.5 flex items-center justify-between border-b border-zinc-50">
             <span class="text-sm text-zinc-400">Email</span>
-            <span class="text-sm text-zinc-800 font-medium"><%= user.email %></span>
+            <span class="text-sm text-zinc-800 font-medium"><%= user.email?.value %></span>
           </div>
           <div class="px-5 py-3.5 flex items-center justify-between border-b border-zinc-50">
             <span class="text-sm text-zinc-400">Role</span>
@@ -102,7 +102,7 @@
           </div>
           <div class="px-5 py-3.5 flex items-center justify-between border-b border-zinc-50">
             <span class="text-sm text-zinc-400">Email confirmed</span>
-            <span class="text-sm text-zinc-800"><%= user.emailConfirmed ? 'Yes' : 'No' %></span>
+            <span class="text-sm text-zinc-800"><%= user.email?.confirmed ? 'Yes' : 'No' %></span>
           </div>
           <div class="px-5 py-3.5 flex items-center justify-between border-b border-zinc-50">
             <span class="text-sm text-zinc-400">Joined</span>

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
+
+  <%- include('../partials/adminSidebar', { currentPage: 'support' }) %>
+
+  <!-- Two-panel messenger -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- Left: thread list -->
+    <div class="w-72 shrink-0 flex flex-col border-r border-white/8 bg-zinc-900">
+      <div class="shrink-0 px-4 py-4 border-b border-white/8">
+        <h2 class="text-sm font-bold text-white m-0">Messages</h2>
+        <p class="text-xs text-white/35 mt-0.5 m-0">User support conversations</p>
+      </div>
+
+      <div id="thread-list" class="flex-1 overflow-y-auto">
+        <!-- Threads injected by JS -->
+        <div id="threads-loading" class="flex items-center justify-center py-10">
+          <iconify-icon icon="lucide:loader" width="18" class="text-white/20 animate-spin"></iconify-icon>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: active thread -->
+    <div class="flex-1 flex flex-col overflow-hidden bg-zinc-950">
+
+      <!-- Empty state (no thread selected) -->
+      <div id="no-thread" class="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
+        <div class="w-12 h-12 rounded-md bg-white/5 border border-white/8 flex items-center justify-center">
+          <iconify-icon icon="lucide:message-square" width="20" class="text-white/20"></iconify-icon>
+        </div>
+        <p class="text-sm text-white/35 font-medium">Select a conversation</p>
+        <p class="text-xs text-white/20 max-w-xs leading-relaxed">Choose a user from the list on the left to view and reply to their messages.</p>
+      </div>
+
+      <!-- Active thread panel (hidden until a thread is selected) -->
+      <div id="active-thread" class="hidden flex-1 flex-col overflow-hidden">
+
+        <!-- Thread header -->
+        <div id="thread-header" class="shrink-0 border-b border-white/8 px-5 py-3 flex items-center gap-3 bg-zinc-900">
+        </div>
+
+        <!-- Messages -->
+        <div id="thread-messages" class="flex-1 overflow-y-auto py-5 px-5 flex flex-col">
+        </div>
+
+        <!-- Compose -->
+        <div class="shrink-0 border-t border-white/8 bg-zinc-900 px-4 py-3">
+          <div class="flex items-end gap-3">
+            <div class="flex-1 bg-zinc-800 border border-white/10 rounded-md px-3 focus-within:border-white/25 transition-colors">
+              <div class="flex items-center gap-2 min-h-10">
+                <textarea id="reply-input" rows="1" placeholder="Reply as Support…"
+                  class="flex-1 bg-transparent text-sm text-white placeholder:text-white/25 resize-none outline-none leading-relaxed py-2.5"
+                  style="max-height:120px;overflow-y:auto;"></textarea>
+                <label for="reply-upload"
+                  class="shrink-0 w-7 h-7 flex items-center justify-center text-white/30 hover:text-white/60 transition-colors cursor-pointer"
+                  title="Attach image">
+                  <iconify-icon icon="boxicons:paperclip" width="17"></iconify-icon>
+                </label>
+                <input type="file" id="reply-upload" accept="image/*" multiple class="hidden">
+              </div>
+              <div id="reply-preview" class="hidden flex-wrap gap-2 pt-2 pb-2.5"></div>
+            </div>
+            <button type="button" id="reply-btn"
+              class="shrink-0 w-10 h-10 rounded-md bg-amber-500 hover:bg-amber-400 disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
+              disabled>
+              <iconify-icon icon="boxicons:send" width="15" class="text-zinc-900"></iconify-icon>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(function () {
+  var threadList    = document.getElementById('thread-list');
+  var noThread      = document.getElementById('no-thread');
+  var activeThread  = document.getElementById('active-thread');
+  var threadHeader  = document.getElementById('thread-header');
+  var threadMsgs    = document.getElementById('thread-messages');
+  var replyInput    = document.getElementById('reply-input');
+  var replyBtn      = document.getElementById('reply-btn');
+  var replyUpload   = document.getElementById('reply-upload');
+  var replyPreview  = document.getElementById('reply-preview');
+
+  var activeUserId  = null;
+  var seenIds       = {};
+  var replyFiles    = [];
+  var replying      = false;
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  function esc(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  }
+
+  function fmtTime(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' · ' +
+           d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function fmtTimeShort(iso) {
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function dateKey(iso) {
+    var d = new Date(iso);
+    return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+  }
+
+  function fmtDateLabel(iso) {
+    var d = new Date(iso);
+    var today = new Date(); today.setHours(0,0,0,0);
+    var msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var diff = Math.round((today - msgDay) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    if (diff < 7) return d.toLocaleDateString([], { weekday: 'long' });
+    return d.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  function buildDateSeparator(iso) {
+    var el = document.createElement('div');
+    el.className = 'flex items-center gap-3 py-1';
+    el.innerHTML =
+      '<div class="flex-1 h-px bg-white/8"></div>' +
+      '<span class="text-[11px] text-white/25 font-medium shrink-0">' + fmtDateLabel(iso) + '</span>' +
+      '<div class="flex-1 h-px bg-white/8"></div>';
+    return el;
+  }
+
+  function attachHtml(list) {
+    if (!list || !list.length) return '';
+    return '<div class="flex flex-wrap gap-1.5 mt-2">' +
+      list.map(function(src) {
+        return '<a href="' + src + '" target="_blank"><img src="' + src + '" class="w-20 h-20 object-cover rounded-md border border-white/10"></a>';
+      }).join('') + '</div>';
+  }
+
+  function updateReplyBtn() {
+    replyBtn.disabled = replying || (replyInput.value.trim().length === 0 && replyFiles.length === 0);
+  }
+
+  function scrollMsgs() {
+    threadMsgs.scrollTop = threadMsgs.scrollHeight;
+  }
+
+  // ── Build bubble ─────────────────────────────────────────────────────────
+
+  var lastDateKey = null;
+  var lastSender  = null;
+
+  function buildBubble(msg, grouped) {
+    var t = fmtTimeShort(msg.createdAt);
+    var timeSpan = '<span style="flex-shrink:0;font-size:10px;opacity:0.35;white-space:nowrap;line-height:1.4;align-self:flex-end">' + t + '</span>';
+    var timeBlock = '<div style="display:flex;justify-content:flex-end;margin-top:4px"><span style="font-size:10px;opacity:0.35">' + t + '</span></div>';
+
+    var hasBody = !!msg.body;
+    var hasAtt  = msg.attachments && msg.attachments.length > 0;
+    var inner =
+      (hasBody ? '<div style="display:flex;align-items:flex-end;gap:8px"><p class="m-0" style="flex:1;word-break:break-word">' + esc(msg.body) + '</p>' + (!hasAtt ? timeSpan : '') + '</div>' : '') +
+      (hasAtt  ? attachHtml(msg.attachments) + timeBlock : '');
+
+    var el = document.createElement('div');
+    el.dataset.id = msg._id;
+    el.style.marginTop = grouped ? '6px' : '12px';
+
+    if (msg.from === 'support') {
+      el.className = 'flex justify-end';
+      el.innerHTML =
+        '<div class="max-w-sm">' +
+          '<div class="bg-amber-500/15 border border-amber-500/25 rounded-md px-3 pt-1.5 pb-1.5 text-sm text-white/80 leading-relaxed">' + inner + '</div>' +
+        '</div>';
+    } else {
+      el.className = 'flex items-start gap-2.5';
+      var bubble = '<div class="bg-zinc-800 border border-white/8 rounded-md px-3 pt-1.5 pb-1.5 text-sm text-white/80 leading-relaxed">' + inner + '</div>';
+      if (grouped) {
+        el.innerHTML = '<div class="w-8 shrink-0"></div><div class="max-w-sm">' + bubble + '</div>';
+      } else {
+        el.innerHTML =
+          '<div class="shrink-0 w-8 h-8 rounded-md bg-white/8 border border-white/10 flex items-center justify-center mt-0.5">' +
+            '<iconify-icon icon="lucide:user" width="14" class="text-white/40"></iconify-icon>' +
+          '</div>' +
+          '<div class="flex flex-col gap-1 max-w-sm">' + bubble + '</div>';
+      }
+    }
+    return el;
+  }
+
+  function appendMsg(msg, animate) {
+    if (seenIds[msg._id]) return;
+    seenIds[msg._id] = true;
+    var dk = dateKey(msg.createdAt);
+    if (dk !== lastDateKey) {
+      lastDateKey = dk;
+      lastSender = null;
+      threadMsgs.appendChild(buildDateSeparator(msg.createdAt));
+    }
+    var grouped = msg.from === lastSender;
+    lastSender = msg.from;
+    var el = buildBubble(msg, grouped);
+    if (animate) { el.style.opacity = '0'; el.style.transition = 'opacity 0.2s'; }
+    threadMsgs.appendChild(el);
+    if (animate) requestAnimationFrame(function() { el.style.opacity = '1'; });
+  }
+
+  // ── Thread list ─────────────────────────────────────────────────────────
+
+  function loadThreads() {
+    fetch('/admin/support/threads')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        document.getElementById('threads-loading').remove();
+        if (!data.threads || data.threads.length === 0) {
+          threadList.innerHTML = '<p class="text-xs text-white/25 text-center py-8 px-4">No messages yet.</p>';
+          return;
+        }
+        data.threads.forEach(renderThreadItem);
+
+        var saved = localStorage.getItem('ata_support_thread');
+        if (saved) {
+          var btn = threadList.querySelector('[data-user-id="' + saved + '"]');
+          if (btn) btn.click();
+        }
+      });
+  }
+
+  function renderThreadItem(t) {
+    var user = t.user || {};
+    var name = (user.displayName && user.displayName.value) || (user.username && user.username.value) || 'Unknown';
+    var email = user.email && user.email.value ? user.email.value : '';
+    var last = t.lastMessage;
+    var preview = last.body ? (last.body.length > 40 ? last.body.slice(0, 40) + '…' : last.body) : '[image]';
+
+    var el = document.createElement('button');
+    el.type = 'button';
+    el.dataset.userId = t.userId;
+    el.className = 'w-full text-left px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer flex items-start gap-3';
+    el.innerHTML =
+      '<div class="shrink-0 w-9 h-9 rounded-md bg-white/8 border border-white/10 flex items-center justify-center">' +
+        '<iconify-icon icon="lucide:user" width="14" class="text-white/40"></iconify-icon>' +
+      '</div>' +
+      '<div class="flex-1 min-w-0">' +
+        '<div class="flex items-center justify-between gap-2">' +
+          '<p class="text-[13px] font-semibold text-white truncate m-0">' + esc(name) + '</p>' +
+          (t.unreadCount > 0 ? '<span class="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-charm-500 text-white leading-none">' + t.unreadCount + '</span>' : '') +
+        '</div>' +
+        '<p class="text-xs text-white/30 truncate m-0 mt-0.5">' + esc(preview) + '</p>' +
+        '<p class="text-[10px] text-white/20 m-0 mt-0.5">' + fmtTime(last.createdAt) + '</p>' +
+      '</div>';
+
+    el.addEventListener('click', function() {
+      document.querySelectorAll('#thread-list button').forEach(function(b) {
+        b.classList.remove('bg-white/8');
+      });
+      el.classList.add('bg-white/8');
+      // Remove unread badge
+      var badge = el.querySelector('.bg-charm-500');
+      if (badge) badge.remove();
+      openThread(t.userId, name, email);
+    });
+
+    threadList.appendChild(el);
+  }
+
+  // ── Open thread ──────────────────────────────────────────────────────────
+
+  function openThread(userId, name, email) {
+    activeUserId = userId;
+    localStorage.setItem('ata_support_thread', userId);
+    seenIds = {};
+    lastDateKey = null;
+    lastSender = null;
+    threadMsgs.innerHTML = '';
+    replyInput.value = '';
+    replyInput.style.height = 'auto';
+    replyFiles = [];
+    replyPreview.innerHTML = '';
+    replyPreview.classList.add('hidden');
+    replyPreview.style.display = '';
+    updateReplyBtn();
+
+    threadHeader.innerHTML =
+      '<div class="w-8 h-8 rounded-md bg-white/8 border border-white/10 flex items-center justify-center shrink-0">' +
+        '<iconify-icon icon="lucide:user" width="14" class="text-white/40"></iconify-icon>' +
+      '</div>' +
+      '<div>' +
+        '<p class="text-sm font-semibold text-white m-0">' + esc(name) + '</p>' +
+        (email ? '<p class="text-xs text-white/30 m-0">' + esc(email) + '</p>' : '') +
+      '</div>';
+
+    noThread.classList.add('hidden');
+    activeThread.classList.remove('hidden');
+    activeThread.style.display = 'flex';
+
+    fetch('/admin/support/thread/' + userId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        (data.messages || []).forEach(function(m) { appendMsg(m, false); });
+        scrollMsgs();
+      });
+  }
+
+  // ── Reply compose ────────────────────────────────────────────────────────
+
+  replyInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    updateReplyBtn();
+  });
+
+  replyInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!replyBtn.disabled) replyBtn.click();
+    }
+  });
+
+  replyUpload.addEventListener('change', function() {
+    Array.from(this.files).forEach(function(file) {
+      replyFiles.push(file);
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var wrap = document.createElement('div');
+        wrap.className = 'relative group';
+        var img = document.createElement('img');
+        img.src = e.target.result;
+        img.className = 'w-14 h-14 object-cover rounded-md border border-white/10';
+        var rm = document.createElement('button');
+        rm.type = 'button';
+        rm.className = 'absolute -top-1 -right-1 w-4 h-4 rounded-full bg-zinc-700 border border-white/20 text-white/60 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer';
+        rm.innerHTML = '<iconify-icon icon="lucide:x" width="9"></iconify-icon>';
+        rm.addEventListener('click', function() {
+          var idx = replyFiles.indexOf(file);
+          if (idx > -1) replyFiles.splice(idx, 1);
+          wrap.remove();
+          if (replyFiles.length === 0) { replyPreview.classList.add('hidden'); replyPreview.style.display = ''; }
+          updateReplyBtn();
+        });
+        wrap.appendChild(img);
+        wrap.appendChild(rm);
+        replyPreview.appendChild(wrap);
+      };
+      reader.readAsDataURL(file);
+    });
+    replyPreview.classList.remove('hidden');
+    replyPreview.style.display = 'flex';
+    this.value = '';
+    updateReplyBtn();
+  });
+
+  replyBtn.addEventListener('click', function() {
+    if (replying || !activeUserId) return;
+    var body = replyInput.value.trim();
+    if (!body && replyFiles.length === 0) return;
+
+    replying = true;
+    updateReplyBtn();
+
+    var fd = new FormData();
+    fd.append('body', body);
+    replyFiles.forEach(function(f) { fd.append('support', f); });
+
+    var optEl = buildBubble({ _id: 'tmp-' + Date.now(), from: 'support', body: body, attachments: [], createdAt: new Date().toISOString() });
+    optEl.style.opacity = '0.5';
+    threadMsgs.appendChild(optEl);
+    scrollMsgs();
+
+    replyInput.value = '';
+    replyInput.style.height = 'auto';
+    replyFiles = [];
+    replyPreview.innerHTML = '';
+    replyPreview.classList.add('hidden');
+    replyPreview.style.display = '';
+
+    fetch('/admin/support/thread/' + activeUserId + '/reply', { method: 'POST', body: fd })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        replying = false;
+        optEl.remove();
+        if (data.message) { appendMsg(data.message, false); scrollMsgs(); }
+        updateReplyBtn();
+      })
+      .catch(function() {
+        replying = false;
+        optEl.remove();
+        updateReplyBtn();
+      });
+  });
+
+  // ── Poll for new messages in active thread every 10s ─────────────────────
+
+  setInterval(function() {
+    if (!activeUserId) return;
+    fetch('/admin/support/thread/' + activeUserId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var hadNew = false;
+        (data.messages || []).forEach(function(m) {
+          if (!seenIds[m._id]) { appendMsg(m, true); hadNew = true; }
+        });
+        if (hadNew) scrollMsgs();
+      });
+  }, 10000);
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+
+  loadThreads();
+
+}());
+</script>
+
+</body>
+</html>

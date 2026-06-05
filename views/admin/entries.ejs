@@ -63,8 +63,8 @@
               <!-- User row -->
               <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0">
-                  <% if (e.userId && e.userId.avatar) { %>
-                  <img src="<%= e.userId.avatar %>" alt="" class="w-9 h-9 rounded-md object-cover shrink-0 bg-zinc-100">
+                  <% if (e.userId && e.userId.avatar?.value) { %>
+                  <img src="<%= e.userId.avatar.value %>" alt="" class="w-9 h-9 rounded-md object-cover shrink-0 bg-zinc-100">
                   <% } else { %>
                   <div class="w-9 h-9 rounded-md bg-zinc-100 shrink-0 flex items-center justify-center">
                     <iconify-icon icon="lucide:user" width="15" style="color:#d4d4d8;display:block"></iconify-icon>
@@ -72,9 +72,9 @@
                   <% } %>
                   <div class="min-w-0">
                     <p class="font-semibold text-sm text-zinc-800 truncate m-0">
-                      <%= e.userId ? ('@' + (e.userId.username || 'no username')) : 'Unknown user' %>
+                      <%= e.userId ? ('@' + (e.userId.username?.value || 'no username')) : 'Unknown user' %>
                     </p>
-                    <p class="text-xs text-zinc-400 truncate mt-0.5 mb-0"><%= e.userId ? e.userId.email : '' %></p>
+                    <p class="text-xs text-zinc-400 truncate mt-0.5 mb-0"><%= e.userId ? e.userId.email?.value : '' %></p>
                   </div>
                 </div>
                 <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">

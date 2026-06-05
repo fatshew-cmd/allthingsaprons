@@ -10,6 +10,7 @@ const apiRouter        = require('./routes/api');
 const adminRouter      = require('./routes/admin');
 const authRouter       = require('./routes/auth');
 const onboardingRouter = require('./routes/onboarding');
+const contactRouter    = require('./routes/contact');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,6 +32,7 @@ app.set('views', path.join(__dirname, 'views'));
 
 app.use('/', authRouter);
 app.use('/onboarding', onboardingRouter);
+app.use('/contact', contactRouter);
 app.use('/admin', adminRouter);
 app.use('/', pagesRouter);
 app.use('/api', apiRouter);

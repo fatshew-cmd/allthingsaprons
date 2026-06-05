@@ -55,18 +55,18 @@
   <div class="px-3 pt-3 flex items-center gap-3">
     <!-- Avatar + names -->
     <div class="flex items-center gap-2.5 min-w-0 flex-1">
-      <a href="/<%= owner.username %>" class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
-        <% if (owner.avatar) { %>
-        <img src="<%= owner.avatar %>" alt="<%= owner.username %>" class="w-full h-full object-cover">
+      <a href="/<%= owner.username?.value %>" class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+        <% if (owner.avatar?.value) { %>
+        <img src="<%= owner.avatar.value %>" alt="<%= owner.username?.value %>" class="w-full h-full object-cover">
         <% } else { %>
         <iconify-icon icon="bx:user" width="18" class="text-white/30"></iconify-icon>
         <% } %>
       </a>
       <div class="min-w-0">
-        <a href="/<%= owner.username %>" class="block text-sm font-semibold text-white truncate leading-tight hover:text-charm-300 transition-colors">
-          <%= owner.displayName || ('@' + owner.username) %>
+        <a href="/<%= owner.username?.value %>" class="block text-sm font-semibold text-white truncate leading-tight hover:text-charm-300 transition-colors">
+          <%= owner.displayName?.value || ('@' + owner.username?.value) %>
         </a>
-        <a href="/<%= owner.username %>" class="block text-xs text-white/40 truncate leading-tight mt-0.5">@<%= owner.username %></a>
+        <a href="/<%= owner.username?.value %>" class="block text-xs text-white/40 truncate leading-tight mt-0.5">@<%= owner.username?.value %></a>
       </div>
     </div>
     <!-- Follow + date/views -->

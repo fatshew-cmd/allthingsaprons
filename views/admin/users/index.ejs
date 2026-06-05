@@ -43,18 +43,18 @@
 
               <td class="px-5 py-3.5">
                 <div class="flex items-center gap-2.5">
-                  <% if (user.avatar) { %>
-                  <img src="<%= user.avatar %>" alt="" class="w-7 h-7 rounded-md object-cover bg-zinc-100 shrink-0">
+                  <% if (user.avatar?.value) { %>
+                  <img src="<%= user.avatar.value %>" alt="" class="w-7 h-7 rounded-md object-cover bg-zinc-100 shrink-0">
                   <% } else { %>
                   <div class="w-7 h-7 rounded-md bg-zinc-100 shrink-0 flex items-center justify-center">
                     <iconify-icon icon="lucide:user" width="12" style="color:#d4d4d8;display:block"></iconify-icon>
                   </div>
                   <% } %>
-                  <span class="font-semibold text-zinc-800"><%= user.username ? '@' + user.username : '—' %></span>
+                  <span class="font-semibold text-zinc-800"><%= user.username?.value ? '@' + user.username.value : '—' %></span>
                 </div>
               </td>
 
-              <td class="px-5 py-3.5 text-zinc-500"><%= user.email %></td>
+              <td class="px-5 py-3.5 text-zinc-500"><%= user.email?.value %></td>
 
               <td class="px-5 py-3.5">
                 <% if (user.accountStatus === 'active') { %>

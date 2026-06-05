@@ -8,7 +8,14 @@ module.exports = async (req, res, next) => {
       return res.redirect('/signup');
     }
     if (user.onboardingStatus !== 'approved') return res.redirect('/onboarding');
-    req.currentUser = user;
+    req.currentUser = {
+      _id:              user._id,
+      role:             user.role,
+      onboardingStatus: user.onboardingStatus,
+      username:         user.username?.value  || null,
+      avatar:           user.avatar?.value    || null,
+      email:            user.email?.value     || null,
+    };
     next();
   } catch (err) {
     next(err);

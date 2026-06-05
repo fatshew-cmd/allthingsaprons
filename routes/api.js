@@ -24,11 +24,11 @@ router.get('/check-signup', async (req, res) => {
   const result = { usernameAvailable: true, emailAvailable: true };
   try {
     if (username) {
-      const u = await User.findOne({ username: username.toLowerCase() });
+      const u = await User.findOne({ 'username.value': username.toLowerCase() });
       result.usernameAvailable = !u;
     }
     if (email) {
-      const e = await User.findOne({ email: email.toLowerCase() });
+      const e = await User.findOne({ 'email.value': email.toLowerCase() });
       result.emailAvailable = !e;
     }
   } catch { /* if DB is down, report available — server will catch duplicate on submit */ }
@@ -75,7 +75,7 @@ router.get('/profile/:username/entries', async (req, res) => {
   const skip  = (page - 1) * limit;
 
   try {
-    const user = await User.findOne({ username: req.params.username.toLowerCase() }).select('_id');
+    const user = await User.findOne({ 'username.value': req.params.username.toLowerCase() }).select('_id');
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const [entries, total] = await Promise.all([

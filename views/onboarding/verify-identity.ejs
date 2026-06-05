@@ -66,7 +66,7 @@
     <!-- Pending state -->
     <div class="flex flex-col items-center gap-4 py-10 text-center">
       <div class="w-14 h-14 rounded-md bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
-        <iconify-icon icon="boxicons:time" width="28" class="text-amber-400"></iconify-icon>
+        <iconify-icon icon="boxicons:loader-dots-filled" width="28" class="text-amber-400"></iconify-icon>
       </div>
       <div>
         <p class="text-base font-semibold text-white">Documents under review</p>
@@ -80,6 +80,30 @@
     </div>
 
     <% } else { %>
+
+    <% if (rejectionReasons && rejectionReasons.length > 0) { %>
+    <div class="flex flex-col gap-3 bg-red-400/8 border border-red-400/20 rounded-md px-4 py-4 mb-6">
+      <div class="flex items-center gap-2">
+        <iconify-icon icon="boxicons:error-circle" width="15" class="text-red-400 shrink-0"></iconify-icon>
+        <p class="text-sm font-semibold text-red-300 m-0">Your previous submission was rejected</p>
+      </div>
+      <p class="text-xs text-white/45 leading-relaxed m-0">Please review the reasons below and re-submit with corrected documents.</p>
+      <ul class="flex flex-col gap-1.5 m-0 p-0 list-none">
+        <% rejectionReasons.forEach(function(reason) { %>
+        <li class="flex items-center gap-2 text-xs text-white/65">
+          <iconify-icon icon="lucide:x-circle" width="13" class="text-red-400 shrink-0"></iconify-icon>
+          <%= reason %>
+        </li>
+        <% }); %>
+      </ul>
+      <% if (claimNumber) { %>
+      <div class="pt-3 border-t border-red-400/15 flex items-start gap-2 text-xs text-white/40 leading-relaxed">
+        <iconify-icon icon="lucide:message-circle" width="13" class="text-white/30 shrink-0 mt-0.5"></iconify-icon>
+        <span>If you believe we made a mistake, please <a href="/contact" class="text-charm-400 hover:text-charm-300 underline underline-offset-2 transition-colors">contact us</a> and include your claim number: <span class="font-mono font-bold tracking-wider text-white/65"><%= claimNumber %></span></span>
+      </div>
+      <% } %>
+    </div>
+    <% } %>
 
     <% if (error) { %>
     <div class="flex items-center gap-2 text-sm text-red-400 bg-red-400/8 border border-red-400/20 rounded-md px-3 py-2.5 mb-5">
@@ -141,7 +165,7 @@
           </div>
 
           <!-- Selfie upload zone -->
-          <label id="selfie-zone" class="cursor-pointer block">
+          <div id="selfie-zone" class="cursor-pointer block">
             <div id="selfie-placeholder"
               class="border-2 border-dashed border-white/12 rounded-md p-8 flex flex-col items-center gap-3 text-white/35 hover:border-charm-600/40 hover:text-white/55 transition-colors">
               <iconify-icon icon="boxicons:camera" width="36"></iconify-icon>
@@ -158,7 +182,7 @@
               </button>
             </div>
             <input type="file" id="selfie-input" name="idSelfie" accept="image/*" class="hidden">
-          </label>
+          </div>
           <p id="selfie-error" class="text-xs text-red-400 mt-1.5 hidden"></p>
         </div>
 
@@ -192,7 +216,7 @@
 
         <p class="text-xs text-white/40 mb-3">Accepted: passport, driver's license, national ID card. The name and date of birth must be clearly readable.</p>
 
-        <label id="doc-zone" class="cursor-pointer block">
+        <div id="doc-zone" class="cursor-pointer block">
           <div id="doc-placeholder"
             class="border-2 border-dashed border-white/12 rounded-md p-8 flex flex-col items-center gap-3 text-white/35 hover:border-charm-600/40 hover:text-white/55 transition-colors">
             <iconify-icon icon="boxicons:id-card" width="36"></iconify-icon>
@@ -209,7 +233,7 @@
             </button>
           </div>
           <input type="file" id="doc-input" name="idDoc" accept="image/*" class="hidden">
-        </label>
+        </div>
         <p id="doc-error" class="text-xs text-red-400 mt-1.5 hidden"></p>
       </div>
 
@@ -227,8 +251,20 @@
 
   </div>
 
+<!-- Floating support chat button -->
+<a href="/contact" id="support-fab"
+  class="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 bg-shark-900 hover:bg-shark-800 border border-white/12 hover:border-white/20 text-white/70 hover:text-white rounded-md px-4 py-2.5 text-sm font-medium shadow-xl transition-colors no-underline">
+  <iconify-icon icon="boxicons:headphone" width="16" class="shrink-0"></iconify-icon>
+  <span>Chat with Support</span>
+  <span id="fab-badge" class="hidden shrink-0 w-4 h-4 rounded-full bg-charm-500 text-white text-[9px] font-bold items-center justify-center leading-none"></span>
+</a>
+
+<%- include('../partials/toasts') %>
+
 <script>
 (function () {
+  if (!document.getElementById('ack-check')) return;
+
   var ackCheck          = document.getElementById('ack-check');
   var step1             = document.getElementById('step1');
   var step2             = document.getElementById('step2');
@@ -419,8 +455,12 @@
     syncSubmit();
   });
 
+  selfiePlaceholder.addEventListener('click', function () {
+    selfieInput.click();
+  });
+
   selfieChangeBtn.addEventListener('click', function (e) {
-    e.preventDefault();
+    e.stopPropagation();
     resetSelfie();
     hideStep2();
     syncSubmit();
@@ -443,8 +483,12 @@
     syncSubmit();
   });
 
+  docPlaceholder.addEventListener('click', function () {
+    docInput.click();
+  });
+
   docChangeBtn.addEventListener('click', function (e) {
-    e.preventDefault();
+    e.stopPropagation();
     docInput.value = '';
     docPreview.classList.add('hidden');
     docPlaceholder.classList.remove('hidden');
@@ -481,6 +525,46 @@ document.getElementById('cancel-signup-btn').addEventListener('click', function 
     document.getElementById('cancel-signup-form').submit();
   }
 });
+
+// ── Support message toast ─────────────────────────────────────────────────
+(function () {
+  var toastShown = false;
+  var lastCount = 0;
+
+  var fabBadge = document.getElementById('fab-badge');
+
+  function checkUnread() {
+    fetch('/contact/unread')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var count = data.count || 0;
+
+        if (count > 0) {
+          fabBadge.textContent = count > 9 ? '9+' : count;
+          fabBadge.classList.remove('hidden');
+          fabBadge.style.display = 'flex';
+        } else {
+          fabBadge.classList.add('hidden');
+          fabBadge.style.display = '';
+        }
+
+        if (count > 0 && (count > lastCount || !toastShown)) {
+          lastCount = count;
+          toastShown = true;
+          window.showToast(
+            'You have a new message from Support',
+            'info',
+            0,
+            [{ label: 'View message', cls: 'bg-charm-600 hover:bg-charm-500 text-white text-xs font-semibold px-3 py-1.5 rounded-md transition-colors cursor-pointer', fn: function() { window.location.href = '/contact'; } }]
+          );
+        }
+      })
+      .catch(function() {});
+  }
+
+  checkUnread();
+  setInterval(checkUnread, 30000);
+}());
 </script>
 
 </body>

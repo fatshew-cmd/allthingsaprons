@@ -164,7 +164,7 @@
 
                 <!-- Organizer -->
                 <div class="flex items-center gap-1.5 text-xs text-white/30 border-t border-white/6 pt-2.5">
-                  <span class="text-white/45">by @<%= t.createdBy && t.createdBy.username ? t.createdBy.username : 'admin' %></span>
+                  <span class="text-white/45">by @<%= t.createdBy && t.createdBy.username?.value ? t.createdBy.username.value : 'admin' %></span>
                   <span class="text-white/20">—</span>
                   <span><%= t.organizerCount %> <%= t.organizerCount === 1 ? 'tournament' : 'tournaments' %></span>
                 </div>

@@ -53,6 +53,7 @@ router.get('/', async (req, res) => {
   if (user.onboardingStatus === 'pending_id_verification') return res.redirect('/onboarding/verify-identity');
   if (user.onboardingStatus === 'pending_approval') return res.redirect('/onboarding/waiting');
 
+
   const tournaments = await Tournament.find({ status: 'open' })
     .populate('createdBy', 'username')
     .sort({ createdAt: -1 });
@@ -90,12 +91,12 @@ router.get('/', async (req, res) => {
     wasRejected,
     error:       req.query.error || null,
     profileUser: {
-      username:    user.username,
-      email:       user.email,
-      avatar:      user.avatar || null,
-      age:         calcAge(user.birthdate),
-      sex:         SEX_LABELS[user.sex] || null,
-      orientation: fmtOrientation(user.orientation),
+      username:    user.username?.value,
+      email:       user.email?.value,
+      avatar:      user.avatar?.value || null,
+      age:         calcAge(user.birthdate?.value),
+      sex:         SEX_LABELS[user.sex?.value] || null,
+      orientation: fmtOrientation(user.orientation?.value),
     },
   });
 });
@@ -157,7 +158,7 @@ router.post('/cancel', async (req, res) => {
 // GET /onboarding/verify-identity
 router.get('/verify-identity', async (req, res) => {
   const user = await User.findById(req.session.userId)
-    .select('onboardingStatus idVerified idVerificationStatus idVerifyBlockedUntil');
+    .select('onboardingStatus idVerified idVerificationStatus idVerifyBlockedUntil idVerificationRejectionReasons idVerificationClaimNumber');
   if (!user) { req.session.destroy(() => {}); return res.redirect('/signup'); }
 
   if (user.onboardingStatus === 'approved') return res.redirect('/feed');
@@ -165,43 +166,32 @@ router.get('/verify-identity', async (req, res) => {
 
   const now     = new Date();
   const blocked = !!(user.idVerifyBlockedUntil && user.idVerifyBlockedUntil > now);
+  const pending = !blocked && user.idVerificationStatus === 'pending';
+  const showRejection = !pending && !blocked && user.idVerificationRejectionReasons?.length;
 
   res.render('onboarding/verify-identity', {
-    title:           'Verify Identity',
+    title:            'Verify Identity',
     blocked,
-    blockedUntil:    blocked ? user.idVerifyBlockedUntil : null,
-    pending:         !blocked && user.idVerificationStatus === 'pending',
-    activeCode:      req.session.verificationCode   || null,
-    codeGeneratedAt: req.session.verificationCodeAt || null,
-    error:           req.query.error || null,
+    blockedUntil:     blocked ? user.idVerifyBlockedUntil : null,
+    pending,
+    activeCode:       req.session.verificationCode   || null,
+    codeGeneratedAt:  req.session.verificationCodeAt || null,
+    error:            req.query.error || null,
+    rejectionReasons: showRejection ? user.idVerificationRejectionReasons : [],
+    claimNumber:      showRejection ? (user.idVerificationClaimNumber || null) : null,
   });
 });
 
 // GET /onboarding/verify-identity/code — generate selfie code
 router.get('/verify-identity/code', async (req, res) => {
   const user = await User.findById(req.session.userId)
-    .select('onboardingStatus idVerified idVerifyBlockedUntil idVerifyFailedAttempts');
+    .select('onboardingStatus idVerified idVerifyBlockedUntil');
   if (!user) return res.status(401).json({ error: 'Not authenticated.' });
   if (user.onboardingStatus !== 'pending_id_verification') return res.status(403).json({ error: 'Not in verification step.' });
   if (user.idVerified) return res.status(403).json({ error: 'Already verified.' });
 
-  const now = new Date();
-
-  if (user.idVerifyBlockedUntil && user.idVerifyBlockedUntil > now) {
+  if (user.idVerifyBlockedUntil && user.idVerifyBlockedUntil > new Date()) {
     return res.status(429).json({ error: 'Account temporarily blocked.', blockedUntil: user.idVerifyBlockedUntil });
-  }
-
-  const updated = await User.findByIdAndUpdate(
-    req.session.userId,
-    { $inc: { idVerifyFailedAttempts: 1 } },
-    { returnDocument: 'after' }
-  ).select('idVerifyFailedAttempts');
-
-  if (updated.idVerifyFailedAttempts > 3) {
-    const blockedUntil = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    await User.updateOne({ _id: req.session.userId }, { idVerifyBlockedUntil: blockedUntil, idVerifyFailedAttempts: 0 });
-    delete req.session.verificationCode;
-    return res.status(429).json({ error: 'Too many failed attempts. Try again in 2 hours.', blockedUntil });
   }
 
   const code = genVerificationCode();
@@ -220,27 +210,25 @@ router.post('/verify-identity', upload.fields([{ name: 'idSelfie', maxCount: 1 }
 
   if (!selfie) return fail('Please upload your verification selfie.');
   if (!idDoc)  return fail('Please upload a photo of your ID.');
+  if (!code)   return fail('No active verification code found. Please generate a code and try again.');
+
+  const submitter = await User.findById(req.session.userId).select('idVerifyBlockedUntil');
+  if (submitter?.idVerifyBlockedUntil && submitter.idVerifyBlockedUntil > new Date()) {
+    return fail('Your account is temporarily blocked from re-submitting. Please wait for the cooldown to expire.');
+  }
 
   await User.findByIdAndUpdate(req.session.userId, {
-    idVerificationStatus:   'pending',
-    idSelfieUrl:            `/uploads/id-docs/${selfie.filename}`,
-    idDocUrl:               `/uploads/id-docs/${idDoc.filename}`,
-    idVerificationCode:     code || '',
-    idVerifyFailedAttempts: 0,
-    $unset: { idVerifyBlockedUntil: '' },
+    idVerificationStatus:      'pending',
+    idSelfieUrl:               `/uploads/id-docs/${selfie.filename}`,
+    idDocUrl:                  `/uploads/id-docs/${idDoc.filename}`,
+    idVerificationCode:        code,
+    idVerificationSubmittedAt: new Date(),
+    $unset: { idVerificationRejectionReasons: '' },
   });
 
   delete req.session.verificationCode;
 
-  res.render('onboarding/verify-identity', {
-    title:           'Verify Identity',
-    pending:         true,
-    blocked:         false,
-    blockedUntil:    null,
-    activeCode:      null,
-    codeGeneratedAt: null,
-    error:           null,
-  });
+  res.redirect('/onboarding/verify-identity');
 });
 
 // GET /onboarding/waiting — poll for approval status
@@ -254,7 +242,7 @@ router.get('/waiting', async (req, res) => {
 
   res.render('onboarding/waiting', {
     title:    'Waiting for Approval',
-    username: user.username,
+    username: user.username?.value,
   });
 });
 

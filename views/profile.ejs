@@ -5,8 +5,8 @@
   <!-- Banner + avatar + action row -->
   <div class="relative shrink-0">
     <div class="relative h-32 sm:h-40 bg-shark-800 overflow-hidden">
-      <% if (profileUser.banner) { %>
-        <img src="<%= profileUser.banner %>" alt="" class="w-full h-full object-cover">
+      <% if (profileUser.banner?.value) { %>
+        <img src="<%= profileUser.banner.value %>" alt="" class="w-full h-full object-cover">
       <% } %>
       <div class="absolute inset-0 bg-linear-to-t from-shark-950/70 via-shark-950/20 to-transparent pointer-events-none"></div>
     </div>
@@ -20,8 +20,8 @@
     </div>
     <!-- Avatar pinned between banner and action row -->
     <div class="absolute left-5 bottom-5 z-10 w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center border-[4px] border-shark-950 shadow-[0_0_0_1px_rgba(255,255,255,0.1)]">
-      <% if (profileUser.avatar) { %>
-        <img src="<%= profileUser.avatar %>" alt="<%= profileUser.username %>" class="w-full h-full object-cover" />
+      <% if (profileUser.avatar?.value) { %>
+        <img src="<%= profileUser.avatar.value %>" alt="<%= profileUser.username?.value %>" class="w-full h-full object-cover" />
       <% } else { %>
         <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 24 24" class="text-charm-400">
           <path d="M0 0h24v24H0z" fill="none" />
@@ -36,20 +36,20 @@
 
     <!-- Name -->
     <div class="<%= isOwn ? '' : 'mt-1' %>">
-      <% if (profileUser.displayName) { %>
-        <p class="font-bold text-base leading-tight"><%= profileUser.displayName %></p>
-        <p class="text-sm text-white/40 mt-0.5">@<%= profileUser.username %></p>
+      <% if (profileUser.displayName?.value) { %>
+        <p class="font-bold text-base leading-tight"><%= profileUser.displayName.value %></p>
+        <p class="text-sm text-white/40 mt-0.5">@<%= profileUser.username?.value %></p>
       <% } else { %>
-        <p class="font-bold text-base leading-tight">@<%= profileUser.username %></p>
+        <p class="font-bold text-base leading-tight">@<%= profileUser.username?.value %></p>
       <% } %>
     </div>
 
     <!-- Bio -->
     <div class="mt-3">
-      <p id="profile-bio-text" class="text-sm leading-relaxed line-clamp-2 <%= profileUser.bio ? 'text-white/60' : 'text-white/25 italic' %>">
-        <%= profileUser.bio || 'No bio yet.' %>
+      <p id="profile-bio-text" class="text-sm leading-relaxed line-clamp-2 <%= profileUser.bio?.value ? 'text-white/60' : 'text-white/25 italic' %>">
+        <%= profileUser.bio?.value || 'No bio yet.' %>
       </p>
-      <% if (profileUser.bio) { %>
+      <% if (profileUser.bio?.value) { %>
       <button id="profile-bio-toggle" class="hidden mt-1 text-xs text-white/40 hover:text-white transition-colors">Read more</button>
       <% } %>
     </div>
@@ -58,21 +58,21 @@
     <%
       let age = null;
       let birthdateLabel = null;
-      if (profileUser.birthdate) {
+      if (profileUser.birthdate?.value) {
         const now = new Date();
-        const b   = new Date(profileUser.birthdate);
-        age = now.getFullYear() - b.getFullYear();
-        if (now < new Date(now.getFullYear(), b.getMonth(), b.getDate())) age--;
-        const day   = b.getDate();
-        const month = b.toLocaleString('en-US', { month: 'long' });
-        const year  = b.getFullYear();
+        const b   = new Date(profileUser.birthdate.value);
+        age = now.getUTCFullYear() - b.getUTCFullYear();
+        if (now < new Date(Date.UTC(now.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate()))) age--;
+        const day   = b.getUTCDate();
+        const month = b.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+        const year  = b.getUTCFullYear();
         birthdateLabel = `${month} ${day}, ${year} · ${age} y.o`;
       }
-      const sexLabel = { male: 'Male', female: 'Female', other: 'Other' }[profileUser.sex] || null;
+      const sexLabel = { male: 'Male', female: 'Female', other: 'Other' }[profileUser.sex?.value] || null;
     %>
-    <% if (birthdateLabel || sexLabel || profileUser.location || profileUser.url) { %>
+    <% if (birthdateLabel || sexLabel || profileUser.location?.value || profileUser.url?.value) { %>
     <div class="mt-3 flex flex-col gap-2">
-      <% if (birthdateLabel || sexLabel || profileUser.location) { %>
+      <% if (birthdateLabel || sexLabel || profileUser.location?.value) { %>
       <div class="flex flex-wrap gap-x-5 gap-y-1">
         <% if (birthdateLabel) { %>
         <span class="flex items-center gap-1.5 text-sm text-white/40">
@@ -86,18 +86,18 @@
           <%= sexLabel %>
         </span>
         <% } %>
-        <% if (profileUser.location) { %>
+        <% if (profileUser.location?.value) { %>
         <span class="flex items-center gap-1.5 text-sm text-white/40">
           <iconify-icon icon="boxicons:location-alt" width="14"></iconify-icon>
-          <%= profileUser.location %>
+          <%= profileUser.location.value %>
         </span>
         <% } %>
       </div>
       <% } %>
-      <% if (profileUser.url) { %>
+      <% if (profileUser.url?.value) { %>
       <%
-        const href = /^https?:\/\//i.test(profileUser.url) ? profileUser.url : 'https://' + profileUser.url;
-        const display = profileUser.url.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+        const href = /^https?:\/\//i.test(profileUser.url.value) ? profileUser.url.value : 'https://' + profileUser.url.value;
+        const display = profileUser.url.value.replace(/^https?:\/\//i, '').replace(/\/$/, '');
       %>
       <a href="<%= href %>" target="_blank" rel="noopener noreferrer"
          class="flex items-center gap-1.5 text-sm text-charm-400 hover:text-charm-300 transition-colors w-fit">
@@ -383,8 +383,8 @@
 
   <% if (isOwn) { %>
   <%
-    const birthdateInputValue = profileUser.birthdate
-      ? new Date(profileUser.birthdate).toISOString().split('T')[0]
+    const birthdateInputValue = profileUser.birthdate?.value
+      ? new Date(profileUser.birthdate.value).toISOString().split('T')[0]
       : '';
   %>
   <div id="profile-edit-modal" class="fixed inset-0 z-50 hidden items-start justify-center p-4 sm:p-8">
@@ -392,7 +392,7 @@
 
     <form action="/settings/profile" method="POST" enctype="multipart/form-data"
       class="relative z-10 w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-md bg-shark-950 border border-white/10 shadow-2xl">
-      <input type="hidden" name="returnTo" value="/<%= profileUser.username %>">
+      <input type="hidden" name="returnTo" value="/<%= profileUser.username?.value %>">
       <input type="hidden" name="bannerRemove" id="profile-edit-banner-remove" value="0">
       <input type="hidden" name="avatarRemove" id="profile-edit-avatar-remove" value="0">
 
@@ -409,10 +409,10 @@
       <div class="p-4 sm:p-5">
         <div class="relative rounded-md overflow-hidden bg-shark-900 border border-white/10">
           <div class="h-44 sm:h-52">
-            <img id="profile-edit-banner-preview" src="<%= profileUser.banner || '' %>" alt="Banner preview"
-              class="w-full h-full object-cover <%= profileUser.banner ? '' : 'hidden' %>" />
+            <img id="profile-edit-banner-preview" src="<%= profileUser.banner?.value || '' %>" alt="Banner preview"
+              class="w-full h-full object-cover <%= profileUser.banner?.value ? '' : 'hidden' %>" />
             <div id="profile-edit-banner-empty"
-              class="w-full h-full flex items-center justify-center text-white/25 <%= profileUser.banner ? 'hidden' : '' %>">
+              class="w-full h-full flex items-center justify-center text-white/25 <%= profileUser.banner?.value ? 'hidden' : '' %>">
               <iconify-icon icon="bx:image-add" width="30"></iconify-icon>
             </div>
           </div>
@@ -430,9 +430,9 @@
 
         <div class="flex flex-col items-center -mt-16 mb-5 relative z-10">
           <div class="w-32 h-32 rounded-full border-4 border-shark-950 overflow-hidden bg-charm-900 flex items-center justify-center">
-            <img id="profile-edit-avatar-preview" src="<%= profileUser.avatar || '' %>" alt="Avatar preview"
-              class="w-full h-full object-cover <%= profileUser.avatar ? '' : 'hidden' %>">
-            <div id="profile-edit-avatar-empty" class="<%= profileUser.avatar ? 'hidden' : '' %>">
+            <img id="profile-edit-avatar-preview" src="<%= profileUser.avatar?.value || '' %>" alt="Avatar preview"
+              class="w-full h-full object-cover <%= profileUser.avatar?.value ? '' : 'hidden' %>">
+            <div id="profile-edit-avatar-empty" class="<%= profileUser.avatar?.value ? 'hidden' : '' %>">
               <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" class="text-charm-400">
                 <path d="M0 0h24v24H0z" fill="none" />
                 <path fill="currentColor" d="M12 2a5 5 0 1 0 0 10a5 5 0 1 0 0-10M4 22h16c.55 0 1-.45 1-1v-1c0-3.86-3.14-7-7-7h-4c-3.86 0-7 3.14-7 7v1c0 .55.45 1 1 1" />
@@ -445,7 +445,7 @@
             <span class="text-white/20 text-sm select-none">·</span>
             <button type="button" id="profile-edit-avatar-clear"
               class="text-sm font-semibold text-red-400/70 hover:text-red-400 transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:text-red-400/70"
-              <%= profileUser.avatar ? '' : 'disabled' %>>Delete Picture</button>
+              <%= profileUser.avatar?.value ? '' : 'disabled' %>>Delete Picture</button>
           </div>
         </div>
 
@@ -453,7 +453,7 @@
           <div class="rounded-md border border-white/10 bg-shark-900 px-3 py-2.5">
             <label for="profile-edit-display-name" class="block text-xs text-white/50">Name</label>
             <input id="profile-edit-display-name" name="displayName" type="text" maxlength="50"
-              value="<%= profileUser.displayName || '' %>"
+              value="<%= profileUser.displayName?.value || '' %>"
               class="mt-1 w-full bg-transparent text-base leading-tight text-white placeholder:text-white/25 focus:outline-none"
               placeholder="Your name">
           </div>
@@ -461,17 +461,17 @@
           <div class="rounded-md border border-white/10 bg-shark-900 px-3 py-2.5">
             <div class="flex items-center justify-between">
               <label for="profile-edit-bio" class="block text-xs text-white/50">Bio</label>
-              <span id="profile-edit-bio-counter" class="text-xs text-white/35"><%= profileUser.bio ? profileUser.bio.length : 0 %> / 220</span>
+              <span id="profile-edit-bio-counter" class="text-xs text-white/35"><%= profileUser.bio?.value ? profileUser.bio.value.length : 0 %> / 220</span>
             </div>
             <textarea id="profile-edit-bio" name="bio" rows="4" maxlength="220"
               class="mt-1 w-full resize-none bg-transparent text-base leading-relaxed text-white placeholder:text-white/25 focus:outline-none"
-              placeholder="Tell people about yourself"><%= profileUser.bio || '' %></textarea>
+              placeholder="Tell people about yourself"><%= profileUser.bio?.value || '' %></textarea>
           </div>
 
           <div class="rounded-md border border-white/10 bg-shark-900 px-3 py-2.5">
             <label for="profile-edit-location" class="block text-xs text-white/50">Location</label>
             <input id="profile-edit-location" name="location" type="text" maxlength="120"
-              value="<%= profileUser.location || '' %>"
+              value="<%= profileUser.location?.value || '' %>"
               class="mt-1 w-full bg-transparent text-base leading-tight text-white placeholder:text-white/25 focus:outline-none"
               placeholder="City, State">
           </div>
@@ -479,7 +479,7 @@
           <div class="rounded-md border border-white/10 bg-shark-900 px-3 py-2.5">
             <label for="profile-edit-url" class="block text-xs text-white/50">Website</label>
             <input id="profile-edit-url" name="url" type="text" maxlength="200"
-              value="<%= profileUser.url || '' %>"
+              value="<%= profileUser.url?.value || '' %>"
               class="mt-1 w-full bg-transparent text-base leading-tight text-white placeholder:text-white/25 focus:outline-none"
               placeholder="example.com">
           </div>
@@ -490,7 +490,7 @@
               <div class="mt-1 flex items-center">
                 <span class="text-white/40 text-base">@</span>
                 <input id="profile-edit-username" name="username" type="text" maxlength="15"
-                  value="<%= profileUser.username || '' %>"
+                  value="<%= profileUser.username?.value || '' %>"
                   class="ml-1 w-full bg-transparent text-base leading-tight text-white placeholder:text-white/25 focus:outline-none"
                   placeholder="username">
               </div>
@@ -500,11 +500,11 @@
               <label for="profile-edit-sex" class="block text-xs text-white/50">Sex</label>
               <select id="profile-edit-sex" name="sex"
                 class="mt-1 w-full bg-transparent text-base leading-tight text-white focus:outline-none">
-                <option value="" <%= !profileUser.sex ? 'selected' : '' %>>Not set</option>
-                <option value="male" <%= profileUser.sex === 'male' ? 'selected' : '' %>>Male</option>
-                <option value="female" <%= profileUser.sex === 'female' ? 'selected' : '' %>>Female</option>
-                <option value="other" <%= profileUser.sex === 'other' ? 'selected' : '' %>>Other</option>
-                <option value="prefer-not-to-say" <%= profileUser.sex === 'prefer-not-to-say' ? 'selected' : '' %>>Prefer not to say</option>
+                <option value="" <%= !profileUser.sex?.value ? 'selected' : '' %>>Not set</option>
+                <option value="male" <%= profileUser.sex?.value === 'male' ? 'selected' : '' %>>Male</option>
+                <option value="female" <%= profileUser.sex?.value === 'female' ? 'selected' : '' %>>Female</option>
+                <option value="other" <%= profileUser.sex?.value === 'other' ? 'selected' : '' %>>Other</option>
+                <option value="prefer-not-to-say" <%= profileUser.sex?.value === 'prefer-not-to-say' ? 'selected' : '' %>>Prefer not to say</option>
               </select>
             </div>
 
@@ -685,7 +685,7 @@
   var page    = 1;
   var loading = false;
   var hasMore = <%= entries && entries.length > 12 ? 'true' : 'false' %>;
-  var username = <%- JSON.stringify(profileUser.username) %>;
+  var username = <%- JSON.stringify(profileUser.username?.value) %>;
 
   if (!hasMore) { sentinel.remove(); return; }
 
