@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center px-4 py-16" style="font-family:'Sofia Sans',sans-serif">
+
+  <div class="w-full max-w-sm">
+
+    <!-- Logo -->
+    <div class="mb-8 text-center">
+      <div class="w-10 h-10 rounded-md bg-amber-500 flex items-center justify-center mx-auto mb-3">
+        <iconify-icon icon="lucide:chef-hat" width="18" style="color:#1c1917;display:block"></iconify-icon>
+      </div>
+      <p class="text-white font-bold text-[15px]">ATA Admin</p>
+      <p class="text-zinc-500 text-xs mt-0.5">Set up your account</p>
+    </div>
+
+    <div class="bg-zinc-900 border border-white/8 rounded-md px-6 py-7">
+
+      <% if (!token) { %>
+
+      <!-- Invalid / expired state -->
+      <div class="text-center">
+        <div class="w-10 h-10 rounded-md bg-red-500/15 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
+          <iconify-icon icon="lucide:x" width="16" class="text-red-400"></iconify-icon>
+        </div>
+        <p class="text-sm font-semibold text-white mb-1">Invite link unavailable</p>
+        <p class="text-xs text-zinc-500 leading-relaxed"><%= error || 'This invite link is invalid or has expired.' %></p>
+        <p class="text-xs text-zinc-600 mt-4">Contact your administrator to request a new invite.</p>
+      </div>
+
+      <% } else { %>
+
+      <h1 class="text-[15px] font-semibold text-white mb-1">Create your password</h1>
+      <p class="text-xs text-zinc-500 mb-5">Choose a secure password to activate your account. Minimum 8 characters.</p>
+
+      <% if (error) { %>
+      <div class="mb-4 flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2.5 text-xs text-red-400">
+        <iconify-icon icon="lucide:alert-circle" width="13" class="shrink-0"></iconify-icon>
+        <%= error %>
+      </div>
+      <% } %>
+
+      <form action="/admin/accept-invite" method="POST" class="flex flex-col gap-4">
+        <input type="hidden" name="token" value="<%= token %>">
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-medium text-zinc-500">Password</label>
+          <input type="password" name="password" required minlength="8" autocomplete="new-password"
+            class="bg-zinc-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white outline-none focus:border-white/25 transition-colors"
+            placeholder="Min. 8 characters">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-medium text-zinc-500">Confirm password</label>
+          <input type="password" name="confirmPassword" required minlength="8" autocomplete="new-password"
+            class="bg-zinc-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white outline-none focus:border-white/25 transition-colors"
+            placeholder="Repeat password">
+        </div>
+
+        <button type="submit"
+          class="w-full bg-amber-500 hover:bg-amber-400 text-zinc-900 text-sm font-bold py-2.5 rounded-md transition-colors cursor-pointer mt-1">
+          Activate account
+        </button>
+      </form>
+
+      <% } %>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

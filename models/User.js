@@ -8,8 +8,23 @@ const historyEntry = {
 };
 
 const userSchema = new mongoose.Schema({
-  password: { type: String, required: true },
-  role:     { type: String, enum: ['user', 'admin'], default: 'user' },
+  password:    { type: String, required: true },
+  role:        { type: String, enum: ['user', 'moderator', 'supervisor', 'superadmin', 'founder'], default: 'user' },
+  permissions: {
+    type: [{
+      type: String,
+      enum: ['content', 'chat', 'comments', 'financial', 'support'],
+    }],
+    default: [],
+    validate: {
+      validator: function (perms) {
+        if (this.role === 'moderator') return perms.length === 1;
+        if (this.role === 'supervisor') return perms.length >= 1;
+        return true;
+      },
+      message: 'Moderators must have exactly 1 permission; supervisors must have at least 1.',
+    },
+  },
 
   email: {
     value:     { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -67,7 +82,7 @@ const userSchema = new mongoose.Schema({
     history: [historyEntry],
   },
 
-  accountStatus:    { type: String, enum: ['onboarding', 'active'], default: 'onboarding' },
+  accountStatus:    { type: String, enum: ['onboarding', 'active', 'invited'], default: 'onboarding' },
   onboardingStatus: {
     type:    String,
     enum:    ['pending_id_verification', 'pending_submission', 'pending_approval', 'approved', 'rejected'],
@@ -92,6 +107,11 @@ const userSchema = new mongoose.Schema({
   },
 
   supportFirstReplyEmailSent: { type: Boolean, default: false },
+
+  adminInviteToken:  { type: String },
+  adminInviteExpiry: { type: Date },
+  isTemporary:       { type: Boolean, default: false },
+  temporaryUntil:    { type: Date },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

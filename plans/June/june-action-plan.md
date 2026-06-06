@@ -138,11 +138,95 @@ The system that makes everything time-sensitive work reliably.
 
 A dedicated admin area covering platform oversight, user management, content moderation, and tournament administration.
 
+#### Admin Role System (prerequisite — implement before any Phase 6 UI)
+
+**Design:**
+
+Role tiers (lowest → highest): `user → moderator → supervisor → superadmin → founder`
+
+Permission domains (moderators and supervisors only): `content | chat | comments | financial | support`
+
+| Domain | Scope |
+|---|---|
+| `content` | Entry review, media, tournament submissions |
+| `chat` | User-to-user message moderation, reports |
+| `comments` | Comment moderation, reports |
+| `financial` | Prizes, payouts |
+| `support` | Support inbox — replies to users contacting the platform |
+
+**Rules:**
+- `moderator` — exactly 1 domain (enforced at schema level)
+- `supervisor` — 1 or more domains (can oversee multiple moderator types); escalation target when a moderator is unsure
+- `superadmin` — full cross-domain access; permissions array ignored
+- `founder` — same as superadmin, but immutable (cannot be demoted by anyone)
+
+**Promotion rule — "2 tiers ahead":**
+- `superadmin` can grant `moderator` only
+- `founder` can grant `supervisor`, `superadmin`, and `moderator`
+- `supervisor` has zero promotion power
+
+**Migration:** existing `role: 'admin'` documents → `role: 'founder'`
+
+**Implementation tasks:**
+- [x] Update `User` schema: expand `role` enum to `['user', 'moderator', 'supervisor', 'superadmin', 'founder']`. Add `permissions` array with enum `['content', 'chat', 'comments', 'financial', 'support']`. Add schema-level validator: if `role === 'moderator'` then `permissions.length === 1`; if `role === 'supervisor'` then `permissions.length >= 1`.
+- [x] Migration script: update all `{ role: 'admin' }` documents to `{ role: 'founder' }`.
+- [x] New admin middleware (`requireDomain`): replace the blunt `requireAdmin` check with a factory function that accepts a required domain. `superadmin` and `founder` pass automatically. `moderator` and `supervisor` must have the domain in their `permissions` array.
+- [x] Update all existing admin routes to use the new middleware with the appropriate domain.
+- [x] Admin management routes: `POST /admin/users/:id/role` — promote/demote a user, enforcing the 2-tier-ahead rule server-side.
+- [x] Admin sidebar respects permissions — sections and links hidden when the logged-in admin lacks the required domain.
+- [x] Sidebar badge counts scoped to domain — queries only run for domains the admin has access to.
+- [x] Admin accounts management page (`/admin/admins`) — lists all admin-tier accounts with tier badge and permissions; inline role assignment form for authorized granters.
+
+---
+
+#### Admin Hiring Flow
+
+The process for bringing a new admin onto the platform — from public application to active account.
+
+**Flow:**
+1. Candidate finds the application link (e.g. from a LinkedIn post) and fills out a public form
+2. Founder or superadmin reviews submitted applications in the admin panel
+3. After selecting a candidate, they create an account: set role, permissions, and optionally an expiry date for temporary accounts
+4. The system creates the user record and emails an invite link containing a secure token
+5. Candidate clicks the link, sets their own password, and gains access to the admin panel
+6. Temporary accounts automatically deny login once `temporaryUntil` has passed
+
+**Who can hire:**
+- `founder` — can create moderator, supervisor, and superadmin accounts
+- `superadmin` — can create moderator accounts only
+- Both governed by the existing 2-tier rule
+
+**New components:**
+
+| Component | Description |
+|---|---|
+| `AdminApplication` model | Stores job applications: `name`, `email`, `message`, `status` (`pending/reviewed/hired/rejected`), `submittedAt` |
+| Public application page | `/careers` — publicly accessible form; no login required; confirmation email sent on submit |
+| Applications queue | `/admin/applications` — list of submitted applications with status filters; mark reviewed / hired / rejected |
+| Account creation form | On the application detail, a form to set role + permissions + optional expiry; fires invite email on submit |
+| Invite token | Secure token stored on `User` (`adminInviteToken`, `adminInviteExpiry` — 72h TTL) |
+| Invite acceptance page | `/admin/accept-invite?token=xxx` — candidate sets their password; token validated; account activates |
+| Temporary accounts | `isTemporary: Boolean` + `temporaryUntil: Date` on `User`; login denied if expired |
+
+**User schema additions:** `adminInviteToken`, `adminInviteExpiry`, `isTemporary`, `temporaryUntil`, `accountStatus` gains a new value: `'invited'`
+
+**Implementation tasks:**
+- [ ] Add `AdminApplication` model
+- [ ] Add `adminInviteToken`, `adminInviteExpiry`, `isTemporary`, `temporaryUntil` to `User` schema; add `'invited'` to `accountStatus` enum
+- [ ] Public route + view: `GET /careers` — application form; `POST /careers` — stores application, sends confirmation email
+- [ ] Admin applications routes + view: `GET /admin/applications` — list; `GET /admin/applications/:id` — detail with hire action form
+- [ ] Account creation route: `POST /admin/applications/:id/hire` — creates User record with `accountStatus: 'invited'`, generates invite token, sends invite email via Resend
+- [ ] Invite acceptance route + view: `GET /admin/accept-invite` — validates token; `POST /admin/accept-invite` — sets password, activates account
+- [ ] Temporary account login guard: on admin login, check `isTemporary && temporaryUntil < now` — deny with clear message if expired
+- [ ] Add Applications link to admin sidebar (founder/superadmin only)
+
+---
+
 **Pages and tasks:**
 
 - [ ] **Admin dashboard:** platform health metrics (total users, active contests, active tournaments, open ID verification queue count, pending tournament review count) + recent activity feed (new signups, new reports, tournament status transitions)
 - [ ] **User management — list:** paginated user list with filters for role, onboarding status, account status, and `idVerified`
-- [ ] **User management — detail:** profile info, uploaded entries, contest/tournament history, onboarding status, ID verification documents, wallet balance; admin actions (role change, account suspension)
+- [ ] **User management — detail:** profile info, uploaded entries, contest/tournament history, onboarding status, ID verification documents, wallet balance; admin actions (role assignment using 2-tier-ahead rule, account suspension)
 - [ ] **ID verification queue:** list of users with `idVerificationStatus: 'pending'`; review view showing selfie and government ID side by side; approve / reject action (approval sets `idVerified: true` and advances user to `pending_submission`)
 - [ ] **Tournament management — list:** all tournaments with status filter; entry point for creating a platform-funded tournament
 - [ ] **Tournament management — create:** form to create a platform-funded tournament (name, description, participant cap, time config, prize amounts); starts directly at `open` status

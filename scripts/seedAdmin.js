@@ -20,7 +20,7 @@ mongoose.connect(MONGO_URI || 'mongodb://localhost:27017/allthingsaprons').then(
     await User.findByIdAndUpdate(existing._id, {
       $set: {
         password:         hashedPassword,
-        role:             'admin',
+        role:             'founder',
         accountStatus:    'active',
         onboardingStatus: 'approved',
         'email.confirmed': true,
@@ -29,7 +29,7 @@ mongoose.connect(MONGO_URI || 'mongodb://localhost:27017/allthingsaprons').then(
   } else {
     await User.create({
       password:         hashedPassword,
-      role:             'admin',
+      role:             'founder',
       accountStatus:    'active',
       onboardingStatus: 'approved',
       email: {

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head') %></head>
+<body class="min-h-screen bg-shark-950 text-white flex flex-col items-center justify-center px-4 py-16">
+
+  <div class="w-full max-w-lg">
+
+    <!-- Logo -->
+    <div class="mb-8 text-center">
+      <a href="/" class="font-gochi text-charm-500 text-3xl leading-none" style="-webkit-text-stroke:1px currentColor">AllThingsAprons</a>
+      <p class="text-white/35 text-sm mt-2">Join the Team</p>
+    </div>
+
+    <% if (submitted) { %>
+
+    <!-- Success state -->
+    <div class="bg-shark-900 border border-white/10 rounded-md px-6 py-8 text-center">
+      <div class="w-12 h-12 rounded-md bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center mx-auto mb-4">
+        <iconify-icon icon="lucide:check" width="20" class="text-emerald-400"></iconify-icon>
+      </div>
+      <h2 class="text-base font-semibold text-white mb-2">Application received</h2>
+      <p class="text-sm text-white/45 leading-relaxed">Thanks for applying. We've sent a confirmation to your email and will be in touch if your profile is a good fit.</p>
+    </div>
+
+    <% } else { %>
+
+    <!-- Form -->
+    <div class="bg-shark-900 border border-white/10 rounded-md px-6 py-8">
+      <h1 class="text-base font-semibold text-white mb-1">Apply to join the team</h1>
+      <p class="text-sm text-white/40 mb-6">Fill in the form below and we'll review your application.</p>
+
+      <% if (error) { %>
+      <div class="mb-5 flex items-center gap-2.5 bg-red-500/10 border border-red-500/20 rounded-md px-3.5 py-2.5 text-sm text-red-400">
+        <iconify-icon icon="lucide:alert-circle" width="14" class="shrink-0"></iconify-icon>
+        <%= error %>
+      </div>
+      <% } %>
+
+      <form action="/careers" method="POST" class="flex flex-col gap-4">
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-medium text-white/50">Full name <span class="text-charm-400">*</span></label>
+          <input type="text" name="name" required maxlength="100"
+            class="bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-white/25 transition-colors"
+            placeholder="Jane Smith">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-medium text-white/50">Email address <span class="text-charm-400">*</span></label>
+          <input type="email" name="email" required
+            class="bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-white/25 transition-colors"
+            placeholder="jane@example.com">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-medium text-white/50">LinkedIn profile <span class="text-white/25 font-normal">(optional)</span></label>
+          <input type="url" name="linkedin" maxlength="300"
+            class="bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-white/25 transition-colors"
+            placeholder="https://linkedin.com/in/yourprofile">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-medium text-white/50">Why do you want to join? <span class="text-charm-400">*</span></label>
+          <textarea name="message" required maxlength="3000" rows="5"
+            class="bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-white/25 transition-colors resize-none leading-relaxed"
+            placeholder="Tell us about yourself and what you'd bring to the team."></textarea>
+          <p class="text-[11px] text-white/25 text-right">Max 3,000 characters</p>
+        </div>
+
+        <button type="submit"
+          class="w-full bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold py-2.5 rounded-md transition-colors cursor-pointer mt-1">
+          Submit application
+        </button>
+
+      </form>
+    </div>
+
+    <% } %>
+
+    <p class="text-center text-xs text-white/20 mt-6">© AllThingsAprons. All rights reserved.</p>
+
+  </div>
+
+</body>
+</html>

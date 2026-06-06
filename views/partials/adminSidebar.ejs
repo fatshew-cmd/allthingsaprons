@@ -1,5 +1,11 @@
-<% const _cp = typeof currentPage !== 'undefined' ? currentPage : ''; %>
-<% const lnk = (p) => `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] transition-colors no-underline ${p === _cp ? 'bg-white/10 text-white font-semibold' : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5'}` %>
+<%
+const _cp   = typeof currentPage !== 'undefined' ? currentPage : '';
+const _role = typeof adminRole !== 'undefined' ? adminRole : '';
+const _perms = typeof adminPermissions !== 'undefined' ? adminPermissions : [];
+const _full  = _role === 'superadmin' || _role === 'founder';
+const _can   = (domain) => _full || _perms.includes(domain);
+const lnk    = (p) => `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] transition-colors no-underline ${p === _cp ? 'bg-white/10 text-white font-semibold' : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5'}`;
+%>
 
 <aside class="w-[230px] shrink-0 flex flex-col bg-zinc-900" style="height:100vh;position:sticky;top:0;overflow-y:auto">
 
@@ -26,6 +32,7 @@
       Dashboard
     </a>
 
+    <!-- Users — all admin tiers -->
     <span class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Users</span>
 
     <a href="/admin/users" class="<%= lnk('users') %>">
@@ -33,6 +40,7 @@
       User Management
     </a>
 
+    <% if (_can('content')) { %>
     <a href="/admin/verification" class="<%= lnk('verification') %>">
       <iconify-icon icon="lucide:shield-check" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       <span class="flex-1">ID Verification</span>
@@ -40,7 +48,10 @@
       <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none"><%= sidebarCounts.pendingVerifications %></span>
       <% } %>
     </a>
+    <% } %>
 
+    <!-- Content — content domain only -->
+    <% if (_can('content')) { %>
     <span class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Content</span>
 
     <a href="/admin/entries" class="<%= lnk('entries') %>">
@@ -55,7 +66,10 @@
       <iconify-icon icon="lucide:image" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Entries
     </a>
+    <% } %>
 
+    <!-- Tournaments — superadmin / founder only -->
+    <% if (_full) { %>
     <span class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Tournaments</span>
 
     <a href="/admin/tournaments" class="<%= lnk('tournaments') %>">
@@ -67,14 +81,20 @@
       <iconify-icon icon="lucide:clipboard-check" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Review Queue
     </a>
+    <% } %>
 
+    <!-- Moderation — comments domain only -->
+    <% if (_can('comments')) { %>
     <span class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Moderation</span>
 
     <a href="/admin/moderation" class="<%= lnk('moderation') %>">
       <iconify-icon icon="lucide:flag" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Reported Comments
     </a>
+    <% } %>
 
+    <!-- Support — support domain only -->
+    <% if (_can('support')) { %>
     <span class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Support</span>
 
     <a href="/admin/support" class="<%= lnk('support') %>">
@@ -84,6 +104,22 @@
       <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-charm-500 text-white leading-none"><%= sidebarCounts.unreadMessages %></span>
       <% } %>
     </a>
+    <% } %>
+
+    <!-- Team — superadmin / founder only -->
+    <% if (_full) { %>
+    <span class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Team</span>
+
+    <a href="/admin/admins" class="<%= lnk('admins') %>">
+      <iconify-icon icon="lucide:shield" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      Admin Accounts
+    </a>
+
+    <a href="/admin/applications" class="<%= lnk('applications') %>">
+      <iconify-icon icon="lucide:file-text" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      Applications
+    </a>
+    <% } %>
 
   </nav>
 

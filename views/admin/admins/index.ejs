@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../../partials/head') %></head>
+<body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
+
+  <%- include('../../partials/adminSidebar', { currentPage: 'admins' }) %>
+
+  <div class="flex-1 overflow-y-auto">
+    <div class="max-w-4xl mx-auto px-8 py-10">
+
+      <div class="mb-8">
+        <h1 class="text-xl font-bold text-white m-0">Admin Accounts</h1>
+        <p class="text-sm text-zinc-500 mt-1 m-0">Manage roles and domain permissions for all admin-tier accounts.</p>
+      </div>
+
+      <%
+        const TIER_ORDER   = { moderator: 1, supervisor: 2, superadmin: 3, founder: 4 };
+        const granterTier  = TIER_ORDER[granterRole] || 0;
+        const TIER_LABELS  = { moderator: 'Moderator', supervisor: 'Supervisor', superadmin: 'Super Admin', founder: 'Founder' };
+        const TIER_COLORS  = {
+          moderator:  'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+          supervisor: 'bg-blue-500/15 text-blue-400 border-blue-500/25',
+          superadmin: 'bg-red-500/15 text-red-400 border-red-500/25',
+          founder:    'bg-amber-500/15 text-amber-400 border-amber-500/25',
+        };
+        const PERM_LABELS  = { content: 'Content', chat: 'Chat', comments: 'Comments', financial: 'Financial', support: 'Support' };
+        const ALL_ROLES    = ['moderator', 'supervisor', 'superadmin', 'user'];
+        const ALL_PERMS    = ['content', 'chat', 'comments', 'financial', 'support'];
+      %>
+
+      <div class="flex flex-col gap-3">
+        <% admins.forEach(function(admin) {
+          const canEdit = admin.role !== 'founder' && (granterTier - (TIER_ORDER[admin.role] || 0)) >= 0;
+          const name = (admin.displayName && admin.displayName.value) || (admin.username && admin.username.value) || '—';
+          const email = admin.email && admin.email.value ? admin.email.value : '—';
+        %>
+        <div class="bg-zinc-900 border border-white/8 rounded-md overflow-hidden" data-admin-id="<%= admin._id %>">
+
+          <!-- Account row -->
+          <div class="px-5 py-4 flex items-center gap-4">
+            <div class="w-9 h-9 rounded-md bg-white/8 border border-white/10 flex items-center justify-center shrink-0">
+              <iconify-icon icon="lucide:user" width="15" class="text-zinc-500"></iconify-icon>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-white m-0 truncate"><%= name %></p>
+              <p class="text-xs text-zinc-500 m-0 truncate"><%= email %></p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <% if (admin.permissions && admin.permissions.length > 0) { %>
+                <% admin.permissions.forEach(function(p) { %>
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded border border-white/10 text-zinc-400 bg-white/5"><%= PERM_LABELS[p] || p %></span>
+                <% }); %>
+              <% } %>
+              <span class="text-[11px] font-bold px-2.5 py-1 rounded border <%= TIER_COLORS[admin.role] || 'bg-zinc-700 text-zinc-300 border-white/10' %>"><%= TIER_LABELS[admin.role] || admin.role %></span>
+              <% if (canEdit) { %>
+              <button type="button"
+                class="edit-toggle text-xs text-zinc-500 hover:text-white px-2.5 py-1.5 rounded-md border border-white/8 hover:border-white/20 transition-colors cursor-pointer"
+                data-id="<%= admin._id %>">
+                Edit
+              </button>
+              <% } else if (admin.role === 'founder') { %>
+              <span class="text-[11px] text-zinc-600 px-2 py-1">Protected</span>
+              <% } %>
+            </div>
+          </div>
+
+          <!-- Edit panel (hidden by default) -->
+          <% if (canEdit) { %>
+          <div class="edit-panel hidden border-t border-white/8 bg-zinc-800/50 px-5 py-4" data-id="<%= admin._id %>">
+            <p class="text-xs text-zinc-400 font-semibold mb-3 m-0">Change role</p>
+            <div class="flex flex-wrap gap-4 items-start">
+
+              <!-- Role select -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[11px] text-zinc-500 font-medium">Tier</label>
+                <select class="role-select bg-zinc-900 border border-white/10 text-white text-sm rounded-md px-3 py-1.5 outline-none focus:border-white/25 cursor-pointer"
+                  data-id="<%= admin._id %>">
+                  <% ALL_ROLES.forEach(function(r) {
+                    const rTier = TIER_ORDER[r] || 0;
+                    const allowed = r === 'user' ? granterTier >= 2 : (granterTier - rTier >= 2);
+                  %>
+                  <% if (allowed) { %>
+                  <option value="<%= r %>" <%= admin.role === r ? 'selected' : '' %>><%= TIER_LABELS[r] || r %></option>
+                  <% } %>
+                  <% }); %>
+                </select>
+              </div>
+
+              <!-- Permissions (shown for moderator / supervisor) -->
+              <div class="perm-section flex flex-col gap-1.5" data-id="<%= admin._id %>">
+                <label class="text-[11px] text-zinc-500 font-medium">Permissions</label>
+                <div class="flex flex-wrap gap-2">
+                  <% ALL_PERMS.forEach(function(p) { %>
+                  <label class="perm-label flex items-center gap-1.5 text-xs text-zinc-300 cursor-pointer select-none">
+                    <input type="checkbox" class="perm-cb accent-amber-500 cursor-pointer"
+                      data-id="<%= admin._id %>"
+                      value="<%= p %>"
+                      <%= (admin.permissions || []).includes(p) ? 'checked' : '' %>>
+                    <%= PERM_LABELS[p] %>
+                  </label>
+                  <% }); %>
+                </div>
+                <p class="perm-hint text-[11px] text-zinc-600 m-0" data-id="<%= admin._id %>"></p>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex items-end gap-2 ml-auto">
+                <button type="button" class="cancel-btn text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer px-3 py-1.5 rounded-md border border-white/8 hover:border-white/20"
+                  data-id="<%= admin._id %>">Cancel</button>
+                <button type="button" class="save-btn text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-900 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  data-id="<%= admin._id %>">Save</button>
+              </div>
+            </div>
+            <p class="error-msg text-xs text-red-400 mt-2 m-0 hidden" data-id="<%= admin._id %>"></p>
+          </div>
+          <% } %>
+
+        </div>
+        <% }); %>
+
+        <% if (admins.length === 0) { %>
+        <p class="text-sm text-zinc-600 text-center py-10">No admin accounts found.</p>
+        <% } %>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(function () {
+  // Toggle edit panel
+  document.querySelectorAll('.edit-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id = btn.dataset.id;
+      var panel = document.querySelector('.edit-panel[data-id="' + id + '"]');
+      if (panel) panel.classList.toggle('hidden');
+    });
+  });
+
+  document.querySelectorAll('.cancel-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var panel = document.querySelector('.edit-panel[data-id="' + btn.dataset.id + '"]');
+      if (panel) panel.classList.add('hidden');
+    });
+  });
+
+  // Show/hide permissions based on role selection
+  function updatePermSection(id) {
+    var select  = document.querySelector('.role-select[data-id="' + id + '"]');
+    var section = document.querySelector('.perm-section[data-id="' + id + '"]');
+    var hint    = document.querySelector('.perm-hint[data-id="' + id + '"]');
+    if (!select || !section) return;
+    var role = select.value;
+    if (role === 'moderator' || role === 'supervisor') {
+      section.style.display = '';
+      hint.textContent = role === 'moderator' ? 'Moderators must have exactly one permission.' : '';
+    } else {
+      section.style.display = 'none';
+    }
+  }
+
+  document.querySelectorAll('.role-select').forEach(function (select) {
+    updatePermSection(select.dataset.id);
+    select.addEventListener('change', function () { updatePermSection(select.dataset.id); });
+  });
+
+  // Save
+  document.querySelectorAll('.save-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id      = btn.dataset.id;
+      var select  = document.querySelector('.role-select[data-id="' + id + '"]');
+      var cbs     = document.querySelectorAll('.perm-cb[data-id="' + id + '"]:checked');
+      var errEl   = document.querySelector('.error-msg[data-id="' + id + '"]');
+      var role    = select ? select.value : '';
+      var perms   = Array.from(cbs).map(function (cb) { return cb.value; });
+
+      errEl.classList.add('hidden');
+      btn.disabled = true;
+
+      fetch('/admin/users/' + id + '/role', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ role: role, permissions: perms }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            location.reload();
+          } else {
+            errEl.textContent = data.error || 'Something went wrong.';
+            errEl.classList.remove('hidden');
+            btn.disabled = false;
+          }
+        })
+        .catch(function () {
+          errEl.textContent = 'Request failed.';
+          errEl.classList.remove('hidden');
+          btn.disabled = false;
+        });
+    });
+  });
+}());
+</script>
+
+</body>
+</html>
