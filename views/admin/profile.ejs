@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../partials/head') %></head>
+<body class="flex overflow-hidden bg-zinc-50" style="height:100vh;font-family:'Sofia Sans',sans-serif">
+
+  <%- include('../partials/adminSidebar', { currentPage: 'profile' }) %>
+
+  <div class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Content -->
+    <main class="flex-1 overflow-y-auto p-5">
+      <div class="max-w-2xl flex flex-col gap-4">
+
+        <%
+        const roleLabels = { moderator: 'Moderator', supervisor: 'Supervisor', superadmin: 'Super Admin', founder: 'Founder' };
+        const permLabels = { content: 'Content', chat: 'Chat', comments: 'Comments', financial: 'Financial', support: 'Support' };
+        const isFullAccess = user.role === 'superadmin' || user.role === 'founder';
+        %>
+
+
+        <!-- Profile card -->
+        <div class="bg-white border border-zinc-200 rounded-md overflow-hidden">
+          <div class="px-4 py-3 border-b border-zinc-100">
+            <h2 class="text-sm font-bold text-zinc-800 m-0">Profile</h2>
+          </div>
+
+          <div class="px-4 py-4 flex flex-col gap-4">
+
+            <!-- Avatar -->
+            <div class="flex items-center gap-5">
+              <div class="shrink-0 w-16 h-16 rounded-full bg-zinc-100 border border-zinc-200 overflow-hidden flex items-center justify-center">
+                <% if (user.avatar && user.avatar.value) { %>
+                <img src="<%= user.avatar.value %>" alt="" class="w-full h-full object-cover">
+                <% } else { %>
+                <iconify-icon icon="lucide:user" width="22" style="color:#a1a1aa;display:block"></iconify-icon>
+                <% } %>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-zinc-800 m-0">Profile photo</p>
+                <p class="text-xs text-zinc-400 mt-0.5 mb-2">JPG or PNG. Max 2.5 MB.</p>
+                <form action="/admin/profile/avatar" method="POST" enctype="multipart/form-data">
+                  <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-300 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors cursor-pointer">
+                    <iconify-icon icon="lucide:upload" width="12" style="display:block"></iconify-icon>
+                    Upload photo
+                    <input type="file" name="avatar" accept="image/*" class="hidden" onchange="this.form.submit()">
+                  </label>
+                </form>
+              </div>
+            </div>
+
+            <!-- Display name -->
+            <form action="/admin/profile/display-name" method="POST" class="flex flex-col gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-zinc-600 mb-1.5">Display name</label>
+                <input
+                  type="text"
+                  name="displayName"
+                  value="<%= (user.displayName && user.displayName.value) ? user.displayName.value : '' %>"
+                  maxlength="50"
+                  placeholder="Your name"
+                  class="w-full border border-zinc-300 rounded-md px-3 py-2 text-sm text-zinc-800 placeholder:text-zinc-300 focus:outline-none focus:border-amber-400 transition-colors"
+                >
+              </div>
+              <div>
+                <button type="submit" class="px-4 py-2 rounded-md bg-amber-500 hover:bg-amber-400 text-stone-900 text-sm font-semibold transition-colors cursor-pointer">
+                  Save name
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+
+        <!-- Account details card -->
+        <div class="bg-white border border-zinc-200 rounded-md overflow-hidden">
+          <div class="px-4 py-3 border-b border-zinc-100">
+            <h2 class="text-sm font-bold text-zinc-800 m-0">Account</h2>
+          </div>
+
+          <div class="divide-y divide-zinc-100">
+
+            <div class="px-4 py-3 flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-zinc-500 m-0">Email</p>
+                <p class="text-sm text-zinc-800 mt-0.5 m-0"><%= user.email && user.email.value ? user.email.value : '—' %></p>
+              </div>
+              <span class="text-[11px] text-zinc-400 bg-zinc-100 px-2 py-1 rounded">Read-only</span>
+            </div>
+
+            <div class="px-4 py-3 flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-zinc-500 m-0">Role</p>
+                <p class="text-sm text-zinc-800 mt-0.5 m-0"><%= roleLabels[user.role] || user.role %></p>
+              </div>
+              <span class="text-[11px] text-zinc-400 bg-zinc-100 px-2 py-1 rounded">Read-only</span>
+            </div>
+
+            <% if (!isFullAccess && user.permissions && user.permissions.length > 0) { %>
+            <div class="px-4 py-3">
+              <p class="text-xs font-semibold text-zinc-500 m-0 mb-2">Permissions</p>
+              <div class="flex flex-wrap gap-1.5">
+                <% user.permissions.forEach(function(p) { %>
+                <span class="text-xs px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-700 font-medium"><%= permLabels[p] || p %></span>
+                <% }); %>
+              </div>
+            </div>
+            <% } %>
+
+            <% if (isFullAccess) { %>
+            <div class="px-4 py-3">
+              <p class="text-xs font-semibold text-zinc-500 m-0 mb-2">Permissions</p>
+              <span class="text-xs px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-700 font-medium">Full access</span>
+            </div>
+            <% } %>
+
+            <div class="px-4 py-3 flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-zinc-500 m-0">Member since</p>
+                <p class="text-sm text-zinc-800 mt-0.5 m-0"><%= new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) %></p>
+              </div>
+            </div>
+
+            <div class="px-4 py-3 flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-zinc-500 m-0">Account type</p>
+                <% if (user.isTemporary && user.temporaryUntil) { %>
+                <p class="text-sm text-zinc-800 mt-0.5 m-0">Temporary — expires <%= new Date(user.temporaryUntil).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) %></p>
+                <% } else { %>
+                <p class="text-sm text-zinc-800 mt-0.5 m-0">Permanent</p>
+                <% } %>
+              </div>
+              <% if (user.isTemporary) { %>
+              <span class="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded">Temporary</span>
+              <% } else { %>
+              <span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">Permanent</span>
+              <% } %>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Security card -->
+        <div class="bg-white border border-zinc-200 rounded-md overflow-hidden">
+          <div class="px-4 py-3 border-b border-zinc-100">
+            <h2 class="text-sm font-bold text-zinc-800 m-0">Security</h2>
+          </div>
+
+          <div class="px-4 py-4">
+            <form action="/admin/profile/password" method="POST" class="flex flex-col gap-4">
+
+              <div>
+                <label class="block text-xs font-semibold text-zinc-600 mb-1.5">Current password</label>
+                <input
+                  type="password"
+                  name="currentPassword"
+                  autocomplete="current-password"
+                  class="w-full border border-zinc-300 rounded-md px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:border-amber-400 transition-colors"
+                >
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-zinc-600 mb-1.5">New password</label>
+                  <input
+                    type="password"
+                    name="newPassword"
+                    autocomplete="new-password"
+                    class="w-full border border-zinc-300 rounded-md px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:border-amber-400 transition-colors"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-zinc-600 mb-1.5">Confirm new password</label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    autocomplete="new-password"
+                    class="w-full border border-zinc-300 rounded-md px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:border-amber-400 transition-colors"
+                  >
+                </div>
+              </div>
+
+              <p class="text-xs text-zinc-400 m-0">Minimum 8 characters.</p>
+
+              <div>
+                <button type="submit" class="px-4 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-semibold transition-colors cursor-pointer">
+                  Change password
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+<%- include('../partials/toasts') %>
+
+<script>
+(function () {
+  var successMsgs = {
+    name:     'Display name updated.',
+    avatar:   'Avatar updated.',
+    password: 'Password changed successfully.',
+  };
+  var errorMsgs = {
+    name_empty:       'Display name cannot be empty.',
+    name_failed:      'Failed to update display name.',
+    avatar_missing:   'No file selected.',
+    avatar_failed:    'Failed to upload avatar.',
+    password_missing: 'Please fill in all password fields.',
+    password_match:   'New passwords do not match.',
+    password_length:  'New password must be at least 8 characters.',
+    password_wrong:   'Current password is incorrect.',
+    password_failed:  'Failed to update password.',
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var params = new URLSearchParams(window.location.search);
+    var success = params.get('success');
+    var error   = params.get('error');
+
+    if (success) window.showToast(successMsgs[success] || 'Changes saved.', 'success');
+    if (error)   window.showToast(errorMsgs[error]     || 'Something went wrong.', 'error');
+
+    if (success || error) {
+      params.delete('success');
+      params.delete('error');
+      history.replaceState(null, '', window.location.pathname + (params.toString() ? '?' + params.toString() : ''));
+    }
+  });
+}());
+</script>
+
+</body>
+</html>

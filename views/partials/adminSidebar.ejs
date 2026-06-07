@@ -5,6 +5,10 @@ const _perms = typeof adminPermissions !== 'undefined' ? adminPermissions : [];
 const _full  = _role === 'superadmin' || _role === 'founder';
 const _can   = (domain) => _full || _perms.includes(domain);
 const lnk    = (p) => `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] transition-colors no-underline ${p === _cp ? 'bg-white/10 text-white font-semibold' : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5'}`;
+const _roleLabels = { moderator: 'Moderator', supervisor: 'Supervisor', superadmin: 'Super Admin', founder: 'Founder' };
+const _roleLabel  = _roleLabels[_role] || _role;
+const _name       = typeof adminDisplayName !== 'undefined' && adminDisplayName ? adminDisplayName : (typeof adminEmail !== 'undefined' && adminEmail ? adminEmail : 'Admin');
+const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
 %>
 
 <aside class="w-[230px] shrink-0 flex flex-col bg-zinc-900" style="height:100vh;position:sticky;top:0;overflow-y:auto">
@@ -125,8 +129,25 @@ const lnk    = (p) => `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px
 
   <div class="mx-4 border-t border-zinc-800 shrink-0"></div>
 
-  <!-- Sign out -->
-  <div class="px-3 py-4 shrink-0">
+  <!-- Profile + sign out -->
+  <div class="px-3 pt-3 pb-2 shrink-0 flex flex-col gap-0.5">
+
+    <!-- Profile badge -->
+    <a href="/admin/profile" class="flex items-center gap-2.5 px-3 py-1.5 rounded-md hover:bg-white/5 transition-colors no-underline <%= _cp === 'profile' ? 'bg-white/8' : '' %>">
+      <div class="shrink-0 w-8 h-8 rounded-full bg-zinc-700 border border-white/10 overflow-hidden flex items-center justify-center">
+        <% if (_avatar) { %>
+        <img src="<%= _avatar %>" alt="" class="w-full h-full object-cover">
+        <% } else { %>
+        <iconify-icon icon="lucide:user" width="14" style="color:rgba(255,255,255,0.4);display:block"></iconify-icon>
+        <% } %>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-[13px] font-semibold text-white leading-tight truncate m-0"><%= _name %></p>
+        <p class="text-[11px] text-zinc-500 leading-tight m-0"><%= _roleLabel %></p>
+      </div>
+    </a>
+
+    <!-- Sign out -->
     <form action="/admin/logout" method="POST">
       <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-zinc-500 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer">
         <iconify-icon icon="lucide:log-out" width="14" style="flex-shrink:0;display:block"></iconify-icon>

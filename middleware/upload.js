@@ -33,4 +33,14 @@ const upload = multer({
   },
 });
 
+const supportUpload = multer({
+  storage,
+  limits: { fileSize: 2.5 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    if (file.mimetype.startsWith('image/')) return cb(null, true);
+    cb(new Error('Invalid file type'));
+  },
+});
+
 module.exports = upload;
+module.exports.supportUpload = supportUpload;

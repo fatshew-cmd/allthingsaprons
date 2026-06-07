@@ -22,6 +22,13 @@
       <h1 class="text-white font-bold text-xl mb-1">Sign in</h1>
       <p class="text-zinc-500 text-sm mb-6">Admin access only</p>
 
+      <% if (typeof setup !== 'undefined' && setup) { %>
+      <div class="mb-5 px-4 py-3 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2.5">
+        <iconify-icon icon="lucide:check-circle" width="15" style="color:#34d399;flex-shrink:0;display:block"></iconify-icon>
+        <p class="text-emerald-400 text-sm m-0">Account set up successfully. You can now sign in.</p>
+      </div>
+      <% } %>
+
       <% if (error) { %>
       <div class="mb-5 px-4 py-3 rounded-md bg-red-500/10 border border-red-500/20 flex items-center gap-2.5">
         <iconify-icon icon="lucide:alert-circle" width="15" style="color:#f87171;flex-shrink:0;display:block"></iconify-icon>

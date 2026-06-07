@@ -2,10 +2,12 @@ const express        = require('express');
 const router         = express.Router();
 const { Resend }     = require('resend');
 const User           = require('../models/User');
+const SupportThread  = require('../models/SupportThread');
 const SupportMessage = require('../models/SupportMessage');
-const upload         = require('../middleware/upload');
+const { supportUpload } = require('../middleware/upload');
 
-const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@allthingsaprons.com';
+const FROM_EMAIL   = process.env.FROM_EMAIL || 'noreply@allthingsaprons.com';
+const { TOPIC_LABELS } = SupportThread;
 
 function getResend() {
   if (!process.env.RESEND_API_KEY) return null;
@@ -14,40 +16,50 @@ function getResend() {
 
 // GET /admin/support — render messenger UI
 router.get('/', (req, res) => {
-  res.render('admin/support', {
-    title: 'Messages',
-    currentPage: 'support',
-  });
+  res.render('admin/support', { title: 'Messages', currentPage: 'support' });
 });
 
-// GET /admin/support/threads — list all user threads (JSON)
+// GET /admin/support/threads — list all threads with last message + unread count
 router.get('/threads', async (req, res) => {
   try {
-    // Get the most recent message per user
-    const threads = await SupportMessage.aggregate([
-      { $sort: { createdAt: -1 } },
-      { $group: {
-        _id: '$userId',
-        lastMessage: { $first: '$$ROOT' },
-        unreadCount: { $sum: { $cond: [{ $and: [{ $eq: ['$from', 'user'] }, { $eq: ['$readBySupport', false] }] }, 1, 0] } },
-      }},
-      { $sort: { 'lastMessage.createdAt': -1 } },
+    const threads = await SupportThread.find()
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const threadIds = threads.map(t => t._id);
+    const userIds   = [...new Set(threads.map(t => String(t.userId)))];
+
+    const [lastMessages, unreadCounts, users] = await Promise.all([
+      SupportMessage.aggregate([
+        { $match: { threadId: { $in: threadIds } } },
+        { $sort: { createdAt: -1 } },
+        { $group: { _id: '$threadId', lastMessage: { $first: '$$ROOT' } } },
+      ]),
+      SupportMessage.aggregate([
+        { $match: { threadId: { $in: threadIds }, from: 'user', readBySupport: false } },
+        { $group: { _id: '$threadId', count: { $sum: 1 } } },
+      ]),
+      User.find({ _id: { $in: userIds } }).select('username displayName avatar email').lean(),
     ]);
 
-    // Populate user info
-    const userIds = threads.map(t => t._id);
-    const users = await User.find({ _id: { $in: userIds } })
-      .select('username displayName avatar email')
-      .lean();
+    const lastMsgMap = {};
+    lastMessages.forEach(m => { lastMsgMap[String(m._id)] = m.lastMessage; });
+    const unreadMap = {};
+    unreadCounts.forEach(u => { unreadMap[String(u._id)] = u.count; });
     const userMap = {};
     users.forEach(u => { userMap[String(u._id)] = u; });
 
-    const result = threads.map(t => ({
-      userId:      String(t._id),
-      user:        userMap[String(t._id)] || null,
-      lastMessage: t.lastMessage,
-      unreadCount: t.unreadCount,
-    }));
+    const result = threads
+      .filter(t => lastMsgMap[String(t._id)])
+      .map(t => ({
+        threadId:    String(t._id),
+        topic:       t.topic,
+        topicLabel:  TOPIC_LABELS[t.topic] || t.topic,
+        status:      t.status,
+        user:        userMap[String(t.userId)] || null,
+        lastMessage: lastMsgMap[String(t._id)],
+        unreadCount: unreadMap[String(t._id)] || 0,
+      }));
 
     res.json({ threads: result });
   } catch (err) {
@@ -56,45 +68,55 @@ router.get('/threads', async (req, res) => {
   }
 });
 
-// GET /admin/support/thread/:userId — load full message history (JSON)
-router.get('/thread/:userId', async (req, res) => {
+// GET /admin/support/thread/:threadId — load full message history
+router.get('/thread/:threadId', async (req, res) => {
   try {
-    const messages = await SupportMessage.find({ userId: req.params.userId })
+    const thread = await SupportThread.findById(req.params.threadId).lean();
+    if (!thread) return res.status(404).json({ error: 'Thread not found' });
+
+    const messages = await SupportMessage.find({ threadId: thread._id })
       .sort({ createdAt: 1 })
       .lean();
 
-    // Mark all user messages as read by support
     await SupportMessage.updateMany(
-      { userId: req.params.userId, from: 'user', readBySupport: false },
+      { threadId: thread._id, from: 'user', readBySupport: false },
       { $set: { readBySupport: true } }
     );
 
-    const user = await User.findById(req.params.userId)
+    const user = await User.findById(thread.userId)
       .select('username displayName avatar email')
       .lean();
 
-    res.json({ messages, user });
+    res.json({
+      messages,
+      user,
+      thread: { ...thread, topicLabel: TOPIC_LABELS[thread.topic] || thread.topic },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to load thread' });
   }
 });
 
-// POST /admin/support/thread/:userId/reply — send a reply
-router.post('/thread/:userId/reply', upload.array('support', 5), async (req, res) => {
+// POST /admin/support/thread/:threadId/reply — send reply
+router.post('/thread/:threadId/reply', supportUpload.array('support', 5), async (req, res) => {
   try {
-    const body = (req.body.body || '').trim().slice(0, 2000);
+    const thread = await SupportThread.findById(req.params.threadId);
+    if (!thread) return res.status(404).json({ error: 'Thread not found' });
+
+    const body        = (req.body.body || '').trim().slice(0, 2000);
     const attachments = (req.files || []).map(f => '/uploads/support/' + f.filename);
 
     if (!body && attachments.length === 0) {
       return res.status(400).json({ error: 'Message cannot be empty' });
     }
 
-    const user = await User.findById(req.params.userId).select('email supportFirstReplyEmailSent');
+    const user = await User.findById(thread.userId).select('email supportFirstReplyEmailSent');
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const msg = await SupportMessage.create({
-      userId:        req.params.userId,
+      threadId:      thread._id,
+      userId:        thread.userId,
       from:          'support',
       body,
       attachments,
@@ -102,7 +124,8 @@ router.post('/thread/:userId/reply', upload.array('support', 5), async (req, res
       readBySupport: true,
     });
 
-    // First reply email — fires once only
+    await SupportThread.findByIdAndUpdate(thread._id, { updatedAt: new Date() });
+
     if (!user.supportFirstReplyEmailSent) {
       const resend = getResend();
       if (resend) {
@@ -117,13 +140,29 @@ router.post('/thread/:userId/reply', upload.array('support', 5), async (req, res
           console.error('Support reply email failed:', emailErr.message);
         }
       }
-      await User.findByIdAndUpdate(req.params.userId, { supportFirstReplyEmailSent: true });
+      await User.findByIdAndUpdate(thread.userId, { supportFirstReplyEmailSent: true });
     }
 
     res.json({ message: msg });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to send reply' });
+  }
+});
+
+// PATCH /admin/support/thread/:threadId/close — close a thread
+router.patch('/thread/:threadId/close', async (req, res) => {
+  try {
+    const thread = await SupportThread.findByIdAndUpdate(
+      req.params.threadId,
+      { status: 'closed' },
+      { new: true }
+    );
+    if (!thread) return res.status(404).json({ error: 'Thread not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to close thread' });
   }
 });
 

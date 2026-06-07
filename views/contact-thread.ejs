@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><%- include('partials/head') %></head>
+<body class="flex flex-col bg-shark-950 text-white overflow-hidden" style="height:100vh">
+
+  <header class="shrink-0 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between z-10">
+    <a href="/" class="font-gochi text-charm-500 text-2xl leading-none" style="-webkit-text-stroke: 1px currentColor">AllThingsAprons</a>
+    <div class="flex items-center gap-1.5">
+      <iconify-icon icon="boxicons:headphone" width="15" class="text-white/30"></iconify-icon>
+      <span class="text-sm text-white/40 font-medium">Support</span>
+    </div>
+    <form action="/logout" method="POST">
+      <button type="submit" class="text-sm text-white/50 hover:text-white transition-colors cursor-pointer">Sign out</button>
+    </form>
+  </header>
+
+  <!-- Two-panel body -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- Left: thread list -->
+    <div class="w-64 shrink-0 flex flex-col border-r border-white/8 bg-shark-900 overflow-y-auto">
+
+      <!-- Thread items -->
+      <% threads.forEach(function(t) {
+        var isActive = String(t._id) === String(thread._id);
+      %>
+      <a href="/contact/thread/<%= t._id %>"
+        class="flex items-start gap-3 px-4 py-3.5 border-b border-white/5 transition-colors no-underline
+          <%= isActive ? 'bg-white/8 border-l-2 border-l-charm-500' : 'hover:bg-white/4' %>">
+
+        <div class="shrink-0 w-8 h-8 rounded-md border flex items-center justify-center mt-0.5
+          <%= t.topic === 'id_verification' ? 'bg-charm-600/15 border-charm-600/20' : 'bg-white/6 border-white/10' %>">
+          <iconify-icon
+            icon="<%= t.topic === 'id_verification' ? 'boxicons:shield-quarter' : 'boxicons:support' %>"
+            width="14"
+            class="<%= t.topic === 'id_verification' ? 'text-charm-400' : 'text-white/40' %>">
+          </iconify-icon>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-1.5">
+            <p class="text-[13px] font-semibold text-white truncate m-0 leading-tight"><%= t.label %></p>
+            <% if (t.unreadCount > 0) { %>
+            <span class="shrink-0 w-4 h-4 rounded-full bg-charm-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+              <%= t.unreadCount > 9 ? '9+' : t.unreadCount %>
+            </span>
+            <% } %>
+          </div>
+          <p class="text-xs truncate m-0 mt-0.5 leading-snug
+            <%= t.lastMessage ? 'text-white/35' : 'text-white/20 italic' %>">
+            <% if (t.lastMessage) { %>
+              <%= t.lastMessage.body ? t.lastMessage.body.slice(0, 40) + (t.lastMessage.body.length > 40 ? '…' : '') : '[image]' %>
+            <% } else { %>
+              No messages yet
+            <% } %>
+          </p>
+        </div>
+      </a>
+      <% }); %>
+
+      <!-- New conversation -->
+      <div class="mt-auto border-t border-white/8 p-3">
+        <a href="/contact"
+          class="flex items-center gap-2 w-full px-3 py-2 rounded-md text-xs text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors no-underline">
+          <iconify-icon icon="boxicons:plus" width="13" class="shrink-0"></iconify-icon>
+          New conversation
+        </a>
+      </div>
+    </div>
+
+    <!-- Right: active chat -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <!-- Thread header -->
+      <div class="shrink-0 border-b border-white/10 px-5 py-3 flex items-center gap-3 bg-shark-950">
+        <div class="w-9 h-9 rounded-md border flex items-center justify-center shrink-0
+          <%= thread.topic === 'id_verification' ? 'bg-charm-600/20 border-charm-600/25' : 'bg-white/6 border-white/10' %>">
+          <iconify-icon
+            icon="<%= thread.topic === 'id_verification' ? 'boxicons:shield-quarter' : 'boxicons:support' %>"
+            width="18"
+            class="<%= thread.topic === 'id_verification' ? 'text-charm-400' : 'text-white/40' %>">
+          </iconify-icon>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-white leading-tight"><%= thread.label %></p>
+          <p class="text-xs text-white/35 leading-tight">AllThingsAprons Support</p>
+        </div>
+        <% if (thread.status === 'closed') { %>
+        <span class="ml-auto shrink-0 text-[10px] font-semibold px-2 py-1 rounded bg-white/8 text-white/30 uppercase tracking-wide">Closed</span>
+        <% } %>
+      </div>
+
+      <!-- Message thread -->
+      <div id="message-thread" class="flex-1 overflow-y-auto py-6">
+        <div class="flex flex-col gap-4 max-w-3xl mx-auto px-4">
+
+          <div class="flex justify-center">
+            <div class="flex items-center gap-2 bg-shark-900 border border-white/8 rounded-md px-3 py-2 text-xs text-white/35">
+              <iconify-icon icon="lucide:lock" width="11" class="shrink-0"></iconify-icon>
+              This conversation is private and visible only to you and our support team.
+            </div>
+          </div>
+
+          <!-- Support greeting -->
+          <div class="flex items-start gap-2.5">
+            <div class="shrink-0 w-8 h-8 rounded-md bg-charm-600/20 border border-charm-600/25 flex items-center justify-center mt-0.5">
+              <iconify-icon icon="boxicons:shield-quarter" width="15" class="text-charm-400"></iconify-icon>
+            </div>
+            <div class="flex flex-col gap-1 max-w-sm">
+              <p class="text-xs text-white/30 font-medium px-0.5">Support Team</p>
+              <div class="bg-shark-900 border border-white/8 rounded-md px-3.5 py-2.5 text-sm text-white/80 leading-relaxed">
+                Hi there! Thanks for reaching out. Our team is here to help — feel free to describe your issue or question and we'll get back to you as soon as we can.
+              </div>
+            </div>
+          </div>
+
+          <div id="messages-list" class="flex flex-col"></div>
+        </div>
+      </div>
+
+      <% if (thread.status === 'open') { %>
+
+      <!-- Compose bar -->
+      <div id="compose-bar" class="shrink-0 border-t border-white/10 bg-shark-950 px-4 py-3">
+        <div class="flex items-end gap-3 max-w-3xl mx-auto">
+          <div class="flex-1 bg-shark-900 border border-white/10 rounded-md px-3 focus-within:border-white/25 transition-colors">
+            <div id="image-preview-strip" class="hidden flex-wrap gap-2 pt-2.5"></div>
+            <div class="flex items-center gap-2 min-h-10">
+              <textarea
+                id="compose-input"
+                rows="1"
+                maxlength="500"
+                placeholder="Type your message..."
+                class="flex-1 bg-transparent text-sm text-white placeholder:text-white/25 resize-none outline-none leading-relaxed py-2.5"
+                style="max-height: 120px; overflow-y: auto;"
+              ></textarea>
+              <div class="shrink-0 flex items-center gap-1.5">
+                <span id="char-count" class="hidden text-xs text-white/20 tabular-nums"></span>
+                <label for="image-upload"
+                  class="w-7 h-7 flex items-center justify-center text-white/30 hover:text-white/60 transition-colors cursor-pointer"
+                  title="Attach image">
+                  <iconify-icon icon="boxicons:paperclip" width="18"></iconify-icon>
+                </label>
+                <input type="file" id="image-upload" accept="image/*" multiple class="hidden">
+              </div>
+            </div>
+          </div>
+          <button type="button" id="send-btn"
+            class="shrink-0 w-10 h-10 rounded-md bg-charm-600 hover:bg-charm-500 disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
+            disabled>
+            <iconify-icon icon="boxicons:send" width="16" class="text-white"></iconify-icon>
+          </button>
+        </div>
+        <p class="text-center text-xs text-white/20 mt-2.5">Typical response time: under 24 hours</p>
+      </div>
+
+      <!-- Shown dynamically if admin closes thread while user is in session -->
+      <div id="dynamic-closed-notice" class="hidden shrink-0 border-t border-white/10 bg-shark-950 px-4 py-4 text-center">
+        <p class="text-xs text-white/30">This conversation has been closed. <a href="/contact/new?topic=<%= thread.topic %>" class="text-charm-400 hover:text-charm-300 underline underline-offset-2 transition-colors">Start a new one</a>.</p>
+      </div>
+
+      <% } else { %>
+
+      <div class="shrink-0 border-t border-white/10 bg-shark-950 px-4 py-4 text-center">
+        <p class="text-xs text-white/30">This conversation is closed. <a href="/contact/new?topic=<%= thread.topic %>" class="text-charm-400 hover:text-charm-300 underline underline-offset-2 transition-colors">Start a new one</a>.</p>
+      </div>
+
+      <% } %>
+
+    </div>
+  </div>
+
+<%- include('partials/toasts') %>
+
+<script>
+(function () {
+  var THREAD_ID   = '<%= thread._id %>';
+  var THREAD_OPEN = <%= thread.status === 'open' ? 'true' : 'false' %>;
+
+  var msgList      = document.getElementById('messages-list');
+  var threadEl     = document.getElementById('message-thread');
+  var seenIds      = {};
+  var sending      = false;
+  var selectedFiles = [];
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function escHtml(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  }
+
+  function fmtTime(iso) {
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function dateKey(iso) {
+    var d = new Date(iso);
+    return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+  }
+
+  function fmtDateLabel(iso) {
+    var d = new Date(iso);
+    var today = new Date(); today.setHours(0,0,0,0);
+    var msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var diff = Math.round((today - msgDay) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    if (diff < 7) return d.toLocaleDateString([], { weekday: 'long' });
+    return d.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  function buildDateSeparator(iso) {
+    var el = document.createElement('div');
+    el.className = 'flex items-center gap-3 py-1';
+    el.innerHTML =
+      '<div class="flex-1 h-px bg-white/8"></div>' +
+      '<span class="text-[11px] text-white/25 font-medium shrink-0">' + fmtDateLabel(iso) + '</span>' +
+      '<div class="flex-1 h-px bg-white/8"></div>';
+    return el;
+  }
+
+  function attachmentsHtml(list) {
+    if (!list || !list.length) return '';
+    return '<div class="flex flex-wrap gap-1.5 mt-2">' +
+      list.map(function(src) {
+        return '<a href="' + src + '" target="_blank"><img src="' + src + '" class="w-20 h-20 object-cover rounded-md border border-white/10"></a>';
+      }).join('') + '</div>';
+  }
+
+  var lastDateKey = null;
+  var lastSender  = null;
+
+  function buildBubble(msg, grouped) {
+    var t = fmtTime(msg.createdAt);
+    var timeSpan  = '<span style="flex-shrink:0;font-size:10px;opacity:0.35;white-space:nowrap;line-height:1.4;align-self:flex-end">' + t + '</span>';
+    var timeBlock = '<div style="display:flex;justify-content:flex-end;margin-top:4px"><span style="font-size:10px;opacity:0.35">' + t + '</span></div>';
+
+    var hasBody = !!msg.body;
+    var hasAtt  = msg.attachments && msg.attachments.length > 0;
+    var inner =
+      (hasBody ? '<div style="display:flex;align-items:flex-end;gap:8px"><p class="m-0" style="flex:1;word-break:break-word">' + escHtml(msg.body) + '</p>' + (!hasAtt ? timeSpan : '') + '</div>' : '') +
+      (hasAtt  ? attachmentsHtml(msg.attachments) + timeBlock : '');
+
+    var el = document.createElement('div');
+    el.dataset.id = msg._id;
+    el.style.marginTop = grouped ? '6px' : '12px';
+
+    if (msg.from === 'user') {
+      el.className = 'flex justify-end';
+      el.innerHTML =
+        '<div class="max-w-sm">' +
+          '<div class="bg-charm-600/20 border border-charm-600/25 rounded-md px-3 pt-1.5 pb-1.5 text-sm text-white/80 leading-relaxed">' + inner + '</div>' +
+        '</div>';
+    } else {
+      el.className = 'flex items-start gap-2.5';
+      var bubble = '<div class="bg-shark-900 border border-white/8 rounded-md px-3 pt-1.5 pb-1.5 text-sm text-white/80 leading-relaxed">' + inner + '</div>';
+      if (grouped) {
+        el.innerHTML = '<div class="w-8 shrink-0"></div><div class="max-w-sm">' + bubble + '</div>';
+      } else {
+        el.innerHTML =
+          '<div class="shrink-0 w-8 h-8 rounded-md bg-charm-600/20 border border-charm-600/25 flex items-center justify-center mt-0.5">' +
+            '<iconify-icon icon="boxicons:shield-quarter" width="15" class="text-charm-400"></iconify-icon>' +
+          '</div>' +
+          '<div class="flex flex-col gap-1 max-w-sm">' +
+            '<p class="text-xs text-white/30 font-medium px-0.5">Support Team</p>' +
+            bubble +
+          '</div>';
+      }
+    }
+    return el;
+  }
+
+  function appendMessage(msg, animate) {
+    if (seenIds[msg._id]) return;
+    seenIds[msg._id] = true;
+    var dk = dateKey(msg.createdAt);
+    if (dk !== lastDateKey) {
+      lastDateKey = dk;
+      lastSender  = null;
+      msgList.appendChild(buildDateSeparator(msg.createdAt));
+    }
+    var grouped = msg.from === lastSender;
+    lastSender  = msg.from;
+    var el = buildBubble(msg, grouped);
+    if (animate) { el.style.opacity = '0'; el.style.transition = 'opacity 0.2s'; }
+    msgList.appendChild(el);
+    if (animate) requestAnimationFrame(function() { el.style.opacity = '1'; });
+  }
+
+  function scrollToBottom() {
+    threadEl.scrollTop = threadEl.scrollHeight;
+  }
+
+  // ── Load history ──────────────────────────────────────────────────────────
+
+  fetch('/contact/thread/' + THREAD_ID + '/messages')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      (data.messages || []).forEach(function(m) { appendMessage(m, false); });
+      scrollToBottom();
+    });
+
+  // ── Compose ───────────────────────────────────────────────────────────────
+
+  if (THREAD_OPEN) {
+    var input        = document.getElementById('compose-input');
+    var sendBtn      = document.getElementById('send-btn');
+    var imageUpload  = document.getElementById('image-upload');
+    var previewStrip = document.getElementById('image-preview-strip');
+    var charCount    = document.getElementById('char-count');
+    var MAX = 500;
+
+    function updateSendBtn() {
+      sendBtn.disabled = sending || (input.value.trim().length === 0 && selectedFiles.length === 0);
+    }
+
+    input.addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+      var len = this.value.length;
+      if (len > 0) {
+        charCount.textContent = len + '/' + MAX;
+        charCount.classList.remove('hidden');
+        charCount.classList.toggle('text-red-400', len >= MAX);
+        charCount.classList.toggle('text-white/20', len < MAX);
+      } else {
+        charCount.classList.add('hidden');
+      }
+      updateSendBtn();
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!sendBtn.disabled) sendBtn.click();
+      }
+    });
+
+    imageUpload.addEventListener('change', function () {
+      Array.from(this.files).forEach(function (file) {
+        selectedFiles.push(file);
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var wrapper = document.createElement('div');
+          wrapper.className = 'relative group';
+          var img = document.createElement('img');
+          img.src = e.target.result;
+          img.className = 'w-16 h-16 object-cover rounded-md border border-white/10';
+          var remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-shark-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer';
+          remove.innerHTML = '<iconify-icon icon="lucide:x" width="9"></iconify-icon>';
+          remove.addEventListener('click', function () {
+            var idx = selectedFiles.indexOf(file);
+            if (idx > -1) selectedFiles.splice(idx, 1);
+            wrapper.remove();
+            if (selectedFiles.length === 0) {
+              previewStrip.classList.add('hidden');
+              previewStrip.style.display = '';
+            }
+            updateSendBtn();
+          });
+          wrapper.appendChild(img);
+          wrapper.appendChild(remove);
+          previewStrip.appendChild(wrapper);
+        };
+        reader.readAsDataURL(file);
+      });
+      previewStrip.classList.remove('hidden');
+      previewStrip.style.display = 'flex';
+      this.value = '';
+      updateSendBtn();
+    });
+
+    sendBtn.addEventListener('click', function () {
+      if (sending) return;
+      var body = input.value.trim();
+      if (!body && selectedFiles.length === 0) return;
+
+      sending = true;
+      updateSendBtn();
+
+      var formData = new FormData();
+      formData.append('body', body);
+      selectedFiles.forEach(function (f) { formData.append('support', f); });
+
+      var optEl = buildBubble({ _id: 'tmp-' + Date.now(), from: 'user', body: body, attachments: [], createdAt: new Date().toISOString() });
+      optEl.style.opacity = '0.5';
+      msgList.appendChild(optEl);
+      scrollToBottom();
+
+      input.value = '';
+      input.style.height = 'auto';
+      charCount.classList.add('hidden');
+      selectedFiles = [];
+      previewStrip.innerHTML = '';
+      previewStrip.classList.add('hidden');
+      previewStrip.style.display = '';
+
+      fetch('/contact/thread/' + THREAD_ID + '/messages', { method: 'POST', body: formData })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          sending = false;
+          optEl.remove();
+          if (data.message) { appendMessage(data.message, false); scrollToBottom(); }
+          updateSendBtn();
+        })
+        .catch(function() {
+          sending = false;
+          optEl.remove();
+          updateSendBtn();
+        });
+    });
+  }
+
+  // ── Poll for new replies every 10s ────────────────────────────────────────
+
+  setInterval(function() {
+    fetch('/contact/thread/' + THREAD_ID + '/messages')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var hadNew = false;
+        (data.messages || []).forEach(function(m) {
+          if (!seenIds[m._id]) { appendMessage(m, true); hadNew = true; }
+        });
+        if (hadNew) scrollToBottom();
+
+        if (data.threadClosed && THREAD_OPEN) {
+          var composeBar = document.getElementById('compose-bar');
+          var closedNotice = document.getElementById('dynamic-closed-notice');
+          if (composeBar) composeBar.classList.add('hidden');
+          if (closedNotice) closedNotice.classList.remove('hidden');
+          THREAD_OPEN = false;
+        }
+      });
+  }, 10000);
+
+}());
+</script>
+
+</body>
+</html>

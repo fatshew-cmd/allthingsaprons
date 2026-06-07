@@ -9,7 +9,7 @@ const isAdmin        = require('../middleware/isAdmin');
 const requireDomain  = require('../middleware/requireDomain');
 
 router.get('/login', (req, res) => {
-  res.render('admin/login', { title: 'Admin Login', error: null });
+  res.render('admin/login', { title: 'Admin Login', error: null, setup: req.query.setup === '1' });
 });
 
 router.post('/login', async (req, res) => {
@@ -26,10 +26,13 @@ router.post('/login', async (req, res) => {
     if (user.isTemporary && user.temporaryUntil && user.temporaryUntil < new Date()) {
       return res.render('admin/login', { title: 'Admin Login', error: 'Your account has expired. Please contact your administrator.' });
     }
-    req.session.isAdmin          = true;
-    req.session.adminId          = user._id;
-    req.session.adminRole        = user.role;
-    req.session.adminPermissions = user.permissions || [];
+    req.session.isAdmin            = true;
+    req.session.adminId            = user._id;
+    req.session.adminRole          = user.role;
+    req.session.adminPermissions   = user.permissions || [];
+    req.session.adminDisplayName   = user.displayName?.value || null;
+    req.session.adminEmail         = user.email?.value || null;
+    req.session.adminAvatar        = user.avatar?.value || null;
     res.redirect('/admin');
   } catch {
     res.render('admin/login', { title: 'Admin Login', error: 'Something went wrong' });
@@ -102,11 +105,15 @@ router.use(async (req, res, next) => {
   }
   res.locals.adminRole        = role;
   res.locals.adminPermissions = permissions;
+  res.locals.adminDisplayName = req.session.adminDisplayName || null;
+  res.locals.adminEmail       = req.session.adminEmail       || null;
+  res.locals.adminAvatar      = req.session.adminAvatar      || null;
   next();
 });
 
 router.use('/entries',      requireDomain('content'));
 router.use('/verification', requireDomain('content'));
+router.use('/profile',      require('./adminProfile'));
 router.use('/support',      requireDomain('support'), require('./adminSupport'));
 router.use('/admins',       requireDomain(null));
 router.use('/applications', requireDomain(null), require('./adminApplications'));

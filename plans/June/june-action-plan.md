@@ -1,8 +1,8 @@
 # June Action Plan
 
-## Current State (June 2)
+## Current State (June 6)
 
-Phase 1 (schema alignment) and the bulk of Phase 2 (auth + user foundation) are complete — both finished ahead of the original schedule. Entry upload and ratings are also done. What remains is primarily content display (feed, leaderboard, comments) and the contest system.
+Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system and staff hiring flow — was pulled forward and is also done. What remains is content display (feed, leaderboard, comments), the contest system, and the remaining Phase 6 admin UI pages.
 
 ### What is done
 | Asset | Status |
@@ -19,6 +19,9 @@ Phase 1 (schema alignment) and the bulk of Phase 2 (auth + user foundation) are 
 | Rating flow | 1–10, no self-rate, no duplicate, denormalized onto entry — fully working |
 | Profile page | Entries, follow counts, stats, contest/tournament history — fully working |
 | Settings page | Edit username, bio, avatar, banner — fully working |
+| Support chat | User-facing `/contact` thread + admin `/admin/support` two-panel messenger — fully working |
+| Admin role system | 5-tier hierarchy (`user → moderator → supervisor → superadmin → founder`), domain permissions (`content / chat / comments / financial / support`), `requireDomain` middleware, domain-aware sidebar, scoped badge counts, admin accounts page — fully working |
+| Admin hiring flow | Public careers page, applications queue, invite-based account creation with 72h token, invite acceptance + password setup, temporary account support — fully working |
 
 ### What is not done yet
 - Feed content (tabs exist, all three are empty)
@@ -29,6 +32,7 @@ Phase 1 (schema alignment) and the bulk of Phase 2 (auth + user foundation) are 
 - Notifications (no model, no routes)
 - Messages (stub only)
 - Standalone contests (full lifecycle)
+- Phase 6 admin UI pages (dashboard metrics, paginated user list, tournament management, content moderation)
 
 ---
 
@@ -211,14 +215,14 @@ The process for bringing a new admin onto the platform — from public applicati
 **User schema additions:** `adminInviteToken`, `adminInviteExpiry`, `isTemporary`, `temporaryUntil`, `accountStatus` gains a new value: `'invited'`
 
 **Implementation tasks:**
-- [ ] Add `AdminApplication` model
-- [ ] Add `adminInviteToken`, `adminInviteExpiry`, `isTemporary`, `temporaryUntil` to `User` schema; add `'invited'` to `accountStatus` enum
-- [ ] Public route + view: `GET /careers` — application form; `POST /careers` — stores application, sends confirmation email
-- [ ] Admin applications routes + view: `GET /admin/applications` — list; `GET /admin/applications/:id` — detail with hire action form
-- [ ] Account creation route: `POST /admin/applications/:id/hire` — creates User record with `accountStatus: 'invited'`, generates invite token, sends invite email via Resend
-- [ ] Invite acceptance route + view: `GET /admin/accept-invite` — validates token; `POST /admin/accept-invite` — sets password, activates account
-- [ ] Temporary account login guard: on admin login, check `isTemporary && temporaryUntil < now` — deny with clear message if expired
-- [ ] Add Applications link to admin sidebar (founder/superadmin only)
+- [x] Add `AdminApplication` model
+- [x] Add `adminInviteToken`, `adminInviteExpiry`, `isTemporary`, `temporaryUntil` to `User` schema; add `'invited'` to `accountStatus` enum
+- [x] Public route + view: `GET /careers` — application form; `POST /careers` — stores application, sends confirmation email
+- [x] Admin applications routes + view: `GET /admin/applications` — list; `GET /admin/applications/:id` — detail with hire action form
+- [x] Account creation route: `POST /admin/applications/:id/hire` — creates User record with `accountStatus: 'invited'`, generates invite token, sends invite email via Resend
+- [x] Invite acceptance route + view: `GET /admin/accept-invite` — validates token; `POST /admin/accept-invite` — sets password, activates account
+- [x] Temporary account login guard: on admin login, check `isTemporary && temporaryUntil < now` — deny with clear message if expired
+- [x] Add Applications link to admin sidebar (founder/superadmin only)
 
 ---
 
