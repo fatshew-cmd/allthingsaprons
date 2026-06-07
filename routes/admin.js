@@ -88,8 +88,8 @@ router.use(isAdmin);
 
 // Inject sidebar data into res.locals for all protected routes
 router.use(async (req, res, next) => {
-  const role        = req.session.adminRole        || '';
-  const permissions = req.session.adminPermissions || [];
+  const role        = req.session.roleOverride        || req.session.adminRole        || '';
+  const permissions = req.session.permissionsOverride || req.session.adminPermissions || [];
   const isFullAccess = role === 'superadmin' || role === 'founder';
   const hasContent   = isFullAccess || permissions.includes('content');
   const hasSupport   = isFullAccess || permissions.includes('support');
@@ -103,11 +103,13 @@ router.use(async (req, res, next) => {
   } catch {
     res.locals.sidebarCounts    = { pendingEntries: 0, pendingVerifications: 0, unreadMessages: 0 };
   }
-  res.locals.adminRole        = role;
-  res.locals.adminPermissions = permissions;
-  res.locals.adminDisplayName = req.session.adminDisplayName || null;
-  res.locals.adminEmail       = req.session.adminEmail       || null;
-  res.locals.adminAvatar      = req.session.adminAvatar      || null;
+  res.locals.adminRole          = role;
+  res.locals.adminPermissions   = permissions;
+  res.locals.adminDisplayName   = req.session.adminDisplayName || null;
+  res.locals.adminEmail         = req.session.adminEmail       || null;
+  res.locals.adminAvatar        = req.session.adminAvatar      || null;
+  res.locals.isImpersonating    = !!req.session.roleOverride;
+  res.locals.realAdminRole      = req.session.adminRole        || '';
   next();
 });
 
@@ -117,6 +119,33 @@ router.use('/profile',      require('./adminProfile'));
 router.use('/support',      requireDomain('support'), require('./adminSupport'));
 router.use('/admins',       requireDomain(null));
 router.use('/applications', requireDomain(null), require('./adminApplications'));
+
+// ── Role impersonation (founder only) ────────────────────────────
+
+const IMPERSONATE_PRESETS = {
+  'superadmin':          { role: 'superadmin',  permissions: [] },
+  'supervisor:content':  { role: 'supervisor',  permissions: ['content'] },
+  'supervisor:comments': { role: 'supervisor',  permissions: ['comments'] },
+  'supervisor:support':  { role: 'supervisor',  permissions: ['support'] },
+  'moderator:content':   { role: 'moderator',   permissions: ['content'] },
+  'moderator:comments':  { role: 'moderator',   permissions: ['comments'] },
+  'moderator:support':   { role: 'moderator',   permissions: ['support'] },
+};
+
+router.post('/impersonate', (req, res) => {
+  if (req.session.adminRole !== 'founder') return res.redirect('/admin');
+  const preset = IMPERSONATE_PRESETS[req.body.preset];
+  if (!preset) return res.redirect('/admin');
+  req.session.roleOverride        = preset.role;
+  req.session.permissionsOverride = preset.permissions;
+  res.redirect('/admin');
+});
+
+router.post('/impersonate/exit', (req, res) => {
+  delete req.session.roleOverride;
+  delete req.session.permissionsOverride;
+  res.redirect('/admin');
+});
 
 // ── Dashboard ─────────────────────────────────────────────────────
 

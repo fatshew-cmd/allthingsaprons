@@ -32,7 +32,7 @@ Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Ph
 - Notifications (no model, no routes)
 - Messages (stub only)
 - Standalone contests (full lifecycle)
-- Phase 6 admin UI pages (dashboard metrics, paginated user list, tournament management, content moderation)
+- Phase 6 admin UI pages: tournament management, content moderation, and entries moderation still pending; admin dashboard, user list/detail, and ID verification queue are done
 
 ---
 
@@ -226,12 +226,85 @@ The process for bringing a new admin onto the platform — from public applicati
 
 ---
 
+---
+
+#### Admin Sidebar — Menu Design
+
+Menus are **non-inclusive**. Higher roles do not inherit lower-role menus. Each role sees exactly what its job requires — nothing more.
+
+**Exhaustive menu item list:**
+
+| Section | Item | Description |
+|---|---|---|
+| Overview | Dashboard | Role-specific summary view |
+| Users | User Management | Browse and edit user accounts |
+| Users | ID Verification | Review identity documents |
+| Users | Onboarding Queue | Approve/reject new user entry submissions |
+| Content | Entry Review | Approve/reject pending entries |
+| Content | All Entries | Browse the full entry catalog |
+| Moderation | Reported Comments | Review flagged comments |
+| Moderation | Escalations | Issues escalated by moderators needing senior review |
+| Support | Messages | Customer support inbox |
+| Tournaments | All Tournaments | Browse/manage platform tournaments |
+| Tournaments | Review Queue | Review entries submitted to open tournaments |
+| Team | Admin Accounts | View and manage the admin team |
+| Team | Applications | Review admin job applications |
+| Platform | Settings | Global platform configuration |
+| Platform | Financials | Prize payouts and transaction history |
+| Platform | Analytics | Usage and engagement stats |
+
+**Role → menu assignment (non-cumulative):**
+
+| Menu Item | Founder | Superadmin | Supervisor | Moderator | Support |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Dashboard | ✓ | ✓ | ✓ | ✓ | ✓ |
+| User Management | | ✓ | ✓ | | |
+| ID Verification | | | | ✓ | |
+| Onboarding Queue | | ✓ | ✓ | | |
+| Entry Review | | | ✓ | ✓ | |
+| All Entries | | ✓ | ✓ | | |
+| Reported Comments | | | ✓ | ✓ | |
+| Escalations | | ✓ | ✓ | | |
+| Messages | | | | | ✓ |
+| All Tournaments | ✓ | ✓ | | | |
+| Review Queue | | ✓ | | | |
+| Admin Accounts | ✓ | | | | |
+| Applications | ✓ | | | | |
+| Settings | ✓ | | | | |
+| Financials | ✓ | | | | |
+| Analytics | ✓ | ✓ | | | |
+
+Key decisions:
+- Founder sees nothing operational — no moderation, no entries, no user management. They own the org, not the day-to-day.
+- Moderator is narrow — reports, entry review, ID verification only. No user management power.
+- Supervisor bridges operational and senior review — can see what moderators produce and handle escalations.
+- Support is fully siloed — only messages (and whatever user lookup they need to answer tickets).
+- Escalations is a dedicated queue that moderators push items to when they need senior eyes.
+
+---
+
+#### Admin Dashboard — Role-Specific Views
+
+The dashboard is served at `/admin` for all roles but renders entirely different content based on `adminRole`. It is a job briefing, not a data dump.
+
+**Founder:** Revenue and prize payouts this month, platform growth (new users, entries submitted), admin team headcount and open applications, high-level tournament activity (running, completed, total prize pool). No queues, no flags.
+
+**Superadmin:** Active tournaments (status, entries pending review), user registration trend, onboarding queue depth, escalations pending, entry volume (submitted/approved/rejected this week).
+
+**Supervisor:** Moderation queue depth (reported comments, pending reviews), moderator activity (who reviewed what, response times), escalations assigned to them, entry review throughput.
+
+**Moderator:** Their personal queue — entries to review and reported comments to action. Their own stats (reviewed today, this week, avg response time). No platform-wide data.
+
+**Support:** Unread message count, open vs resolved tickets, average response time, users who have contacted support multiple times.
+
+---
+
 **Pages and tasks:**
 
-- [ ] **Admin dashboard:** platform health metrics (total users, active contests, active tournaments, open ID verification queue count, pending tournament review count) + recent activity feed (new signups, new reports, tournament status transitions)
-- [ ] **User management — list:** paginated user list with filters for role, onboarding status, account status, and `idVerified`
-- [ ] **User management — detail:** profile info, uploaded entries, contest/tournament history, onboarding status, ID verification documents, wallet balance; admin actions (role assignment using 2-tier-ahead rule, account suspension)
-- [ ] **ID verification queue:** list of users with `idVerificationStatus: 'pending'`; review view showing selfie and government ID side by side; approve / reject action (approval sets `idVerified: true` and advances user to `pending_submission`)
+- [x] **Admin dashboard:** role-specific view — Founder sees financials and org health; Superadmin sees operational metrics; Supervisor sees moderation throughput; Moderator sees their personal queue and stats; Support sees inbox metrics. One route, one conditional render per role.
+- [x] **User management — list:** paginated user list with filters for role, onboarding status, account status, and `idVerified`
+- [x] **User management — detail:** profile info, uploaded entries, contest/tournament history, onboarding status, ID verification documents, wallet balance; admin actions (role assignment using 2-tier-ahead rule, account suspension)
+- [x] **ID verification queue:** list of users with `idVerificationStatus: 'pending'`; review view showing selfie and government ID side by side; approve / reject action (approval sets `idVerified: true` and advances user to `pending_submission`)
 - [ ] **Tournament management — list:** all tournaments with status filter; entry point for creating a platform-funded tournament
 - [ ] **Tournament management — create:** form to create a platform-funded tournament (name, description, participant cap, time config, prize amounts); starts directly at `open` status
 - [ ] **Tournament management — detail:** participant list, matchup grid, missed reviews counter, prize config; admin override actions

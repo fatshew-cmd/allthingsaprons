@@ -1,61 +1,57 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
-<body class="flex overflow-hidden bg-zinc-50" style="height:100vh;font-family:'Sofia Sans',sans-serif">
+<body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
 
   <%- include('../partials/adminSidebar', { currentPage: 'verification' }) %>
 
   <div class="flex-1 flex flex-col overflow-hidden">
 
-    <!-- Header -->
-    <div class="bg-white border-b border-zinc-200 px-8 py-5 flex items-center gap-4 shrink-0">
-      <a href="/admin/verification"
-        class="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-700 transition-colors no-underline shrink-0">
-        <iconify-icon icon="lucide:arrow-left" width="14" style="display:block"></iconify-icon>
-        Back
-      </a>
-      <div class="w-px h-5 bg-zinc-200 shrink-0"></div>
-      <div class="flex items-center gap-3 min-w-0">
-        <% if (user.avatar?.value) { %>
-        <img src="<%= user.avatar.value %>" class="w-8 h-8 rounded-md object-cover shrink-0">
-        <% } else { %>
-        <div class="w-8 h-8 rounded-md bg-zinc-200 flex items-center justify-center shrink-0">
-          <iconify-icon icon="lucide:user" width="14" style="color:#a1a1aa;display:block"></iconify-icon>
-        </div>
-        <% } %>
-        <div class="min-w-0">
-          <p class="text-sm font-bold text-zinc-900 m-0 truncate">@<%= user.username?.value %></p>
-          <p class="text-xs text-zinc-400 m-0 truncate"><%= user.email?.value %></p>
-        </div>
-      </div>
-      <% if (submittedAtFormatted) { %>
-      <div class="w-px h-5 bg-zinc-200 shrink-0"></div>
-      <div class="flex items-center gap-1.5 text-xs text-zinc-400 shrink-0">
-        <iconify-icon icon="lucide:clock" width="12" style="display:block"></iconify-icon>
-        Submitted <span class="text-zinc-600 font-medium ml-1"><%= submittedAtFormatted %></span>
-      </div>
-      <% } %>
-    </div>
-
     <!-- Scrollable content -->
     <main class="flex-1 overflow-y-auto p-8">
       <div class="max-w-4xl mx-auto flex flex-col gap-6">
 
+        <!-- Back + user context -->
+        <div class="flex items-center gap-3">
+          <a href="/admin/verification"
+            class="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors no-underline shrink-0">
+            <iconify-icon icon="lucide:arrow-left" width="14" style="display:block"></iconify-icon>
+            Back
+          </a>
+          <div class="w-px h-4 bg-white/10 shrink-0"></div>
+          <% if (user.avatar?.value) { %>
+          <img src="<%= user.avatar.value %>" class="w-7 h-7 rounded-md object-cover shrink-0 bg-zinc-800">
+          <% } else { %>
+          <div class="w-7 h-7 rounded-md bg-zinc-800 flex items-center justify-center shrink-0">
+            <iconify-icon icon="lucide:user" width="13" style="color:#52525b;display:block"></iconify-icon>
+          </div>
+          <% } %>
+          <p class="text-sm font-semibold text-white m-0">@<%= user.username?.value %></p>
+          <span class="text-zinc-400 text-sm"><%= user.email?.value %></span>
+          <% if (submittedAtFormatted) { %>
+          <div class="w-px h-4 bg-white/10 shrink-0"></div>
+          <div class="flex items-center gap-1.5 text-xs text-zinc-400">
+            <iconify-icon icon="lucide:clock" width="12" style="display:block"></iconify-icon>
+            Submitted <span class="text-zinc-300 font-medium ml-1"><%= submittedAtFormatted %></span>
+          </div>
+          <% } %>
+        </div>
+
         <!-- Document images -->
         <div class="grid grid-cols-2 gap-4">
 
-          <div class="bg-white rounded-md border border-zinc-200 overflow-hidden">
-            <div class="px-4 py-3 border-b border-zinc-100 flex items-center gap-2">
-              <iconify-icon icon="lucide:camera" width="13" style="color:#7c3aed;display:block"></iconify-icon>
-              <p class="text-xs font-semibold text-zinc-700 m-0 uppercase tracking-wide">Verification Selfie</p>
+          <div class="bg-zinc-900 rounded-md border border-white/8 overflow-hidden">
+            <div class="px-4 py-3 border-b border-white/8 flex items-center gap-2">
+              <iconify-icon icon="lucide:camera" width="13" style="color:#a78bfa;display:block"></iconify-icon>
+              <p class="text-xs font-semibold text-zinc-400 m-0 uppercase tracking-wide">Verification Selfie</p>
             </div>
-            <div class="p-3 bg-zinc-50">
+            <div class="p-3 bg-zinc-950/40">
               <% if (user.idSelfieUrl) { %>
               <div class="relative cursor-pointer group" id="open-viewer">
                 <img src="<%= user.idSelfieUrl %>" alt="Verification selfie"
-                  class="w-full rounded-md object-contain max-h-80 bg-zinc-100" style="pointer-events:none">
-                <div class="absolute inset-0 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(0,0,0,0.28)">
-                  <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-zinc-700" style="background:rgba(255,255,255,0.92)">
+                  class="w-full rounded-md object-contain max-h-80 bg-zinc-900" style="pointer-events:none">
+                <div class="absolute inset-0 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(0,0,0,0.45)">
+                  <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white" style="background:rgba(255,255,255,0.15)">
                     <iconify-icon icon="lucide:maximize-2" width="13" style="display:block"></iconify-icon>
                     Open viewer
                   </div>
@@ -67,18 +63,18 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-md border border-zinc-200 overflow-hidden">
-            <div class="px-4 py-3 border-b border-zinc-100 flex items-center gap-2">
-              <iconify-icon icon="lucide:id-card" width="13" style="color:#7c3aed;display:block"></iconify-icon>
-              <p class="text-xs font-semibold text-zinc-700 m-0 uppercase tracking-wide">Government-Issued ID</p>
+          <div class="bg-zinc-900 rounded-md border border-white/8 overflow-hidden">
+            <div class="px-4 py-3 border-b border-white/8 flex items-center gap-2">
+              <iconify-icon icon="lucide:id-card" width="13" style="color:#a78bfa;display:block"></iconify-icon>
+              <p class="text-xs font-semibold text-zinc-400 m-0 uppercase tracking-wide">Government-Issued ID</p>
             </div>
-            <div class="p-3 bg-zinc-50">
+            <div class="p-3 bg-zinc-950/40">
               <% if (user.idDocUrl) { %>
               <div class="relative cursor-pointer group" id="open-viewer-2">
                 <img src="<%= user.idDocUrl %>" alt="ID document"
-                  class="w-full rounded-md object-contain max-h-80 bg-zinc-100" style="pointer-events:none">
-                <div class="absolute inset-0 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(0,0,0,0.28)">
-                  <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-zinc-700" style="background:rgba(255,255,255,0.92)">
+                  class="w-full rounded-md object-contain max-h-80 bg-zinc-900" style="pointer-events:none">
+                <div class="absolute inset-0 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(0,0,0,0.45)">
+                  <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white" style="background:rgba(255,255,255,0.15)">
                     <iconify-icon icon="lucide:maximize-2" width="13" style="display:block"></iconify-icon>
                     Open viewer
                   </div>
@@ -95,37 +91,37 @@
         <!-- Verification code + profile details -->
         <div class="grid grid-cols-2 gap-4">
 
-          <div class="bg-white rounded-md border border-zinc-200 px-5 py-4">
-            <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wide m-0 mb-3">Expected Verification Code</p>
-            <p class="text-xs text-zinc-400 m-0 mb-2 leading-relaxed">The user was instructed to write this code on paper and hold it visibly in their selfie.</p>
+          <div class="bg-zinc-900 rounded-md border border-white/8 px-5 py-4">
+            <p class="text-xs font-semibold text-zinc-400 uppercase tracking-wide m-0 mb-3">Expected Verification Code</p>
+            <p class="text-sm text-zinc-400 m-0 mb-3 leading-relaxed">The user was instructed to write this code on paper and hold it visibly in their selfie.</p>
             <% if (user.idVerificationCode) { %>
-            <p class="text-2xl font-black tracking-[0.2em] text-violet-700 m-0"><%= user.idVerificationCode %></p>
+            <p class="text-2xl font-black tracking-[0.2em] text-violet-400 m-0"><%= user.idVerificationCode %></p>
             <% } else { %>
             <p class="text-sm text-zinc-400 italic m-0">No code on record</p>
             <% } %>
           </div>
 
-          <div class="bg-white rounded-md border border-zinc-200 px-5 py-4">
-            <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wide m-0 mb-3">Profile Declaration</p>
+          <div class="bg-zinc-900 rounded-md border border-white/8 px-5 py-4">
+            <p class="text-xs font-semibold text-zinc-400 uppercase tracking-wide m-0 mb-3">Profile Declaration</p>
             <dl class="flex flex-col gap-2">
               <div class="flex items-center justify-between text-sm">
                 <dt class="text-zinc-400">Date of birth</dt>
-                <dd class="font-semibold text-zinc-800 m-0"><%= birthdateFormatted %></dd>
+                <dd class="font-semibold text-white m-0"><%= birthdateFormatted %></dd>
               </div>
               <div class="flex items-center justify-between text-sm">
                 <dt class="text-zinc-400">Age</dt>
                 <dd class="m-0">
                   <% if (age !== null) { %>
-                  <span class="font-semibold <%= age >= 19 ? 'text-zinc-800' : 'text-red-600' %>"><%= age %> years old</span>
+                  <span class="font-semibold <%= age >= 19 ? 'text-white' : 'text-red-400' %>"><%= age %> years old</span>
                   <% if (age < 19) { %><span class="text-xs text-red-500 ml-1">(below minimum)</span><% } %>
                   <% } else { %>
-                  <span class="text-zinc-400">â€”</span>
+                  <span class="text-zinc-600">—</span>
                   <% } %>
                 </dd>
               </div>
               <div class="flex items-center justify-between text-sm">
                 <dt class="text-zinc-400">Sex (declared)</dt>
-                <dd class="font-semibold text-zinc-800 m-0"><%= sexLabel %></dd>
+                <dd class="font-semibold text-white m-0"><%= sexLabel %></dd>
               </div>
             </dl>
           </div>
@@ -133,112 +129,112 @@
         </div>
 
         <!-- Checklist -->
-        <div class="bg-white rounded-md border border-zinc-200 overflow-hidden">
+        <div class="bg-zinc-900 rounded-md border border-white/8 overflow-hidden">
 
-          <div class="px-6 py-4 border-b border-zinc-100 flex items-center gap-2.5">
-            <iconify-icon icon="lucide:clipboard-check" width="15" style="color:#7c3aed;display:block"></iconify-icon>
+          <div class="px-6 py-4 border-b border-white/8 flex items-center gap-2.5">
+            <iconify-icon icon="lucide:clipboard-check" width="15" style="color:#a78bfa;display:block"></iconify-icon>
             <div>
-              <p class="text-sm font-bold text-zinc-900 m-0">Review Checklist</p>
-              <p class="text-xs text-zinc-400 m-0">All items must be confirmed before you can approve this submission.</p>
+              <p class="text-sm font-bold text-white m-0">Review Checklist</p>
+              <p class="text-sm text-zinc-400 m-0">All items must be confirmed before you can approve this submission.</p>
             </div>
           </div>
 
-          <div class="divide-y divide-zinc-100">
+          <div class="divide-y divide-white/5">
 
-            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-zinc-50/60 transition-colors">
-              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-600 cursor-pointer shrink-0" style="margin-top:3px">
+            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors">
+              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-500 cursor-pointer shrink-0" style="margin-top:3px">
               <div>
-                <p class="text-sm font-medium text-zinc-800 m-0">Selfie contains a handwritten note</p>
-                <p class="text-xs text-zinc-400 m-0 mt-0.5">The user is physically holding a piece of paper with a handwritten verification code â€” not typed or digitally overlaid.</p>
+                <p class="text-sm font-medium text-white m-0">Selfie contains a handwritten note</p>
+                <p class="text-sm text-zinc-400 m-0 mt-0.5">The user is physically holding a piece of paper with a handwritten verification code — not typed or digitally overlaid.</p>
               </div>
             </label>
 
-            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-zinc-50/60 transition-colors">
-              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-600 cursor-pointer shrink-0" style="margin-top:3px">
+            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors">
+              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-500 cursor-pointer shrink-0" style="margin-top:3px">
               <div>
-                <p class="text-sm font-medium text-zinc-800 m-0">Written code matches the expected code</p>
-                <p class="text-xs text-zinc-400 m-0 mt-0.5">
-                  The code visible in the selfie exactly matches <span class="font-bold text-violet-700 tracking-widest"><%= user.idVerificationCode || 'â€”' %></span> â€” character for character, no ambiguous letters.
+                <p class="text-sm font-medium text-white m-0">Written code matches the expected code</p>
+                <p class="text-sm text-zinc-400 m-0 mt-0.5">
+                  The code visible in the selfie exactly matches <span class="font-bold text-violet-400 tracking-widest"><%= user.idVerificationCode || '—' %></span> — character for character, no ambiguous letters.
                 </p>
               </div>
             </label>
 
-            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-zinc-50/60 transition-colors">
-              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-600 cursor-pointer shrink-0" style="margin-top:3px">
+            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors">
+              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-500 cursor-pointer shrink-0" style="margin-top:3px">
               <div>
-                <p class="text-sm font-medium text-zinc-800 m-0">Face is fully visible and clearly recognizable</p>
-                <p class="text-xs text-zinc-400 m-0 mt-0.5">The user's face is unobscured, well-lit, and identifiable â€” no sunglasses, masks, heavy filters, or cropping of facial features.</p>
+                <p class="text-sm font-medium text-white m-0">Face is fully visible and clearly recognizable</p>
+                <p class="text-sm text-zinc-400 m-0 mt-0.5">The user's face is unobscured, well-lit, and identifiable — no sunglasses, masks, heavy filters, or cropping of facial features.</p>
               </div>
             </label>
 
-            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-zinc-50/60 transition-colors">
-              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-600 cursor-pointer shrink-0" style="margin-top:3px">
+            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors">
+              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-500 cursor-pointer shrink-0" style="margin-top:3px">
               <div>
-                <p class="text-sm font-medium text-zinc-800 m-0">ID document is a valid government-issued document</p>
-                <p class="text-xs text-zinc-400 m-0 mt-0.5">The document is a passport, driver's license, or national ID card. It is not expired, and both the name and date of birth are clearly legible.</p>
+                <p class="text-sm font-medium text-white m-0">ID document is a valid government-issued document</p>
+                <p class="text-sm text-zinc-400 m-0 mt-0.5">The document is a passport, driver's license, or national ID card. It is not expired, and both the name and date of birth are clearly legible.</p>
               </div>
             </label>
 
-            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-zinc-50/60 transition-colors">
-              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-600 cursor-pointer shrink-0" style="margin-top:3px">
+            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors">
+              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-500 cursor-pointer shrink-0" style="margin-top:3px">
               <div>
-                <p class="text-sm font-medium text-zinc-800 m-0">Selfie and ID document appear to be the same person</p>
-                <p class="text-xs text-zinc-400 m-0 mt-0.5">The facial features in the selfie are consistent with the photo on the ID document â€” same person, no substitution.</p>
+                <p class="text-sm font-medium text-white m-0">Selfie and ID document appear to be the same person</p>
+                <p class="text-sm text-zinc-400 m-0 mt-0.5">The facial features in the selfie are consistent with the photo on the ID document — same person, no substitution.</p>
               </div>
             </label>
 
-            <div class="checklist-row flex items-start gap-4 px-6 py-4 hover:bg-zinc-50/60 transition-colors">
-              <input type="checkbox" id="dob-check" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-600 cursor-pointer shrink-0" style="margin-top:3px" disabled>
+            <div class="checklist-row flex items-start gap-4 px-6 py-4 hover:bg-white/5 transition-colors">
+              <input type="checkbox" id="dob-check" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-500 cursor-pointer shrink-0" style="margin-top:3px" disabled>
               <div class="flex flex-col gap-3 flex-1 min-w-0">
                 <div>
-                  <p class="text-sm font-medium text-zinc-800 m-0">Date of birth confirms minimum age requirement</p>
-                  <p class="text-xs text-zinc-400 m-0 mt-0.5">Enter both dates to confirm the ID is consistent with the profile declaration and meets the minimum age.</p>
+                  <p class="text-sm font-medium text-white m-0">Date of birth confirms minimum age requirement</p>
+                  <p class="text-sm text-zinc-400 m-0 mt-0.5">Enter both dates to confirm the ID is consistent with the profile declaration and meets the minimum age.</p>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                   <div class="flex flex-col gap-1.5">
-                    <label for="dob-declared" class="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Declared DOB (profile)</label>
+                    <label for="dob-declared" class="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Declared DOB (profile)</label>
                     <input type="date" id="dob-declared" max="<%= ageCutoffISO %>"
-                      class="w-full px-3 py-2 text-sm rounded-md border border-zinc-200 bg-white text-zinc-800 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent">
+                      class="w-full px-3 py-2 text-sm rounded-md border border-white/10 bg-zinc-800 text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent">
                   </div>
                   <div class="flex flex-col gap-1.5">
-                    <label for="dob-card" class="text-xs font-semibold text-zinc-500 uppercase tracking-wide">DOB on ID card</label>
+                    <label for="dob-card" class="text-xs font-semibold text-zinc-400 uppercase tracking-wide">DOB on ID card</label>
                     <input type="date" id="dob-card" max="<%= ageCutoffISO %>"
-                      class="w-full px-3 py-2 text-sm rounded-md border border-zinc-200 bg-white text-zinc-800 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent">
+                      class="w-full px-3 py-2 text-sm rounded-md border border-white/10 bg-zinc-800 text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent">
                   </div>
                 </div>
 
-                <div id="dob-age-error" class="items-center gap-2 px-3 py-2 rounded-md bg-red-50 border border-red-200" style="display:none">
-                  <iconify-icon icon="lucide:x-circle" width="13" style="color:#dc2626;display:block;flex-shrink:0"></iconify-icon>
-                  <p class="text-xs text-red-700 m-0">DOB on ID card does not meet the 19 years + 1 day minimum age requirement.</p>
+                <div id="dob-age-error" class="items-center gap-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/25" style="display:none">
+                  <iconify-icon icon="lucide:x-circle" width="13" style="color:#f87171;display:block;flex-shrink:0"></iconify-icon>
+                  <p class="text-xs text-red-400 m-0">DOB on ID card does not meet the 19 years + 1 day minimum age requirement.</p>
                 </div>
 
-                <div id="dob-mismatch-warning" class="items-center gap-2 px-3 py-2 rounded-md bg-red-50 border border-red-200" style="display:none">
-                  <iconify-icon icon="lucide:x-circle" width="13" style="color:#dc2626;display:block;flex-shrink:0"></iconify-icon>
-                  <p class="text-xs text-red-700 m-0">Declared DOB does not match the DOB on the ID card.</p>
+                <div id="dob-mismatch-warning" class="items-center gap-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/25" style="display:none">
+                  <iconify-icon icon="lucide:x-circle" width="13" style="color:#f87171;display:block;flex-shrink:0"></iconify-icon>
+                  <p class="text-xs text-red-400 m-0">Declared DOB does not match the DOB on the ID card.</p>
                 </div>
 
-                <div class="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-50 border border-amber-200">
-                  <iconify-icon icon="lucide:calendar-check-2" width="13" style="color:#d97706;display:block;flex-shrink:0"></iconify-icon>
-                  <p class="text-xs text-amber-800 m-0">To qualify, the user must have been born <strong>on or before <%= ageCutoffFormatted %></strong>.</p>
+                <div class="flex items-center gap-2 px-3 py-2 rounded-md bg-white/5 border border-white/10">
+                  <iconify-icon icon="lucide:calendar-check-2" width="13" style="color:#a78bfa;display:block;flex-shrink:0"></iconify-icon>
+                  <p class="text-xs text-zinc-400 m-0">To qualify, the user must have been born <strong class="text-zinc-300">on or before <%= ageCutoffFormatted %></strong>.</p>
                 </div>
               </div>
             </div>
 
-            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-zinc-50/60 transition-colors">
-              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-600 cursor-pointer shrink-0" style="margin-top:3px">
+            <label class="checklist-row flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors">
+              <input type="checkbox" class="checklist-item mt-0.5 w-4 h-4 rounded accent-violet-500 cursor-pointer shrink-0" style="margin-top:3px">
               <div>
-                <p class="text-sm font-medium text-zinc-800 m-0">Declared sex is consistent with submitted documents</p>
-                <p class="text-xs text-zinc-400 m-0 mt-0.5">The user declared <strong class="text-zinc-600"><%= sexLabel %></strong> on their profile. The selfie and ID document are consistent with this declaration.</p>
+                <p class="text-sm font-medium text-white m-0">Declared sex is consistent with submitted documents</p>
+                <p class="text-sm text-zinc-400 m-0 mt-0.5">The user declared <strong class="text-zinc-300"><%= sexLabel %></strong> on their profile. The selfie and ID document are consistent with this declaration.</p>
               </div>
             </label>
 
           </div>
 
           <!-- Progress indicator -->
-          <div class="px-6 py-3 bg-zinc-50 border-t border-zinc-100 flex items-center gap-2">
-            <span id="check-count" class="text-xs font-bold text-zinc-500">0 / 7</span>
-            <div class="flex-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+          <div class="px-6 py-3 bg-zinc-950/40 border-t border-white/5 flex items-center gap-2">
+            <span id="check-count" class="text-xs font-bold text-zinc-400">0 / 7</span>
+            <div class="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
               <div id="check-bar" class="h-full bg-violet-500 rounded-full transition-all duration-200" style="width:0%"></div>
             </div>
             <span id="check-label" class="text-xs text-zinc-400">Complete all items to unlock approval</span>
@@ -250,14 +246,14 @@
         <div class="flex items-center justify-between gap-4 pb-4">
 
           <button type="button" id="reject-btn"
-            class="flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors cursor-pointer">
+            class="flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer" style="background:transparent">
             <iconify-icon icon="lucide:x-circle" width="14" style="display:block"></iconify-icon>
             Reject Submission
           </button>
 
           <form action="/admin/verification/<%= user._id %>/approve" method="POST">
             <button type="submit" id="approve-btn" disabled
-              class="flex items-center gap-2 px-6 py-2.5 rounded-md text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+              class="flex items-center gap-2 px-6 py-2.5 rounded-md text-sm font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
               <iconify-icon icon="lucide:shield-check" width="14" style="display:block"></iconify-icon>
               Approve &amp; Grant Access
             </button>
@@ -271,24 +267,24 @@
 
 
 
-<!-- â”€â”€ Rejection Reasons Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-<div id="reject-modal" class="fixed inset-0 hidden" style="z-index:60;background:rgba(0,0,0,0.5)">
+<!-- Rejection Reasons Modal -->
+<div id="reject-modal" class="fixed inset-0 hidden" style="z-index:60;background:rgba(0,0,0,0.7)">
   <div class="flex items-center justify-center h-full px-4">
-  <div id="reject-panel" class="bg-white rounded-md shadow-2xl w-full max-w-lg overflow-hidden">
+  <div id="reject-panel" class="bg-zinc-900 border border-white/10 rounded-md shadow-2xl w-full max-w-lg overflow-hidden">
 
     <!-- Header -->
-    <div class="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+    <div class="px-6 py-4 border-b border-white/8 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-md bg-red-50 flex items-center justify-center shrink-0">
-          <iconify-icon icon="lucide:x-circle" width="17" style="color:#dc2626;display:block"></iconify-icon>
+        <div class="w-9 h-9 rounded-md bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+          <iconify-icon icon="lucide:x-circle" width="17" style="color:#f87171;display:block"></iconify-icon>
         </div>
         <div>
-          <p class="text-sm font-bold text-zinc-900 m-0">Reject Submission</p>
-          <p class="text-xs text-zinc-400 m-0">Select all reasons that apply â€” they will be shown to the user.</p>
+          <p class="text-sm font-bold text-white m-0">Reject Submission</p>
+          <p class="text-sm text-zinc-400 m-0">Select all reasons that apply — they will be shown to the user.</p>
         </div>
       </div>
       <button type="button" id="reject-modal-close"
-        class="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer" style="border:none;background:transparent">
+        class="w-7 h-7 flex items-center justify-center rounded-md text-zinc-500 hover:text-white hover:bg-white/8 transition-colors cursor-pointer" style="border:none;background:transparent">
         <iconify-icon icon="lucide:x" width="15" style="display:block"></iconify-icon>
       </button>
     </div>
@@ -297,53 +293,53 @@
     <form action="/admin/verification/<%= user._id %>/reject" method="POST" id="reject-form">
       <div class="py-2 max-h-80 overflow-y-auto">
 
-        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-zinc-50 transition-colors">
-          <input type="checkbox" name="reasons" value="Selfie does not contain a handwritten note" class="reason-check w-4 h-4 rounded accent-red-600 cursor-pointer shrink-0">
-          <span class="text-sm text-zinc-700">Selfie does not contain a handwritten note</span>
+        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-white/5 transition-colors">
+          <input type="checkbox" name="reasons" value="Selfie does not contain a handwritten note" class="reason-check w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0">
+          <span class="text-sm text-zinc-300">Selfie does not contain a handwritten note</span>
         </label>
 
-        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-zinc-50 transition-colors">
-          <input type="checkbox" name="reasons" value="Written code does not match the expected code" class="reason-check w-4 h-4 rounded accent-red-600 cursor-pointer shrink-0">
-          <span class="text-sm text-zinc-700">Written code does not match the expected code</span>
+        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-white/5 transition-colors">
+          <input type="checkbox" name="reasons" value="Written code does not match the expected code" class="reason-check w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0">
+          <span class="text-sm text-zinc-300">Written code does not match the expected code</span>
         </label>
 
-        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-zinc-50 transition-colors">
-          <input type="checkbox" name="reasons" value="Face is not fully visible or not clearly recognizable" class="reason-check w-4 h-4 rounded accent-red-600 cursor-pointer shrink-0">
-          <span class="text-sm text-zinc-700">Face is not fully visible or not clearly recognizable</span>
+        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-white/5 transition-colors">
+          <input type="checkbox" name="reasons" value="Face is not fully visible or not clearly recognizable" class="reason-check w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0">
+          <span class="text-sm text-zinc-300">Face is not fully visible or not clearly recognizable</span>
         </label>
 
-        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-zinc-50 transition-colors">
-          <input type="checkbox" name="reasons" value="ID document is not a valid government-issued document" class="reason-check w-4 h-4 rounded accent-red-600 cursor-pointer shrink-0">
-          <span class="text-sm text-zinc-700">ID document is not a valid government-issued document</span>
+        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-white/5 transition-colors">
+          <input type="checkbox" name="reasons" value="ID document is not a valid government-issued document" class="reason-check w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0">
+          <span class="text-sm text-zinc-300">ID document is not a valid government-issued document</span>
         </label>
 
-        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-zinc-50 transition-colors">
-          <input type="checkbox" name="reasons" value="Selfie and ID document do not appear to be the same person" class="reason-check w-4 h-4 rounded accent-red-600 cursor-pointer shrink-0">
-          <span class="text-sm text-zinc-700">Selfie and ID document do not appear to be the same person</span>
+        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-white/5 transition-colors">
+          <input type="checkbox" name="reasons" value="Selfie and ID document do not appear to be the same person" class="reason-check w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0">
+          <span class="text-sm text-zinc-300">Selfie and ID document do not appear to be the same person</span>
         </label>
 
-        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-zinc-50 transition-colors">
-          <input type="checkbox" name="reasons" value="Date of birth does not confirm the minimum age requirement" class="reason-check w-4 h-4 rounded accent-red-600 cursor-pointer shrink-0">
-          <span class="text-sm text-zinc-700">Date of birth does not confirm the minimum age requirement</span>
+        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-white/5 transition-colors">
+          <input type="checkbox" name="reasons" value="Date of birth does not confirm the minimum age requirement" class="reason-check w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0">
+          <span class="text-sm text-zinc-300">Date of birth does not confirm the minimum age requirement</span>
         </label>
 
-        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-zinc-50 transition-colors">
-          <input type="checkbox" name="reasons" value="Declared sex is inconsistent with submitted documents" class="reason-check w-4 h-4 rounded accent-red-600 cursor-pointer shrink-0">
-          <span class="text-sm text-zinc-700">Declared sex is inconsistent with submitted documents</span>
+        <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-white/5 transition-colors">
+          <input type="checkbox" name="reasons" value="Declared sex is inconsistent with submitted documents" class="reason-check w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0">
+          <span class="text-sm text-zinc-300">Declared sex is inconsistent with submitted documents</span>
         </label>
 
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t border-zinc-100 flex items-center justify-between">
+      <div class="px-6 py-4 border-t border-white/8 flex items-center justify-between">
         <span id="reject-reason-count" class="text-xs text-zinc-400">No reasons selected</span>
         <div class="flex items-center gap-2">
           <button type="button" id="reject-cancel-btn"
-            class="px-4 py-2 rounded-md text-sm font-semibold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer" style="border:none;background:transparent">
+            class="px-4 py-2 rounded-md text-sm font-semibold text-zinc-400 hover:text-white hover:bg-white/8 transition-colors cursor-pointer" style="border:none;background:transparent">
             Cancel
           </button>
           <button type="submit" id="reject-confirm-btn" disabled
-            class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer" style="border:none">
+            class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold bg-red-600 text-white hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer" style="border:none">
             <iconify-icon icon="lucide:x-circle" width="14" style="display:block"></iconify-icon>
             Confirm Rejection
           </button>
@@ -355,13 +351,13 @@
   </div>
 </div>
 
-<!-- â”€â”€ Image Viewer Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-<div id="img-modal" class="fixed inset-0 z-50 hidden" style="background:rgba(0,0,0,0.88)">
+<!-- Image Viewer Modal -->
+<div id="img-modal" class="fixed inset-0 z-50 hidden" style="background:rgba(0,0,0,0.92)">
 
   <!-- Backdrop (click to close) -->
   <div id="modal-backdrop" class="absolute inset-0"></div>
 
-  <!-- Content (pointer-events threaded through children) -->
+  <!-- Content -->
   <div class="relative z-10 flex flex-col h-full p-4 gap-3" style="pointer-events:none">
 
     <!-- Header bar -->
@@ -373,7 +369,7 @@
       <div class="flex items-center gap-3 text-xs text-zinc-400">
         <span class="hidden sm:flex items-center gap-1.5">
           <iconify-icon icon="lucide:mouse-pointer-2" width="12" style="display:block"></iconify-icon>
-          Scroll to zoom Â· Drag to pan
+          Scroll to zoom · Drag to pan
         </span>
         <button id="modal-close-btn" class="vbtn flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold rounded-md" style="background:rgba(255,255,255,0.12);border:none;cursor:pointer">
           <iconify-icon icon="lucide:x" width="13" style="display:block"></iconify-icon>
@@ -436,7 +432,7 @@
 </div>
 
 <style>
-.vbtn { background: transparent; border: none; cursor: pointer; color: #a1a1aa; border-radius: 6px; padding: 5px; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; }
+.vbtn { background: transparent; border: none; cursor: pointer; color: #71717a; border-radius: 6px; padding: 5px; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; }
 .vbtn:hover { background: rgba(255,255,255,0.1); color: #fff; }
 </style>
 
@@ -474,7 +470,6 @@
     modal.classList.add('hidden');
   }
 
-  // Open triggers
   ['open-viewer', 'open-viewer-2'].forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.addEventListener('click', openModal);
@@ -486,7 +481,6 @@
     if (e.key === 'Escape') closeModal();
   });
 
-  // Zoom buttons
   document.querySelectorAll('.viewer-btn').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -501,7 +495,6 @@
     });
   });
 
-  // Wheel zoom (zoom toward cursor)
   ['selfie', 'iddoc'].forEach(function (key) {
     var vp = document.getElementById(key + '-vp');
 
@@ -520,7 +513,6 @@
       applyTransform(key);
     }, { passive: false });
 
-    // Drag to pan
     vp.addEventListener('mousedown', function (e) {
       if (e.button !== 0) return;
       var s = state[key];
@@ -557,7 +549,6 @@
 <script>
 (function () {
 
-  // â”€â”€ Checklist progress + approve gate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   var checklist  = document.querySelectorAll('.checklist-item');
   var approveBtn = document.getElementById('approve-btn');
   var countEl    = document.getElementById('check-count');
@@ -572,8 +563,8 @@
     barEl.style.width   = pct + '%';
     if (checked === total) {
       barEl.classList.replace('bg-violet-500', 'bg-green-500');
-      labelEl.textContent = 'All items confirmed â€” approval unlocked';
-      labelEl.className   = 'text-xs text-green-600 font-medium';
+      labelEl.textContent = 'All items confirmed — approval unlocked';
+      labelEl.className   = 'text-xs text-green-400 font-medium';
       approveBtn.disabled = false;
     } else {
       barEl.classList.replace('bg-green-500', 'bg-violet-500');
@@ -589,7 +580,6 @@
     document.getElementById('reject-modal').classList.remove('hidden');
   });
 
-  // â”€â”€ DOB inputs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   var ageCutoff   = '<%= ageCutoffISO %>';
   var dobDeclared = document.getElementById('dob-declared');
   var dobCard     = document.getElementById('dob-card');
@@ -632,7 +622,6 @@
   dobDeclared.addEventListener('change', validateDob);
   dobCard.addEventListener('change', validateDob);
 
-  // â”€â”€ Rejection reasons modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   var rejectModal  = document.getElementById('reject-modal');
   var rejectPanel  = document.getElementById('reject-panel');
   var modalClose   = document.getElementById('reject-modal-close');

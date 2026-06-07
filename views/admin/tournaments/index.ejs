@@ -1,36 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><%- include('../../partials/head') %></head>
-<body class="flex overflow-hidden bg-zinc-50" style="height:100vh;font-family:'Sofia Sans',sans-serif">
+<body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
 
   <%- include('../../partials/adminSidebar', { currentPage: 'tournaments' }) %>
 
   <div class="flex-1 flex flex-col overflow-hidden">
 
-    <div class="bg-white border-b border-zinc-200 px-8 py-5 flex items-center justify-between shrink-0">
-      <div>
-        <h1 class="text-xl font-bold text-zinc-900 m-0">Tournaments</h1>
-        <p class="text-sm text-zinc-400 mt-0.5 mb-0">Manage platform and user-organized tournaments</p>
-      </div>
-      <button disabled class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-semibold bg-zinc-100 text-zinc-400 cursor-not-allowed">
-        <iconify-icon icon="lucide:plus" width="14" style="display:block"></iconify-icon>
-        Create tournament
-      </button>
-    </div>
-
     <main class="flex-1 overflow-y-auto p-8 flex items-start justify-center">
-      <div class="bg-white rounded-md border border-zinc-200 p-12 max-w-md w-full text-center mt-8">
-        <div class="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-5">
-          <iconify-icon icon="lucide:trophy" width="24" style="color:#d97706;display:block"></iconify-icon>
+      <div class="bg-zinc-900 border border-white/8 rounded-md p-12 max-w-md w-full text-center mt-8">
+        <div class="w-14 h-14 rounded-full bg-charm-500/10 flex items-center justify-center mx-auto mb-5">
+          <iconify-icon icon="lucide:trophy" width="24" style="color:#c45c7a;display:block"></iconify-icon>
         </div>
-        <span class="inline-block px-2.5 py-1 rounded-md text-xs font-bold bg-zinc-100 text-zinc-500 mb-4">Phase 6</span>
-        <h2 class="text-lg font-bold text-zinc-800 mt-0 mb-2">Tournament Management</h2>
+        <span class="inline-block px-2.5 py-1 rounded-md text-xs font-bold bg-white/8 text-zinc-500 mb-4">Phase 6</span>
+        <h2 class="text-lg font-bold text-white mt-0 mb-2">Tournament Management</h2>
         <p class="text-sm text-zinc-400 mb-6 leading-relaxed">Create platform-funded tournaments and monitor all active tournament activity across the platform.</p>
-        <ul class="text-sm text-zinc-500 text-left flex flex-col gap-2">
-          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Create platform-funded tournaments (admin only)</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>View all tournaments with status filter</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Participant list, matchup grid, missed review counter</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Prize configuration per tournament</li>
+        <ul class="text-sm text-zinc-400 text-left flex flex-col gap-2">
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#52525b;display:block"></iconify-icon>Create platform-funded tournaments (admin only)</li>
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#52525b;display:block"></iconify-icon>View all tournaments with status filter</li>
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#52525b;display:block"></iconify-icon>Participant list, matchup grid, missed review counter</li>
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#52525b;display:block"></iconify-icon>Prize configuration per tournament</li>
         </ul>
       </div>
     </main>

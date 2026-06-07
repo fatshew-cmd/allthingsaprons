@@ -9,10 +9,10 @@
   <div class="flex-1 flex overflow-hidden">
 
     <!-- Left: thread list -->
-    <div class="w-72 shrink-0 flex flex-col border-r border-white/8 bg-zinc-900">
+    <div class="w-72 shrink-0 flex flex-col border-r border-white/8 bg-zinc-950">
       <div class="shrink-0 px-4 py-4 border-b border-white/8">
         <h2 class="text-sm font-bold text-white m-0">Messages</h2>
-        <p class="text-xs text-white/35 mt-0.5 m-0">User support conversations</p>
+        <p class="text-xs text-white/50 mt-0.5 m-0">User support conversations</p>
       </div>
 
       <div id="thread-list" class="flex-1 overflow-y-auto">
@@ -23,15 +23,15 @@
     </div>
 
     <!-- Right: active thread -->
-    <div class="flex-1 flex flex-col overflow-hidden bg-zinc-950">
+    <div class="flex-1 flex flex-col overflow-hidden bg-zinc-900">
 
       <!-- Empty state (no thread selected) -->
       <div id="no-thread" class="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
         <div class="w-12 h-12 rounded-md bg-white/5 border border-white/8 flex items-center justify-center">
           <iconify-icon icon="lucide:message-square" width="20" class="text-white/20"></iconify-icon>
         </div>
-        <p class="text-sm text-white/35 font-medium">Select a conversation</p>
-        <p class="text-xs text-white/20 max-w-xs leading-relaxed">Choose a thread from the list on the left to view and reply to messages.</p>
+        <p class="text-sm text-white/50 font-medium">Select a conversation</p>
+        <p class="text-xs text-white/40 max-w-xs leading-relaxed">Choose a thread from the list on the left to view and reply to messages.</p>
       </div>
 
       <!-- Active thread panel (hidden until a thread is selected) -->
@@ -63,7 +63,7 @@
               <div id="reply-preview" class="hidden flex-wrap gap-2 pt-2 pb-2.5"></div>
             </div>
             <button type="button" id="reply-btn"
-              class="shrink-0 w-10 h-10 rounded-md bg-amber-500 hover:bg-amber-400 disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
+              class="shrink-0 w-10 h-10 rounded-md bg-charm-500 hover:bg-charm-400 disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
               disabled>
               <iconify-icon icon="boxicons:send" width="15" class="text-zinc-900"></iconify-icon>
             </button>
@@ -72,7 +72,7 @@
 
         <!-- Closed notice (shown when thread is closed) -->
         <div id="reply-closed-notice" class="hidden shrink-0 border-t border-white/8 bg-zinc-900 px-4 py-4 text-center">
-          <p class="text-xs text-white/30 m-0">This conversation has been closed.</p>
+          <p class="text-xs text-white/50 m-0">This conversation has been closed.</p>
         </div>
 
       </div>
@@ -165,8 +165,8 @@
 
   function buildBubble(msg, grouped) {
     var t = fmtTimeShort(msg.createdAt);
-    var timeSpan  = '<span style="flex-shrink:0;font-size:10px;opacity:0.35;white-space:nowrap;line-height:1.4;align-self:flex-end">' + t + '</span>';
-    var timeBlock = '<div style="display:flex;justify-content:flex-end;margin-top:4px"><span style="font-size:10px;opacity:0.35">' + t + '</span></div>';
+    var timeSpan  = '<span style="flex-shrink:0;font-size:11px;opacity:0.5;white-space:nowrap;line-height:1.4;align-self:flex-end">' + t + '</span>';
+    var timeBlock = '<div style="display:flex;justify-content:flex-end;margin-top:4px"><span style="font-size:11px;opacity:0.5">' + t + '</span></div>';
 
     var hasBody = !!msg.body;
     var hasAtt  = msg.attachments && msg.attachments.length > 0;
@@ -256,14 +256,14 @@
       '</div>' +
       '<div class="flex-1 min-w-0">' +
         '<div class="flex items-center justify-between gap-2">' +
-          '<p class="text-[13px] font-semibold text-white truncate m-0">' + esc(name) + '</p>' +
+          '<p class="text-sm font-semibold text-white truncate m-0">' + esc(name) + '</p>' +
           (t.status === 'closed'
-            ? '<span class="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/8 text-white/25">Closed</span>'
-            : (t.unreadCount > 0 ? '<span class="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-charm-500 text-white leading-none">' + t.unreadCount + '</span>' : '')) +
+            ? '<span class="shrink-0 text-[11px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/8 text-white/40">Closed</span>'
+            : (t.unreadCount > 0 ? '<span class="shrink-0 text-xs font-bold px-1.5 py-0.5 rounded-full bg-charm-500 text-white leading-none">' + t.unreadCount + '</span>' : '')) +
         '</div>' +
-        '<p class="text-[11px] text-white/40 m-0 mt-0.5 font-medium">' + esc(t.topicLabel) + '</p>' +
-        '<p class="text-xs text-white/25 truncate m-0 mt-0.5">' + esc(preview) + '</p>' +
-        '<p class="text-[10px] text-white/20 m-0 mt-0.5">' + fmtTime(last.createdAt) + '</p>' +
+        '<p class="text-xs text-white/55 m-0 mt-0.5 font-medium">' + esc(t.topicLabel) + '</p>' +
+        '<p class="text-xs text-white/40 truncate m-0 mt-0.5">' + esc(preview) + '</p>' +
+        '<p class="text-xs text-white/35 m-0 mt-0.5">' + fmtTime(last.createdAt) + '</p>' +
       '</div>';
 
     el.addEventListener('click', function() {
@@ -310,7 +310,7 @@
           var nameRow = listItem.querySelector('.flex.items-center.justify-between');
           if (nameRow && !nameRow.querySelector('.bg-white\\/8')) {
             var closedPill = document.createElement('span');
-            closedPill.className = 'shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/8 text-white/25';
+            closedPill.className = 'shrink-0 text-[11px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/8 text-white/40';
             closedPill.textContent = 'Closed';
             nameRow.appendChild(closedPill);
           }
@@ -347,11 +347,13 @@
         '<iconify-icon icon="lucide:user" width="14" class="text-white/40"></iconify-icon>' +
       '</div>' +
       '<div>' +
-        '<p class="text-sm font-semibold text-white m-0">' + esc(name) + '</p>' +
+        '<div class="flex items-center gap-2">' +
+          '<p class="text-sm font-semibold text-white m-0">' + esc(name) + '</p>' +
+          '<span class="text-xs text-white/25"><span class="text-white/15">#</span> ' + esc(topicLabel) + '</span>' +
+        '</div>' +
         (email ? '<p class="text-xs text-white/30 m-0">' + esc(email) + '</p>' : '') +
       '</div>' +
       '<div class="ml-auto flex items-center gap-2 shrink-0">' +
-        '<span class="text-xs px-3 py-1.5 rounded-md bg-white/6 border border-white/10 text-white/50">' + esc(topicLabel) + '</span>' +
         (status === 'open'
           ? '<button type="button" id="close-thread-btn" class="text-xs font-semibold px-3 py-1.5 rounded-md bg-red-500/10 border border-red-500/25 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer">Close conversation</button>'
           : '<span class="text-xs px-3 py-1.5 rounded-md bg-white/5 border border-white/8 text-white/30">Closed</span>') +

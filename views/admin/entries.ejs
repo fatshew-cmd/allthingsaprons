@@ -1,37 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
-<body class="flex overflow-hidden bg-zinc-50" style="height:100vh;font-family:'Sofia Sans',sans-serif">
+<body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
 
   <%- include('../partials/adminSidebar', { currentPage: 'entries' }) %>
 
   <div class="flex-1 flex flex-col overflow-hidden">
-
-    <!-- Header -->
-    <div class="bg-white border-b border-zinc-200 px-8 py-5 flex items-center justify-between shrink-0">
-      <div>
-        <h1 class="text-xl font-bold text-zinc-900 m-0">Entry Review</h1>
-        <p class="text-sm text-zinc-400 mt-0.5 mb-0">Approve or reject pending onboarding submissions</p>
-      </div>
-      <% if (entries && entries.length) { %>
-      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-amber-500 text-stone-900">
-        <iconify-icon icon="lucide:clock" width="12" style="display:block"></iconify-icon>
-        <%= entries.length %> pending
-      </span>
-      <% } %>
-    </div>
 
     <!-- Content -->
     <main class="flex-1 overflow-y-auto p-8">
 
       <% if (!entries || !entries.length) { %>
 
-      <div class="bg-white border border-zinc-200 rounded-md p-16 text-center">
-        <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
-          <iconify-icon icon="lucide:check-circle-2" width="22" style="color:#16a34a;display:block"></iconify-icon>
+      <div class="bg-zinc-900 border border-white/8 rounded-md p-16 text-center">
+        <div class="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+          <iconify-icon icon="lucide:check-circle-2" width="22" style="color:#4ade80;display:block"></iconify-icon>
         </div>
-        <p class="font-semibold text-zinc-700 m-0">All caught up</p>
-        <p class="text-sm text-zinc-400 mt-1 mb-0">No pending submissions to review.</p>
+        <p class="font-semibold text-white m-0">All caught up</p>
+        <p class="text-sm text-zinc-500 mt-1 mb-0">No pending submissions to review.</p>
       </div>
 
       <% } else { %>
@@ -39,11 +25,11 @@
       <div class="flex flex-col gap-4">
         <% entries.forEach(function(e) { %>
 
-        <div class="bg-white border border-zinc-200 rounded-md overflow-hidden">
+        <div class="bg-zinc-900 border border-white/8 rounded-md overflow-hidden">
           <div class="flex flex-col sm:flex-row">
 
             <!-- Media -->
-            <div class="sm:w-52 shrink-0 bg-zinc-100 relative">
+            <div class="sm:w-52 shrink-0 bg-zinc-800 relative">
               <% if (e.entryId && e.entryId.mediaUrl) { %>
                 <% if (e.entryId.mediaType === 'video') { %>
                 <video src="<%= e.entryId.mediaUrl %>" class="w-full h-52 sm:h-full object-cover" muted playsinline loop
@@ -53,7 +39,7 @@
                 <img src="<%= e.entryId.mediaUrl %>" alt="Entry" class="w-full h-52 sm:h-full object-cover">
                 <% } %>
               <% } else { %>
-              <div class="w-full h-52 sm:h-full flex items-center justify-center text-zinc-300 text-sm">No media</div>
+              <div class="w-full h-52 sm:h-full flex items-center justify-center text-zinc-600 text-sm">No media</div>
               <% } %>
             </div>
 
@@ -64,20 +50,20 @@
               <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0">
                   <% if (e.userId && e.userId.avatar?.value) { %>
-                  <img src="<%= e.userId.avatar.value %>" alt="" class="w-9 h-9 rounded-md object-cover shrink-0 bg-zinc-100">
+                  <img src="<%= e.userId.avatar.value %>" alt="" class="w-9 h-9 rounded-md object-cover shrink-0 bg-zinc-800">
                   <% } else { %>
-                  <div class="w-9 h-9 rounded-md bg-zinc-100 shrink-0 flex items-center justify-center">
-                    <iconify-icon icon="lucide:user" width="15" style="color:#d4d4d8;display:block"></iconify-icon>
+                  <div class="w-9 h-9 rounded-md bg-zinc-800 shrink-0 flex items-center justify-center">
+                    <iconify-icon icon="lucide:user" width="15" style="color:#52525b;display:block"></iconify-icon>
                   </div>
                   <% } %>
                   <div class="min-w-0">
-                    <p class="font-semibold text-sm text-zinc-800 truncate m-0">
+                    <p class="font-semibold text-sm text-white truncate m-0">
                       <%= e.userId ? ('@' + (e.userId.username?.value || 'no username')) : 'Unknown user' %>
                     </p>
-                    <p class="text-xs text-zinc-400 truncate mt-0.5 mb-0"><%= e.userId ? e.userId.email?.value : '' %></p>
+                    <p class="text-sm text-zinc-400 truncate mt-0.5 mb-0"><%= e.userId ? e.userId.email?.value : '' %></p>
                   </div>
                 </div>
-                <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-charm-500/15 text-charm-400 border border-charm-500/25">
                   <iconify-icon icon="lucide:clock" width="10" style="display:block"></iconify-icon>
                   Pending
                 </span>
@@ -86,18 +72,18 @@
               <!-- Tournament -->
               <% if (e.tournamentId) { %>
               <div class="flex items-center gap-1.5 text-sm text-zinc-500">
-                <iconify-icon icon="lucide:trophy" width="13" style="color:#d4d4d8;flex-shrink:0;display:block"></iconify-icon>
+                <iconify-icon icon="lucide:trophy" width="13" style="color:#52525b;flex-shrink:0;display:block"></iconify-icon>
                 <span><%= e.tournamentId.name %></span>
               </div>
               <% } %>
 
               <!-- Caption -->
               <% if (e.entryId && e.entryId.caption) { %>
-              <p class="text-sm text-zinc-500 italic line-clamp-2 m-0">"<%= e.entryId.caption %>"</p>
+              <p class="text-sm text-zinc-400 italic line-clamp-2 m-0">"<%= e.entryId.caption %>"</p>
               <% } %>
 
               <!-- Meta -->
-              <p class="text-xs text-zinc-400 m-0">
+              <p class="text-sm text-zinc-400 m-0">
                 Submitted <%= new Date(e.submittedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) %>
               </p>
 
@@ -112,7 +98,7 @@
                 </form>
                 <form action="/admin/entries/<%= e._id %>/reject" method="POST">
                   <button type="submit"
-                    class="px-5 py-2 border border-red-200 hover:bg-red-50 text-red-500 text-sm font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5">
+                    class="px-5 py-2 border border-red-500/30 hover:bg-red-500/10 text-red-400 text-sm font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5">
                     <iconify-icon icon="lucide:x" width="14" style="display:block"></iconify-icon>
                     Reject
                   </button>

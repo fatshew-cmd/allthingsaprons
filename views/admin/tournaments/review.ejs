@@ -1,30 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><%- include('../../partials/head') %></head>
-<body class="flex overflow-hidden bg-zinc-50" style="height:100vh;font-family:'Sofia Sans',sans-serif">
+<body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
 
   <%- include('../../partials/adminSidebar', { currentPage: 'tournament-review' }) %>
 
   <div class="flex-1 flex flex-col overflow-hidden">
 
-    <div class="bg-white border-b border-zinc-200 px-8 py-5 shrink-0">
-      <h1 class="text-xl font-bold text-zinc-900 m-0">Tournament Review Queue</h1>
-      <p class="text-sm text-zinc-400 mt-0.5 mb-0">Approve or reject user-organized tournament submissions</p>
-    </div>
-
     <main class="flex-1 overflow-y-auto p-8 flex items-start justify-center">
-      <div class="bg-white rounded-md border border-zinc-200 p-12 max-w-md w-full text-center mt-8">
-        <div class="w-14 h-14 rounded-full bg-teal-50 flex items-center justify-center mx-auto mb-5">
-          <iconify-icon icon="lucide:clipboard-check" width="24" style="color:#0d9488;display:block"></iconify-icon>
+      <div class="bg-zinc-900 border border-white/8 rounded-md p-12 max-w-md w-full text-center mt-8">
+        <div class="w-14 h-14 rounded-full bg-teal-500/10 flex items-center justify-center mx-auto mb-5">
+          <iconify-icon icon="lucide:clipboard-check" width="24" style="color:#2dd4bf;display:block"></iconify-icon>
         </div>
-        <span class="inline-block px-2.5 py-1 rounded-md text-xs font-bold bg-zinc-100 text-zinc-500 mb-4">Phase 6</span>
-        <h2 class="text-lg font-bold text-zinc-800 mt-0 mb-2">Review Queue</h2>
-        <p class="text-sm text-zinc-400 mb-6 leading-relaxed">User-organized tournaments enter <code class="text-xs bg-zinc-100 px-1 rounded">pending_review</code> before going live. Admin approves or rejects after checking organizer profile and tournament config.</p>
-        <ul class="text-sm text-zinc-500 text-left flex flex-col gap-2">
-          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Tournament config and prize structure</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Organizer profile and ID verification status</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Approve → moves to <code class="text-xs bg-zinc-100 px-1 rounded">open</code></li>
-          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#d4d4d8;display:block"></iconify-icon>Reject → organizer notified with reason</li>
+        <span class="inline-block px-2.5 py-1 rounded-md text-xs font-bold bg-white/8 text-zinc-500 mb-4">Phase 6</span>
+        <h2 class="text-lg font-bold text-white mt-0 mb-2">Review Queue</h2>
+        <p class="text-sm text-zinc-400 mb-6 leading-relaxed">User-organized tournaments enter <code class="text-xs bg-white/8 text-zinc-400 px-1 rounded">pending_review</code> before going live. Admin approves or rejects after checking organizer profile and tournament config.</p>
+        <ul class="text-sm text-zinc-400 text-left flex flex-col gap-2">
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#52525b;display:block"></iconify-icon>Tournament config and prize structure</li>
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#52525b;display:block"></iconify-icon>Organizer profile and ID verification status</li>
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#52525b;display:block"></iconify-icon>Approve → moves to <code class="text-xs bg-white/8 text-zinc-400 px-1 rounded">open</code></li>
+          <li class="flex items-center gap-2"><iconify-icon icon="lucide:circle-dot" width="13" style="color:#52525b;display:block"></iconify-icon>Reject → organizer notified with reason</li>
         </ul>
       </div>
     </main>
