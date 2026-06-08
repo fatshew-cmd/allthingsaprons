@@ -153,6 +153,16 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <% } %>
     <% } %>
 
+    <!-- Accountability — supervisor+ -->
+    <% if (_isSuperadmin || _isSupervisor || _isFounder) { %>
+    <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Accountability</span>
+
+    <a href="/admin/audit-log" class="<%= lnk('audit-log') %>">
+      <iconify-icon icon="lucide:scroll-text" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      Audit Log
+    </a>
+    <% } %>
+
     <!-- Team — founder only -->
     <% if (_isFounder) { %>
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Team</span>

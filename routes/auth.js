@@ -2,7 +2,8 @@ const express  = require('express');
 const router   = express.Router();
 const bcrypt   = require('bcrypt');
 const { Resend } = require('resend');
-const User     = require('../models/User');
+const User        = require('../models/User');
+const BannedEmail = require('../models/BannedEmail');
 const upload   = require('../middleware/upload');
 
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@allthingsaprons.com';
@@ -48,9 +49,13 @@ router.post('/auth/send-otp', async (req, res) => {
   const { email, username } = req.body;
   try {
     if (!req.session.userId) {
-      const existing = await User.findOne({
-        $or: [{ 'email.value': email.toLowerCase() }, { 'username.value': username.toLowerCase() }],
-      });
+      const [existing, banned] = await Promise.all([
+        User.findOne({ $or: [{ 'email.value': email.toLowerCase() }, { 'username.value': username.toLowerCase() }] }),
+        BannedEmail.exists({ email: email.toLowerCase() }),
+      ]);
+      if (banned) {
+        return res.json({ ok: false, field: 'email', message: 'Email already registered.' });
+      }
       if (existing) {
         if (existing.email.value === email.toLowerCase()) {
           if (existing.accountStatus === 'onboarding')
@@ -199,9 +204,11 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
       return renderError('Password must be at least 12 characters with 3+ lowercase, 3+ uppercase, 3+ digits, and 3+ special characters.');
     }
 
-    const existing = await User.findOne({
-      $or: [{ 'email.value': email.toLowerCase() }, { 'username.value': username.toLowerCase() }],
-    });
+    const [existing, banned] = await Promise.all([
+      User.findOne({ $or: [{ 'email.value': email.toLowerCase() }, { 'username.value': username.toLowerCase() }] }),
+      BannedEmail.exists({ email: email.toLowerCase() }),
+    ]);
+    if (banned) return renderError('This email is already registered.');
     if (existing) {
       if (existing.email.value === email.toLowerCase()) {
         if (existing.accountStatus === 'onboarding')

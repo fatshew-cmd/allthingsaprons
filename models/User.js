@@ -82,7 +82,7 @@ const userSchema = new mongoose.Schema({
     history: [historyEntry],
   },
 
-  accountStatus:    { type: String, enum: ['onboarding', 'active', 'invited'], default: 'onboarding' },
+  accountStatus:    { type: String, enum: ['onboarding', 'active', 'invited', 'banned'], default: 'onboarding' },
   onboardingStatus: {
     type:    String,
     enum:    ['pending_id_verification', 'pending_submission', 'pending_approval', 'approved', 'rejected'],
@@ -90,7 +90,7 @@ const userSchema = new mongoose.Schema({
   },
 
   idVerified:                     { type: Boolean, default: false },
-  idVerificationStatus:           { type: String, enum: ['none', 'pending'], default: 'none' },
+  idVerificationStatus:           { type: String, enum: ['none', 'pending', 'closed'], default: 'none' },
   idSelfieUrl:                    { type: String },
   idDocUrl:                       { type: String },
   idVerificationCode:             { type: String },
@@ -100,6 +100,8 @@ const userSchema = new mongoose.Schema({
   idVerificationReviewedAt:       { type: Date },
   idVerificationClaimNumber:      { type: String },
   idVerificationRejectionReasons: [{ type: String }],
+  idVerificationCaseRef:          { type: String },
+  idVerificationEscalated:        { type: Boolean, default: false },
 
   wallet: {
     balanceCents: { type: Number, default: 0 },

@@ -5,8 +5,11 @@ const bcrypt         = require('bcrypt');
 const User           = require('../models/User');
 const TournamentEntry = require('../models/TournamentEntry');
 const SupportMessage = require('../models/SupportMessage');
+const AdminAuditLog  = require('../models/AdminAuditLog');
 const isAdmin        = require('../middleware/isAdmin');
 const requireDomain  = require('../middleware/requireDomain');
+const logAuditEvent  = require('../utils/auditLog');
+const BannedEmail    = require('../models/BannedEmail');
 
 router.get('/login', (req, res) => {
   res.render('admin/login', { title: 'Admin Login', error: null, setup: req.query.setup === '1' });
@@ -226,6 +229,16 @@ router.post('/users/:id/role', async (req, res) => {
 
     const finalPerms = (role === 'user' || role === 'superadmin' || role === 'founder') ? [] : perms;
     await User.findByIdAndUpdate(req.params.id, { role, permissions: finalPerms });
+    logAuditEvent({
+      actorId:      req.session.adminId,
+      actorRole:    req.session.adminRole,
+      action:       'user_role_changed',
+      entityType:   'user',
+      entityId:     target._id,
+      targetUserId: target._id,
+      remarks:      req.body.remarks,
+      metadata:     { previousRole: target.role, newRole: role, permissions: finalPerms },
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -251,6 +264,16 @@ router.post('/entries/:id/approve', async (req, res) => {
     TournamentEntry.findByIdAndUpdate(te._id, { approvalStatus: 'approved', reviewedAt: new Date() }),
     User.findByIdAndUpdate(te.userId, { onboardingStatus: 'approved', accountStatus: 'active' }),
   ]);
+  logAuditEvent({
+    actorId:      req.session.adminId,
+    actorRole:    req.session.adminRole,
+    action:       'onboarding_entry_approved',
+    entityType:   'tournament_entry',
+    entityId:     te._id,
+    targetUserId: te.userId,
+    remarks:      req.body.remarks,
+    metadata:     { tournamentId: te.tournamentId, entryId: te.entryId },
+  });
   res.redirect('/admin/entries');
 });
 
@@ -261,6 +284,16 @@ router.post('/entries/:id/reject', async (req, res) => {
     TournamentEntry.findByIdAndUpdate(te._id, { approvalStatus: 'rejected', reviewedAt: new Date() }),
     User.findByIdAndUpdate(te.userId, { onboardingStatus: 'rejected' }),
   ]);
+  logAuditEvent({
+    actorId:      req.session.adminId,
+    actorRole:    req.session.adminRole,
+    action:       'onboarding_entry_rejected',
+    entityType:   'tournament_entry',
+    entityId:     te._id,
+    targetUserId: te.userId,
+    remarks:      req.body.remarks,
+    metadata:     { tournamentId: te.tournamentId, entryId: te.entryId },
+  });
   res.redirect('/admin/entries');
 });
 
@@ -329,11 +362,28 @@ router.get('/verification/:id', async (req, res) => {
 
 router.post('/verification/:id/approve', async (req, res) => {
   try {
-    const user = await User.findOne({ _id: req.params.id, idVerificationStatus: 'pending' });
+    const user = await User.findOne({ _id: req.params.id, idVerificationStatus: 'pending' })
+      .select('_id idVerificationSubmittedAt idVerificationCaseRef idVerifyFailedAttempts email');
     if (!user) return res.redirect('/admin/verification');
     await User.findByIdAndUpdate(user._id, {
       $set:   { idVerified: true, idVerificationStatus: 'none', onboardingStatus: 'pending_submission', idVerificationReviewedAt: new Date() },
-      $unset: { idSelfieUrl: 1, idDocUrl: 1, idVerificationCode: 1, idVerificationSubmittedAt: 1, idVerificationRejectionReasons: 1 },
+      $unset: { idSelfieUrl: 1, idDocUrl: 1, idVerificationCode: 1, idVerificationSubmittedAt: 1, idVerificationRejectionReasons: 1, idVerificationCaseRef: 1, idVerificationEscalated: 1 },
+    });
+    logAuditEvent({
+      actorId:      req.session.adminId,
+      actorRole:    req.session.adminRole,
+      action:       'id_verification_approved',
+      entityType:   'user',
+      entityId:     user._id,
+      targetUserId: user._id,
+      caseRef:      user.idVerificationCaseRef || null,
+      remarks:      req.body.remarks,
+      metadata:     {
+        submittedAt:   user.idVerificationSubmittedAt,
+        attemptNumber: user.idVerifyFailedAttempts + 1,
+        dobDeclared:   req.body.dobDeclared || null,
+        dobOnCard:     req.body.dobOnCard   || null,
+      },
     });
     res.redirect('/admin/verification');
   } catch (err) {
@@ -344,28 +394,105 @@ router.post('/verification/:id/approve', async (req, res) => {
 
 router.post('/verification/:id/reject', async (req, res) => {
   try {
-    const user = await User.findOne({ _id: req.params.id, idVerificationStatus: 'pending' });
+    const user = await User.findOne({ _id: req.params.id, idVerificationStatus: 'pending' })
+      .select('_id email idVerifyFailedAttempts idVerificationSubmittedAt idVerificationCaseRef');
     if (!user) return res.redirect('/admin/verification');
-    const raw     = req.body.reasons;
-    const reasons = raw ? (Array.isArray(raw) ? raw : [raw]).filter(Boolean) : [];
 
+    const raw      = req.body.reasons;
+    const reasons  = raw ? (Array.isArray(raw) ? raw : [raw]).filter(Boolean) : [];
+    const caseRef  = user.idVerificationCaseRef || null;
     const newCount = (user.idVerifyFailedAttempts || 0) + 1;
-    const update = {
-      $set: {
-        idVerificationStatus:           'none',
-        idVerificationRejectionReasons: reasons,
-        idVerifyFailedAttempts:         newCount,
-        idVerificationReviewedAt:       new Date(),
-        idVerificationClaimNumber:      genClaimNumber(),
-      },
-      $unset: { idSelfieUrl: 1, idDocUrl: 1, idVerificationCode: 1, idVerificationSubmittedAt: 1 },
+    const isBan    = newCount >= 5;
+    const isEscalate = newCount === 4;
+
+    const claimNumber = genClaimNumber();
+    const sharedMeta  = {
+      reasons,
+      claimNumber,
+      attemptNumber: newCount,
+      submittedAt:   user.idVerificationSubmittedAt,
     };
 
-    if (newCount % 3 === 0) {
-      update.$set.idVerifyBlockedUntil = new Date(Date.now() + 6 * 60 * 60 * 1000);
+    if (isBan) {
+      // Permanently close the case and ban the account
+      await User.findByIdAndUpdate(user._id, {
+        $set: {
+          idVerificationStatus:      'closed',
+          accountStatus:             'banned',
+          idVerifyFailedAttempts:    newCount,
+          idVerificationReviewedAt:  new Date(),
+          idVerificationClaimNumber: claimNumber,
+        },
+        $unset: { idSelfieUrl: 1, idDocUrl: 1, idVerificationCode: 1, idVerificationSubmittedAt: 1, idVerificationCaseRef: 1 },
+      });
+
+      await BannedEmail.create({
+        email:    user.email?.value,
+        bannedBy: req.session.adminId,
+        caseRef,
+        reason:   'max_verification_attempts',
+      }).catch(() => {}); // silently handle duplicate key if already banned
+
+      logAuditEvent({
+        actorId: req.session.adminId, actorRole: req.session.adminRole,
+        action: 'id_verification_rejected', entityType: 'user',
+        entityId: user._id, targetUserId: user._id,
+        caseRef, remarks: req.body.remarks, metadata: { ...sharedMeta, blocked: false },
+      });
+      logAuditEvent({
+        actorId: req.session.adminId, actorRole: req.session.adminRole,
+        action: 'id_verification_case_closed', entityType: 'user',
+        entityId: user._id, targetUserId: user._id,
+        caseRef, metadata: { reason: 'max_attempts', attemptNumber: newCount },
+      });
+      logAuditEvent({
+        actorId: req.session.adminId, actorRole: req.session.adminRole,
+        action: 'user_banned', entityType: 'user',
+        entityId: user._id, targetUserId: user._id,
+        caseRef, remarks: req.body.remarks,
+        metadata: { email: user.email?.value, reason: 'max_verification_attempts' },
+      });
+    } else {
+      const update = {
+        $set: {
+          idVerificationStatus:           'none',
+          idVerificationRejectionReasons: reasons,
+          idVerifyFailedAttempts:         newCount,
+          idVerificationReviewedAt:       new Date(),
+          idVerificationClaimNumber:      claimNumber,
+        },
+        $unset: { idSelfieUrl: 1, idDocUrl: 1, idVerificationCode: 1, idVerificationSubmittedAt: 1 },
+      };
+
+      // 6-hour block after every 3rd failure
+      if (newCount % 3 === 0) {
+        update.$set.idVerifyBlockedUntil = new Date(Date.now() + 6 * 60 * 60 * 1000);
+      }
+
+      if (isEscalate) {
+        update.$set.idVerificationEscalated = true;
+      }
+
+      await User.findByIdAndUpdate(user._id, update);
+
+      logAuditEvent({
+        actorId: req.session.adminId, actorRole: req.session.adminRole,
+        action: 'id_verification_rejected', entityType: 'user',
+        entityId: user._id, targetUserId: user._id,
+        caseRef, remarks: req.body.remarks,
+        metadata: { ...sharedMeta, blocked: newCount % 3 === 0 },
+      });
+
+      if (isEscalate) {
+        logAuditEvent({
+          actorId: req.session.adminId, actorRole: req.session.adminRole,
+          action: 'id_verification_escalated', entityType: 'user',
+          entityId: user._id, targetUserId: user._id,
+          caseRef, metadata: { attemptNumber: newCount, reason: 'repeated_failures' },
+        });
+      }
     }
 
-    await User.findByIdAndUpdate(user._id, update);
     res.redirect('/admin/verification');
   } catch (err) {
     console.error('Verification reject error:', err);
@@ -379,6 +506,69 @@ router.get('/tournaments', (req, res) => {
 
 router.get('/tournaments/review', (req, res) => {
   res.render('admin/tournaments/review', { title: 'Tournament Review', currentPage: 'tournament-review' });
+});
+
+// ── Audit Log (supervisor+) ───────────────────────────────────────
+
+const AUDIT_MIN_ROLES = ['supervisor', 'superadmin', 'founder'];
+
+const ACTION_LABELS = {
+  id_verification_submitted:   'ID Docs Submitted',
+  id_verification_approved:    'ID Verification Approved',
+  id_verification_rejected:    'ID Verification Rejected',
+  onboarding_entry_submitted:  'Entry Submitted (Onboarding)',
+  onboarding_entry_approved:   'Entry Approved (Onboarding)',
+  onboarding_entry_rejected:   'Entry Rejected (Onboarding)',
+  user_role_changed:           'Role Changed',
+};
+
+router.get('/audit-log', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!AUDIT_MIN_ROLES.includes(role)) return res.redirect('/admin');
+
+  try {
+    const { action, ticketRef, targetUser, page } = req.query;
+    const currentPage = Math.max(1, parseInt(page) || 1);
+    const perPage     = 50;
+    const filter      = {};
+
+    if (action)     filter.action    = action;
+    if (ticketRef)  filter.ticketRef = { $regex: ticketRef.trim(), $options: 'i' };
+
+    // targetUser: search by username or partial match
+    if (targetUser) {
+      const matched = await User.find({ 'username.value': { $regex: targetUser.trim(), $options: 'i' } })
+        .select('_id').limit(50).lean();
+      filter.targetUserId = { $in: matched.map(u => u._id) };
+    }
+
+    const [total, logs] = await Promise.all([
+      AdminAuditLog.countDocuments(filter),
+      AdminAuditLog.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((currentPage - 1) * perPage)
+        .limit(perPage)
+        .populate('actorId',      'username displayName email')
+        .populate('targetUserId', 'username displayName email')
+        .lean(),
+    ]);
+
+    res.render('admin/audit-log', {
+      title:        'Audit Log',
+      currentPage:  'audit-log',
+      logs,
+      total,
+      page:         currentPage,
+      perPage,
+      totalPages:   Math.ceil(total / perPage),
+      filters:      { action: action || '', ticketRef: ticketRef || '', targetUser: targetUser || '' },
+      actionLabels: ACTION_LABELS,
+      actionKeys:   Object.keys(ACTION_LABELS),
+    });
+  } catch (err) {
+    console.error('Audit log error:', err);
+    res.redirect('/admin');
+  }
 });
 
 router.get('/moderation', (req, res) => {

@@ -242,23 +242,36 @@
 
         </div>
 
-        <!-- Action buttons -->
-        <div class="flex items-center justify-between gap-4 pb-4">
+        <!-- Action area -->
+        <div class="bg-zinc-900 rounded-md border border-white/8 overflow-hidden pb-4">
 
-          <button type="button" id="reject-btn"
-            class="flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer" style="background:transparent">
-            <iconify-icon icon="lucide:x-circle" width="14" style="display:block"></iconify-icon>
-            Reject Submission
-          </button>
+          <!-- Internal remarks -->
+          <div class="px-6 pt-5 pb-4">
+            <label for="shared-remarks" class="block text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-1.5">Internal remarks <span class="text-zinc-600 font-normal normal-case">(optional — audit log only, not shown to user)</span></label>
+            <textarea id="shared-remarks" rows="2" placeholder="Add any notes for the record…"
+              class="w-full px-3 py-2.5 text-sm rounded-md border border-white/10 bg-zinc-800 text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"></textarea>
+          </div>
 
-          <form action="/admin/verification/<%= user._id %>/approve" method="POST">
-            <button type="submit" id="approve-btn" disabled
-              class="flex items-center gap-2 px-6 py-2.5 rounded-md text-sm font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
-              <iconify-icon icon="lucide:shield-check" width="14" style="display:block"></iconify-icon>
-              Approve &amp; Grant Access
+          <div class="px-6 flex items-center justify-between gap-4">
+
+            <button type="button" id="reject-btn"
+              class="flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer" style="background:transparent">
+              <iconify-icon icon="lucide:x-circle" width="14" style="display:block"></iconify-icon>
+              Reject Submission
             </button>
-          </form>
 
+            <form id="approve-form" action="/admin/verification/<%= user._id %>/approve" method="POST">
+              <input type="hidden" name="remarks"    id="approve-remarks-input">
+              <input type="hidden" name="dobDeclared" id="approve-dob-declared-input">
+              <input type="hidden" name="dobOnCard"   id="approve-dob-card-input">
+              <button type="submit" id="approve-btn" disabled
+                class="flex items-center gap-2 px-6 py-2.5 rounded-md text-sm font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                <iconify-icon icon="lucide:shield-check" width="14" style="display:block"></iconify-icon>
+                Approve &amp; Grant Access
+              </button>
+            </form>
+
+          </div>
         </div>
 
       </div>
@@ -291,6 +304,7 @@
 
     <!-- Reasons form -->
     <form action="/admin/verification/<%= user._id %>/reject" method="POST" id="reject-form">
+      <input type="hidden" name="remarks" id="reject-remarks-input">
       <div class="py-2 max-h-80 overflow-y-auto">
 
         <label class="reason-row flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-white/5 transition-colors">
@@ -577,7 +591,14 @@
   checklist.forEach(function (cb) { cb.addEventListener('change', updateChecklist); });
 
   document.getElementById('reject-btn').addEventListener('click', function () {
+    document.getElementById('reject-remarks-input').value = document.getElementById('shared-remarks').value;
     document.getElementById('reject-modal').classList.remove('hidden');
+  });
+
+  document.getElementById('approve-form').addEventListener('submit', function () {
+    document.getElementById('approve-remarks-input').value     = document.getElementById('shared-remarks').value;
+    document.getElementById('approve-dob-declared-input').value = document.getElementById('dob-declared').value;
+    document.getElementById('approve-dob-card-input').value     = document.getElementById('dob-card').value;
   });
 
   var ageCutoff   = '<%= ageCutoffISO %>';

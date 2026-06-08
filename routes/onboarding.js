@@ -6,6 +6,8 @@ const Tournament      = require('../models/Tournament');
 const TournamentEntry = require('../models/TournamentEntry');
 const requireAuth     = require('../middleware/requireAuth');
 const upload          = require('../middleware/upload');
+const logAuditEvent   = require('../utils/auditLog');
+const { generateCaseRef } = require('../utils/auditLog');
 
 router.use(requireAuth);
 
@@ -121,7 +123,7 @@ router.post('/submit', upload.fields([{ name: 'entryPhoto', maxCount: 1 }]), asy
       caption:   caption || undefined,
     });
 
-    await TournamentEntry.create({
+    const te = await TournamentEntry.create({
       tournamentId: tournament._id,
       entryId:      entry._id,
       userId:       req.session.userId,
@@ -130,6 +132,15 @@ router.post('/submit', upload.fields([{ name: 'entryPhoto', maxCount: 1 }]), asy
     });
 
     await User.findByIdAndUpdate(req.session.userId, { onboardingStatus: 'pending_approval' });
+
+    logAuditEvent({
+      actorId:    req.session.userId,
+      actorRole:  'user',
+      action:     'onboarding_entry_submitted',
+      entityType: 'tournament_entry',
+      entityId:   te._id,
+      metadata:   { tournamentId: tournament._id, entryId: entry._id },
+    });
 
     res.redirect('/onboarding/waiting');
   } catch (err) {
@@ -212,18 +223,46 @@ router.post('/verify-identity', upload.fields([{ name: 'idSelfie', maxCount: 1 }
   if (!idDoc)  return fail('Please upload a photo of your ID.');
   if (!code)   return fail('No active verification code found. Please generate a code and try again.');
 
-  const submitter = await User.findById(req.session.userId).select('idVerifyBlockedUntil');
-  if (submitter?.idVerifyBlockedUntil && submitter.idVerifyBlockedUntil > new Date()) {
+  const submitter = await User.findById(req.session.userId)
+    .select('idVerifyBlockedUntil idVerificationStatus idVerifyFailedAttempts idVerificationCaseRef');
+
+  if (!submitter) return fail('Session expired. Please log in again.');
+
+  if (submitter.idVerificationStatus === 'closed') {
+    return fail('Your identity verification case has been permanently closed. Please contact support.');
+  }
+
+  if (submitter.idVerifyFailedAttempts >= 5) {
+    return fail('Your identity verification case has been permanently closed. Please contact support.');
+  }
+
+  if (submitter.idVerifyBlockedUntil && submitter.idVerifyBlockedUntil > new Date()) {
     return fail('Your account is temporarily blocked from re-submitting. Please wait for the cooldown to expire.');
   }
+
+  // Reuse existing case ref or open a new one
+  const caseRef     = submitter.idVerificationCaseRef || generateCaseRef();
+  const submittedAt = new Date();
+  const attemptNum  = (submitter.idVerifyFailedAttempts || 0) + 1;
 
   await User.findByIdAndUpdate(req.session.userId, {
     idVerificationStatus:      'pending',
     idSelfieUrl:               `/uploads/id-docs/${selfie.filename}`,
     idDocUrl:                  `/uploads/id-docs/${idDoc.filename}`,
     idVerificationCode:        code,
-    idVerificationSubmittedAt: new Date(),
+    idVerificationSubmittedAt: submittedAt,
+    idVerificationCaseRef:     caseRef,
     $unset: { idVerificationRejectionReasons: '' },
+  });
+
+  logAuditEvent({
+    actorId:    req.session.userId,
+    actorRole:  'user',
+    action:     'id_verification_submitted',
+    entityType: 'user',
+    entityId:   req.session.userId,
+    caseRef,
+    metadata:   { submittedAt, attempt: attemptNum },
   });
 
   delete req.session.verificationCode;

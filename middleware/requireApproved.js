@@ -2,8 +2,8 @@ const User = require('../models/User');
 
 module.exports = async (req, res, next) => {
   try {
-    const user = await User.findById(req.session.userId).select('onboardingStatus role username avatar email');
-    if (!user) {
+    const user = await User.findById(req.session.userId).select('onboardingStatus accountStatus role username avatar email');
+    if (!user || user.accountStatus === 'banned') {
       req.session.destroy(() => {});
       return res.redirect('/signup');
     }
