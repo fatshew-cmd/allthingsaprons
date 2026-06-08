@@ -10,6 +10,7 @@ const isAdmin        = require('../middleware/isAdmin');
 const requireDomain  = require('../middleware/requireDomain');
 const logAuditEvent  = require('../utils/auditLog');
 const BannedEmail    = require('../models/BannedEmail');
+const BannedDocHash  = require('../models/BannedDocHash');
 
 router.get('/login', (req, res) => {
   res.render('admin/login', { title: 'Admin Login', error: null, setup: req.query.setup === '1' });
@@ -331,7 +332,7 @@ router.get('/verification', async (req, res) => {
 
 router.get('/verification/:id', async (req, res) => {
   const user = await User.findOne({ _id: req.params.id, idVerificationStatus: 'pending' })
-    .select('username email avatar sex birthdate idSelfieUrl idDocUrl idVerificationCode idVerificationSubmittedAt');
+    .select('username email avatar sex birthdate idSelfieUrl idDocUrl idVerificationCode idVerificationSubmittedAt idDocHash idVerifyFailedAttempts idVerificationEscalated');
   if (!user) return res.redirect('/admin/verification');
   const today = new Date();
   const cutoff = new Date(today);
@@ -345,6 +346,15 @@ router.get('/verification/:id', async (req, res) => {
       submittedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
     : null;
 
+  // Check if this document hash appears on any other account
+  let docHashConflict = null;
+  if (user.idDocHash) {
+    docHashConflict = await User.findOne({
+      idDocHash: user.idDocHash,
+      _id: { $ne: user._id },
+    }).select('username email idVerified accountStatus').lean();
+  }
+
   res.render('admin/verification-review', {
     title: 'Review Submission',
     currentPage: 'verification',
@@ -357,16 +367,20 @@ router.get('/verification/:id', async (req, res) => {
     ageCutoffFormatted: cutoff.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }),
     ageCutoffISO: cutoff.toISOString().split('T')[0],
     submittedAtFormatted,
+    docHashConflict,
+    attemptNumber:        (user.idVerifyFailedAttempts || 0) + 1,
+    isEscalated:          !!user.idVerificationEscalated,
   });
 });
 
 router.post('/verification/:id/approve', async (req, res) => {
   try {
     const user = await User.findOne({ _id: req.params.id, idVerificationStatus: 'pending' })
-      .select('_id idVerificationSubmittedAt idVerificationCaseRef idVerifyFailedAttempts email');
+      .select('_id idVerificationSubmittedAt idVerificationCaseRef idVerifyFailedAttempts email idDocHash');
     if (!user) return res.redirect('/admin/verification');
+    // idDocHash is kept on the User after approval — permanent record that this document was used for this account
     await User.findByIdAndUpdate(user._id, {
-      $set:   { idVerified: true, idVerificationStatus: 'none', onboardingStatus: 'pending_submission', idVerificationReviewedAt: new Date() },
+      $set:   { idVerified: true, idVerificationStatus: 'none', idVerificationReviewedAt: new Date() },
       $unset: { idSelfieUrl: 1, idDocUrl: 1, idVerificationCode: 1, idVerificationSubmittedAt: 1, idVerificationRejectionReasons: 1, idVerificationCaseRef: 1, idVerificationEscalated: 1 },
     });
     logAuditEvent({
@@ -395,7 +409,7 @@ router.post('/verification/:id/approve', async (req, res) => {
 router.post('/verification/:id/reject', async (req, res) => {
   try {
     const user = await User.findOne({ _id: req.params.id, idVerificationStatus: 'pending' })
-      .select('_id email idVerifyFailedAttempts idVerificationSubmittedAt idVerificationCaseRef');
+      .select('_id email idVerifyFailedAttempts idVerificationSubmittedAt idVerificationCaseRef idDocHash');
     if (!user) return res.redirect('/admin/verification');
 
     const raw      = req.body.reasons;
@@ -423,8 +437,17 @@ router.post('/verification/:id/reject', async (req, res) => {
           idVerificationReviewedAt:  new Date(),
           idVerificationClaimNumber: claimNumber,
         },
-        $unset: { idSelfieUrl: 1, idDocUrl: 1, idVerificationCode: 1, idVerificationSubmittedAt: 1, idVerificationCaseRef: 1 },
+        $unset: { idSelfieUrl: 1, idDocUrl: 1, idVerificationCode: 1, idVerificationSubmittedAt: 1, idVerificationCaseRef: 1, idDocHash: 1 },
       });
+
+      if (user.idDocHash) {
+        await BannedDocHash.create({
+          hash:     user.idDocHash,
+          bannedBy: req.session.adminId,
+          caseRef,
+          reason:   'max_verification_attempts',
+        }).catch(() => {});
+      }
 
       await BannedEmail.create({
         email:    user.email?.value,
@@ -461,7 +484,7 @@ router.post('/verification/:id/reject', async (req, res) => {
           idVerificationReviewedAt:       new Date(),
           idVerificationClaimNumber:      claimNumber,
         },
-        $unset: { idSelfieUrl: 1, idDocUrl: 1, idVerificationCode: 1, idVerificationSubmittedAt: 1 },
+        $unset: { idSelfieUrl: 1, idDocUrl: 1, idVerificationCode: 1, idVerificationSubmittedAt: 1, idDocHash: 1 },
       };
 
       // 6-hour block after every 3rd failure

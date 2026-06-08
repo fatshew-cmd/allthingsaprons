@@ -37,6 +37,37 @@
           <% } %>
         </div>
 
+        <!-- Escalation alert -->
+        <% if (typeof isEscalated !== 'undefined' && isEscalated) { %>
+        <div class="flex items-start gap-3 px-4 py-3.5 rounded-md bg-amber-500/10 border border-amber-500/25">
+          <iconify-icon icon="lucide:alert-triangle" width="15" style="color:#f59e0b;display:block;flex-shrink:0;margin-top:1px"></iconify-icon>
+          <div>
+            <p class="text-sm font-semibold text-amber-300 m-0">Escalated case</p>
+            <p class="text-xs text-amber-400/70 m-0 mt-0.5">This account has reached 4 failed verification attempts and has been escalated for senior review. This is attempt <strong class="text-amber-300"><%= typeof attemptNumber !== 'undefined' ? attemptNumber : '—' %></strong> of 5. A rejection here will permanently ban the account.</p>
+          </div>
+        </div>
+        <% } %>
+
+        <!-- Document hash conflict alert -->
+        <% if (typeof docHashConflict !== 'undefined' && docHashConflict) { %>
+        <div class="flex items-start gap-3 px-4 py-3.5 rounded-md bg-red-500/10 border border-red-500/25">
+          <iconify-icon icon="lucide:copy-x" width="15" style="color:#f87171;display:block;flex-shrink:0;margin-top:1px"></iconify-icon>
+          <div>
+            <p class="text-sm font-semibold text-red-300 m-0">Document already on file for another account</p>
+            <p class="text-xs text-red-400/70 m-0 mt-0.5">
+              The ID document submitted here matches the document on record for
+              <% if (docHashConflict.username?.value) { %>
+                <strong class="text-red-300">@<%= docHashConflict.username.value %></strong>
+              <% } else { %>
+                <strong class="text-red-300"><%= docHashConflict.email?.value || 'another account' %></strong>
+              <% } %>
+              (<span class="<%= docHashConflict.accountStatus === 'banned' ? 'text-red-400' : 'text-zinc-300' %>"><%= docHashConflict.accountStatus %><% if (docHashConflict.idVerified) { %>, verified<% } %></span>).
+              Verify this is not a bypass attempt before approving.
+            </p>
+          </div>
+        </div>
+        <% } %>
+
         <!-- Document images -->
         <div class="grid grid-cols-2 gap-4">
 

@@ -1,51 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><%- include('../partials/head') %></head>
+<head><%- include('partials/head') %></head>
 <body class="min-h-screen bg-shark-950 text-white">
 
   <!-- Top bar -->
   <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
     <a href="/" class="font-gochi text-charm-500 text-2xl leading-none" style="-webkit-text-stroke: 1px currentColor">AllThingsAprons</a>
-    <div class="flex items-center gap-1.5 text-sm">
-      <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">1</div>
-        <span class="text-white/45 hidden lg:inline">Profile Creation</span>
-      </div>
-      <div class="w-6 h-px bg-white/15"></div>
-      <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-md bg-charm-600/40 text-charm-400 text-xs font-bold flex items-center justify-center">2</div>
-        <span class="text-white/45 hidden lg:inline">Email Verification</span>
-      </div>
-      <div class="w-6 h-px bg-white/15"></div>
-      <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-md bg-charm-600 text-white text-xs font-bold flex items-center justify-center">3</div>
-        <span class="text-white/60 hidden lg:inline">Identity Verification</span>
-      </div>
-      <div class="w-6 h-px bg-white/15"></div>
-      <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">4</div>
-        <span class="text-white/30 hidden lg:inline">Entry Submission</span>
-      </div>
-      <div class="w-6 h-px bg-white/15"></div>
-      <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">5</div>
-        <span class="text-white/30 hidden lg:inline">Pending Approval</span>
-      </div>
-    </div>
-    <div class="flex items-center gap-4">
-      <button type="button" id="cancel-signup-btn" class="text-xs text-white capitalize hover:text-white/70 transition-colors cursor-pointer">Cancel sign up</button>
-      <form action="/logout" method="POST">
-        <button type="submit" class="text-sm text-white capitalize hover:text-white/70 transition-colors cursor-pointer">Sign out</button>
-      </form>
-    </div>
+    <form action="/logout" method="POST">
+      <button type="submit" class="text-sm text-white/40 hover:text-white/70 transition-colors cursor-pointer">Sign out</button>
+    </form>
   </header>
-  <form id="cancel-signup-form" action="/onboarding/cancel" method="POST" class="hidden"></form>
 
   <div class="max-w-2xl mx-auto px-4 py-10 pb-20">
 
     <div class="mb-6">
       <h1 class="text-2xl font-black">Verify your identity</h1>
-      <p class="text-sm text-white/40 mt-1">Required before you can submit your entry and access the platform.</p>
+      <p class="text-sm text-white/40 mt-1">Required to submit entries and participate in contests.</p>
     </div>
 
     <% if (blocked) { %>
@@ -121,18 +91,20 @@
       <div class="flex flex-col gap-2.5 text-sm text-white/55 leading-relaxed">
         <p>Identity verification is required by law to ensure that anyone accessing adult-oriented content platforms is of legal age. Beyond the legal requirement, AllThingsAprons policy sets the minimum age at <span class="text-white/75 font-medium">19 years and 1 day old</span> — regardless of your region or jurisdiction. This applies to everyone, no exceptions.</p>
         <p>On this form, you will be prompted to provide a <span class="text-white/75 font-medium">selfie verification</span> to confirm your identity and prove that you are a real person, and a <span class="text-white/75 font-medium">government-issued ID</span> so we can verify your age. By proceeding, you confirm that you meet the age requirement, as outlined in our <a href="/terms" class="text-charm-400 hover:text-charm-300 underline underline-offset-2 transition-colors">Terms of Service</a>.</p>
-        <p>Your selfie and ID document are stored securely and used solely to complete this verification. They will not be shared, sold, or used for any other purpose — ever. Once your account is verified, your documents are scheduled for deletion and you will receive a confirmation email when that deletion takes place. You have the right, at any time, to request a copy of your personal data or to request its deletion by contacting us directly.</p>
-        <p>We use <span class="text-white/75 font-medium">real human reviewers</span> instead of automated tools — this reduces false positives and ensures a fair review for every submission. Because of this, verification may take longer than 12 hours. We appreciate your patience.</p>
+        <p>Your selfie and ID document are stored securely and used solely to complete this verification. They are <span class="text-white/75 font-medium">never shared, sold, or used for any other purpose</span>. Once your account is verified, your documents are permanently deleted and you will receive a confirmation email when that deletion takes place. A cryptographic fingerprint of your ID document is retained after deletion — this fingerprint cannot be used to reconstruct your document and is used solely to detect the same document being submitted across multiple accounts. You have the right, at any time, to request a copy of your personal data or to request its deletion by contacting us directly.</p>
+        <p>During review, the date of birth shown on your ID document will be recorded by the reviewer. This information is retained in our internal compliance records solely for verification integrity purposes — it is not shared with any third party, and it is not used beyond the scope of this verification process.</p>
+        <p>We use <span class="text-white/75 font-medium">real human reviewers</span> instead of automated tools or third-party identity services — your documents never leave our infrastructure. This reduces false positives and ensures a fair, private review for every submission. Because of this, verification may take up to 24 hours. We appreciate your patience.</p>
+        <p>You may resubmit with corrected documents if your submission is rejected. After 3 consecutive rejections a temporary cooldown period applies before you can resubmit. After 5 failed submissions, your verification case is permanently closed and your account will be suspended. If you believe a rejection was made in error, you can appeal by contacting us with the claim number provided in the rejection notice.</p>
       </div>
 
       <!-- Acknowledgment checkbox -->
       <label id="ack-label" style="display:none" class="flex items-start gap-3 cursor-pointer pt-3 border-t border-white/8">
         <input type="checkbox" id="ack-check" class="mt-0.5 accent-charm-500 cursor-pointer shrink-0 w-4 h-4">
-        <span class="text-sm text-white/55 select-none">I acknowledge that I have fully read the stated disclaimer, understood what it entails, and am ready to proceed.</span>
+        <span class="text-sm text-white/55 select-none">I have read and understood the above — including what data is collected, how it is used, and the consequences of repeated failed submissions. I am ready to proceed.</span>
       </label>
     </div>
 
-    <form action="/onboarding/verify-identity" method="POST" enctype="multipart/form-data" id="verify-form" novalidate>
+    <form action="/verify-identity" method="POST" enctype="multipart/form-data" id="verify-form" novalidate>
 
       <!-- ── Step 1: Verification Selfie ───────────────────────────── -->
       <div id="step1" class="hidden mb-6">
@@ -259,10 +231,21 @@
   <span id="fab-badge" class="hidden shrink-0 w-4 h-4 rounded-full bg-charm-500 text-white text-[9px] font-bold items-center justify-center leading-none"></span>
 </a>
 
-<%- include('../partials/toasts') %>
+<%- include('partials/toasts') %>
 
 <script>
 (function () {
+  // ── Toast on entry-gate redirect ──────────────────────────────────
+  <% if (reason === 'entry') { %>
+  if (window.showToast) {
+    window.showToast(
+      'To submit entries and join contests, you\'ll need to verify your identity first — it\'s a one-time step.',
+      'info',
+      8000
+    );
+  }
+  <% } %>
+
   if (!document.getElementById('ack-check')) return;
 
   var ackCheck          = document.getElementById('ack-check');
@@ -346,7 +329,7 @@
 
   // ── Code fetch ───────────────────────────────────────────────────
   function fetchAndShowCode() {
-    fetch('/onboarding/verify-identity/code')
+    fetch('/verify-identity/code')
       .then(function (r) { return r.json().then(function (d) { return { status: r.status, data: d }; }); })
       .then(function (res) {
         if (res.status === 429) {
@@ -519,12 +502,6 @@
   }
 
 }());
-
-document.getElementById('cancel-signup-btn').addEventListener('click', function () {
-  if (confirm('Cancel your sign up? Your account will be permanently deleted and you\'ll need to start over.')) {
-    document.getElementById('cancel-signup-form').submit();
-  }
-});
 
 // ── Support message toast ─────────────────────────────────────────────────
 (function () {

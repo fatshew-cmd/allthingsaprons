@@ -102,6 +102,12 @@ const userSchema = new mongoose.Schema({
   idVerificationRejectionReasons: [{ type: String }],
   idVerificationCaseRef:          { type: String },
   idVerificationEscalated:        { type: Boolean, default: false },
+  idDocHash:                      { type: String, index: true },
+
+  ageAcknowledged:            { type: Boolean, default: false },
+  ageAcknowledgedAt:          { type: Date },
+  adultContentAcknowledged:   { type: Boolean, default: false },
+  adultContentAcknowledgedAt: { type: Date },
 
   wallet: {
     balanceCents: { type: Number, default: 0 },

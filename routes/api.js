@@ -38,6 +38,9 @@ router.get('/check-signup', async (req, res) => {
 router.post('/entries', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
 
+  const actor = await User.findById(req.session.userId).select('idVerified').lean();
+  if (!actor || !actor.idVerified) return res.status(403).json({ error: 'identity_required' });
+
   const file = req.files?.entryMedia?.[0];
   if (!file) return res.status(400).json({ error: 'No file uploaded' });
 

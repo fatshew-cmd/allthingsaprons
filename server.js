@@ -9,7 +9,7 @@ const pagesRouter      = require('./routes/pages');
 const apiRouter        = require('./routes/api');
 const adminRouter      = require('./routes/admin');
 const authRouter       = require('./routes/auth');
-const onboardingRouter = require('./routes/onboarding');
+const verifyIdentityRouter = require('./routes/verify-identity');
 const contactRouter    = require('./routes/contact');
 const careersRouter    = require('./routes/careers');
 
@@ -32,7 +32,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 app.use('/', authRouter);
-app.use('/onboarding', onboardingRouter);
+app.use('/verify-identity', verifyIdentityRouter);
 app.use('/contact', contactRouter);
 app.use('/careers', careersRouter);
 app.use('/admin', adminRouter);

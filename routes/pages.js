@@ -168,6 +168,7 @@ router.post('/account/delete', async (req, res) => {
 // ── Submit Entry ──────────────────────────────────────────────────
 
 router.get('/submit', (req, res) => {
+  if (!req.currentUser.idVerified) return res.redirect('/verify-identity?reason=entry');
   res.render('submit', {
     title:      'Submit Entry',
     activePage: 'submit',
@@ -177,6 +178,7 @@ router.get('/submit', (req, res) => {
 });
 
 router.post('/submit', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), async (req, res) => {
+  if (!req.currentUser.idVerified) return res.redirect('/verify-identity?reason=entry');
   const renderError = (msg) => res.render('submit', {
     title: 'Submit Entry', activePage: 'submit', currentUser: req.currentUser, error: msg,
   });

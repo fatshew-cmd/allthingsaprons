@@ -3,25 +3,6 @@
 <head><%- include('partials/head') %></head>
 <body class="min-h-screen bg-shark-950 text-white">
 
-  <!-- Mature content gate -->
-  <div id="content-gate" style="position:fixed;inset:0;z-index:9999;background:rgba(10,10,10,0.88);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:16px">
-    <div class="bg-shark-900 border border-white/10 rounded-md p-8 w-full max-w-sm text-center">
-      <iconify-icon icon="boxicons:shield-quarter" width="42" class="text-charm-500 mb-5 block mx-auto"></iconify-icon>
-      <h2 class="text-xl font-black mb-2">Mature Content</h2>
-      <p class="text-sm text-white/45 leading-relaxed mb-7">AllThingsAprons contains mature themes and community content. By continuing you confirm that you are at least <strong class="text-white/70">19 years old</strong> and agree to our community guidelines.</p>
-      <div class="flex flex-col gap-3">
-        <button id="gate-confirm"
-          class="w-full bg-charm-600 hover:bg-charm-500 text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
-          I'm 19 or older — continue
-        </button>
-        <button id="gate-leave"
-          class="w-full bg-white/5 hover:bg-white/8 text-white/40 hover:text-white/60 rounded-md py-3 text-sm transition-colors cursor-pointer">
-          Leave
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Top bar -->
   <header class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur border-b border-white/5 px-6 h-14 flex items-center justify-between">
     <a href="/" class="font-gochi text-charm-500 text-2xl leading-none" style="-webkit-text-stroke: 1px currentColor">AllThingsAprons</a>
@@ -35,26 +16,8 @@
         <div id="step-2-num" class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center transition-colors">2</div>
         <span id="step-2-label" class="text-white/30 hidden lg:inline transition-colors">Email Verification</span>
       </div>
-      <div class="w-6 h-px bg-white/15"></div>
-      <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">3</div>
-        <span class="text-white/30 hidden lg:inline">Identity Verification</span>
-      </div>
-      <div class="w-6 h-px bg-white/15"></div>
-      <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">4</div>
-        <span class="text-white/30 hidden lg:inline">Entry Submission</span>
-      </div>
-      <div class="w-6 h-px bg-white/15"></div>
-      <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center">5</div>
-        <span class="text-white/30 hidden lg:inline">Pending Approval</span>
-      </div>
     </div>
-    <div class="flex items-center gap-4">
-      <button type="button" id="header-cancel-btn" class="hidden text-xs text-white capitalize hover:text-white/70 transition-colors cursor-pointer">Cancel sign up</button>
-      <a href="/login" class="text-sm text-white/35 hover:text-white/60 transition-colors">Log in</a>
-    </div>
+    <a href="/login" class="text-sm text-white/35 hover:text-white/60 transition-colors">Log in</a>
   </header>
 
   <div class="flex justify-center px-4 py-10 pb-20">
@@ -315,6 +278,20 @@
                   I'd like to receive updates, promotions, and newsletter emails from AllThingsAprons
                 </span>
               </label>
+              <label class="flex items-start gap-2.5 cursor-pointer group">
+                <input type="checkbox" id="age-acknowledged" name="ageAcknowledged" value="on" class="sr-only">
+                <iconify-icon id="age-acknowledged-icon" icon="boxicons:square" width="17" class="shrink-0 mt-0.5 transition-colors" style="color:rgba(255,255,255,0.25)"></iconify-icon>
+                <span class="text-xs text-white/45 leading-relaxed group-hover:text-white/60 transition-colors">
+                  I confirm I am 18 years of age or older <span class="text-charm-500">*</span>
+                </span>
+              </label>
+              <label class="flex items-start gap-2.5 cursor-pointer group">
+                <input type="checkbox" id="adult-content-acknowledged" name="adultContentAcknowledged" value="on" class="sr-only">
+                <iconify-icon id="adult-content-acknowledged-icon" icon="boxicons:square" width="17" class="shrink-0 mt-0.5 transition-colors" style="color:rgba(255,255,255,0.25)"></iconify-icon>
+                <span class="text-xs text-white/45 leading-relaxed group-hover:text-white/60 transition-colors">
+                  I acknowledge that this platform contains adult-rated content <span class="text-charm-500">*</span>
+                </span>
+              </label>
             </div>
 
             <button type="button" id="next-btn" disabled
@@ -372,8 +349,6 @@
 
     </form>
   </div>
-  <form id="cancel-signup-form" action="/onboarding/cancel" method="POST" class="hidden"></form>
-
 <script>
 (function () {
 
@@ -382,7 +357,6 @@
   var allPasswordReqsMet = false;
   var currentStep        = 1;
   var STORAGE_KEY        = 'atap_signup';
-  var SERVER_EDIT        = <%- (typeof editUser !== 'undefined' && editUser) ? JSON.stringify(editUser) : 'null' %>;
 
   // ── Utilities ──────────────────────────────────────────────
   function showErr(id, msg) {
@@ -486,21 +460,18 @@
     var l2 = document.getElementById('step-2-label');
     var active   = 'bg-charm-600 text-white';
     var inactive = 'bg-shark-700 text-white/35';
-    var cancelBtn = document.getElementById('header-cancel-btn');
     if (n === 1) {
       s1.classList.remove('hidden'); s2.classList.add('hidden');
       n1.className = n1.className.replace(inactive, active);
       n2.className = n2.className.replace(active, inactive);
       l1.className = l1.className.replace('text-white/30', 'text-white/60');
       l2.className = l2.className.replace('text-white/60', 'text-white/30');
-      if (cancelBtn && !SERVER_EDIT) cancelBtn.classList.add('hidden');
     } else {
       s1.classList.add('hidden'); s2.classList.remove('hidden');
       n2.className = n2.className.replace(inactive, active);
       n1.className = n1.className.replace(active, inactive);
       l2.className = l2.className.replace('text-white/30', 'text-white/60');
       l1.className = l1.className.replace('text-white/60', 'text-white/30');
-      if (cancelBtn) cancelBtn.classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
@@ -628,13 +599,6 @@
       checkContinueEnabled();
       return;
     }
-    if (SERVER_EDIT && val.toLowerCase() === (SERVER_EDIT.username || '').toLowerCase()) {
-      statusEl.innerHTML = mkIcon('boxicons:check-circle', '#4ade80');
-      statusEl.classList.remove('hidden');
-      usernameStatus = 'available';
-      checkContinueEnabled();
-      return;
-    }
     usernameStatus = 'checking';
     statusEl.innerHTML = mkIcon('boxicons:loader-alt', 'rgba(255,255,255,0.3)');
     statusEl.classList.remove('hidden');
@@ -673,9 +637,9 @@
     var birthdate = document.getElementById('birthdate').value;
     var bio       = document.getElementById('bio').value.trim();
     var terms     = document.getElementById('agree-terms').checked;
-    var passwordOk = SERVER_EDIT
-      ? (password.length === 0 || (allPasswordReqsMet && confirm === password))
-      : (allPasswordReqsMet && confirm.length > 0 && password === confirm);
+    var ageAck    = document.getElementById('age-acknowledged').checked;
+    var adultAck  = document.getElementById('adult-content-acknowledged').checked;
+    var passwordOk = allPasswordReqsMet && confirm.length > 0 && password === confirm;
     var ok = (
       USERNAME_RE.test(username) &&
       usernameStatus !== 'taken' && usernameStatus !== 'invalid' &&
@@ -685,7 +649,9 @@
       sex !== '' &&
       birthdate !== '' &&
       (bio.length === 0 || bio.length >= 20) &&
-      terms
+      terms &&
+      ageAck &&
+      adultAck
     );
     document.getElementById('next-btn').disabled = !ok;
   }
@@ -703,8 +669,10 @@
       if (onChange) onChange();
     });
   }
-  initCheckboxIcon('agree-terms',     'agree-terms-icon',     checkContinueEnabled);
-  initCheckboxIcon('agree-marketing', 'agree-marketing-icon');
+  initCheckboxIcon('agree-terms',              'agree-terms-icon',              checkContinueEnabled);
+  initCheckboxIcon('agree-marketing',          'agree-marketing-icon');
+  initCheckboxIcon('age-acknowledged',         'age-acknowledged-icon',         checkContinueEnabled);
+  initCheckboxIcon('adult-content-acknowledged','adult-content-acknowledged-icon', checkContinueEnabled);
 
   // ── Step 1 final validation ────────────────────────────────
   function validateStep1() {
@@ -721,15 +689,8 @@
     if (!displayName) { showErr('display-name-error', 'Display name is required'); valid = false; }
     else if (displayName.split(/\s+/).filter(Boolean).length > 3) { showErr('display-name-error', 'Display name can be at most 3 words'); valid = false; }
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('email-error', 'A valid email is required'); valid = false; }
-    if (SERVER_EDIT) {
-      if (password.length > 0 || confirm.length > 0) {
-        if (!allPasswordReqsMet) { valid = false; }
-        if (password !== confirm) { showErr('confirm-password-error', 'Passwords do not match'); valid = false; }
-      }
-    } else {
-      if (!allPasswordReqsMet) { valid = false; }
-      if (!confirm || password !== confirm) { showErr('confirm-password-error', 'Passwords do not match'); valid = false; }
-    }
+    if (!allPasswordReqsMet) { valid = false; }
+    if (!confirm || password !== confirm) { showErr('confirm-password-error', 'Passwords do not match'); valid = false; }
     if (!sex) { showErr('sex-error', 'Please select your sex'); valid = false; }
     if (!birthdate) { showErr('birthdate-error', 'Date of birth is required'); valid = false; }
     if (bio.length > 0 && bio.length < 20) { showErr('bio-error', 'Bio must be at least 20 characters'); valid = false; }
@@ -742,7 +703,7 @@
     var btn = document.getElementById('next-btn');
 
     window.showToast(
-      'Once you proceed, you won\'t be able to edit your profile until your account is fully approved.',
+      'Once you proceed, you\'ll receive a verification code by email. Make sure your email address is correct before continuing.',
       'info',
       0,
       [
@@ -839,34 +800,27 @@
   }
 
   function restoreSignupState() {
+    var raw = sessionStorage.getItem(STORAGE_KEY);
     var s;
-    if (SERVER_EDIT) {
-      s = SERVER_EDIT;
-    } else {
-      var raw = sessionStorage.getItem(STORAGE_KEY);
-      if (raw) { try { s = JSON.parse(raw); } catch (e) { s = null; } }
-    }
+    if (raw) { try { s = JSON.parse(raw); } catch (e) { s = null; } }
     if (!s) return;
 
     if (s.username)        document.getElementById('username').value    = s.username;
     if (s.displayName) {
       var dnEl  = document.getElementById('display-name');
       var dnCtr = document.getElementById('display-name-counter');
-      dnEl.value     = s.displayName;
+      dnEl.value        = s.displayName;
       dnCtr.textContent = s.displayName.length + ' / 50';
       dnCtr.style.color = s.displayName.length === 0 ? 'rgba(255,255,255,0.3)' : s.displayName.length > 45 ? '#fbbf24' : '#4ade80';
     }
-    if (s.email)           document.getElementById('email').value       = s.email;
-    if (s.location)        document.getElementById('location').value    = s.location;
-    if (s.birthdate)       document.getElementById('birthdate').value   = s.birthdate;
-
+    if (s.email)    document.getElementById('email').value    = s.email;
+    if (s.location) document.getElementById('location').value = s.location;
+    if (s.birthdate) document.getElementById('birthdate').value = s.birthdate;
     if (s.password) {
       document.getElementById('password').value = s.password;
       checkPasswordReqs(s.password);
     }
-    if (s.confirmPassword) {
-      document.getElementById('confirm-password').value = s.confirmPassword;
-    }
+    if (s.confirmPassword) document.getElementById('confirm-password').value = s.confirmPassword;
     if (s.bio) {
       var bioEl = document.getElementById('bio');
       var ctr   = document.getElementById('bio-counter');
@@ -874,31 +828,9 @@
       ctr.textContent = s.bio.length + ' / 220';
       ctr.style.color = s.bio.length === 0 ? 'rgba(255,255,255,0.3)' : s.bio.length < 20 ? '#f87171' : s.bio.length >= 215 ? '#fbbf24' : '#4ade80';
     }
-
     if (s.sex)         selectDropdown('sex-dropdown',         s.sex);
     if (s.orientation) selectDropdown('orientation-dropdown', s.orientation);
-
-    if (s.username) {
-      document.getElementById('username').dispatchEvent(new Event('input'));
-    }
-
-    // In edit mode: update password placeholder, pre-load avatar, auto-accept terms
-    if (SERVER_EDIT) {
-      document.getElementById('password').placeholder         = 'Leave blank to keep current password';
-      document.getElementById('confirm-password').placeholder = 'Leave blank to keep current password';
-      if (SERVER_EDIT.avatar) {
-        var circle = document.getElementById('avatar-circle');
-        circle.style.backgroundImage = 'url(' + SERVER_EDIT.avatar + ')';
-        document.getElementById('avatar-placeholder').classList.add('hidden');
-      }
-      var termsInput = document.getElementById('agree-terms');
-      var termsIcon  = document.getElementById('agree-terms-icon');
-      if (!termsInput.checked) {
-        termsInput.checked = true;
-        termsIcon.setAttribute('icon', 'boxicons:check-square-filled');
-        termsIcon.style.color = '#c73b64';
-      }
-    }
+    if (s.username)    document.getElementById('username').dispatchEvent(new Event('input'));
 
     checkContinueEnabled();
 
@@ -931,43 +863,6 @@
     btn.disabled    = true;
     btn.textContent = 'Creating your account…';
   });
-
-  // ── Mature content gate ────────────────────────────────────
-  var AGE_GATE_KEY = 'atap_age_ok';
-  var contentGate  = document.getElementById('content-gate');
-  if (localStorage.getItem(AGE_GATE_KEY)) {
-    contentGate.remove();
-  } else {
-    contentGate.style.display = 'flex';
-    document.getElementById('gate-confirm').addEventListener('click', function () {
-      localStorage.setItem(AGE_GATE_KEY, '1');
-      contentGate.style.opacity = '0';
-      contentGate.style.transition = 'opacity 0.2s ease';
-      setTimeout(function () { contentGate.remove(); }, 220);
-    });
-    document.getElementById('gate-leave').addEventListener('click', function () {
-      window.location.replace('https://www.google.com');
-    });
-  }
-
-  // ── Cancel sign up ─────────────────────────────────────────
-  var headerCancelBtn = document.getElementById('header-cancel-btn');
-  if (headerCancelBtn) {
-    if (SERVER_EDIT) headerCancelBtn.classList.remove('hidden');
-    headerCancelBtn.addEventListener('click', function () {
-      var msg = SERVER_EDIT
-        ? 'Cancel your sign up? Your account will be permanently deleted and you\'ll need to start over.'
-        : 'Cancel your sign up? All progress will be lost.';
-      if (confirm(msg)) {
-        if (SERVER_EDIT) {
-          document.getElementById('cancel-signup-form').submit();
-        } else {
-          try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
-          window.location.href = '/signup';
-        }
-      }
-    });
-  }
 
   restoreSignupState();
 

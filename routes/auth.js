@@ -19,29 +19,8 @@ function genOtp() {
 
 // ── Signup ────────────────────────────────────────────────────────
 
-router.get('/signup', async (req, res) => {
-  if (req.session.userId) {
-    const user = await User.findById(req.session.userId)
-      .select('accountStatus onboardingStatus username displayName email avatar bio sex orientation location birthdate');
-    if (!user || user.accountStatus !== 'onboarding') return res.redirect('/onboarding');
-    const lockedStatuses = ['pending_id_verification', 'pending_approval', 'approved'];
-    if (lockedStatuses.includes(user.onboardingStatus)) return res.redirect('/onboarding');
-    return res.render('signup', {
-      title: 'Edit Profile',
-      error: null,
-      editUser: {
-        username:    user.username?.value    || '',
-        displayName: user.displayName?.value || '',
-        email:       user.email?.value       || '',
-        bio:         user.bio?.value         || '',
-        sex:         user.sex?.value         || '',
-        orientation: user.orientation?.value || '',
-        location:    user.location?.value    || '',
-        birthdate:   user.birthdate?.value ? new Date(user.birthdate.value).toISOString().split('T')[0] : '',
-        avatar:      user.avatar?.value      || null,
-      },
-    });
-  }
+router.get('/signup', (req, res) => {
+  if (req.session.userId) return res.redirect('/feed');
   res.render('signup', { title: 'Sign Up', error: null, editUser: null });
 });
 
@@ -59,7 +38,7 @@ router.post('/auth/send-otp', async (req, res) => {
       if (existing) {
         if (existing.email.value === email.toLowerCase()) {
           if (existing.accountStatus === 'onboarding')
-            return res.json({ ok: false, field: 'email', message: 'An account with this email is already being set up. Please log in to continue your onboarding.' });
+            return res.json({ ok: false, field: 'email', message: 'An account with this email already exists. Please log in instead.' });
           return res.json({ ok: false, field: 'email', message: 'Email already registered.' });
         }
         return res.json({ ok: false, field: 'username', message: 'Username already taken.' });
@@ -89,13 +68,13 @@ router.post('/auth/send-otp', async (req, res) => {
 });
 
 router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (req, res) => {
-  const isEdit      = !!(req.session.userId);
-  const renderError = (msg) => res.render('signup', { title: isEdit ? 'Edit Profile' : 'Sign Up', error: msg, editUser: null });
+  const renderError = (msg) => res.render('signup', { title: 'Sign Up', error: msg, editUser: null });
 
   try {
     const {
       username, displayName, email, password, confirmPassword,
       bio, sex, orientation, location, birthdate, otp,
+      ageAcknowledged, adultContentAcknowledged,
     } = req.body;
 
     const pending = req.session.pendingOtp;
@@ -118,81 +97,6 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
       return renderError('Bio must be between 20 and 220 characters.');
     }
 
-    // ── Edit path ────────────────────────────────────────────────────
-    if (isEdit) {
-      const currentUser = await User.findById(req.session.userId).select('accountStatus onboardingStatus');
-      if (!currentUser || currentUser.accountStatus !== 'onboarding') {
-        return renderError('Cannot edit profile at this stage.');
-      }
-      const lockedStatuses = ['pending_id_verification', 'pending_approval', 'approved'];
-      if (lockedStatuses.includes(currentUser.onboardingStatus)) {
-        return res.redirect('/onboarding');
-      }
-
-      const conflict = await User.findOne({
-        _id: { $ne: req.session.userId },
-        $or: [{ 'email.value': email.toLowerCase() }, { 'username.value': username.toLowerCase() }],
-      });
-      if (conflict) {
-        if (conflict.email.value === email.toLowerCase()) return renderError('This email is already registered by another account.');
-        return renderError('This username is already taken.');
-      }
-
-      const now    = new Date();
-      const setOp  = {};
-      const pushOp = {};
-
-      setOp['email.value']     = email.toLowerCase().trim();
-      setOp['email.confirmed'] = true;
-      pushOp['email.history']  = { value: email.toLowerCase().trim(), setAt: now, source: 'signup' };
-
-      setOp['username.value']    = username.toLowerCase().trim();
-      pushOp['username.history'] = { value: username.toLowerCase().trim(), setAt: now, source: 'signup' };
-
-      setOp['displayName.value']    = displayNameTrimmed;
-      pushOp['displayName.history'] = { value: displayNameTrimmed, setAt: now, source: 'signup' };
-
-      setOp['sex.value']    = sex;
-      pushOp['sex.history'] = { value: sex, setAt: now, source: 'signup' };
-
-      setOp['birthdate.value']    = new Date(birthdate);
-      pushOp['birthdate.history'] = { value: new Date(birthdate), setAt: now, source: 'signup' };
-
-      if (bio) {
-        setOp['bio.value']    = bio.trim();
-        pushOp['bio.history'] = { value: bio.trim(), setAt: now, source: 'signup' };
-      }
-      if (orientation) {
-        setOp['orientation.value']    = orientation;
-        pushOp['orientation.history'] = { value: orientation, setAt: now, source: 'signup' };
-      }
-      if (location) {
-        setOp['location.value']    = location;
-        pushOp['location.history'] = { value: location, setAt: now, source: 'signup' };
-      }
-      if (req.files?.avatar?.[0]) {
-        const avatarPath = `/uploads/avatars/${req.files.avatar[0].filename}`;
-        setOp['avatar.value']    = avatarPath;
-        pushOp['avatar.history'] = { value: avatarPath, setAt: now, source: 'signup' };
-      }
-
-      if (password && password.length > 0) {
-        if (password !== confirmPassword) return renderError('Passwords do not match.');
-        const pwLower   = (password.match(/[a-z]/g) || []).length;
-        const pwUpper   = (password.match(/[A-Z]/g) || []).length;
-        const pwDigit   = (password.match(/[0-9]/g) || []).length;
-        const pwSpecial = (password.match(/[^a-zA-Z0-9]/g) || []).length;
-        if (password.length < 12 || pwLower < 3 || pwUpper < 3 || pwDigit < 3 || pwSpecial < 3) {
-          return renderError('Password must be at least 12 characters with 3+ lowercase, 3+ uppercase, 3+ digits, and 3+ special characters.');
-        }
-        setOp.password = await bcrypt.hash(password, 12);
-      }
-
-      delete req.session.pendingOtp;
-      await User.findByIdAndUpdate(req.session.userId, { $set: setOp, $push: pushOp });
-      return res.redirect('/onboarding');
-    }
-
     // ── New signup path ──────────────────────────────────────────────
     if (!password) return renderError('Please complete all required fields.');
     if (password !== confirmPassword) return renderError('Passwords do not match.');
@@ -204,6 +108,9 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
       return renderError('Password must be at least 12 characters with 3+ lowercase, 3+ uppercase, 3+ digits, and 3+ special characters.');
     }
 
+    if (ageAcknowledged !== 'on') return renderError('You must confirm that you are 18 years of age or older.');
+    if (adultContentAcknowledged !== 'on') return renderError('You must acknowledge that this platform contains adult-rated content.');
+
     const [existing, banned] = await Promise.all([
       User.findOne({ $or: [{ 'email.value': email.toLowerCase() }, { 'username.value': username.toLowerCase() }] }),
       BannedEmail.exists({ email: email.toLowerCase() }),
@@ -212,7 +119,7 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
     if (existing) {
       if (existing.email.value === email.toLowerCase()) {
         if (existing.accountStatus === 'onboarding')
-          return renderError('An account with this email is already being set up. Please log in to continue your onboarding.');
+          return renderError('An account with this email already exists. Please log in instead.');
         return renderError('This email is already registered.');
       }
       return renderError('This username is already taken.');
@@ -248,6 +155,12 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
         value:   new Date(birthdate),
         history: [{ value: new Date(birthdate), setAt: now, source: 'signup' }],
       },
+      ageAcknowledged:            true,
+      ageAcknowledgedAt:          now,
+      adultContentAcknowledged:   true,
+      adultContentAcknowledgedAt: now,
+      onboardingStatus:           'approved',
+      accountStatus:              'active',
     };
 
     if (bio) {
@@ -267,7 +180,7 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
 
     delete req.session.pendingOtp;
     req.session.userId = user._id.toString();
-    res.redirect('/onboarding');
+    res.redirect('/feed');
   } catch (err) {
     console.error('Signup error:', err);
     renderError('Something went wrong. Please try again.');
@@ -289,7 +202,7 @@ router.post('/login', async (req, res) => {
       return res.render('auth/login', { title: 'Log In', error: 'Invalid email or password.' });
     }
     req.session.userId = user._id.toString();
-    res.redirect(user.onboardingStatus === 'approved' ? '/feed' : '/onboarding');
+    res.redirect('/feed');
   } catch (err) {
     console.error('Login error:', err);
     res.render('auth/login', { title: 'Log In', error: 'Something went wrong. Please try again.' });
