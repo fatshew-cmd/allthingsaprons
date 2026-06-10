@@ -53,21 +53,13 @@
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-500/15 text-green-400 border border-green-500/25">
                   <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active
                 </span>
-                <% } else if (user.onboardingStatus === 'pending_approval') { %>
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-charm-500/15 text-charm-400 border border-charm-500/25">
-                  <span class="w-1.5 h-1.5 rounded-full bg-charm-500"></span>Pending review
+                <% } else if (user.accountStatus === 'invited') { %>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Invited
                 </span>
-                <% } else if (user.onboardingStatus === 'rejected') { %>
+                <% } else if (user.accountStatus === 'banned') { %>
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/25">
-                  <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Rejected
-                </span>
-                <% } else if (user.onboardingStatus === 'pending_id_verification') { %>
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-500/15 text-violet-400 border border-violet-500/25">
-                  <span class="w-1.5 h-1.5 rounded-full bg-violet-500"></span>ID check
-                </span>
-                <% } else { %>
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-white/8 text-zinc-400 border border-white/10">
-                  <span class="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>Onboarding
+                  <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Banned
                 </span>
                 <% } %>
               </td>

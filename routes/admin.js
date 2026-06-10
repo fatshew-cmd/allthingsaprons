@@ -3,7 +3,6 @@ const router         = express.Router();
 const crypto         = require('crypto');
 const bcrypt         = require('bcrypt');
 const User           = require('../models/User');
-const TournamentEntry = require('../models/TournamentEntry');
 const SupportMessage = require('../models/SupportMessage');
 const AdminAuditLog  = require('../models/AdminAuditLog');
 const isAdmin        = require('../middleware/isAdmin');
@@ -98,14 +97,13 @@ router.use(async (req, res, next) => {
   const hasContent   = isFullAccess || permissions.includes('content');
   const hasSupport   = isFullAccess || permissions.includes('support');
   try {
-    const [pendingEntries, pendingVerifications, unreadMessages] = await Promise.all([
-      hasContent ? TournamentEntry.countDocuments({ approvalStatus: 'pending' })            : Promise.resolve(0),
-      hasContent ? User.countDocuments({ idVerificationStatus: 'pending' })                 : Promise.resolve(0),
-      hasSupport ? SupportMessage.countDocuments({ from: 'user', readBySupport: false })    : Promise.resolve(0),
+    const [pendingVerifications, unreadMessages] = await Promise.all([
+      hasContent ? User.countDocuments({ idVerificationStatus: 'pending' })              : Promise.resolve(0),
+      hasSupport ? SupportMessage.countDocuments({ from: 'user', readBySupport: false }) : Promise.resolve(0),
     ]);
-    res.locals.sidebarCounts    = { pendingEntries, pendingVerifications, unreadMessages };
+    res.locals.sidebarCounts = { pendingVerifications, unreadMessages };
   } catch {
-    res.locals.sidebarCounts    = { pendingEntries: 0, pendingVerifications: 0, unreadMessages: 0 };
+    res.locals.sidebarCounts = { pendingVerifications: 0, unreadMessages: 0 };
   }
   res.locals.adminRole          = role;
   res.locals.adminPermissions   = permissions;
@@ -117,7 +115,6 @@ router.use(async (req, res, next) => {
   next();
 });
 
-router.use('/entries',      requireDomain('content'));
 router.use('/verification', requireDomain('content'));
 router.use('/profile',      require('./adminProfile'));
 router.use('/support',      requireDomain('support'), require('./adminSupport'));
@@ -154,19 +151,15 @@ router.post('/impersonate/exit', (req, res) => {
 // ── Dashboard ─────────────────────────────────────────────────────
 
 router.get('/', async (req, res) => {
-  const [pendingCount, totalUsers, activeUsers, onboardingUsers] = await Promise.all([
-    TournamentEntry.countDocuments({ approvalStatus: 'pending' }),
+  const [totalUsers, activeUsers] = await Promise.all([
     User.countDocuments({ role: 'user' }),
     User.countDocuments({ role: 'user', accountStatus: 'active' }),
-    User.countDocuments({ role: 'user', accountStatus: 'onboarding' }),
   ]);
   res.render('admin/dashboard', {
     title: 'Dashboard',
     currentPage: 'dashboard',
-    pendingCount,
     totalUsers,
     activeUsers,
-    onboardingUsers,
   });
 });
 
@@ -245,57 +238,6 @@ router.post('/users/:id/role', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Failed to update role' });
   }
-});
-
-// ── Entry Review ──────────────────────────────────────────────────
-
-router.get('/entries', async (req, res) => {
-  const entries = await TournamentEntry.find({ approvalStatus: 'pending' })
-    .populate('userId', 'username email avatar')
-    .populate('entryId', 'mediaUrl mediaType caption')
-    .populate('tournamentId', 'name')
-    .sort({ submittedAt: 1 });
-  res.render('admin/entries', { title: 'Entry Review', currentPage: 'entries', entries });
-});
-
-router.post('/entries/:id/approve', async (req, res) => {
-  const te = await TournamentEntry.findById(req.params.id);
-  if (!te) return res.redirect('/admin/entries');
-  await Promise.all([
-    TournamentEntry.findByIdAndUpdate(te._id, { approvalStatus: 'approved', reviewedAt: new Date() }),
-    User.findByIdAndUpdate(te.userId, { onboardingStatus: 'approved', accountStatus: 'active' }),
-  ]);
-  logAuditEvent({
-    actorId:      req.session.adminId,
-    actorRole:    req.session.adminRole,
-    action:       'onboarding_entry_approved',
-    entityType:   'tournament_entry',
-    entityId:     te._id,
-    targetUserId: te.userId,
-    remarks:      req.body.remarks,
-    metadata:     { tournamentId: te.tournamentId, entryId: te.entryId },
-  });
-  res.redirect('/admin/entries');
-});
-
-router.post('/entries/:id/reject', async (req, res) => {
-  const te = await TournamentEntry.findById(req.params.id);
-  if (!te) return res.redirect('/admin/entries');
-  await Promise.all([
-    TournamentEntry.findByIdAndUpdate(te._id, { approvalStatus: 'rejected', reviewedAt: new Date() }),
-    User.findByIdAndUpdate(te.userId, { onboardingStatus: 'rejected' }),
-  ]);
-  logAuditEvent({
-    actorId:      req.session.adminId,
-    actorRole:    req.session.adminRole,
-    action:       'onboarding_entry_rejected',
-    entityType:   'tournament_entry',
-    entityId:     te._id,
-    targetUserId: te.userId,
-    remarks:      req.body.remarks,
-    metadata:     { tournamentId: te.tournamentId, entryId: te.entryId },
-  });
-  res.redirect('/admin/entries');
 });
 
 // ── ID Verification ───────────────────────────────────────────────
@@ -536,13 +478,10 @@ router.get('/tournaments/review', (req, res) => {
 const AUDIT_MIN_ROLES = ['supervisor', 'superadmin', 'founder'];
 
 const ACTION_LABELS = {
-  id_verification_submitted:   'ID Docs Submitted',
-  id_verification_approved:    'ID Verification Approved',
-  id_verification_rejected:    'ID Verification Rejected',
-  onboarding_entry_submitted:  'Entry Submitted (Onboarding)',
-  onboarding_entry_approved:   'Entry Approved (Onboarding)',
-  onboarding_entry_rejected:   'Entry Rejected (Onboarding)',
-  user_role_changed:           'Role Changed',
+  id_verification_submitted: 'ID Docs Submitted',
+  id_verification_approved:  'ID Verification Approved',
+  id_verification_rejected:  'ID Verification Rejected',
+  user_role_changed:         'Role Changed',
 };
 
 router.get('/audit-log', async (req, res) => {

@@ -205,6 +205,104 @@
       <p class="text-xs text-white/25"><span id="tag-count">0</span>/6 &nbsp;·&nbsp; press Enter or comma to add</p>
     </div>
 
+    <!-- ── Audience & Options ──────────────────────────────────────── -->
+    <div class="flex flex-col gap-3 mb-4 border border-white/10 rounded-md px-4 py-3.5">
+      <p class="text-xs font-semibold text-white/50 uppercase tracking-wide">Options</p>
+
+      <!-- Visibility -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">Audience</span>
+          <span class="text-xs text-white/35">Who can see this entry</span>
+        </div>
+        <div class="flex items-center gap-1.5 bg-shark-800 border border-white/10 rounded-md p-1">
+          <button type="button" data-vis="public"
+            class="vis-btn px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer vis-active">
+            Everyone
+          </button>
+          <button type="button" data-vis="followers"
+            class="vis-btn px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer text-white/40 hover:text-white/60">
+            Followers
+          </button>
+        </div>
+        <input type="hidden" name="visibility" id="visibility-input" value="public">
+      </div>
+
+      <!-- Comments toggle -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">Comments</span>
+          <span class="text-xs text-white/35">Allow others to comment</span>
+        </div>
+        <button type="button" id="comments-toggle" data-on="true"
+          class="relative w-10 h-5.5 rounded-full transition-colors cursor-pointer bg-charm-600"
+          style="min-width:2.5rem;height:1.375rem;">
+          <span id="comments-thumb"
+            class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-5"></span>
+        </button>
+        <input type="hidden" name="commentsEnabled" id="comments-input" value="true">
+      </div>
+
+      <!-- Contest eligibility toggle -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">Contest eligible</span>
+          <span class="text-xs text-white/35">Allow nominations to contests</span>
+        </div>
+        <button type="button" id="contest-toggle" data-on="true"
+          class="relative w-10 h-5.5 rounded-full transition-colors cursor-pointer bg-charm-600"
+          style="min-width:2.5rem;height:1.375rem;">
+          <span id="contest-thumb"
+            class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform translate-x-5"></span>
+        </button>
+        <input type="hidden" name="contestEligible" id="contest-input" value="true">
+      </div>
+
+      <!-- Mature content -->
+      <label class="flex items-center justify-between gap-4 cursor-pointer">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">Mature content</span>
+          <span class="text-xs text-white/35">Flag as 18+ or sensitive</span>
+        </div>
+        <input type="checkbox" name="matureContent" id="mature-checkbox" value="true"
+          class="w-4 h-4 accent-charm-500 cursor-pointer">
+      </label>
+    </div>
+
+    <% if (pendingNominations && pendingNominations.length > 0) { %>
+    <!-- ── Nominations ─────────────────────────────────────────────── -->
+    <div class="flex flex-col gap-2.5 mb-4">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-semibold text-white/50 uppercase tracking-wide">Pending Nominations</p>
+        <span class="text-xs text-white/30"><%= pendingNominations.length %> waiting</span>
+      </div>
+      <p class="text-xs text-white/40">Submit this entry as your response to one of these nominations.</p>
+      <div class="flex flex-col gap-2" id="nominations-list">
+        <% pendingNominations.forEach(function(nom) { %>
+        <label class="nomination-card flex items-center gap-3 border border-white/10 rounded-md px-3 py-2.5 cursor-pointer hover:border-white/20 transition-colors has-checked:border-charm-500/50 has-checked:bg-charm-600/5">
+          <input type="radio" name="nominationId" value="<%= nom._id %>"
+            class="w-4 h-4 accent-charm-500 shrink-0 cursor-pointer">
+          <% const nom_avatar = nom.nominatorId.avatar || '/img/default-avatar.png'; %>
+          <img src="<%= nom_avatar %>" alt="" class="w-7 h-7 rounded-md object-cover bg-shark-800 shrink-0">
+          <div class="flex flex-col gap-0.5 min-w-0">
+            <span class="text-sm text-white/80 font-medium truncate">
+              <%= nom.nominatorId.displayName || nom.nominatorId.username.value %>
+              <span class="text-white/35 font-normal">nominated you</span>
+            </span>
+            <% if (nom.message) { %>
+            <span class="text-xs text-white/40 truncate">"<%= nom.message %>"</span>
+            <% } %>
+            <span class="text-xs text-white/25">
+              Expires <%= new Date(nom.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %>
+            </span>
+          </div>
+        </label>
+        <% }); %>
+      </div>
+      <input type="hidden" name="nominationId" id="nomination-id-input" value="">
+    </div>
+    <% } %>
+
     <button type="submit" id="submit-btn" disabled
       class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
       Submit Entry
@@ -215,6 +313,10 @@
 </div>
 
 <style>
+  .vis-active {
+    background-color: rgba(221, 104, 144, 0.15);
+    color: rgba(221, 104, 144, 1);
+  }
   #upload-placeholder.drag-active {
     border-color: rgba(221, 104, 144, 0.5);
     background-color: rgba(221, 104, 144, 0.04);
@@ -1155,6 +1257,52 @@
 
   tagWrap.addEventListener('click', function () { tagInput.focus(); });
 
+  // ── Visibility toggle ────────────────────────────────────────────
+
+  var visInput = document.getElementById('visibility-input');
+  document.querySelectorAll('.vis-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var val = this.dataset.vis;
+      visInput.value = val;
+      document.querySelectorAll('.vis-btn').forEach(function (b) {
+        var active = b.dataset.vis === val;
+        b.classList.toggle('vis-active', active);
+        b.classList.toggle('text-white/40', !active);
+        b.classList.toggle('hover:text-white/60', !active);
+      });
+    });
+  });
+
+  // ── Toggle helpers ────────────────────────────────────────────────
+
+  function makeToggle(btnId, thumbId, inputId) {
+    var btn   = document.getElementById(btnId);
+    var thumb = document.getElementById(thumbId);
+    var input = document.getElementById(inputId);
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var on = btn.dataset.on !== 'true';
+      btn.dataset.on = on ? 'true' : 'false';
+      btn.classList.toggle('bg-charm-600', on);
+      btn.classList.toggle('bg-shark-700', !on);
+      thumb.classList.toggle('translate-x-5', on);
+      thumb.classList.toggle('translate-x-0.5', !on);
+      input.value = on ? 'true' : 'false';
+    });
+  }
+
+  makeToggle('comments-toggle', 'comments-thumb', 'comments-input');
+  makeToggle('contest-toggle',  'contest-thumb',  'contest-input');
+
+  // ── Nominations ──────────────────────────────────────────────────
+
+  var nominationIdInput = document.getElementById('nomination-id-input');
+  document.querySelectorAll('input[name="nominationId"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      if (nominationIdInput) nominationIdInput.value = this.checked ? this.value : '';
+    });
+  });
+
   // ── Form submit ──────────────────────────────────────────────────
 
   form.addEventListener('submit', async function (e) {
@@ -1182,11 +1330,22 @@
       }
     }
 
-    async function postEntry(file, caption, entryTags) {
+    var activeNominationId = nominationIdInput ? nominationIdInput.value : '';
+    var visibility      = visInput ? visInput.value : 'public';
+    var commentsEnabled = document.getElementById('comments-input') ? document.getElementById('comments-input').value : 'true';
+    var contestEligible = document.getElementById('contest-input')  ? document.getElementById('contest-input').value  : 'true';
+    var matureContent   = document.getElementById('mature-checkbox') && document.getElementById('mature-checkbox').checked ? 'true' : 'false';
+
+    async function postEntry(file, caption, entryTags, nominationId) {
       var fd = new FormData();
       fd.append('entryMedia', file);
       fd.append('caption', caption || '');
       entryTags.forEach(function (t) { fd.append('tags', t); });
+      fd.append('visibility',      visibility);
+      fd.append('commentsEnabled', commentsEnabled);
+      fd.append('contestEligible', contestEligible);
+      fd.append('matureContent',   matureContent);
+      if (nominationId) fd.append('nominationId', nominationId);
       var r    = await fetch('/api/entries', { method: 'POST', body: fd });
       var data = await r.json();
       if (!r.ok || data.error) throw new Error(data.error || 'Upload failed');
@@ -1196,11 +1355,13 @@
     try {
       var firstId;
       if (trimCards.length > 0) {
-        var ids = await Promise.all(trimCards.map(function (tc) {
+        // Only the first trim card carries the nomination — one nomination, one entry
+        var ids = await Promise.all(trimCards.map(function (tc, i) {
           return postEntry(
             new File([tc.blob], 'trimmed.mp4', { type: 'video/mp4' }),
             tc.caption,
-            tc.tags || []
+            tc.tags || [],
+            i === 0 ? activeNominationId : ''
           );
         }));
         firstId = ids[0];
@@ -1208,7 +1369,8 @@
         firstId = await postEntry(
           rawFile,
           document.getElementById('caption').value,
-          tags.slice()
+          tags.slice(),
+          activeNominationId
         );
       }
       window.location.href = '/entry/' + firstId;

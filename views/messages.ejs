@@ -1,20 +1,369 @@
-﻿<%- include('partials/appStart', { title: title, activePage: 'messages' }) %>
+<%- include('partials/appStart', { title: title, activePage: 'messages' }) %>
 
-<div class="flex flex-col pb-20 md:pb-0">
+<%
+function fmtConvTime(d) {
+  if (!d) return '';
+  const now = new Date();
+  const dt  = new Date(d);
+  const diffMs  = now - dt;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH   = Math.floor(diffMs / 3600000);
+  const diffD   = Math.floor(diffMs / 86400000);
+  if (diffMin < 1)  return 'now';
+  if (diffMin < 60) return diffMin + 'm';
+  if (diffH   < 24) return diffH   + 'h';
+  if (diffD   <  7) return diffD   + 'd';
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+%>
 
-  <!-- Header -->
-  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
-    <h1 class="font-black text-xl tracking-tight">Messages</h1>
-  </header>
+<style>
+#messages-shell { height: calc(100vh - 56px); }
+@media (min-width: 768px) { #messages-shell { height: 100vh; } }
+</style>
 
-  <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
-    <div class="w-16 h-16 rounded-md bg-white/5 flex items-center justify-center mb-4">
-      <iconify-icon icon="boxicons:message-bubble-dots" width="32" height="32" class="text-white/20"></iconify-icon>
+<div id="messages-shell" class="flex overflow-hidden">
+
+  <!-- ── Left panel: conversation list ─────────────────────────── -->
+  <div id="conv-list-panel" class="<%= activeConv ? 'hidden md:flex' : 'flex' %> w-full md:w-72 shrink-0 flex-col border-r border-white/10 overflow-hidden">
+
+    <div class="shrink-0 px-5 py-4 border-b border-white/10">
+      <h1 class="font-black text-xl tracking-tight">Messages</h1>
     </div>
-    <p class="text-white/40 text-sm">Messages coming soon</p>
-    <p class="text-white/20 text-xs mt-1">Direct messages between creators and organizers</p>
+
+    <div class="flex-1 overflow-y-auto">
+      <% if (!conversations.length) { %>
+      <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
+        <div class="w-14 h-14 rounded-md bg-white/5 flex items-center justify-center mb-3">
+          <iconify-icon icon="boxicons:message-bubble-dots" width="26" class="text-white/20"></iconify-icon>
+        </div>
+        <p class="text-white/35 text-sm">No conversations yet</p>
+        <p class="text-white/20 text-xs mt-1">Message someone from their profile</p>
+      </div>
+      <% } else { %>
+      <% conversations.forEach(function(conv) {
+        const isActive = activeConv && String(conv._id) === String(activeConv._id);
+        const other    = conv.otherUser;
+        const preview  = conv.lastMessageBody || '';
+        const ts       = fmtConvTime(conv.lastMessageAt);
+      %>
+      <a href="/messages/<%= other ? other.username?.value : '' %>"
+         class="flex items-center gap-3 px-4 py-3 border-b border-white/5 transition-colors no-underline group
+           <%= isActive ? 'bg-white/8 border-l-2 border-l-charm-500' : 'hover:bg-white/4' %>">
+
+        <!-- Avatar -->
+        <div class="shrink-0 w-10 h-10 rounded-full overflow-hidden bg-shark-800 flex items-center justify-center">
+          <% if (other && other.avatar?.value) { %>
+          <img src="<%= other.avatar.value %>" alt="" class="w-full h-full object-cover">
+          <% } else { %>
+          <iconify-icon icon="boxicons:user" width="18" class="text-white/30"></iconify-icon>
+          <% } %>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-sm font-semibold text-white truncate leading-tight m-0">
+              <%= other ? (other.displayName?.value || ('@' + other.username?.value)) : 'Unknown' %>
+            </p>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <% if (conv.unreadCount > 0) { %>
+              <span class="w-4 h-4 rounded-full bg-charm-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                <%= conv.unreadCount > 9 ? '9+' : conv.unreadCount %>
+              </span>
+              <% } %>
+              <span class="text-[11px] text-white/30"><%= ts %></span>
+            </div>
+          </div>
+          <p class="text-xs text-white/35 truncate mt-0.5 leading-snug m-0">
+            <%= preview || 'No messages yet' %>
+          </p>
+        </div>
+      </a>
+      <% }); %>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- ── Right panel: active thread or empty state ─────────────── -->
+  <div id="thread-panel" class="<%= activeConv ? 'flex' : 'hidden md:flex' %> flex-1 flex-col overflow-hidden">
+
+    <% if (!activeConv) { %>
+
+    <!-- Empty state -->
+    <div class="flex-1 flex flex-col items-center justify-center py-20 px-5 text-center">
+      <div class="w-16 h-16 rounded-md bg-white/5 flex items-center justify-center mb-4">
+        <iconify-icon icon="boxicons:message-bubble-dots" width="32" class="text-white/20"></iconify-icon>
+      </div>
+      <p class="text-white/40 text-sm">Select a conversation</p>
+      <p class="text-white/20 text-xs mt-1">or message someone from their profile</p>
+    </div>
+
+    <% } else { %>
+
+    <!-- Thread header -->
+    <div class="shrink-0 border-b border-white/10 px-4 py-3 flex items-center gap-3 bg-shark-950">
+      <!-- Back button (mobile only) -->
+      <a href="/messages" class="md:hidden shrink-0 w-8 h-8 flex items-center justify-center text-white/50 hover:text-white transition-colors -ml-1">
+        <iconify-icon icon="boxicons:chevron-left" width="20"></iconify-icon>
+      </a>
+
+      <!-- Avatar -->
+      <div class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-shark-800 flex items-center justify-center">
+        <% if (otherUser.avatar?.value) { %>
+        <img src="<%= otherUser.avatar.value %>" alt="" class="w-full h-full object-cover">
+        <% } else { %>
+        <iconify-icon icon="boxicons:user" width="16" class="text-white/30"></iconify-icon>
+        <% } %>
+      </div>
+
+      <!-- Name -->
+      <div class="flex-1 min-w-0">
+        <a href="/<%= otherUser.username?.value %>" class="text-sm font-semibold text-white hover:text-white/80 transition-colors no-underline block truncate leading-tight">
+          <%= otherUser.displayName?.value || ('@' + otherUser.username?.value) %>
+        </a>
+        <p class="text-xs text-white/35 leading-tight m-0">@<%= otherUser.username?.value %></p>
+      </div>
+    </div>
+
+    <!-- Message thread -->
+    <div id="message-thread" class="flex-1 overflow-y-auto py-5">
+      <div class="flex flex-col gap-0 max-w-2xl mx-auto px-4">
+        <div id="messages-list" class="flex flex-col"></div>
+      </div>
+    </div>
+
+    <!-- Compose bar -->
+    <div class="shrink-0 border-t border-white/10 bg-shark-950 px-4 py-3 pb-safe md:pb-3">
+      <div class="flex items-end gap-2 max-w-2xl mx-auto">
+        <div class="flex-1 bg-shark-900 border border-white/10 rounded-md px-3 focus-within:border-white/25 transition-colors">
+          <div class="flex items-center gap-2 min-h-10">
+            <textarea
+              id="compose-input"
+              rows="1"
+              maxlength="500"
+              placeholder="Message @<%= otherUser.username?.value %>…"
+              class="flex-1 bg-transparent text-sm text-white placeholder:text-white/25 resize-none outline-none leading-relaxed py-2.5"
+              style="max-height: 120px; overflow-y: auto;"
+            ></textarea>
+            <span id="char-count" class="hidden shrink-0 text-xs text-white/20 tabular-nums"></span>
+          </div>
+        </div>
+        <button type="button" id="send-btn"
+          class="shrink-0 w-10 h-10 rounded-md bg-charm-600 hover:bg-charm-500 disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
+          disabled>
+          <iconify-icon icon="boxicons:send" width="16" class="text-white"></iconify-icon>
+        </button>
+      </div>
+    </div>
+
+    <% } %>
   </div>
 
 </div>
+
+<% if (activeConv) { %>
+<script>
+(function () {
+  var OTHER_USERNAME = '<%= otherUser.username?.value %>';
+  var CURRENT_USER_ID = '<%= currentUser._id %>';
+
+  var msgList   = document.getElementById('messages-list');
+  var threadEl  = document.getElementById('message-thread');
+  var seenIds   = {};
+  var sending   = false;
+  var lastDateKey = null;
+  var lastSenderId = null;
+
+  // ── Helpers ─────────────────────────────────────────────────────
+
+  function escHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  }
+
+  function fmtTime(iso) {
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function dateKey(iso) {
+    var d = new Date(iso);
+    return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+  }
+
+  function fmtDateLabel(iso) {
+    var d   = new Date(iso);
+    var now = new Date(); now.setHours(0,0,0,0);
+    var day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var diff = Math.round((now - day) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    if (diff < 7)   return d.toLocaleDateString([], { weekday: 'long' });
+    return d.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  function buildDateSeparator(iso) {
+    var el = document.createElement('div');
+    el.className = 'flex items-center gap-3 my-3';
+    el.innerHTML =
+      '<div class="flex-1 h-px bg-white/8"></div>' +
+      '<span class="text-[11px] text-white/25 font-medium shrink-0">' + fmtDateLabel(iso) + '</span>' +
+      '<div class="flex-1 h-px bg-white/8"></div>';
+    return el;
+  }
+
+  function buildBubble(msg, grouped) {
+    var isMine = msg.senderId.toString() === CURRENT_USER_ID;
+    var t = fmtTime(msg.createdAt);
+    var el = document.createElement('div');
+    el.dataset.id = msg._id;
+    el.style.marginTop = grouped ? '3px' : '10px';
+
+    var bodyHtml = '<p class="m-0 leading-relaxed" style="word-break:break-word">' + escHtml(msg.body) + '</p>' +
+      '<span style="display:block;font-size:10px;opacity:0.35;text-align:right;margin-top:2px;white-space:nowrap">' + t + '</span>';
+
+    if (isMine) {
+      el.className = 'flex justify-end';
+      el.innerHTML =
+        '<div style="max-width:72%">' +
+          '<div class="bg-charm-600/25 border border-charm-600/30 rounded-md px-3 py-2 text-sm text-white/85">' + bodyHtml + '</div>' +
+        '</div>';
+    } else {
+      el.className = 'flex items-end gap-2';
+      var avatarHtml = grouped
+        ? '<div class="shrink-0 w-7 h-7"></div>'
+        : '<div class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 flex items-center justify-center">' +
+            ('<%= otherUser.avatar?.value %>'
+              ? '<img src="<%= otherUser.avatar?.value %>" alt="" class="w-full h-full object-cover">'
+              : '<iconify-icon icon="boxicons:user" width="13" class="text-white/30"></iconify-icon>') +
+          '</div>';
+      el.innerHTML =
+        avatarHtml +
+        '<div style="max-width:72%">' +
+          '<div class="bg-shark-800 border border-white/8 rounded-md px-3 py-2 text-sm text-white/85">' + bodyHtml + '</div>' +
+        '</div>';
+    }
+    return el;
+  }
+
+  function appendMessage(msg, animate) {
+    if (seenIds[msg._id]) return;
+    seenIds[msg._id] = true;
+    var dk = dateKey(msg.createdAt);
+    if (dk !== lastDateKey) {
+      lastDateKey  = dk;
+      lastSenderId = null;
+      msgList.appendChild(buildDateSeparator(msg.createdAt));
+    }
+    var grouped = msg.senderId.toString() === lastSenderId;
+    lastSenderId = msg.senderId.toString();
+    var el = buildBubble(msg, grouped);
+    if (animate) { el.style.opacity = '0'; el.style.transition = 'opacity 0.18s'; }
+    msgList.appendChild(el);
+    if (animate) requestAnimationFrame(function () { el.style.opacity = '1'; });
+  }
+
+  function scrollToBottom() {
+    threadEl.scrollTop = threadEl.scrollHeight;
+  }
+
+  // ── Load initial messages (server-rendered) ──────────────────────
+
+  var initial = <%- JSON.stringify(initialMessages) %>;
+  initial.forEach(function (m) { appendMessage(m, false); });
+  scrollToBottom();
+
+  // ── Poll for new messages every 5 s ──────────────────────────────
+
+  setInterval(function () {
+    fetch('/messages/' + OTHER_USERNAME + '/history')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var hadNew = false;
+        (data.messages || []).forEach(function (m) {
+          if (!seenIds[m._id]) { appendMessage(m, true); hadNew = true; }
+        });
+        if (hadNew) scrollToBottom();
+      });
+  }, 5000);
+
+  // ── Compose ───────────────────────────────────────────────────────
+
+  var input    = document.getElementById('compose-input');
+  var sendBtn  = document.getElementById('send-btn');
+  var charCount = document.getElementById('char-count');
+  var MAX = 500;
+
+  function updateSendBtn() {
+    sendBtn.disabled = sending || input.value.trim().length === 0;
+  }
+
+  input.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    var len = this.value.length;
+    if (len > MAX * 0.8) {
+      charCount.textContent = len + '/' + MAX;
+      charCount.classList.remove('hidden');
+      charCount.classList.toggle('text-red-400', len >= MAX);
+      charCount.classList.toggle('text-white/20', len < MAX);
+    } else {
+      charCount.classList.add('hidden');
+    }
+    updateSendBtn();
+  });
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!sendBtn.disabled) sendBtn.click();
+    }
+  });
+
+  sendBtn.addEventListener('click', function () {
+    if (sending) return;
+    var body = input.value.trim();
+    if (!body) return;
+
+    sending = true;
+    updateSendBtn();
+
+    var optimistic = buildBubble({
+      _id:      'tmp-' + Date.now(),
+      senderId: CURRENT_USER_ID,
+      body:     body,
+      createdAt: new Date().toISOString(),
+    }, lastSenderId === CURRENT_USER_ID);
+    optimistic.style.opacity = '0.5';
+    lastSenderId = CURRENT_USER_ID;
+    msgList.appendChild(optimistic);
+    scrollToBottom();
+
+    input.value = '';
+    input.style.height = 'auto';
+    charCount.classList.add('hidden');
+
+    fetch('/messages/' + OTHER_USERNAME + '/send', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    'body=' + encodeURIComponent(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        optimistic.remove();
+        if (data.message) { appendMessage(data.message, false); scrollToBottom(); }
+      })
+      .catch(function () {
+        optimistic.remove();
+        if (window.showToast) window.showToast('Failed to send. Try again.', 'error');
+      })
+      .finally(function () {
+        sending = false;
+        updateSendBtn();
+      });
+  });
+
+  input.focus();
+}());
+</script>
+<% } %>
 
 <%- include('partials/appEnd') %>

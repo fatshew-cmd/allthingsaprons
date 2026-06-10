@@ -235,17 +235,6 @@
 
 <script>
 (function () {
-  // ── Toast on entry-gate redirect ──────────────────────────────────
-  <% if (reason === 'entry') { %>
-  if (window.showToast) {
-    window.showToast(
-      'To submit entries and join contests, you\'ll need to verify your identity first — it\'s a one-time step.',
-      'info',
-      8000
-    );
-  }
-  <% } %>
-
   if (!document.getElementById('ack-check')) return;
 
   var ackCheck          = document.getElementById('ack-check');

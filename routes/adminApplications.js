@@ -100,7 +100,6 @@ router.post('/:id/hire', async (req, res) => {
       role,
       permissions:      finalPerms,
       accountStatus:    'invited',
-      onboardingStatus: 'approved',
       isTemporary,
       temporaryUntil,
       adminInviteToken:  token,

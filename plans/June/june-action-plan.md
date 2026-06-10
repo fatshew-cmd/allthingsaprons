@@ -1,8 +1,8 @@
 # June Action Plan
 
-## Current State (June 6)
+## Current State (June 10)
 
-Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system and staff hiring flow — was pulled forward and is also done. What remains is content display (feed, leaderboard, comments), the contest system, and the remaining Phase 6 admin UI pages.
+Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. What remains is content display (feed, comments), the contest system, and the remaining Phase 6 admin UI pages.
 
 ### What is done
 | Asset | Status |
@@ -10,29 +10,32 @@ Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Ph
 | All models | Complete and aligned with `platform-core-concepts.md` |
 | Auth routes | Signup (OTP via Resend), login, logout — fully working |
 | Onboarding flow | ID verification → submit entry → pending approval → approved/rejected — fully working |
-| ID verification | Selfie + government ID upload, code generation, attempt limiting, 2hr block after 3 failures — fully working |
+| ID verification | Moved to own route file (`routes/verify-identity.js`). Selfie + government ID upload, code generation, attempt limiting, 2hr block after 3 failures — fully working |
 | Admin entry review | Approve/reject tournament entries, sets `onboardingStatus` — fully working |
 | `requireAuth` middleware | Unauthenticated users redirected to signup |
 | `requireApproved` middleware | Non-approved users confined to onboarding domain |
 | Entry upload | Photo + video, tags, caption — fully working |
 | Entry display page | Media, owner info, rating avg/count — fully working |
 | Rating flow | 1–10, no self-rate, no duplicate, denormalized onto entry — fully working |
-| Profile page | Entries, follow counts, stats, contest/tournament history — fully working |
-| Settings page | Edit username, bio, avatar, banner — fully working |
+| Profile page | Entries, follow counts, stats, contest/tournament history, banner pan/zoom — fully working |
+| Settings page | Edit username, bio, avatar, banner with drag pan/zoom positioning — fully working |
+| Banner positioning | `posX`, `posY`, `zoom` stored on User; drag-to-reposition UI in settings and profile edit; rendered correctly on profile display with gap-clamping fix |
+| Follow / Unfollow | `routes/follow.js` — `POST /follow/:username` + `POST /unfollow/:username`. Profile action row has Follow + Message buttons. "People you might like" section appears after following, sourced from the profile's followers + following |
+| Direct messages | `Conversation` + `DirectMessage` models, `routes/messages.js`. Two-panel `/messages` view — conversation list + thread. Message button on profile opens or creates the conversation. Polled every 5s |
 | Support chat | User-facing `/contact` thread + admin `/admin/support` two-panel messenger — fully working |
 | Admin role system | 5-tier hierarchy (`user → moderator → supervisor → superadmin → founder`), domain permissions (`content / chat / comments / financial / support`), `requireDomain` middleware, domain-aware sidebar, scoped badge counts, admin accounts page — fully working |
 | Admin hiring flow | Public careers page, applications queue, invite-based account creation with 72h token, invite acceptance + password setup, temporary account support — fully working |
+| Admin audit log | Append-only `admin_audit_logs` collection, `ATA-YYYYMMDD-XXXXXXXX` ticket refs, full metadata, filterable at `/admin/audit-log` — fully working |
+| Admin profile | Dedicated admin profile page at `/admin/profile` — fully working |
+| BannedEmail / BannedDocHash models | Schema-level infrastructure for ban enforcement — done |
 
 ### What is not done yet
 - Feed content (tabs exist, all three are empty)
-- Leaderboard (route is broken — passes no data to the template)
 - Right panel trending/contests data (shows skeleton permanently)
-- Follow / Unfollow action (model + counts exist, no POST routes)
 - Comments, replies, moderation, reporting
 - Notifications (no model, no routes)
-- Messages (stub only)
 - Standalone contests (full lifecycle)
-- Phase 6 admin UI pages: tournament management, content moderation, and entries moderation still pending; admin dashboard, user list/detail, and ID verification queue are done
+- Phase 6 admin UI pages: tournament management, content moderation, and entries moderation are placeholder stubs only; admin dashboard, user list/detail, ID verification queue, and audit log are done
 
 ---
 
@@ -77,7 +80,7 @@ The foundation. Nothing else gets built until the data models match the design.
 - [x] Complete login flow: session + `requireAuth` middleware, protect routes.
 - [x] Profile page: display user's entries, average rating, username, avatar, bio, follow counts, contest/tournament history.
 - [x] Settings page: edit username, bio, avatar upload, banner upload, account deletion.
-- [ ] Follow / Unfollow: `Follow` model and `isFollowing` flag exist on profiles, but there are no POST routes to actually follow or unfollow. Add `POST /follow/:username` and `POST /unfollow/:username`, wire up the button in the profile view.
+- [x] Follow / Unfollow: `POST /follow/:username` and `POST /unfollow/:username` in `routes/follow.js`. Follow/Unfollow + Message buttons wired on profile action row. After following, a "People you might like" section appears between the stats row and tab bar — pulls followers + following of the viewed profile, shows up to 3 suggestions with inline follow toggles.
 
 ---
 
@@ -90,14 +93,16 @@ The default engagement layer. Every user on the platform interacts with this.
 - [x] Entry display: entry page showing media, owner info, current rating average and count.
 - [x] Rating flow: authenticated user submits 1–10 score. Enforce no self-rating, no duplicate rating. Update `ratingCount` and `ratingAvg` on the entry document.
 - [x] Tags: entry owner can add, edit, or remove up to 6 free-form tags on their entry at any time.
-- [ ] **Fix leaderboard route (broken):** `leaderboard.ejs` iterates an `items` variable that the route never passes — the page will throw on load. Wire up the route to query top entries by `ratingAvg` (minimum 3 ratings) and pass them as `items`.
+- [x] **Fix leaderboard route:** real query implemented — top entries by `ratingAvg` with minimum 3 ratings, populated owner info, passed as `items` to the view.
 - [ ] **Wire up right panel data:** `rightPanel.ejs` references `trendingItems` and `contests` that no route ever populates — the panel shows skeleton placeholders permanently. Feed and leaderboard routes should query and pass this data.
-- [ ] Feed page: build out the Ratings tab — show recent entries from all users as cards with rating UI. The tab structure and layout exist; the content does not.
+- [ ] Feed page: build out the Ratings tab — show recent entries from all users as cards with rating UI. The tab structure and layout exist; the content does not. → [milestone breakdown](feed-ratings-tab-milestones.md)
 - [ ] Comment flow: any registered user can comment on an entry. Users can delete their own comments. Entry owner can hide any comment (hidden comments move to a private "hidden comments" section, visible only to the owner). Any user can report a comment.
 - [ ] Reply flow: any registered user can reply to a top-level comment (one level only). Reply body is automatically prefixed with @username of the parent commenter.
 - [ ] Comment notifications: notify entry owner when someone comments on their entry. Notify parent commenter when someone replies to their comment.
 
 **Exit criteria:** A user can upload an entry, other users can rate it 1–10, and the feed and leaderboard reflect live data. Comments work end to end. Right panel shows real trending data.
+
+> **Dev note:** `@storiesbyshews` has `idVerified: true` set manually in the DB to allow free entry submission testing during Phase 3. Before Phase 3 closes, reset this user's `idVerified` to `false` and `idVerificationStatus` to `none` (or `null`) so the account goes through the real ID verification flow.
 
 ---
 
@@ -131,7 +136,7 @@ The system that makes everything time-sensitive work reliably.
 - [ ] Gate tournament creation behind `idVerified: true` check — server-side safeguard only. Since all approved users complete ID verification during onboarding, the "prompt ID verification" path is unreachable under normal flow; this is a hard server-side guard against bypasses.
 - [ ] Notification model or in-document array: store unread notifications per user.
 - [ ] Notifications page: show nominations received, contest results, contest voided.
-- [ ] Messages page: show nomination messages from viewers (viewer HTH suggestions with message).
+- [x] Messages page: direct messaging between users — `Conversation` + `DirectMessage` models, `routes/messages.js`, two-panel view (`/messages` list + `/messages/:username` thread). Polled every 5s. Message button on profile opens or creates a conversation.
 - [ ] Viewer nomination flow: any registered user can nominate two other users for a HTH, with an optional message. Both nominees receive a notification.
 
 **Exit criteria:** Time-based contest state transitions happen automatically without manual intervention. Users receive in-app notifications for all nomination and contest events.
@@ -305,7 +310,7 @@ The dashboard is served at `/admin` for all roles but renders entirely different
 - [x] **User management — list:** paginated user list with filters for role, onboarding status, account status, and `idVerified`
 - [x] **User management — detail:** profile info, uploaded entries, contest/tournament history, onboarding status, ID verification documents, wallet balance; admin actions (role assignment using 2-tier-ahead rule, account suspension)
 - [x] **ID verification queue:** list of users with `idVerificationStatus: 'pending'`; review view showing selfie and government ID side by side; approve / reject action (approval sets `idVerified: true` and advances user to `pending_submission`)
-- [x] **Admin audit log:** append-only `admin_audit_logs` collection tracking every admin action and user-submitted event as a timestamped chain. Each record carries: `ticketRef` (human-readable `ATA-YYYYMMDD-XXXXXXXX`), actor ID + role, action slug, affected entity, target user, optional free-text `remarks` from the admin, and a `metadata` payload (e.g. rejection reasons, DOBs entered, old/new role). Moderator review time is derivable from `submittedAt` in metadata vs `createdAt` on the log entry. Global log view at `/admin/audit-log` is visible to supervisor+; filterable by action, target user, and ticket ref. Remarks textarea added to the verification-review page (shared between approve and reject paths).
+- [x] **Admin audit log:** append-only `admin_audit_logs` collection, `ATA-YYYYMMDD-XXXXXXXX` ticket refs, actor ID + role, action slug, affected entity, target user, `remarks`, and `metadata` payload. Global log view at `/admin/audit-log` visible to supervisor+; filterable by action, target user, and ticket ref. `utils/auditLog.js` helper used throughout.
 - [ ] **Tournament management — list:** all tournaments with status filter; entry point for creating a platform-funded tournament
 - [ ] **Tournament management — create:** form to create a platform-funded tournament (name, description, participant cap, time config, prize amounts); starts directly at `open` status
 - [ ] **Tournament management — detail:** participant list, matchup grid, missed reviews counter, prize config; admin override actions

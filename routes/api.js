@@ -1,10 +1,13 @@
-const express  = require('express');
-const router    = express.Router();
-const mongoose  = require('mongoose');
-const User      = require('../models/User');
-const Entry     = require('../models/Entry');
-const Rating    = require('../models/Rating');
-const upload    = require('../middleware/upload');
+const express    = require('express');
+const router     = express.Router();
+const mongoose   = require('mongoose');
+const User       = require('../models/User');
+const Entry      = require('../models/Entry');
+const Rating     = require('../models/Rating');
+const Follow     = require('../models/Follow');
+const Nomination = require('../models/Nomination');
+const Contest    = require('../models/Contest');
+const upload     = require('../middleware/upload');
 
 router.get('/me', (req, res) => {
   res.json({ authenticated: !!req.session.userId });
@@ -55,14 +58,48 @@ router.post('/entries', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), as
     tags = raw.map(t => t.trim().toLowerCase()).filter(Boolean).slice(0, 6);
   }
 
+  const nominationId = req.body.nominationId?.trim() || null;
+  let pendingNom = null;
+
+  if (nominationId) {
+    if (!mongoose.isValidObjectId(nominationId)) {
+      return res.status(400).json({ error: 'Invalid nomination.' });
+    }
+    pendingNom = await Nomination.findById(nominationId).lean();
+    if (!pendingNom) return res.status(404).json({ error: 'Nomination not found.' });
+    if (pendingNom.nomineeId.toString() !== req.session.userId.toString()) {
+      return res.status(403).json({ error: 'This nomination is not for you.' });
+    }
+    if (pendingNom.status !== 'pending') {
+      return res.status(409).json({ error: 'This nomination has already been resolved.' });
+    }
+  }
+
   try {
     const entry = await Entry.create({
-      userId:    req.session.userId,
-      mediaUrl:  `/uploads/entries/${file.filename}`,
-      mediaType: isVideo ? 'video' : 'photo',
-      caption:   req.body.caption?.trim() || undefined,
+      userId:          req.session.userId,
+      mediaUrl:        `/uploads/entries/${file.filename}`,
+      mediaType:       isVideo ? 'video' : 'photo',
+      caption:         req.body.caption?.trim() || undefined,
       tags,
+      visibility:      ['public', 'followers'].includes(req.body.visibility) ? req.body.visibility : 'public',
+      commentsEnabled: req.body.commentsEnabled !== 'false',
+      contestEligible: req.body.contestEligible !== 'false',
+      matureContent:   req.body.matureContent === 'true',
     });
+
+    if (pendingNom) {
+      await Promise.all([
+        Nomination.findByIdAndUpdate(pendingNom._id, {
+          status:         'accepted',
+          nomineeEntryId: entry._id,
+        }),
+        Contest.findByIdAndUpdate(pendingNom.contestId, {
+          $push: { entries: { entryId: entry._id, userId: req.session.userId, submittedAt: new Date() } },
+        }),
+      ]);
+    }
+
     res.json({ entryId: entry._id });
   } catch (err) {
     console.error('Entry create error:', err);
@@ -127,6 +164,51 @@ router.post('/entries/:eid/rate', async (req, res) => {
     if (err.code === 11000) return res.status(409).json({ error: "You've already rated this entry" });
     console.error('Rate entry error:', err);
     res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// GET /api/similar-accounts/:username — followers + following of the profile, for follow suggestions
+router.get('/similar-accounts/:username', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ accounts: [] });
+
+  try {
+    const profileUser = await User.findOne({ 'username.value': req.params.username.toLowerCase() })
+      .select('_id').lean();
+    if (!profileUser) return res.json({ accounts: [] });
+
+    const [followerDocs, followingDocs] = await Promise.all([
+      Follow.find({ followingId: profileUser._id }).select('followerId').limit(30).lean(),
+      Follow.find({ followerId:  profileUser._id }).select('followingId').limit(30).lean(),
+    ]);
+
+    const seen = new Set([req.session.userId, profileUser._id.toString()]);
+    const candidates = [];
+    for (const d of followerDocs)  { const id = d.followerId.toString();  if (!seen.has(id)) { seen.add(id); candidates.push(id); } }
+    for (const d of followingDocs) { const id = d.followingId.toString(); if (!seen.has(id)) { seen.add(id); candidates.push(id); } }
+
+    if (!candidates.length) return res.json({ accounts: [] });
+
+    const pick = candidates.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+    const [users, myFollowing] = await Promise.all([
+      User.find({ _id: { $in: pick } }).select('username displayName avatar').lean(),
+      Follow.find({ followerId: req.session.userId, followingId: { $in: pick } })
+        .select('followingId').lean(),
+    ]);
+
+    const followingSet = new Set(myFollowing.map(f => f.followingId.toString()));
+
+    const accounts = users.map(u => ({
+      username:    u.username?.value,
+      displayName: u.displayName?.value || null,
+      avatar:      u.avatar?.value || null,
+      isFollowing: followingSet.has(u._id.toString()),
+    }));
+
+    res.json({ accounts });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ accounts: [] });
   }
 });
 

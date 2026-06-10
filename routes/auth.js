@@ -37,8 +37,6 @@ router.post('/auth/send-otp', async (req, res) => {
       }
       if (existing) {
         if (existing.email.value === email.toLowerCase()) {
-          if (existing.accountStatus === 'onboarding')
-            return res.json({ ok: false, field: 'email', message: 'An account with this email already exists. Please log in instead.' });
           return res.json({ ok: false, field: 'email', message: 'Email already registered.' });
         }
         return res.json({ ok: false, field: 'username', message: 'Username already taken.' });
@@ -93,8 +91,9 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
     if (!displayNameTrimmed) return renderError('Display name is required.');
     if (displayNameWords > 3) return renderError('Display name can be at most 3 words.');
     if (displayNameTrimmed.length > 50) return renderError('Display name cannot exceed 50 characters.');
-    if (bio && bio.trim().length > 0 && (bio.trim().length < 20 || bio.trim().length > 220)) {
-      return renderError('Bio must be between 20 and 220 characters.');
+    const bioCharCount = bio ? bio.replace(/\s/g, '').length : 0;
+    if (bioCharCount > 0 && (bioCharCount < 20 || bioCharCount > 220)) {
+      return renderError('Bio must be between 20 and 220 characters (spaces not counted).');
     }
 
     // ── New signup path ──────────────────────────────────────────────
@@ -118,8 +117,6 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
     if (banned) return renderError('This email is already registered.');
     if (existing) {
       if (existing.email.value === email.toLowerCase()) {
-        if (existing.accountStatus === 'onboarding')
-          return renderError('An account with this email already exists. Please log in instead.');
         return renderError('This email is already registered.');
       }
       return renderError('This username is already taken.');
@@ -159,7 +156,6 @@ router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (
       ageAcknowledgedAt:          now,
       adultContentAcknowledged:   true,
       adultContentAcknowledgedAt: now,
-      onboardingStatus:           'approved',
       accountStatus:              'active',
     };
 

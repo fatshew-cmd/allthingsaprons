@@ -54,6 +54,9 @@ const userSchema = new mongoose.Schema({
 
   banner: {
     value:   { type: String },
+    posX:    { type: Number, default: 0.5 },
+    posY:    { type: Number, default: 0.5 },
+    zoom:    { type: Number, default: 1 },
     history: [historyEntry],
   },
 
@@ -82,12 +85,7 @@ const userSchema = new mongoose.Schema({
     history: [historyEntry],
   },
 
-  accountStatus:    { type: String, enum: ['onboarding', 'active', 'invited', 'banned'], default: 'onboarding' },
-  onboardingStatus: {
-    type:    String,
-    enum:    ['pending_id_verification', 'pending_submission', 'pending_approval', 'approved', 'rejected'],
-    default: 'pending_id_verification',
-  },
+  accountStatus: { type: String, enum: ['active', 'invited', 'banned'], default: 'active' },
 
   idVerified:                     { type: Boolean, default: false },
   idVerificationStatus:           { type: String, enum: ['none', 'pending', 'closed'], default: 'none' },

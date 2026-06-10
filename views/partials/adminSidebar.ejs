@@ -67,19 +67,16 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
       Dashboard
     </a>
 
-    <!-- Users — superadmin / supervisor / content moderator or supervisor -->
-    <% const _showUsers = _isSuperadmin || _isSupervisor || (_isModerator && _hasContent); %>
-    <% if (_showUsers) { %>
+    <!-- Users — superadmin / supervisor -->
+    <% if (_isSuperadmin || _isSupervisor) { %>
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Users</span>
 
-    <% if (_isSuperadmin || _isSupervisor) { %>
     <a href="/admin/users" class="<%= lnk('users') %>">
       <iconify-icon icon="lucide:users" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       User Management
     </a>
-    <% } %>
 
-    <% if ((_isSupervisor || _isModerator) && _hasContent) { %>
+    <% if (_isSupervisor && _hasContent) { %>
     <a href="/admin/verification" class="<%= lnk('verification') %>">
       <iconify-icon icon="lucide:shield-check" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       <span class="flex-1">ID Verification</span>
@@ -90,27 +87,14 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <% } %>
     <% } %>
 
-    <!-- Content — superadmin / supervisor / content moderator or supervisor -->
-    <% const _showContent = _isSuperadmin || _isSupervisor || (_isModerator && _hasContent); %>
-    <% if (_showContent) { %>
+    <!-- Content — superadmin / supervisor -->
+    <% if (_isSuperadmin || _isSupervisor) { %>
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Content</span>
 
-    <% if ((_isSupervisor || _isModerator) && _hasContent) { %>
-    <a href="/admin/entries" class="<%= lnk('entries') %>">
-      <iconify-icon icon="lucide:inbox" width="14" style="flex-shrink:0;display:block"></iconify-icon>
-      <span class="flex-1">Entry Review</span>
-      <% if (typeof sidebarCounts !== 'undefined' && sidebarCounts.pendingEntries > 0) { %>
-      <span class="text-xs font-bold px-1.5 py-0.5 rounded-full bg-charm-500 text-white leading-none"><%= sidebarCounts.pendingEntries %></span>
-      <% } %>
-    </a>
-    <% } %>
-
-    <% if (_isSuperadmin || _isSupervisor) { %>
     <a href="/admin/content" class="<%= lnk('content') %>">
       <iconify-icon icon="lucide:image" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       All Entries
     </a>
-    <% } %>
     <% } %>
 
     <!-- Moderation — comments moderator or supervisor -->

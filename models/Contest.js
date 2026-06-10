@@ -4,6 +4,7 @@ const contestEntrySchema = new mongoose.Schema({
   entryId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Entry', required: true },
   userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   submittedAt: { type: Date, required: true },
+  hidden:      { type: Boolean, default: false },
 }, { _id: false });
 
 const contestSchema = new mongoose.Schema({

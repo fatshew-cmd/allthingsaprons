@@ -32,11 +32,26 @@ router.get('/feed', (req, res) => {
   });
 });
 
-router.get('/leaderboard', (req, res) => {
+router.get('/leaderboard', async (req, res) => {
+  const entries = await Entry.find({ ratingCount: { $gte: 3 } })
+    .sort({ ratingAvg: -1 })
+    .limit(50)
+    .populate('userId', 'username displayName')
+    .lean();
+
+  const items = entries.map(e => ({
+    mediaUrl:    e.mediaUrl,
+    title:       e.caption || '',
+    authorName:  e.userId?.displayName?.value || e.userId?.username?.value || 'Unknown',
+    ratingScore: e.ratingAvg,
+    ratingCount: e.ratingCount,
+  }));
+
   res.render('leaderboard', {
     title:      'Leaderboard',
     activePage: 'leaderboard',
     currentUser: req.currentUser,
+    items,
   });
 });
 
@@ -53,6 +68,7 @@ router.get('/contests', (req, res) => {
     title:      'Contests',
     activePage: 'contests',
     currentUser: req.currentUser,
+    contests: [],
   });
 });
 
@@ -60,14 +76,6 @@ router.get('/notifications', (req, res) => {
   res.render('notifications', {
     title:      'Notifications',
     activePage: 'notifications',
-    currentUser: req.currentUser,
-  });
-});
-
-router.get('/messages', (req, res) => {
-  res.render('messages', {
-    title:      'Messages',
-    activePage: 'messages',
     currentUser: req.currentUser,
   });
 });
@@ -167,13 +175,24 @@ router.post('/account/delete', async (req, res) => {
 
 // ── Submit Entry ──────────────────────────────────────────────────
 
-router.get('/submit', (req, res) => {
+router.get('/submit', async (req, res) => {
   if (!req.currentUser.idVerified) return res.redirect('/verify-identity?reason=entry');
+
+  const pendingNominations = await Nomination.find({
+    nomineeId: req.currentUser._id,
+    status:    'pending',
+    expiresAt: { $gt: new Date() },
+  })
+    .populate('nominatorId', 'username displayName avatar')
+    .sort({ createdAt: -1 })
+    .lean();
+
   res.render('submit', {
     title:      'Submit Entry',
     activePage: 'submit',
     currentUser: req.currentUser,
     error: null,
+    pendingNominations,
   });
 });
 
@@ -213,7 +232,7 @@ router.post('/submit', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), asy
 // ── Profile settings update ───────────────────────────────────────
 
 router.post('/settings/profile', upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), async (req, res) => {
-  const { username, displayName, bio, location, url, sex, birthdate, returnTo, bannerRemove, avatarRemove } = req.body;
+  const { username, displayName, bio, location, url, sex, birthdate, returnTo, bannerRemove, avatarRemove, bannerPosX, bannerPosY, bannerZoom } = req.body;
   const errors = [];
   const safeReturnTo = typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')
     ? returnTo
@@ -230,9 +249,10 @@ router.post('/settings/profile', upload.fields([{ name: 'avatar', maxCount: 1 },
   };
 
   const redirectWithError = (msg) => {
-    if (!safeReturnTo || safeReturnTo.startsWith('/settings')) return null;
+    if (!safeReturnTo || safeReturnTo.startsWith('/settings')) return false;
     const join = safeReturnTo.includes('?') ? '&' : '?';
-    return res.redirect(`${safeReturnTo}${join}editError=${encodeURIComponent(msg)}`);
+    res.redirect(`${safeReturnTo}${join}editError=${encodeURIComponent(msg)}`);
+    return true;
   };
 
   const usernameNormalized = (username || '').toLowerCase().trim();
@@ -258,8 +278,9 @@ router.post('/settings/profile', upload.fields([{ name: 'avatar', maxCount: 1 },
   if (hasDisplayName && displayNameTrimmed && displayNameTrimmed.split(/\s+/).filter(Boolean).length > 3) {
     errors.push('Display name can be at most 3 words.');
   }
-  if (hasBio && bioTrimmed.length > 0 && (bioTrimmed.length < 20 || bioTrimmed.length > 220)) {
-    errors.push('Bio must be between 20 and 220 characters.');
+  const bioCharCount = bioTrimmed ? bioTrimmed.replace(/\s/g, '').length : 0;
+  if (hasBio && bioCharCount > 0 && (bioCharCount < 20 || bioCharCount > 220)) {
+    errors.push('Bio must be between 20 and 220 characters (spaces not counted).');
   }
   if (hasUrl && urlTrimmed.length > 200) {
     errors.push('Website URL cannot exceed 200 characters.');
@@ -396,19 +417,36 @@ router.post('/settings/profile', upload.fields([{ name: 'avatar', maxCount: 1 },
     }
   }
 
+  const bpx  = parseFloat(bannerPosX);
+  const bpy  = parseFloat(bannerPosY);
+  const bzm  = parseFloat(bannerZoom);
+  const posX = isNaN(bpx) ? 0.5 : Math.max(0, Math.min(1, bpx));
+  const posY = isNaN(bpy) ? 0.5 : Math.max(0, Math.min(1, bpy));
+  const zoom = isNaN(bzm) ? 1   : Math.max(1, bzm);
+
   if (req.files?.banner?.[0]) {
     const bannerPath = `/uploads/banners/${req.files.banner[0].filename}`;
     const oldVal     = currentUserDoc.banner?.value || null;
     setOp['banner.value'] = bannerPath;
+    setOp['banner.posX']  = posX;
+    setOp['banner.posY']  = posY;
+    setOp['banner.zoom']  = zoom;
     if (bannerPath !== oldVal) {
       pushOp['banner.history'] = { value: bannerPath, setAt: now, source: 'edit_profile' };
     }
   } else if (bannerRemove === '1') {
     const oldVal = currentUserDoc.banner?.value || null;
     setOp['banner.value'] = null;
+    setOp['banner.posX']  = 0.5;
+    setOp['banner.posY']  = 0.5;
+    setOp['banner.zoom']  = 1;
     if (oldVal !== null) {
       pushOp['banner.history'] = { value: null, setAt: now, source: 'edit_profile' };
     }
+  } else if (currentUserDoc.banner?.value) {
+    setOp['banner.posX'] = posX;
+    setOp['banner.posY'] = posY;
+    setOp['banner.zoom'] = zoom;
   }
 
   const updateDoc = { $set: setOp };

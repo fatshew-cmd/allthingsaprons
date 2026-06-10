@@ -6,7 +6,8 @@ const nominationSchema = new mongoose.Schema({
   nomineeId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   message:     { type: String },
   expiresAt:   { type: Date, required: true },
-  status:      { type: String, enum: ['pending', 'accepted', 'void'], default: 'pending' },
+  status:          { type: String, enum: ['pending', 'accepted', 'void'], default: 'pending' },
+  nomineeEntryId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Entry', default: null },
 }, { timestamps: true });
 
 nominationSchema.index({ contestId: 1 });

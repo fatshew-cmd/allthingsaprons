@@ -6,7 +6,12 @@
   <div class="relative shrink-0">
     <div class="relative h-32 sm:h-40 bg-shark-800 overflow-hidden">
       <% if (profileUser.banner?.value) { %>
-        <img src="<%= profileUser.banner.value %>" alt="" class="w-full h-full object-cover">
+        <img id="profile-banner-img" src="<%= profileUser.banner.value %>" alt=""
+          class="absolute max-w-none"
+          style="opacity:0"
+          data-pos-x="<%= profileUser.banner.posX ?? 0.5 %>"
+          data-pos-y="<%= profileUser.banner.posY ?? 0.5 %>"
+          data-zoom="<%= profileUser.banner.zoom ?? 1 %>">
       <% } %>
       <div class="absolute inset-0 bg-linear-to-t from-shark-950/70 via-shark-950/20 to-transparent pointer-events-none"></div>
     </div>
@@ -16,6 +21,21 @@
         <iconify-icon icon="boxicons:pencil" width="14"></iconify-icon>
         Edit profile
       </button>
+      <% } else { %>
+      <div class="flex items-center gap-2">
+        <a href="/messages/<%= profileUser.username?.value %>"
+           class="inline-flex items-center gap-2 px-4 py-2 border border-white/35 rounded-md text-sm font-semibold text-white hover:bg-white/8 transition-colors cursor-pointer no-underline">
+          <iconify-icon icon="boxicons:message-bubble-dots" width="15"></iconify-icon>
+          Message
+        </a>
+        <button type="button" id="follow-btn"
+          data-username="<%= profileUser.username?.value %>"
+          data-following="<%= isFollowing ? 'true' : 'false' %>"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors cursor-pointer <%= isFollowing ? 'border border-white/35 text-white hover:bg-white/8' : 'bg-charm-500 text-white hover:bg-charm-600' %>">
+          <iconify-icon icon="<%= isFollowing ? 'boxicons:user-check' : 'boxicons:user-plus' %>" width="15"></iconify-icon>
+          <span id="follow-btn-label"><%= isFollowing ? 'Following' : 'Follow' %></span>
+        </button>
+      </div>
       <% } %>
     </div>
     <!-- Avatar pinned between banner and action row -->
@@ -32,7 +52,7 @@
   </div>
 
   <!-- Profile section -->
-  <div class="px-5 pt-6 pb-3">
+  <div class="px-5 pt-1.5 pb-3">
 
     <!-- Name -->
     <div class="<%= isOwn ? '' : 'mt-1' %>">
@@ -45,10 +65,8 @@
     </div>
 
     <!-- Bio -->
-    <div class="mt-3">
-      <p id="profile-bio-text" class="text-sm leading-relaxed line-clamp-2 <%= profileUser.bio?.value ? 'text-white/60' : 'text-white/25 italic' %>">
-        <%= profileUser.bio?.value || 'No bio yet.' %>
-      </p>
+    <div class="mt-1.5">
+      <p id="profile-bio-text" class="text-sm leading-relaxed line-clamp-3 whitespace-pre-wrap <%= profileUser.bio?.value ? 'text-white/60' : 'text-white/25 italic' %>"><%= profileUser.bio?.value || 'No bio yet.' %></p>
       <% if (profileUser.bio?.value) { %>
       <button id="profile-bio-toggle" class="hidden mt-1 text-xs text-white/40 hover:text-white transition-colors">Read more</button>
       <% } %>
@@ -71,7 +89,18 @@
       const sexLabel = { male: 'Male', female: 'Female', other: 'Other' }[profileUser.sex?.value] || null;
     %>
     <% if (birthdateLabel || sexLabel || profileUser.location?.value || profileUser.url?.value) { %>
-    <div class="mt-3 flex flex-col gap-2">
+    <div class="mt-1.5 flex flex-col gap-1">
+      <% if (profileUser.url?.value) { %>
+      <%
+        const href = /^https?:\/\//i.test(profileUser.url.value) ? profileUser.url.value : 'https://' + profileUser.url.value;
+        const display = profileUser.url.value.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+      %>
+      <a href="<%= href %>" target="_blank" rel="noopener noreferrer"
+         class="flex items-center gap-1.5 text-sm text-charm-400 hover:text-charm-300 transition-colors w-fit">
+        <iconify-icon icon="boxicons:link" width="14"></iconify-icon>
+        <%= display %>
+      </a>
+      <% } %>
       <% if (birthdateLabel || sexLabel || profileUser.location?.value) { %>
       <div class="flex flex-wrap gap-x-5 gap-y-1">
         <% if (birthdateLabel) { %>
@@ -94,17 +123,6 @@
         <% } %>
       </div>
       <% } %>
-      <% if (profileUser.url?.value) { %>
-      <%
-        const href = /^https?:\/\//i.test(profileUser.url.value) ? profileUser.url.value : 'https://' + profileUser.url.value;
-        const display = profileUser.url.value.replace(/^https?:\/\//i, '').replace(/\/$/, '');
-      %>
-      <a href="<%= href %>" target="_blank" rel="noopener noreferrer"
-         class="flex items-center gap-1.5 text-sm text-charm-400 hover:text-charm-300 transition-colors w-fit">
-        <iconify-icon icon="boxicons:link" width="14"></iconify-icon>
-        <%= display %>
-      </a>
-      <% } %>
     </div>
     <% } %>
 
@@ -126,7 +144,7 @@
     </div>
 
     <div class="flex flex-col items-center">
-      <span class="text-xl font-bold leading-tight"><%= formatStat(followerCount) %></span>
+      <span id="follower-count" class="text-xl font-bold leading-tight"><%= formatStat(followerCount) %></span>
       <span class="text-xs text-white/40 mt-0.5">Followers</span>
     </div>
 
@@ -170,6 +188,17 @@
 
   </div>
 
+  <!-- Similar accounts (shown after following) -->
+  <div id="similar-section" class="hidden border-b border-white/10 px-5 py-4">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-semibold text-white m-0">People you might like</p>
+      <button type="button" id="similar-dismiss" class="text-white/30 hover:text-white/60 transition-colors cursor-pointer">
+        <iconify-icon icon="bx:x" width="18"></iconify-icon>
+      </button>
+    </div>
+    <div id="similar-list" class="flex gap-4"></div>
+  </div>
+
   <%
     function formatRelativeDate(d) {
       const ms = Date.now() - new Date(d).getTime();
@@ -184,13 +213,13 @@
 
   <!-- Tab bar -->
   <div class="border-b border-white/10 flex sticky top-0 bg-shark-950 z-20 mb-4">
-    <button data-tab="entries" class="tab-btn flex-1 py-3 px-2 text-sm font-semibold border-b-2 transition-colors text-white border-charm-500">
+    <button data-tab="entries" class="tab-btn flex-1 py-3 px-2 text-sm font-semibold border-b-2 transition-colors text-white border-charm-500 cursor-pointer">
       Entries
     </button>
-    <button data-tab="h2h" class="tab-btn flex-1 py-3 px-2 text-sm font-semibold border-b-2 transition-colors text-white/45 border-transparent">
+    <button data-tab="h2h" class="tab-btn flex-1 py-3 px-2 text-sm font-semibold border-b-2 transition-colors text-white/45 border-transparent cursor-pointer">
       Head to Head
     </button>
-    <button data-tab="tournaments" class="tab-btn flex-1 py-3 px-2 text-sm font-semibold border-b-2 transition-colors text-white/45 border-transparent">
+    <button data-tab="tournaments" class="tab-btn flex-1 py-3 px-2 text-sm font-semibold border-b-2 transition-colors text-white/45 border-transparent cursor-pointer">
       Tournaments
     </button>
   </div>
@@ -395,6 +424,9 @@
       <input type="hidden" name="returnTo" value="/<%= profileUser.username?.value %>">
       <input type="hidden" name="bannerRemove" id="profile-edit-banner-remove" value="0">
       <input type="hidden" name="avatarRemove" id="profile-edit-avatar-remove" value="0">
+      <input type="hidden" name="bannerPosX" id="profile-edit-banner-pos-x" value="<%= profileUser.banner?.posX ?? 0.5 %>">
+      <input type="hidden" name="bannerPosY" id="profile-edit-banner-pos-y" value="<%= profileUser.banner?.posY ?? 0.5 %>">
+      <input type="hidden" name="bannerZoom" id="profile-edit-banner-zoom-val" value="<%= profileUser.banner?.zoom ?? 1 %>">
 
       <div class="sticky top-0 z-10 flex items-center justify-between bg-shark-950/95 backdrop-blur-sm border-b border-white/10 px-4 py-3">
         <button type="button" id="profile-edit-close" class="inline-flex w-8 h-8 items-center justify-center rounded-md text-white/75 hover:bg-white/10 hover:text-white transition-colors cursor-pointer">
@@ -408,15 +440,37 @@
 
       <div class="p-4 sm:p-5">
         <div class="relative rounded-md overflow-hidden bg-shark-900 border border-white/10">
-          <div class="h-44 sm:h-52">
-            <img id="profile-edit-banner-preview" src="<%= profileUser.banner?.value || '' %>" alt="Banner preview"
-              class="w-full h-full object-cover <%= profileUser.banner?.value ? '' : 'hidden' %>" />
+          <div id="profile-edit-banner-pan" class="h-48 sm:h-56 relative overflow-hidden select-none bg-shark-900">
+            <img id="profile-edit-banner-preview" src="<%= profileUser.banner?.value || '' %>" alt=""
+              class="absolute max-w-none pointer-events-none <%= profileUser.banner?.value ? '' : 'hidden' %>"
+              draggable="false" />
             <div id="profile-edit-banner-empty"
               class="w-full h-full flex items-center justify-center text-white/25 <%= profileUser.banner?.value ? 'hidden' : '' %>">
               <iconify-icon icon="bx:image-add" width="30"></iconify-icon>
             </div>
+            <!-- Ghost frame: inset-x-0 top-8 bottom-8 = 192-64=128px mobile / 224-64=160px sm — exact profile banner height -->
+            <div id="profile-edit-banner-frame"
+              class="absolute inset-x-0 top-8 bottom-8 pointer-events-none <%= profileUser.banner?.value ? '' : 'hidden' %>"
+              style="box-shadow: 0 0 0 9999px rgba(0,0,0,0.52); border: 1.5px solid rgba(255,255,255,0.3);">
+            </div>
+            <div id="profile-edit-banner-drag-hint"
+              class="absolute bottom-10 left-1/2 -translate-x-1/2 bg-black/60 text-white/65 text-xs px-2.5 py-1 rounded-md pointer-events-none whitespace-nowrap <%= profileUser.banner?.value ? '' : 'hidden' %>">
+              Drag to reposition
+            </div>
+            <div id="profile-edit-banner-zoom-controls"
+              class="absolute bottom-10 right-3 flex items-center gap-1 <%= profileUser.banner?.value ? '' : 'hidden' %>">
+              <button type="button" id="profile-edit-banner-zoom-out"
+                class="w-7 h-7 flex items-center justify-center rounded-md bg-black/60 text-white/70 hover:bg-black/80 transition-colors cursor-pointer">
+                <iconify-icon icon="bx:minus" width="14"></iconify-icon>
+              </button>
+              <span id="profile-edit-banner-zoom-label" class="text-xs text-white/60 tabular-nums w-7 text-center">1×</span>
+              <button type="button" id="profile-edit-banner-zoom-in"
+                class="w-7 h-7 flex items-center justify-center rounded-md bg-black/60 text-white/70 hover:bg-black/80 transition-colors cursor-pointer">
+                <iconify-icon icon="bx:plus" width="14"></iconify-icon>
+              </button>
+            </div>
           </div>
-          <div class="absolute inset-x-0 top-3 flex items-center justify-center gap-2">
+          <div class="absolute inset-x-0 top-3 z-10 flex items-center justify-center gap-2">
             <label class="inline-flex items-center justify-center w-10 h-10 rounded-md bg-black/55 text-white border border-white/25 hover:bg-black/70 transition-colors cursor-pointer">
               <iconify-icon icon="boxicons:image-plus" width="18"></iconify-icon>
               <input type="file" name="banner" id="profile-edit-banner-input" accept="image/*" class="hidden">
@@ -461,9 +515,9 @@
           <div class="rounded-md border border-white/10 bg-shark-900 px-3 py-2.5">
             <div class="flex items-center justify-between">
               <label for="profile-edit-bio" class="block text-xs text-white/50">Bio</label>
-              <span id="profile-edit-bio-counter" class="text-xs text-white/35"><%= profileUser.bio?.value ? profileUser.bio.value.length : 0 %> / 220</span>
+              <span id="profile-edit-bio-counter" class="text-xs text-white/35"><%= profileUser.bio?.value ? profileUser.bio.value.replace(/\s/g, '').length : 0 %> / 220</span>
             </div>
-            <textarea id="profile-edit-bio" name="bio" rows="4" maxlength="220"
+            <textarea id="profile-edit-bio" name="bio" rows="4"
               class="mt-1 w-full resize-none bg-transparent text-base leading-relaxed text-white placeholder:text-white/25 focus:outline-none"
               placeholder="Tell people about yourself"><%= profileUser.bio?.value || '' %></textarea>
           </div>
@@ -536,7 +590,7 @@
   var expanded = false;
   bioToggle.addEventListener('click', function () {
     expanded = !expanded;
-    bioText.classList.toggle('line-clamp-2', !expanded);
+    bioText.classList.toggle('line-clamp-3', !expanded);
     bioToggle.textContent = expanded ? 'Show less' : 'Read more';
   });
 }());
@@ -563,11 +617,19 @@
   var bioCounter = document.getElementById('profile-edit-bio-counter');
   var bannerRemoveInput = document.getElementById('profile-edit-banner-remove');
   var avatarRemoveInput = document.getElementById('profile-edit-avatar-remove');
+  var bannerPosXInput   = document.getElementById('profile-edit-banner-pos-x');
+  var bannerPosYInput   = document.getElementById('profile-edit-banner-pos-y');
+  var bannerZoomInput   = document.getElementById('profile-edit-banner-zoom-val');
+  var bannerDragHint    = document.getElementById('profile-edit-banner-drag-hint');
+  var bannerGhostFrame  = document.getElementById('profile-edit-banner-frame');
+  var bannerZoomControls = document.getElementById('profile-edit-banner-zoom-controls');
 
   function openModal() {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     body.classList.add('overflow-hidden');
+    var panEl = document.getElementById('profile-edit-banner-pan');
+    if (panEl && panEl._initBanner) panEl._initBanner();
   }
 
   function closeModal() {
@@ -601,6 +663,12 @@
     bannerInput.addEventListener('change', function () {
       previewFile(bannerInput, bannerPreview, bannerEmpty);
       if (bannerRemoveInput) bannerRemoveInput.value = '0';
+      if (bannerPosXInput)  bannerPosXInput.value  = '0.5';
+      if (bannerPosYInput)  bannerPosYInput.value  = '0.5';
+      if (bannerZoomInput)  bannerZoomInput.value  = '1';
+      if (bannerGhostFrame) bannerGhostFrame.classList.remove('hidden');
+      if (bannerDragHint) bannerDragHint.classList.remove('hidden');
+      if (bannerZoomControls) bannerZoomControls.classList.remove('hidden');
     });
   }
   if (avatarInput) {
@@ -624,14 +692,45 @@
     bannerClearBtn.addEventListener('click', function () {
       bannerInput.value = '';
       bannerPreview.src = '';
+      bannerPreview.style.cssText = '';
       bannerPreview.classList.add('hidden');
       bannerEmpty.classList.remove('hidden');
       if (bannerRemoveInput) bannerRemoveInput.value = '1';
+      if (bannerPosXInput)  bannerPosXInput.value  = '0.5';
+      if (bannerPosYInput)  bannerPosYInput.value  = '0.5';
+      if (bannerZoomInput)  bannerZoomInput.value  = '1';
+      if (bannerGhostFrame) bannerGhostFrame.classList.add('hidden');
+      if (bannerDragHint) bannerDragHint.classList.add('hidden');
+      if (bannerZoomControls) bannerZoomControls.classList.add('hidden');
     });
   }
   if (bioInput && bioCounter) {
     bioInput.addEventListener('input', function () {
-      bioCounter.textContent = bioInput.value.length + ' / 220';
+      bioCounter.textContent = bioInput.value.replace(/\s/g, '').length + ' / 220';
+    });
+    bioCounter.textContent = bioInput.value.replace(/\s/g, '').length + ' / 220';
+  }
+
+  var editForm = modal.querySelector('form');
+  if (editForm) {
+    editForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (bioInput && bioInput.value.replace(/\s/g, '').length > 220) {
+        if (window.showToast) window.showToast('Bio cannot exceed 220 characters.', 'error');
+        return;
+      }
+      fetch(editForm.action, { method: 'POST', body: new FormData(editForm) })
+        .then(function (r) {
+          var errMsg = new URL(r.url).searchParams.get('editError');
+          if (errMsg) {
+            if (window.showToast) window.showToast(decodeURIComponent(errMsg), 'error');
+          } else {
+            window.location.reload();
+          }
+        })
+        .catch(function () {
+          if (window.showToast) window.showToast('Something went wrong. Please try again.', 'error');
+        });
     });
   }
 
@@ -642,6 +741,199 @@
     params.delete('editError');
     history.replaceState(null, '', window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash);
   }
+}());
+</script>
+<% } %>
+
+<% if (isOwn) { %>
+<script>
+(function () {
+  var pan        = document.getElementById('profile-edit-banner-pan');
+  var img        = document.getElementById('profile-edit-banner-preview');
+  var frame      = document.getElementById('profile-edit-banner-frame');
+  var posXInput  = document.getElementById('profile-edit-banner-pos-x');
+  var posYInput  = document.getElementById('profile-edit-banner-pos-y');
+  var zoomInput  = document.getElementById('profile-edit-banner-zoom-val');
+  var zoomLabel  = document.getElementById('profile-edit-banner-zoom-label');
+  var zoomInBtn  = document.getElementById('profile-edit-banner-zoom-in');
+  var zoomOutBtn = document.getElementById('profile-edit-banner-zoom-out');
+  if (!pan || !img || !posXInput || !posYInput || !zoomInput) return;
+
+  var MIN_ZOOM = 1, MAX_ZOOM = 8, ZOOM_STEP = 0.25;
+
+  var s = { active: false, startX: 0, startY: 0, snapL: 0, snapT: 0,
+            imgL: 0, imgT: 0, rendW: 0, rendH: 0,
+            baseW: 0, baseH: 0, zoom: 1,
+            gL: 0, gT: 0, gW: 0, gH: 0 };
+
+  var pinch = { active: false, startDist: 0, startZoom: 1 };
+
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+  function clientXY(e) {
+    return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+                     : { x: e.clientX, y: e.clientY };
+  }
+
+  function touchDist(e) {
+    var dx = e.touches[0].clientX - e.touches[1].clientX;
+    var dy = e.touches[0].clientY - e.touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function ghostGeom() {
+    if (frame) {
+      var fr = frame.getBoundingClientRect();
+      var pr = pan.getBoundingClientRect();
+      return { l: fr.left - pr.left, t: fr.top - pr.top, w: fr.width, h: fr.height };
+    }
+    return { l: 0, t: 32, w: pan.offsetWidth, h: pan.offsetHeight - 64 };
+  }
+
+  function setZoomLabel(z) {
+    if (zoomLabel) zoomLabel.textContent = (z % 1 === 0 ? z.toFixed(0) : z.toFixed(1)) + '×';
+  }
+
+  // Constrain a target (wantL, wantT) within the ghost frame.
+  // When the rendered image is smaller than the ghost in a dimension, center it.
+  function constrain(rendW, rendH, wantL, wantT) {
+    var imgL = rendW >= s.gW
+      ? clamp(wantL, s.gL + s.gW - rendW, s.gL)
+      : s.gL + (s.gW - rendW) / 2;
+    var imgT = rendH >= s.gH
+      ? clamp(wantT, s.gT + s.gH - rendH, s.gT)
+      : s.gT + (s.gH - rendH) / 2;
+    return { l: imgL, t: imgT };
+  }
+
+  function applyPosition(rendW, rendH, imgL, imgT) {
+    img.style.width  = rendW + 'px';
+    img.style.height = rendH + 'px';
+    img.style.left   = imgL  + 'px';
+    img.style.top    = imgT  + 'px';
+    s.rendW = rendW; s.rendH = rendH;
+    s.imgL  = imgL;  s.imgT  = imgT;
+    posXInput.value = ((s.gL + s.gW / 2 - imgL) / rendW).toFixed(5);
+    posYInput.value = ((s.gT + s.gH / 2 - imgT) / rendH).toFixed(5);
+    zoomInput.value = s.zoom.toFixed(5);
+  }
+
+  function applyZoom(newZoom) {
+    newZoom = clamp(newZoom, MIN_ZOOM, MAX_ZOOM);
+    var cx    = s.gL + s.gW / 2;
+    var cy    = s.gT + s.gH / 2;
+    var fracX = s.rendW > 0 ? (cx - s.imgL) / s.rendW : 0.5;
+    var fracY = s.rendH > 0 ? (cy - s.imgT) / s.rendH : 0.5;
+    var newW  = s.baseW * newZoom;
+    var newH  = s.baseH * newZoom;
+    var pos   = constrain(newW, newH, cx - fracX * newW, cy - fracY * newH);
+    s.zoom = newZoom;
+    setZoomLabel(newZoom);
+    applyPosition(newW, newH, pos.l, pos.t);
+  }
+
+  function initImage() {
+    if (img.classList.contains('hidden') || !img.naturalWidth) return;
+    var g  = ghostGeom();
+    // getBoundingClientRect returns zeros when the modal is display:none — bail out
+    // without touching the inputs so the DB-loaded values are not overwritten.
+    if (g.h <= 0) return;
+    var nW = img.naturalWidth;
+    var nH = img.naturalHeight;
+    // Always base on ghost HEIGHT so baseH is the same as the profile container height.
+    // This makes posX/posY/zoom portable regardless of modal vs profile page width.
+    var baseH = g.h;
+    var baseW = nW * g.h / nH;
+    s.baseW = baseW; s.baseH = baseH;
+    s.gL = g.l; s.gT = g.t; s.gW = g.w; s.gH = g.h;
+
+    // Use isNaN so a saved value of exactly 0 is not replaced by the fallback
+    // (parseFloat('0') || fallback incorrectly returns fallback).
+    function pf(v, fb) { var n = parseFloat(v); return isNaN(n) ? fb : n; }
+    var zoom = clamp(pf(zoomInput.value, 1),   MIN_ZOOM, MAX_ZOOM);
+    var posX =       pf(posXInput.value, 0.5);
+    var posY =       pf(posYInput.value, 0.5);
+    s.zoom = zoom;
+    setZoomLabel(zoom);
+
+    var rendW = baseW * zoom;
+    var rendH = baseH * zoom;
+    var pos   = constrain(rendW, rendH, g.l + g.w / 2 - posX * rendW, g.t + g.h / 2 - posY * rendH);
+    applyPosition(rendW, rendH, pos.l, pos.t);
+    pan.style.cursor = 'grab';
+  }
+
+  img.addEventListener('load', initImage);
+  pan._initBanner = initImage;
+
+  // ── Drag ──────────────────────────────────────────────────────────
+
+  pan.addEventListener('mousedown', onDragStart);
+  pan.addEventListener('touchstart', function (e) {
+    if (e.target.closest('button')) return;
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      s.active        = false;
+      pinch.active    = true;
+      pinch.startDist = touchDist(e);
+      pinch.startZoom = s.zoom;
+    } else if (e.touches.length === 1) {
+      onDragStart(e);
+    }
+  }, { passive: false });
+
+  function onDragStart(e) {
+    if (img.classList.contains('hidden') || !img.naturalWidth) return;
+    if (e.target.closest('button')) return;
+    e.preventDefault();
+    var p    = clientXY(e);
+    s.active = true;
+    s.startX = p.x; s.startY = p.y;
+    s.snapL  = s.imgL; s.snapT = s.imgT;
+    pan.style.cursor = 'grabbing';
+  }
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', function (e) {
+    if (pinch.active && e.touches.length === 2) {
+      e.preventDefault();
+      applyZoom(pinch.startZoom * touchDist(e) / pinch.startDist);
+    } else if (s.active) {
+      e.preventDefault();
+      onMove(e);
+    }
+  }, { passive: false });
+
+  function onMove(e) {
+    if (!s.active) return;
+    var p   = clientXY(e);
+    var pos = constrain(s.rendW, s.rendH, s.snapL + p.x - s.startX, s.snapT + p.y - s.startY);
+    applyPosition(s.rendW, s.rendH, pos.l, pos.t);
+  }
+
+  document.addEventListener('mouseup', onStop);
+  document.addEventListener('touchend', function (e) {
+    if (e.touches.length < 2) pinch.active = false;
+    if (e.touches.length === 0) onStop();
+  });
+
+  function onStop() {
+    s.active = false;
+    if (!img.classList.contains('hidden') && img.naturalWidth) pan.style.cursor = 'grab';
+  }
+
+  // ── Scroll-wheel zoom ─────────────────────────────────────────────
+
+  pan.addEventListener('wheel', function (e) {
+    if (img.classList.contains('hidden') || !img.naturalWidth) return;
+    e.preventDefault();
+    applyZoom(s.zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+  }, { passive: false });
+
+  // ── Zoom buttons ──────────────────────────────────────────────────
+
+  if (zoomInBtn)  zoomInBtn.addEventListener('click',  function () { applyZoom(s.zoom + ZOOM_STEP); });
+  if (zoomOutBtn) zoomOutBtn.addEventListener('click', function () { applyZoom(s.zoom - ZOOM_STEP); });
 }());
 </script>
 <% } %>
@@ -762,5 +1054,165 @@
   observer.observe(sentinel);
 }());
 </script>
+
+<script>
+(function () {
+  var img = document.getElementById('profile-banner-img');
+  if (!img) return;
+
+  function positionBanner() {
+    if (!img.naturalWidth) return;
+    var container = img.parentElement;
+    var cW   = container.offsetWidth;
+    var cH   = container.offsetHeight;
+    var nW   = img.naturalWidth;
+    var nH   = img.naturalHeight;
+    var posX = parseFloat(img.dataset.posX) || 0.5;
+    var posY = parseFloat(img.dataset.posY) || 0.5;
+    var zoom = Math.max(1, parseFloat(img.dataset.zoom) || 1);
+
+    // Scale = fit-by-height × zoom, but never smaller than cover.
+    // Cover prevents empty bars when the image is too narrow (e.g. portrait images on wide banners).
+    // When the user's zoom is large enough to fill the width, that zoom takes over.
+    var coverScale = Math.max(cW / nW, cH / nH);
+    var scale      = Math.max(coverScale, zoom * cH / nH);
+
+    var rendW = nW * scale;
+    var rendH = nH * scale;
+    var left  = Math.min(0, Math.max(cW - rendW, cW / 2 - posX * rendW));
+    var top   = Math.min(0, Math.max(cH - rendH, cH / 2 - posY * rendH));
+    img.style.width   = rendW + 'px';
+    img.style.height  = rendH + 'px';
+    img.style.left    = left + 'px';
+    img.style.top     = top  + 'px';
+    img.style.opacity = '1';
+  }
+
+  if (img.complete && img.naturalWidth) { positionBanner(); }
+  else { img.addEventListener('load', positionBanner); }
+}());
+</script>
+
+<% if (!isOwn) { %>
+<script>
+(function () {
+  var btn             = document.getElementById('follow-btn');
+  var similarSection  = document.getElementById('similar-section');
+  var similarList     = document.getElementById('similar-list');
+  var dismissBtn      = document.getElementById('similar-dismiss');
+  if (!btn) return;
+
+  function formatStat(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 10000)   return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return n.toLocaleString();
+  }
+
+  // ── Mini follow card ─────────────────────────────────────────────
+
+  function buildCard(account) {
+    var card = document.createElement('div');
+    card.className = 'flex flex-col items-center gap-2 w-20 shrink-0';
+
+    var avatarHtml = account.avatar
+      ? '<img src="' + account.avatar + '" alt="" class="w-14 h-14 rounded-full object-cover">'
+      : '<div class="w-14 h-14 rounded-full bg-shark-800 flex items-center justify-center"><iconify-icon icon="boxicons:user" width="22" class="text-white/30"></iconify-icon></div>';
+
+    var nameHtml = (account.displayName || ('@' + account.username));
+    var btnCls   = account.isFollowing
+      ? 'w-full text-xs px-2 py-1 rounded-md border border-white/30 text-white/70 hover:bg-white/8 transition-colors cursor-pointer'
+      : 'w-full text-xs px-2 py-1 rounded-md bg-charm-500 text-white hover:bg-charm-600 transition-colors cursor-pointer';
+    var btnText  = account.isFollowing ? 'Following' : 'Follow';
+
+    card.innerHTML =
+      '<a href="/' + account.username + '" class="no-underline">' + avatarHtml + '</a>' +
+      '<p class="text-xs font-semibold text-white text-center truncate w-full m-0 leading-tight">' + nameHtml + '</p>' +
+      '<button type="button" class="' + btnCls + '" data-username="' + account.username + '" data-following="' + (account.isFollowing ? 'true' : 'false') + '">' + btnText + '</button>';
+
+    var miniBtn = card.querySelector('button');
+    miniBtn.addEventListener('click', function () {
+      var isFollowing = miniBtn.dataset.following === 'true';
+      var endpoint    = isFollowing ? '/unfollow/' + account.username : '/follow/' + account.username;
+      miniBtn.disabled = true;
+      fetch(endpoint, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var nowFollowing = data.following;
+          miniBtn.dataset.following = nowFollowing ? 'true' : 'false';
+          miniBtn.textContent = nowFollowing ? 'Following' : 'Follow';
+          miniBtn.className = nowFollowing
+            ? 'w-full text-xs px-2 py-1 rounded-md border border-white/30 text-white/70 hover:bg-white/8 transition-colors cursor-pointer'
+            : 'w-full text-xs px-2 py-1 rounded-md bg-charm-500 text-white hover:bg-charm-600 transition-colors cursor-pointer';
+        })
+        .finally(function () { miniBtn.disabled = false; });
+    });
+
+    return card;
+  }
+
+  function loadSimilar(username) {
+    fetch('/api/similar-accounts/' + username)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.accounts || !data.accounts.length) return;
+        similarList.innerHTML = '';
+        data.accounts.forEach(function (a) { similarList.appendChild(buildCard(a)); });
+        similarSection.classList.remove('hidden');
+      });
+  }
+
+  // ── Dismiss ──────────────────────────────────────────────────────
+
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', function () {
+      similarSection.classList.add('hidden');
+    });
+  }
+
+  // ── Main follow toggle ────────────────────────────────────────────
+
+  btn.addEventListener('click', function () {
+    var following = btn.dataset.following === 'true';
+    var username  = btn.dataset.username;
+    var endpoint  = following ? '/unfollow/' + username : '/follow/' + username;
+
+    btn.disabled = true;
+
+    fetch(endpoint, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var nowFollowing = data.following;
+        btn.dataset.following = nowFollowing ? 'true' : 'false';
+
+        var label = btn.querySelector('#follow-btn-label');
+        var icon  = btn.querySelector('iconify-icon');
+
+        if (nowFollowing) {
+          btn.className = 'inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors cursor-pointer border border-white/35 text-white hover:bg-white/8';
+          if (icon) icon.setAttribute('icon', 'boxicons:user-check');
+          if (label) label.textContent = 'Following';
+          loadSimilar(username);
+        } else {
+          btn.className = 'inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors cursor-pointer bg-charm-500 text-white hover:bg-charm-600';
+          if (icon) icon.setAttribute('icon', 'boxicons:user-plus');
+          if (label) label.textContent = 'Follow';
+          similarSection.classList.add('hidden');
+        }
+
+        var countEl = document.getElementById('follower-count');
+        if (countEl && typeof data.followerCount === 'number') {
+          countEl.textContent = formatStat(data.followerCount);
+        }
+      })
+      .catch(function () {
+        if (window.showToast) window.showToast('Something went wrong. Try again.', 'error');
+      })
+      .finally(function () {
+        btn.disabled = false;
+      });
+  });
+}());
+</script>
+<% } %>
 
 <%- include('partials/appEnd') %>

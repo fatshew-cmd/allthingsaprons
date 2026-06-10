@@ -26,10 +26,6 @@
 
       <!-- ── STEP 1 ── -->
       <div id="step-1-content" class="max-w-2xl mx-auto">
-        <div class="mb-7">
-          <h2 class="text-2xl font-black">Create your profile</h2>
-          <p class="text-white/40 mt-1 text-sm">Tell us a bit about yourself to get started.</p>
-        </div>
         <div class="flex flex-col sm:flex-row gap-5 items-start">
 
           <!-- Avatar column -->
@@ -156,7 +152,7 @@
                 <label for="bio" class="text-xs font-semibold text-white/50 uppercase tracking-wide">Bio</label>
                 <span id="bio-counter" class="text-xs" style="color:rgba(255,255,255,0.3)">0 / 220</span>
               </div>
-              <textarea id="bio" name="bio" rows="3" maxlength="220"
+              <textarea id="bio" name="bio" rows="3"
                 placeholder="Tell people about yourself and your passion for aprons..."
                 class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"></textarea>
               <p id="bio-error" class="text-xs text-red-400 hidden"></p>
@@ -556,7 +552,7 @@
 
   // ── Bio counter ────────────────────────────────────────────
   document.getElementById('bio').addEventListener('input', function () {
-    var len     = this.value.length;
+    var len     = this.value.replace(/\s/g, '').length;
     var counter = document.getElementById('bio-counter');
     counter.textContent = len + ' / 220';
     if (len === 0)       counter.style.color = 'rgba(255,255,255,0.3)';
@@ -635,7 +631,7 @@
     var confirm   = document.getElementById('confirm-password').value;
     var sex       = document.getElementById('sex').value;
     var birthdate = document.getElementById('birthdate').value;
-    var bio       = document.getElementById('bio').value.trim();
+    var bio       = document.getElementById('bio').value.replace(/\s/g, '');
     var terms     = document.getElementById('agree-terms').checked;
     var ageAck    = document.getElementById('age-acknowledged').checked;
     var adultAck  = document.getElementById('adult-content-acknowledged').checked;
@@ -684,7 +680,7 @@
     var confirm   = document.getElementById('confirm-password').value;
     var sex       = document.getElementById('sex').value;
     var birthdate = document.getElementById('birthdate').value;
-    var bio       = document.getElementById('bio').value.trim();
+    var bio       = document.getElementById('bio').value.replace(/\s/g, '');
     if (!USERNAME_RE.test(username)) { showErr('username-error', 'Must start with a letter, letters & digits only, 3–15 chars'); valid = false; }
     if (!displayName) { showErr('display-name-error', 'Display name is required'); valid = false; }
     else if (displayName.split(/\s+/).filter(Boolean).length > 3) { showErr('display-name-error', 'Display name can be at most 3 words'); valid = false; }
@@ -822,11 +818,12 @@
     }
     if (s.confirmPassword) document.getElementById('confirm-password').value = s.confirmPassword;
     if (s.bio) {
-      var bioEl = document.getElementById('bio');
-      var ctr   = document.getElementById('bio-counter');
+      var bioEl  = document.getElementById('bio');
+      var ctr    = document.getElementById('bio-counter');
+      var bioLen = s.bio.replace(/\s/g, '').length;
       bioEl.value     = s.bio;
-      ctr.textContent = s.bio.length + ' / 220';
-      ctr.style.color = s.bio.length === 0 ? 'rgba(255,255,255,0.3)' : s.bio.length < 20 ? '#f87171' : s.bio.length >= 215 ? '#fbbf24' : '#4ade80';
+      ctr.textContent = bioLen + ' / 220';
+      ctr.style.color = bioLen === 0 ? 'rgba(255,255,255,0.3)' : bioLen < 20 ? '#f87171' : bioLen >= 215 ? '#fbbf24' : '#4ade80';
     }
     if (s.sex)         selectDropdown('sex-dropdown',         s.sex);
     if (s.orientation) selectDropdown('orientation-dropdown', s.orientation);

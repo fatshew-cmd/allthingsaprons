@@ -6,8 +6,12 @@ const entrySchema = new mongoose.Schema({
   mediaType:   { type: String, enum: ['photo', 'video'], required: true },
   caption:     { type: String },
   tags:        { type: [String], default: [], validate: { validator: v => v.length <= 6, message: 'Maximum 6 tags allowed' } },
-  ratingCount: { type: Number, default: 0 },
-  ratingAvg:   { type: Number, default: 0 },
+  ratingCount:     { type: Number, default: 0 },
+  ratingAvg:       { type: Number, default: 0 },
+  visibility:      { type: String, enum: ['public', 'followers'], default: 'public' },
+  commentsEnabled: { type: Boolean, default: true },
+  contestEligible: { type: Boolean, default: true },
+  matureContent:   { type: Boolean, default: false },
 }, { timestamps: true });
 
 entrySchema.index({ userId: 1 });

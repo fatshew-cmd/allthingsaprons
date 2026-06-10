@@ -11,7 +11,7 @@
     <main class="flex-1 overflow-y-auto p-8">
 
       <!-- Stat cards -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="grid grid-cols-2 gap-4 mb-8">
 
         <a href="/admin/users" class="bg-zinc-900 border border-white/8 hover:border-white/15 rounded-md p-5 flex items-center gap-4 transition group no-underline">
           <div class="w-10 h-10 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0">
@@ -33,46 +33,11 @@
           </div>
         </a>
 
-        <a href="/admin/users" class="bg-zinc-900 border border-white/8 hover:border-white/15 rounded-md p-5 flex items-center gap-4 transition group no-underline">
-          <div class="w-10 h-10 rounded-md bg-violet-500/10 flex items-center justify-center shrink-0">
-            <iconify-icon icon="lucide:loader" width="17" style="color:#a78bfa;display:block"></iconify-icon>
-          </div>
-          <div>
-            <p class="text-2xl font-bold text-white leading-none mb-0.5"><%= onboardingUsers %></p>
-            <p class="text-sm text-zinc-400 m-0">Onboarding</p>
-          </div>
-        </a>
-
-        <a href="/admin/entries" class="bg-zinc-900 border border-white/8 hover:border-charm-500/30 rounded-md p-5 flex items-center gap-4 transition group no-underline">
-          <div class="w-10 h-10 rounded-md bg-charm-500/10 flex items-center justify-center shrink-0">
-            <iconify-icon icon="lucide:inbox" width="17" style="color:#c45c7a;display:block"></iconify-icon>
-          </div>
-          <div>
-            <p class="text-2xl font-bold text-white leading-none mb-0.5"><%= pendingCount %></p>
-            <p class="text-sm text-zinc-400 m-0">Pending reviews</p>
-          </div>
-        </a>
-
       </div>
 
       <!-- Active queues -->
       <h2 class="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Active queues</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-
-        <a href="/admin/entries" class="bg-zinc-900 border border-white/8 hover:border-charm-500/30 rounded-md px-5 py-4 flex items-center gap-4 transition group no-underline">
-          <div class="w-9 h-9 rounded-md bg-charm-500/10 flex items-center justify-center shrink-0">
-            <iconify-icon icon="lucide:inbox" width="16" style="color:#c45c7a;display:block"></iconify-icon>
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-white m-0">Entry Review</p>
-            <p class="text-sm text-zinc-400 mt-0.5 mb-0">Approve or reject onboarding submissions</p>
-          </div>
-          <% if (pendingCount > 0) { %>
-          <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-charm-500 text-white"><%= pendingCount %></span>
-          <% } else { %>
-          <iconify-icon icon="lucide:chevron-right" width="14" style="color:#52525b;display:block"></iconify-icon>
-          <% } %>
-        </a>
 
         <a href="/admin/users" class="bg-zinc-900 border border-white/8 hover:border-white/15 rounded-md px-5 py-4 flex items-center gap-4 transition group no-underline">
           <div class="w-9 h-9 rounded-md bg-white/8 flex items-center justify-center shrink-0">

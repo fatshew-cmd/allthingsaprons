@@ -12,6 +12,8 @@ const authRouter       = require('./routes/auth');
 const verifyIdentityRouter = require('./routes/verify-identity');
 const contactRouter    = require('./routes/contact');
 const careersRouter    = require('./routes/careers');
+const followRouter     = require('./routes/follow');
+const messagesRouter   = require('./routes/messages');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +38,8 @@ app.use('/verify-identity', verifyIdentityRouter);
 app.use('/contact', contactRouter);
 app.use('/careers', careersRouter);
 app.use('/admin', adminRouter);
+app.use('/', followRouter);
+app.use('/messages', messagesRouter);
 app.use('/', pagesRouter);
 app.use('/api', apiRouter);
 
