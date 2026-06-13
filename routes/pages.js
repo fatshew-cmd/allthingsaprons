@@ -1,5 +1,6 @@
 const express       = require('express');
 const router        = express.Router();
+const mongoose      = require('mongoose');
 const path          = require('path');
 const fs            = require('fs');
 const bcrypt        = require('bcrypt');
@@ -8,6 +9,7 @@ const Entry                 = require('../models/Entry');
 const Rating                = require('../models/Rating');
 const Comment               = require('../models/Comment');
 const CommentReport         = require('../models/CommentReport');
+const ContestComment        = require('../models/ContestComment');
 const Contest               = require('../models/Contest');
 const ContestVote           = require('../models/ContestVote');
 const Nomination            = require('../models/Nomination');
@@ -87,16 +89,141 @@ router.get('/entry/:id', async (req, res) => {
   if (!entry) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
   const ownerId = entry.userId._id;
   const isOwn = ownerId.toString() === req.session.userId;
-  const isFollowing = (!isOwn && req.session.userId)
-    ? !!(await Follow.findOne({ followerId: req.session.userId, followingId: ownerId }).lean())
-    : false;
+  const [followDoc, activeContest, entryContests] = await Promise.all([
+    (!isOwn && req.session.userId)
+      ? Follow.findOne({ followerId: req.session.userId, followingId: ownerId }).lean()
+      : Promise.resolve(null),
+    Contest.findOne({ 'entries.entryId': entry._id, status: { $in: ['pending', 'active'] } })
+      .select('_id status').lean().catch(() => null),
+    Contest.find({ 'entries.entryId': entry._id }).select('_id status entries').lean(),
+  ]);
+
+  const nominations = entryContests.length
+    ? await Nomination.find({
+        contestId:   { $in: entryContests.map(c => c._id) },
+        nominatorId: ownerId,
+        status:      'pending',
+      })
+      .populate('nomineeId', 'username displayName avatar')
+      .lean()
+    : [];
+
+  const entryContestById = {};
+  for (const c of entryContests) entryContestById[c._id.toString()] = c;
+
+  const liveContestIds = entryContests.filter(c => c.status === 'active' || c.status === 'closed').map(c => c._id);
+  const entryVoteAggs  = liveContestIds.length
+    ? await ContestVote.aggregate([
+        { $match: { contestId: { $in: liveContestIds } } },
+        { $group: { _id: { contestId: '$contestId', entryId: '$entryId' }, count: { $sum: 1 } } },
+      ])
+    : [];
+  const entryVoteMap = {};
+  for (const a of entryVoteAggs) {
+    const cid = a._id.contestId.toString();
+    if (!entryVoteMap[cid]) entryVoteMap[cid] = {};
+    entryVoteMap[cid][a._id.entryId.toString()] = a.count;
+  }
+
+  const myEid    = entry._id.toString();
+  const nominees = [];
+  const seenNominees = new Set();
+  for (const n of nominations) {
+    const uname = n.nomineeId.username?.value;
+    if (!uname || seenNominees.has(uname)) continue;
+    seenNominees.add(uname);
+    const cid     = n.contestId.toString();
+    const contest = entryContestById[cid];
+    const cvotes  = entryVoteMap[cid] || {};
+    const oppEid  = contest?.entries?.find(e => e.entryId?.toString() !== myEid)?.entryId?.toString();
+    nominees.push({
+      contestId:        cid,
+      username:         uname,
+      displayName:      n.nomineeId.displayName?.value || uname,
+      avatar:           n.nomineeId.avatar?.value || null,
+      status:           n.status,
+      contestStatus:    contest?.status || null,
+      voteCountMine:     cvotes[myEid]  || 0,
+      voteCountNominee: oppEid ? (cvotes[oppEid] || 0) : 0,
+    });
+  }
+
   res.render('entry', {
-    title:      entry.caption ? entry.caption.slice(0, 60) : 'Entry',
-    activePage: '',
+    title:       entry.title || entry.caption?.slice(0, 60) || 'Entry',
+    activePage:  '',
     currentUser: req.currentUser,
     entry,
-    isFollowing,
+    isFollowing:   !!followDoc,
     currentUserId: req.session.userId || null,
+    contestInfo:   activeContest ? { contestId: activeContest._id.toString(), status: activeContest.status } : null,
+    nominees,
+  });
+});
+
+// ── Entry edit page ───────────────────────────────────────────────
+
+router.get('/entry/:id/edit', async (req, res) => {
+  const entry = await Entry.findById(req.params.id)
+    .populate('userId', 'username displayName avatar')
+    .catch(() => null);
+  if (!entry) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+
+  if (entry.userId._id.toString() !== req.session.userId) {
+    return res.status(403).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  }
+
+  const activeContest = await Contest.findOne({
+    'entries.entryId': entry._id,
+    status: 'active',
+  }).select('_id').lean().catch(() => null);
+
+  if (activeContest) return res.redirect(`/contest/${activeContest._id}`);
+
+  const [pendingContests, pendingNominations] = await Promise.all([
+    Contest.find({
+      entries: { $elemMatch: { entryId: entry._id, userId: req.session.userId } },
+      status: 'pending',
+    }).select('_id').lean().catch(() => []),
+    Nomination.find({ nomineeId: req.session.userId, status: 'pending', expiresAt: { $gt: new Date() } })
+      .populate('nominatorId', 'username displayName avatar')
+      .sort({ createdAt: -1 })
+      .lean()
+      .catch(() => []),
+  ]);
+
+  const pendingContest = pendingContests[0] || null;
+
+  const outgoingNoms = pendingContests.length
+    ? await Nomination.find({
+        contestId: { $in: pendingContests.map(c => c._id) },
+        nominatorId: req.session.userId,
+        status: 'pending',
+      }).populate('nomineeId', 'username displayName avatar').lean().catch(() => [])
+    : [];
+
+  const _seenNomineeIds = new Set();
+  const existingNominees = [];
+  for (const n of outgoingNoms) {
+    const uid = n.nomineeId._id.toString();
+    if (_seenNomineeIds.has(uid)) continue;
+    _seenNomineeIds.add(uid);
+    existingNominees.push({
+      _id:         uid,
+      username:    n.nomineeId.username?.value,
+      displayName: n.nomineeId.displayName?.value || n.nomineeId.username?.value,
+      avatar:      n.nomineeId.avatar?.value || null,
+      contestId:   n.contestId.toString(),
+    });
+  }
+
+  res.render('edit-entry', {
+    title:            'Edit Entry',
+    activePage:       '',
+    currentUser:      req.currentUser,
+    entry,
+    pendingContestId: pendingContest ? pendingContest._id.toString() : null,
+    pendingNominations,
+    existingNominees,
   });
 });
 
@@ -178,21 +305,62 @@ router.post('/account/delete', async (req, res) => {
 router.get('/submit', async (req, res) => {
   if (!req.currentUser.idVerified) return res.redirect('/verify-identity?reason=entry');
 
-  const pendingNominations = await Nomination.find({
-    nomineeId: req.currentUser._id,
-    status:    'pending',
-    expiresAt: { $gt: new Date() },
-  })
-    .populate('nominatorId', 'username displayName avatar')
-    .sort({ createdAt: -1 })
-    .lean();
+  const userId = req.currentUser._id;
+
+  const [pendingNominations, userEntries] = await Promise.all([
+    Nomination.find({ nomineeId: userId, status: 'pending', expiresAt: { $gt: new Date() } })
+      .populate('nominatorId', 'username displayName avatar')
+      .sort({ createdAt: -1 })
+      .lean(),
+    Entry.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(24)
+      .select('mediaUrl mediaType caption ratingAvg ratingCount')
+      .lean(),
+  ]);
+
+  let acceptingNomination = null;
+  if (req.query.nomination) {
+    const nom = pendingNominations.find(n => n._id.toString() === req.query.nomination);
+    if (nom) {
+      const contest = await Contest.findById(nom.contestId)
+        .populate('entries.entryId', 'mediaUrl mediaType title caption tags')
+        .lean();
+      const challEntry = contest?.entries.find(
+        e => e.userId.toString() === nom.nominatorId._id.toString()
+      );
+      acceptingNomination = {
+        _id:       nom._id,
+        nominator: nom.nominatorId,
+        entry:     challEntry?.hidden ? null : (challEntry?.entryId || null),
+        hidden:    challEntry?.hidden || false,
+        expiresAt: nom.expiresAt,
+        message:   nom.message || null,
+        contestId: nom.contestId,
+      };
+    }
+  }
+
+  let challengeEntry = null;
+  if (req.query.challenge && mongoose.isValidObjectId(req.query.challenge)) {
+    challengeEntry = await Entry.findById(req.query.challenge)
+      .populate('userId', 'username displayName avatar')
+      .select('mediaUrl mediaType title caption tags userId')
+      .lean()
+      .catch(() => null);
+  }
 
   res.render('submit', {
     title:      'Submit Entry',
     activePage: 'submit',
     currentUser: req.currentUser,
     error: null,
-    pendingNominations,
+    pendingNominations: acceptingNomination
+      ? pendingNominations.filter(n => n._id.toString() !== acceptingNomination._id.toString())
+      : pendingNominations,
+    userEntries,
+    acceptingNomination,
+    challengeEntry,
   });
 });
 
@@ -200,6 +368,7 @@ router.post('/submit', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), asy
   if (!req.currentUser.idVerified) return res.redirect('/verify-identity?reason=entry');
   const renderError = (msg) => res.render('submit', {
     title: 'Submit Entry', activePage: 'submit', currentUser: req.currentUser, error: msg,
+    pendingNominations: [], userEntries: [], acceptingNomination: null, challengeEntry: null,
   });
 
   const file = req.files?.entryMedia?.[0];
@@ -461,6 +630,138 @@ router.post('/settings/profile', upload.fields([{ name: 'avatar', maxCount: 1 },
   res.redirect('/settings?saved=1');
 });
 
+// ── Contest page ──────────────────────────────────────────────────
+
+router.get('/contest/:id', async (req, res) => {
+  const contest = await Contest.findById(req.params.id)
+    .populate('entries.entryId', 'mediaUrl mediaType title caption tags ratingAvg ratingCount')
+    .populate('createdBy', 'username displayName avatar')
+    .lean()
+    .catch(() => null);
+
+  if (!contest) {
+    return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  }
+
+  const nomCE = contest.entries.find(e => e.userId.toString() === contest.createdBy._id.toString());
+  const resCE = contest.entries.find(e => e.userId.toString() !== contest.createdBy._id.toString());
+
+  const userIds = contest.entries.map(e => e.userId);
+  const users   = await User.find({ _id: { $in: userIds } }).select('username displayName avatar').lean();
+  const userMap = {};
+  users.forEach(u => { userMap[u._id.toString()] = u; });
+
+  const myId   = req.session.userId?.toString();
+  const myVote = await ContestVote.findOne({ contestId: contest._id, userId: req.session.userId })
+    .select('entryId').lean().catch(() => null);
+
+  const voteCounts = {};
+  let totalVotes = 0;
+  if (myVote || contest.status === 'closed') {
+    const agg = await ContestVote.aggregate([
+      { $match: { contestId: contest._id } },
+      { $group: { _id: '$entryId', count: { $sum: 1 } } },
+    ]);
+    for (const r of agg) { voteCounts[r._id.toString()] = r.count; totalVotes += r.count; }
+  }
+
+  // TEMP: participant check disabled for testing — re-enable before launch
+  // const isParticipant =
+  //   contest.createdBy?.toString() === myId ||
+  //   contest.entries.some(e => e.userId.toString() === myId);
+  const canVote     = !myVote /* TEMP: status === 'active' disabled for testing — re-enable before launch */;
+  const isNominator = !!(myId && contest.createdBy?._id?.toString() === myId);
+
+  function buildSide(ce) {
+    if (!ce) return null;
+    const uid  = ce.userId.toString();
+    const user = userMap[uid] || null;
+    const eid  = ce.entryId?._id?.toString();
+    return {
+      userId:    uid,
+      user,
+      entry:     ce.entryId || null,
+      entryId:   eid || null,
+      hidden:    ce.hidden || false,
+      voteCount: voteCounts[eid] || 0,
+      votePct:   totalVotes > 0 ? Math.round(((voteCounts[eid] || 0) / totalVotes) * 100) : 50,
+      isWinner:  !!(contest.winnerEntryId && eid && contest.winnerEntryId.toString() === eid),
+      isMine:    uid === myId,
+      iVotedFor: !!(myVote && eid && myVote.entryId.toString() === eid),
+    };
+  }
+
+  const left  = buildSide(nomCE);
+  const right = resCE ? buildSide(resCE) : null;
+
+  let nomineeUser = null;
+  if (!right && contest.status === 'pending') {
+    const nom = await Nomination.findOne({ contestId: contest._id, status: 'pending' })
+      .select('nomineeId').lean().catch(() => null);
+    if (nom) {
+      nomineeUser = await User.findById(nom.nomineeId).select('username displayName avatar').lean().catch(() => null);
+    }
+  }
+
+  const followingIds = {};
+  if (req.session.userId) {
+    const targetIds = [
+      left?.userId,
+      right ? right.userId : (nomineeUser ? nomineeUser._id : null),
+    ].filter(Boolean);
+    if (targetIds.length) {
+      const follows = await Follow.find({
+        followerId:  req.session.userId,
+        followingId: { $in: targetIds },
+      }).select('followingId').lean().catch(() => []);
+      follows.forEach(f => { followingIds[f.followingId.toString()] = true; });
+    }
+  }
+
+  const statusLabel = { pending: 'Pending', active: 'Live', void: 'Void', closed: 'Closed' }[contest.status] || contest.status;
+
+  const topLevelComments = await ContestComment.find({ contestId: contest._id, parentId: null, hidden: false })
+    .populate('userId', 'username displayName avatar')
+    .sort({ createdAt: 1 })
+    .lean()
+    .catch(() => []);
+
+  const topLevelIds = topLevelComments.map(c => c._id);
+  const allReplies  = topLevelIds.length
+    ? await ContestComment.find({ parentId: { $in: topLevelIds }, hidden: false })
+        .populate('userId', 'username displayName avatar')
+        .sort({ createdAt: 1 })
+        .lean()
+        .catch(() => [])
+    : [];
+
+  const replyMap = {};
+  for (const r of allReplies) {
+    const pid = r.parentId.toString();
+    if (!replyMap[pid]) replyMap[pid] = [];
+    replyMap[pid].push(r);
+  }
+  const comments = topLevelComments.map(c => ({ ...c, replies: replyMap[c._id.toString()] || [] }));
+
+  res.render('contest', {
+    title:      'H2H Contest',
+    activePage: '',
+    currentUser: req.currentUser,
+    contest,
+    left,
+    right,
+    nomineeUser,
+    followingIds,
+    myVote,
+    canVote,
+    isNominator,
+    totalVotes,
+    showVotes:   !!(myVote || contest.status === 'closed'),
+    statusLabel,
+    comments,
+  });
+});
+
 // ── Public profile — must be last to avoid swallowing other routes ─
 
 router.get('/:username', async (req, res) => {
@@ -488,6 +789,76 @@ router.get('/:username', async (req, res) => {
 
   const isFollowing = !!followDoc;
 
+  const contestMap = {};
+  for (const c of userContests) {
+    if (c.status !== 'active' && c.status !== 'pending') continue;
+    for (const ce of c.entries) {
+      const eid = ce.entryId?._id?.toString();
+      if (eid && !contestMap[eid]) {
+        contestMap[eid] = { contestId: c._id.toString(), status: c.status };
+      }
+    }
+  }
+
+  const contestToEntryId = {};
+  for (const c of userContests) {
+    for (const ce of c.entries) {
+      const eid = ce.entryId?._id?.toString();
+      const uid = ce.userId?.toString();
+      if (eid && uid === user._id.toString()) contestToEntryId[c._id.toString()] = eid;
+    }
+  }
+  const profileNominations = userContests.length
+    ? await Nomination.find({
+        contestId:   { $in: userContests.map(c => c._id) },
+        nominatorId: user._id,
+        status:      'pending',
+      }).populate('nomineeId', 'username displayName avatar').lean()
+    : [];
+
+  const profileContestById = {};
+  for (const c of userContests) profileContestById[c._id.toString()] = c;
+
+  const profileLiveCIds = userContests.filter(c => c.status === 'active' || c.status === 'closed').map(c => c._id);
+  const profileVoteAggs = profileLiveCIds.length
+    ? await ContestVote.aggregate([
+        { $match: { contestId: { $in: profileLiveCIds } } },
+        { $group: { _id: { contestId: '$contestId', entryId: '$entryId' }, count: { $sum: 1 } } },
+      ])
+    : [];
+  const profileVoteMap = {};
+  for (const a of profileVoteAggs) {
+    const cid = a._id.contestId.toString();
+    if (!profileVoteMap[cid]) profileVoteMap[cid] = {};
+    profileVoteMap[cid][a._id.entryId.toString()] = a.count;
+  }
+
+  const nomineesMap = {};
+  const seenNomineesPerEntry = {};
+  for (const n of profileNominations) {
+    const eid = contestToEntryId[n.contestId.toString()];
+    if (!eid) continue;
+    const uname = n.nomineeId.username?.value;
+    if (!uname) continue;
+    if (!seenNomineesPerEntry[eid]) seenNomineesPerEntry[eid] = new Set();
+    if (seenNomineesPerEntry[eid].has(uname)) continue;
+    seenNomineesPerEntry[eid].add(uname);
+    if (!nomineesMap[eid]) nomineesMap[eid] = [];
+    const cid     = n.contestId.toString();
+    const pContest = profileContestById[cid];
+    const cvotes  = profileVoteMap[cid] || {};
+    const oppEid  = pContest?.entries?.find(e => e.entryId?._id?.toString() !== eid)?.entryId?._id?.toString();
+    nomineesMap[eid].push({
+      contestId:         cid,
+      username:          uname,
+      avatar:            n.nomineeId.avatar?.value || null,
+      status:            n.status,
+      contestStatus:     pContest?.status || null,
+      voteCountMine:     cvotes[eid]    || 0,
+      voteCountNominee: oppEid ? (cvotes[oppEid] || 0) : 0,
+    });
+  }
+
   const ratedEntries = entries.filter(e => e.ratingCount > 0);
   const overallRank = ratedEntries.length
     ? (ratedEntries.reduce((s, e) => s + e.ratingAvg, 0) / ratedEntries.length).toFixed(1)
@@ -514,6 +885,8 @@ router.get('/:username', async (req, res) => {
     isFollowing,
     userContests,
     userTournamentEntries,
+    contestMap,
+    nomineesMap,
     editError: typeof req.query.editError === 'string' ? req.query.editError : null,
   });
 });

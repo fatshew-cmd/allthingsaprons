@@ -116,6 +116,7 @@ The core competitive mechanic. Build the HTH contest flow end to end.
 - [ ] Acceptance flow: opponent submits an entry → contest moves to `active`. Voting deadline set to `submittedAt + 72h`.
 - [ ] Void logic: background job checks `voidDeadline`. If no second entry → status set to `void`. Creator notified.
 - [ ] Contest voting page: show both entries side by side. Authenticated user picks one. Enforce no self-vote, no duplicate vote. Store `valueCents` on each vote (use $0.001 for now, tournament organizer logic comes later).
+- [ ] **REVERT BEFORE LAUNCH:** Re-enable participant vote guard and `status === 'active'` checks in `routes/api.js` (contest vote handler) and `routes/pages.js` (contest GET handler) — both are commented out with `// TEMP` for local testing.
 - [ ] Contest close logic: background job checks `votingDeadline`. Count votes per entry. Set `winnerEntryId`. Status → `closed`.
 - [ ] Contest page: show result, vote counts, winner after close.
 - [ ] Private contest flow: creator designates minimum 5 voters. Only designated voters can vote.

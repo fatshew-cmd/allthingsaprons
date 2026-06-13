@@ -1,0 +1,827 @@
+<%- include('partials/appStart', { title: 'Edit Entry', activePage: '' }) %>
+
+<div class="max-w-2xl mx-auto px-3 py-3 pb-24 md:pb-3">
+
+  <a href="/entry/<%= entry._id %>" class="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/70 transition-colors mb-4">
+    <iconify-icon icon="bx:arrow-back" width="14"></iconify-icon>
+    Back to entry
+  </a>
+
+  <h1 class="text-base font-bold text-white mb-4">Edit Entry</h1>
+
+  <div id="error-msg" class="hidden items-center gap-2 text-sm text-red-400 bg-red-400/8 border border-red-400/20 rounded-md px-3 py-2.5 mb-4">
+    <iconify-icon icon="boxicons:error-circle" width="15" class="shrink-0"></iconify-icon>
+    <span id="error-text"></span>
+  </div>
+
+  <!-- Existing media (read-only) -->
+  <div class="rounded-md overflow-hidden bg-shark-950 mb-4">
+    <% if (entry.mediaType === 'video') { %>
+    <video src="<%= entry.mediaUrl %>" controls class="w-full max-h-72 object-contain"></video>
+    <% } else { %>
+    <img src="<%= entry.mediaUrl %>" alt="" class="w-full max-h-72 object-contain">
+    <% } %>
+  </div>
+
+  <form id="edit-form" novalidate>
+
+    <!-- ── Title ──────────────────────────────────────────────────── -->
+    <div class="flex flex-col gap-1.5 mb-3">
+      <label for="title" class="text-xs font-semibold text-white/50 uppercase tracking-wide">Title</label>
+      <input type="text" id="title" name="title" maxlength="80" required
+        value="<%= entry.title %>"
+        placeholder="Give your entry a name…"
+        class="w-full bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors">
+    </div>
+
+    <!-- ── Caption ────────────────────────────────────────────────── -->
+    <div class="flex flex-col gap-1.5 mb-3">
+      <label for="caption" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+        Description <span class="text-white/25 font-normal normal-case">(optional)</span>
+      </label>
+      <textarea id="caption" name="caption" rows="3" maxlength="280"
+        placeholder="Describe your apron…"
+        class="w-full bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"><%= entry.caption || '' %></textarea>
+      <p class="text-xs text-white/25 text-right"><span id="caption-count"><%= (entry.caption || '').length %></span>/280</p>
+    </div>
+
+    <!-- ── Tags ───────────────────────────────────────────────────── -->
+    <div class="flex flex-col gap-1.5 mb-4">
+      <label class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+        Tags <span class="text-white/25 font-normal normal-case">(optional, up to 6)</span>
+      </label>
+      <div id="tag-wrap"
+        class="flex flex-wrap gap-2 items-center bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 min-h-11 cursor-text focus-within:border-charm-600/50 focus-within:ring-1 focus-within:ring-charm-600/25 transition-colors">
+        <input id="tag-input" type="text" placeholder="Add a tag…"
+          class="flex-1 min-w-24 bg-transparent text-sm text-white placeholder:text-white/20 outline-none">
+      </div>
+      <p class="text-xs text-white/25"><span id="tag-count">0</span>/6 &nbsp;·&nbsp; press Enter or comma to add</p>
+    </div>
+
+    <!-- ── Contest section ────────────────────────────────────────── -->
+    <div class="flex flex-col rounded-md mb-4 border border-charm-600/30 overflow-hidden" id="contest-section">
+
+      <!-- Challenge toggle -->
+      <button type="button" id="challenge-toggle" data-on="false"
+        class="flex items-center w-full gap-3 text-left cursor-pointer group bg-charm-600/10 hover:bg-charm-600/15 px-4 py-3 transition-all">
+        <iconify-icon icon="boxicons:trophy" width="18" class="text-charm-400 shrink-0"></iconify-icon>
+        <div class="flex flex-col gap-0.5 flex-1 min-w-0">
+          <span class="text-sm font-semibold text-white transition-colors">Nominate someone</span>
+          <span class="text-xs text-white/50">Challenge another user to a head-to-head contest</span>
+        </div>
+        <iconify-icon id="challenge-chevron" icon="boxicons:chevron-down-filled" width="16"
+          class="text-white/40 group-hover:text-white/70 transition-all shrink-0"></iconify-icon>
+      </button>
+
+      <!-- Challenge fields -->
+      <div id="challenge-fields" class="hidden flex-col gap-4 px-4 py-4 bg-charm-600/5 border-t border-charm-600/20">
+
+        <!-- Username input -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-white/50 uppercase tracking-wide">Nominee</label>
+          <div class="relative" id="challenge-user-wrap">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
+            <input type="text" id="challenge-username-input" placeholder="username" autocomplete="off"
+              class="w-full bg-shark-900 border border-white/10 rounded-md pl-7 pr-8 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors">
+            <button type="button" id="challenge-clear-btn"
+              class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors cursor-pointer p-0.5">
+              <iconify-icon icon="boxicons:x" width="14"></iconify-icon>
+            </button>
+            <div id="challenge-dropdown"
+              class="hidden absolute top-full left-0 right-0 mt-1 bg-shark-900 border border-white/10 rounded-md overflow-hidden z-50 shadow-lg">
+            </div>
+          </div>
+          <p id="challenge-user-error" class="hidden text-xs text-red-400"></p>
+          <div id="challenge-nominees" class="hidden flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- Contest visibility -->
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-sm text-white/80">Contest visibility</span>
+            <span class="text-xs text-white/35">Who can vote</span>
+          </div>
+          <div class="flex items-center gap-1.5 bg-shark-800 border border-white/10 rounded-md p-1">
+            <button type="button" data-cvis="public"
+              class="cvis-btn px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer cvis-active">
+              Public
+            </button>
+            <button type="button" data-cvis="private"
+              class="cvis-btn px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer text-white/40 hover:text-white/60">
+              Private
+            </button>
+          </div>
+          <input type="hidden" id="challenge-visibility-input" value="public">
+        </div>
+
+        <!-- Designated voters (private only) -->
+        <div id="voter-section" class="hidden flex-col gap-2">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-sm text-white/80">Designated voters</span>
+            <span class="text-xs text-white/35">Add at least 5 people who can vote</span>
+          </div>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
+            <input type="text" id="voter-username-input" placeholder="username" autocomplete="off"
+              class="w-full bg-shark-900 border border-white/10 rounded-md pl-7 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors">
+            <div id="voter-dropdown"
+              class="hidden absolute top-full left-0 right-0 mt-1 bg-shark-900 border border-white/10 rounded-md overflow-hidden z-50 shadow-lg">
+            </div>
+          </div>
+          <div id="voter-badges" class="hidden flex-wrap gap-1.5"></div>
+          <p class="text-xs"><span id="voter-count" class="text-white/50">0</span><span class="text-white/25"> / 5 minimum</span></p>
+        </div>
+
+        <!-- Voting window -->
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-sm text-white/80">Voting window</span>
+            <span class="text-xs text-white/35">Starts when nominee submits</span>
+          </div>
+          <div class="flex items-center gap-1 bg-shark-800 border border-white/10 rounded-md p-1">
+            <button type="button" data-cwin="24"  class="cwin-btn px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer text-white/40 hover:text-white/60">24h</button>
+            <button type="button" data-cwin="48"  class="cwin-btn px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer text-white/40 hover:text-white/60">48h</button>
+            <button type="button" data-cwin="72"  class="cwin-btn px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer cwin-active">72h</button>
+            <button type="button" data-cwin="168" class="cwin-btn px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer text-white/40 hover:text-white/60">7d</button>
+          </div>
+          <input type="hidden" id="challenge-window-input" value="72">
+        </div>
+
+        <!-- Hide entry toggle -->
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-sm text-white/80">Hide my entry</span>
+            <span class="text-xs text-white/35">Reveal only after nominee accepts</span>
+          </div>
+          <button type="button" id="hide-entry-toggle" data-on="false"
+            class="relative w-14 h-7 rounded-full transition-colors cursor-pointer bg-shark-700 shrink-0">
+            <span id="hide-entry-thumb"
+              class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform"></span>
+          </button>
+          <input type="hidden" id="hide-entry-input" value="false">
+        </div>
+
+      </div>
+
+      <!-- Pending nominations -->
+      <% if (pendingNominations && pendingNominations.length > 0) { %>
+      <div class="flex flex-col gap-2 px-4 py-3 border-t border-charm-600/20 bg-charm-600/5" id="nominations-list">
+        <p class="text-xs font-semibold text-white/50 uppercase tracking-wide">Or accept a nomination</p>
+        <% pendingNominations.forEach(function(nom) { %>
+        <label class="nomination-card flex items-center gap-3 border border-white/10 rounded-md px-3 py-2.5 cursor-pointer hover:border-white/20 transition-colors has-checked:border-charm-500/50 has-checked:bg-charm-600/5">
+          <input type="radio" name="nominationId" value="<%= nom._id %>"
+            class="nomination-radio w-4 h-4 accent-charm-500 shrink-0 cursor-pointer">
+          <img src="<%= nom.nominatorId.avatar?.value || '/img/default-avatar.png' %>"
+            alt="" class="w-7 h-7 rounded-md object-cover bg-shark-800 shrink-0">
+          <div class="flex flex-col gap-0.5 min-w-0 flex-1">
+            <span class="text-sm text-white/80 font-medium truncate">
+              <%= nom.nominatorId.displayName?.value || nom.nominatorId.username?.value %>
+              <span class="text-white/35 font-normal">nominated you</span>
+            </span>
+            <% if (nom.message) { %>
+            <span class="text-xs text-white/40 truncate">"<%= nom.message %>"</span>
+            <% } %>
+            <span class="text-xs text-white/25">
+              Expires <%= new Date(nom.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %>
+            </span>
+          </div>
+        </label>
+        <% }); %>
+      </div>
+      <% } %>
+
+    </div>
+
+    <!-- ── Audience & Options ─────────────────────────────────────── -->
+    <div class="flex flex-col gap-3 mb-5">
+
+      <!-- Visibility -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">Audience</span>
+          <span class="text-xs text-white/35">Who can see this entry</span>
+        </div>
+        <div class="flex items-center gap-1.5 bg-shark-800 border border-white/10 rounded-md p-1">
+          <button type="button" data-vis="public"
+            class="vis-btn px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer <%= entry.visibility === 'public' ? 'vis-active' : 'text-white/40 hover:text-white/60' %>">
+            Everyone
+          </button>
+          <button type="button" data-vis="followers"
+            class="vis-btn px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer <%= entry.visibility === 'followers' ? 'vis-active' : 'text-white/40 hover:text-white/60' %>">
+            Followers
+          </button>
+        </div>
+        <input type="hidden" name="visibility" id="visibility-input" value="<%= entry.visibility %>">
+      </div>
+
+      <!-- Comments toggle -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">Comments</span>
+          <span class="text-xs text-white/35">Allow others to comment</span>
+        </div>
+        <button type="button" id="comments-toggle"
+          data-on="<%= entry.commentsEnabled ? 'true' : 'false' %>"
+          class="relative w-14 h-7 rounded-full transition-colors cursor-pointer <%= entry.commentsEnabled ? 'bg-charm-600' : 'bg-shark-700' %> shrink-0">
+          <span id="comments-thumb"
+            class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%= entry.commentsEnabled ? 'translate-x-7' : '' %>"></span>
+        </button>
+        <input type="hidden" name="commentsEnabled" id="comments-input" value="<%= entry.commentsEnabled ? 'true' : 'false' %>">
+      </div>
+
+      <!-- Mature content -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">Mature content</span>
+          <span class="text-xs text-white/35">Flag as 18+ or sensitive</span>
+        </div>
+        <button type="button" id="mature-toggle"
+          data-on="<%= entry.matureContent ? 'true' : 'false' %>"
+          class="relative w-14 h-7 rounded-full transition-colors cursor-pointer <%= entry.matureContent ? 'bg-charm-600' : 'bg-shark-700' %> shrink-0">
+          <span id="mature-thumb"
+            class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%= entry.matureContent ? 'translate-x-7' : '' %>"></span>
+        </button>
+        <input type="hidden" name="matureContent" id="mature-input" value="<%= entry.matureContent ? 'true' : 'false' %>">
+      </div>
+    </div>
+
+    <button type="submit" id="save-btn"
+      class="w-full bg-charm-600 hover:bg-charm-500 text-white font-bold rounded-md py-3 text-sm transition-colors cursor-pointer">
+      Save changes
+    </button>
+
+  </form>
+
+</div>
+
+<style>
+  .vis-active, .cvis-active, .cwin-active {
+    background-color: rgba(221, 104, 144, 0.15);
+    color: rgba(221, 104, 144, 1);
+  }
+</style>
+
+<script>
+(function () {
+  var ENTRY_ID           = '<%= entry._id %>';
+  var REDIRECT_AFTER     = '<%= pendingContestId ? "/contest/" + pendingContestId : "/entry/" + entry._id %>';
+  var INITIAL_TAGS       = <%- JSON.stringify(entry.tags || []) %>;
+  var INITIAL_NOMINEES  = <%- JSON.stringify(existingNominees || []) %>;
+
+  // ── Error display ─────────────────────────────────────────────────
+  function showError(msg) {
+    var el = document.getElementById('error-msg');
+    document.getElementById('error-text').textContent = msg;
+    el.classList.remove('hidden');
+    el.classList.add('flex');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function hideError() {
+    var el = document.getElementById('error-msg');
+    el.classList.add('hidden');
+    el.classList.remove('flex');
+  }
+
+  // ── Dirty-state tracking ──────────────────────────────────────────
+  var saveBtn = document.getElementById('save-btn');
+  var CLEAN_LABEL = 'Go to entry';
+  var DIRTY_LABEL = 'Save changes';
+  var _snapshot = {
+    title:    document.getElementById('title').value,
+    caption:  document.getElementById('caption').value,
+    tags:     INITIAL_TAGS.slice(),
+    vis:      document.getElementById('visibility-input').value,
+    comments: document.getElementById('comments-input').value,
+    mature:   document.getElementById('mature-input').value,
+  };
+  saveBtn.textContent = CLEAN_LABEL;
+
+  function checkDirty() {
+    var dirty =
+      document.getElementById('title').value   !== _snapshot.title   ||
+      document.getElementById('caption').value !== _snapshot.caption ||
+      document.getElementById('visibility-input').value  !== _snapshot.vis      ||
+      document.getElementById('comments-input').value    !== _snapshot.comments ||
+      document.getElementById('mature-input').value      !== _snapshot.mature   ||
+      JSON.stringify(tags.slice().sort()) !== JSON.stringify(_snapshot.tags.slice().sort()) ||
+      (challengeToggle && challengeToggle.dataset.on === 'true' &&
+        selectedNominees.filter(function (o) { return !existingNomineeIds.has(o._id); }).length > 0);
+    saveBtn.textContent = dirty ? DIRTY_LABEL : CLEAN_LABEL;
+  }
+
+  // ── Caption counter ───────────────────────────────────────────────
+  document.getElementById('caption').addEventListener('input', function () {
+    document.getElementById('caption-count').textContent = this.value.length;
+    checkDirty();
+  });
+  document.getElementById('title').addEventListener('input', checkDirty);
+
+  // ── Tag input ─────────────────────────────────────────────────────
+  var MAX_TAGS   = 6;
+  var tags       = [];
+  var tagInput   = document.getElementById('tag-input');
+  var tagWrap    = document.getElementById('tag-wrap');
+  var tagCountEl = document.getElementById('tag-count');
+
+  function updateTagUI() {
+    tagCountEl.textContent = tags.length;
+    tagInput.style.display = tags.length >= MAX_TAGS ? 'none' : '';
+    tagInput.placeholder   = tags.length === 0 ? 'Add a tag…' : (tags.length < MAX_TAGS ? 'Add another…' : '');
+  }
+
+  function addTag(text) {
+    text = text.trim().toLowerCase().replace(/,/g, '');
+    if (!text || tags.includes(text) || tags.length >= MAX_TAGS) return;
+    tags.push(text);
+    var chip = document.createElement('span');
+    chip.className   = 'inline-flex items-center gap-1 bg-shark-800 border border-white/15 rounded-md px-2 py-1 text-xs text-white/70';
+    chip.dataset.tag = text;
+    chip.innerHTML   = '#' + text +
+      '<button type="button" class="text-white/30 hover:text-white/70 transition-colors cursor-pointer ml-0.5 leading-none">' +
+      '<iconify-icon icon="boxicons:x" width="12"></iconify-icon></button>';
+    chip.querySelector('button').addEventListener('click', function () { removeTag(text, chip); });
+    tagWrap.insertBefore(chip, tagInput);
+    updateTagUI();
+  }
+
+  function removeTag(text, chip) {
+    tags = tags.filter(function (t) { return t !== text; });
+    chip.remove();
+    updateTagUI();
+    checkDirty();
+  }
+
+  INITIAL_TAGS.forEach(function (t) { addTag(t); });
+
+  tagInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addTag(this.value); checkDirty();
+      this.value = '';
+    } else if ((e.key === ',' || e.key === ' ') && this.value.trim()) {
+      e.preventDefault();
+      addTag(this.value); checkDirty();
+      this.value = '';
+    } else if (e.key === 'Backspace' && !this.value && tags.length) {
+      var chips = tagWrap.querySelectorAll('span[data-tag]');
+      var last  = chips[chips.length - 1];
+      if (last) removeTag(last.dataset.tag, last);
+    }
+  });
+
+  tagInput.addEventListener('input', function () {
+    if (this.value.includes(',')) {
+      this.value.split(',').forEach(function (p) { addTag(p); });
+      this.value = '';
+      checkDirty();
+    }
+  });
+
+  tagWrap.addEventListener('click', function () { tagInput.focus(); });
+
+  // ── Challenge toggle ──────────────────────────────────────────────
+  var challengeToggle  = document.getElementById('challenge-toggle');
+  var challengeChevron = document.getElementById('challenge-chevron');
+  var challengeFields  = document.getElementById('challenge-fields');
+
+  if (challengeToggle) {
+    challengeToggle.addEventListener('click', function () {
+      var on = challengeToggle.dataset.on !== 'true';
+      challengeToggle.dataset.on = on ? 'true' : 'false';
+      if (challengeChevron) challengeChevron.style.transform = on ? 'rotate(180deg)' : '';
+      if (challengeFields) {
+        challengeFields.classList.toggle('hidden', !on);
+        challengeFields.classList.toggle('flex', on);
+      }
+      if (on) {
+        document.querySelectorAll('.nomination-radio').forEach(function (r) { r.checked = false; });
+      }
+      checkDirty();
+    });
+  }
+
+  // ── Contest visibility pill ───────────────────────────────────────
+  var cvisInput   = document.getElementById('challenge-visibility-input');
+  var voterSection = document.getElementById('voter-section');
+  document.querySelectorAll('.cvis-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var val = this.dataset.cvis;
+      if (cvisInput) cvisInput.value = val;
+      document.querySelectorAll('.cvis-btn').forEach(function (b) {
+        var active = b.dataset.cvis === val;
+        b.classList.toggle('cvis-active', active);
+        b.classList.toggle('text-white/40', !active);
+        b.classList.toggle('hover:text-white/60', !active);
+      });
+      if (voterSection) {
+        voterSection.classList.toggle('hidden', val !== 'private');
+        voterSection.classList.toggle('flex', val === 'private');
+      }
+    });
+  });
+
+  // ── Voting window pill ───────────────────────────────────────────
+  var cwinInput = document.getElementById('challenge-window-input');
+  document.querySelectorAll('.cwin-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var val = this.dataset.cwin;
+      if (cwinInput) cwinInput.value = val;
+      document.querySelectorAll('.cwin-btn').forEach(function (b) {
+        var active = b.dataset.cwin === val;
+        b.classList.toggle('cwin-active', active);
+        b.classList.toggle('text-white/40', !active);
+        b.classList.toggle('hover:text-white/60', !active);
+      });
+    });
+  });
+
+  // ── Voter search ──────────────────────────────────────────────────
+  var voterUsernameInput = document.getElementById('voter-username-input');
+  var voterDropdown      = document.getElementById('voter-dropdown');
+  var voterBadgesEl      = document.getElementById('voter-badges');
+  var voterCountEl       = document.getElementById('voter-count');
+  var voterSearchTimer   = null;
+  var selectedVoters     = [];
+
+  function hideVoterDropdown() {
+    if (voterDropdown) { voterDropdown.classList.add('hidden'); voterDropdown.innerHTML = ''; }
+  }
+
+  function renderVoterBadges() {
+    if (!voterBadgesEl) return;
+    voterBadgesEl.innerHTML = '';
+    if (voterCountEl) voterCountEl.textContent = selectedVoters.length;
+    if (!selectedVoters.length) {
+      voterBadgesEl.classList.add('hidden');
+      voterBadgesEl.classList.remove('flex');
+      return;
+    }
+    selectedVoters.forEach(function (u) {
+      var badge = document.createElement('div');
+      badge.className = 'inline-flex items-center gap-1.5 bg-white/5 border border-white/15 rounded-md pl-1.5 pr-1 py-1';
+      badge.innerHTML =
+        '<img src="' + escHtml(u.avatar || '/img/default-avatar.png') + '" class="w-5 h-5 rounded object-cover bg-shark-800 shrink-0" alt="">' +
+        '<span class="text-xs text-white/70 font-medium">@' + escHtml(u.username) + '</span>' +
+        '<button type="button" class="voter-remove text-white/30 hover:text-white/70 transition-colors cursor-pointer p-0.5 shrink-0" data-id="' + escHtml(u._id) + '">' +
+          '<iconify-icon icon="boxicons:x" width="12"></iconify-icon>' +
+        '</button>';
+      badge.querySelector('.voter-remove').addEventListener('click', function () {
+        var id = this.dataset.id;
+        selectedVoters = selectedVoters.filter(function (x) { return x._id.toString() !== id; });
+        renderVoterBadges();
+      });
+      voterBadgesEl.appendChild(badge);
+    });
+    voterBadgesEl.classList.remove('hidden');
+    voterBadgesEl.classList.add('flex');
+  }
+
+  function showVoterDropdown(users) {
+    if (!voterDropdown) return;
+    voterDropdown.innerHTML = '';
+    var filtered = users.filter(function (u) {
+      return !selectedVoters.some(function (s) { return s._id.toString() === u._id.toString(); });
+    });
+    if (!filtered.length) {
+      voterDropdown.innerHTML = '<p class="px-3 py-2.5 text-xs text-white/30">No users found</p>';
+      voterDropdown.classList.remove('hidden');
+      return;
+    }
+    filtered.forEach(function (u) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'flex items-center gap-2.5 w-full px-3 py-2 hover:bg-white/5 transition-colors text-left cursor-pointer';
+      row.innerHTML =
+        '<img src="' + escHtml(u.avatar || '/img/default-avatar.png') + '" class="w-7 h-7 rounded-md object-cover bg-shark-800 shrink-0" alt="">' +
+        '<div class="flex flex-col gap-0 min-w-0">' +
+          '<span class="text-sm text-white/80 font-medium truncate">' + escHtml(u.displayName) + '</span>' +
+          '<span class="text-xs text-white/35 truncate">@' + escHtml(u.username) + '</span>' +
+        '</div>';
+      row.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        if (!selectedVoters.some(function (s) { return s._id.toString() === u._id.toString(); })) {
+          selectedVoters.push(u);
+          renderVoterBadges();
+        }
+        if (voterUsernameInput) voterUsernameInput.value = '';
+        hideVoterDropdown();
+        if (voterUsernameInput) voterUsernameInput.focus();
+      });
+      voterDropdown.appendChild(row);
+    });
+    voterDropdown.classList.remove('hidden');
+  }
+
+  if (voterUsernameInput) {
+    voterUsernameInput.addEventListener('input', function () {
+      clearTimeout(voterSearchTimer);
+      var val = this.value.trim().replace(/^@/, '');
+      if (!val) { hideVoterDropdown(); return; }
+      voterSearchTimer = setTimeout(async function () {
+        try {
+          var r = await fetch('/api/users/search?q=' + encodeURIComponent(val));
+          showVoterDropdown(await r.json());
+        } catch (e) { hideVoterDropdown(); }
+      }, 200);
+    });
+    voterUsernameInput.addEventListener('blur', function () { setTimeout(hideVoterDropdown, 150); });
+  }
+
+  // ── Challenge username search ─────────────────────────────────────
+  var challengeUsernameInput = document.getElementById('challenge-username-input');
+  var challengeUserError     = document.getElementById('challenge-user-error');
+  var challengeDropdown      = document.getElementById('challenge-dropdown');
+  var challengeClearBtn      = document.getElementById('challenge-clear-btn');
+  var challengeNominees      = document.getElementById('challenge-nominees');
+  var searchTimer            = null;
+  var selectedNominees      = [];
+
+  // ── Pre-populate existing outgoing nominees ───────────────────────
+  var existingNomineeIds = new Set(INITIAL_NOMINEES.map(function (o) { return o._id; }));
+  if (INITIAL_NOMINEES.length) {
+    INITIAL_NOMINEES.forEach(function (o) { selectedNominees.push(o); });
+    renderNomineeBadges();
+    if (challengeToggle && challengeToggle.dataset.on !== 'true') {
+      challengeToggle.click();
+    }
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function hideDropdown() {
+    if (challengeDropdown) { challengeDropdown.classList.add('hidden'); challengeDropdown.innerHTML = ''; }
+  }
+
+  function renderNomineeBadges() {
+    if (!challengeNominees) return;
+    challengeNominees.innerHTML = '';
+    if (!selectedNominees.length) {
+      challengeNominees.classList.add('hidden');
+      challengeNominees.classList.remove('flex');
+      return;
+    }
+    selectedNominees.forEach(function (u) {
+      var badge = document.createElement('div');
+      badge.className = 'inline-flex items-center gap-1.5 bg-charm-600/10 border border-charm-600/30 rounded-md pl-1.5 pr-1 py-1';
+      var isExisting = existingNomineeIds.has(u._id.toString());
+      badge.innerHTML =
+        '<img src="' + escHtml(u.avatar || '/img/default-avatar.png') + '" class="w-5 h-5 rounded object-cover bg-shark-800 shrink-0" alt="">' +
+        '<span class="text-xs text-white/80 font-medium">@' + escHtml(u.username) + '</span>' +
+        (isExisting ? '<span class="text-white/20 text-xs">|</span><span class="text-xs font-semibold text-amber-400/70">Pending</span>' : '') +
+        '<button type="button" class="nominee-remove text-white/30 hover:text-white/70 transition-colors cursor-pointer p-0.5 shrink-0" data-id="' + escHtml(u._id) + '">' +
+          '<iconify-icon icon="boxicons:x" width="12"></iconify-icon>' +
+        '</button>';
+      badge.querySelector('.nominee-remove').addEventListener('click', function () {
+        var removedId = this.dataset.id;
+        var existingNom = INITIAL_NOMINEES.find(function (o) { return o._id === removedId; });
+        if (existingNom && existingNom.contestId) {
+          var removeBtn = this;
+          removeBtn.disabled = true;
+          fetch('/api/contests/' + existingNom.contestId, { method: 'DELETE' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data.error) {
+                removeBtn.disabled = false;
+                if (window.showToast) window.showToast(data.error, 'error');
+                return;
+              }
+              existingNomineeIds.delete(removedId);
+              selectedNominees = selectedNominees.filter(function (x) { return x._id.toString() !== removedId; });
+              renderNomineeBadges();
+            })
+            .catch(function () {
+              removeBtn.disabled = false;
+              if (window.showToast) window.showToast('Something went wrong.', 'error');
+            });
+        } else {
+          selectedNominees = selectedNominees.filter(function (x) { return x._id.toString() !== removedId; });
+          renderNomineeBadges();
+        }
+      });
+      challengeNominees.appendChild(badge);
+    });
+    challengeNominees.classList.remove('hidden');
+    challengeNominees.classList.add('flex');
+    checkDirty();
+  }
+
+  function showDropdown(users) {
+    if (!challengeDropdown) return;
+    challengeDropdown.innerHTML = '';
+    var filtered = users.filter(function (u) {
+      return !selectedNominees.some(function (s) { return s._id.toString() === u._id.toString(); });
+    });
+    if (!filtered.length) {
+      challengeDropdown.innerHTML = '<p class="px-3 py-2.5 text-xs text-white/30">No users found</p>';
+      challengeDropdown.classList.remove('hidden');
+      return;
+    }
+    filtered.forEach(function (u) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'flex items-center gap-2.5 w-full px-3 py-2 hover:bg-white/5 transition-colors text-left cursor-pointer';
+      row.innerHTML =
+        '<img src="' + escHtml(u.avatar || '/img/default-avatar.png') + '" class="w-7 h-7 rounded-md object-cover bg-shark-800 shrink-0" alt="">' +
+        '<div class="flex flex-col gap-0 min-w-0">' +
+          '<span class="text-sm text-white/80 font-medium truncate">' + escHtml(u.displayName) + '</span>' +
+          '<span class="text-xs text-white/35 truncate">@' + escHtml(u.username) + '</span>' +
+        '</div>';
+      row.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        if (!selectedNominees.some(function (s) { return s._id.toString() === u._id.toString(); })) {
+          selectedNominees.push(u);
+          renderNomineeBadges();
+        }
+        challengeUsernameInput.value = '';
+        if (challengeClearBtn) challengeClearBtn.classList.add('hidden');
+        hideDropdown();
+        challengeUsernameInput.focus();
+      });
+      challengeDropdown.appendChild(row);
+    });
+    challengeDropdown.classList.remove('hidden');
+  }
+
+  if (challengeClearBtn) {
+    challengeClearBtn.addEventListener('click', function () {
+      challengeUsernameInput.value = '';
+      if (challengeUserError) challengeUserError.classList.add('hidden');
+      challengeClearBtn.classList.add('hidden');
+      hideDropdown();
+      challengeUsernameInput.focus();
+    });
+  }
+
+  if (challengeUsernameInput) {
+    challengeUsernameInput.addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      var val = this.value.trim().replace(/^@/, '');
+      if (challengeUserError) challengeUserError.classList.add('hidden');
+      challengeClearBtn.classList.toggle('hidden', !this.value);
+      if (!val) { hideDropdown(); return; }
+      searchTimer = setTimeout(async function () {
+        try {
+          var r = await fetch('/api/users/search?q=' + encodeURIComponent(val));
+          var users = await r.json();
+          showDropdown(users);
+        } catch (e) { hideDropdown(); }
+      }, 200);
+    });
+    challengeUsernameInput.addEventListener('blur', function () {
+      setTimeout(hideDropdown, 150);
+    });
+  }
+
+  // Nomination radio — deselects challenge when picked
+  document.querySelectorAll('.nomination-radio').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (this.checked && challengeToggle && challengeToggle.dataset.on === 'true') {
+        challengeToggle.click();
+      }
+    });
+  });
+
+  // ── Visibility pill ───────────────────────────────────────────────
+  var visInput = document.getElementById('visibility-input');
+  document.querySelectorAll('.vis-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var val = this.dataset.vis;
+      visInput.value = val;
+      document.querySelectorAll('.vis-btn').forEach(function (b) {
+        var active = b.dataset.vis === val;
+        b.classList.toggle('vis-active', active);
+        b.classList.toggle('text-white/40', !active);
+        b.classList.toggle('hover:text-white/60', !active);
+      });
+      checkDirty();
+    });
+  });
+
+  // ── Toggle helpers ────────────────────────────────────────────────
+  function makeToggle(btnId, thumbId, inputId) {
+    var btn   = document.getElementById(btnId);
+    var thumb = document.getElementById(thumbId);
+    var input = document.getElementById(inputId);
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var on = btn.dataset.on !== 'true';
+      btn.dataset.on = on ? 'true' : 'false';
+      btn.classList.toggle('bg-charm-600', on);
+      btn.classList.toggle('bg-shark-700', !on);
+      thumb.classList.toggle('translate-x-7', on);
+      input.value = on ? 'true' : 'false';
+      checkDirty();
+    });
+  }
+
+  makeToggle('comments-toggle',   'comments-thumb',   'comments-input');
+  makeToggle('mature-toggle',     'mature-thumb',      'mature-input');
+  makeToggle('hide-entry-toggle', 'hide-entry-thumb',  'hide-entry-input');
+
+  // ── Force fresh load when restored from bfcache ──────────────────
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) window.location.reload();
+  });
+
+  // ── Form submit ───────────────────────────────────────────────────
+  document.getElementById('edit-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    hideError();
+
+    // Clean state — just navigate
+    if (saveBtn.textContent === CLEAN_LABEL) {
+      window.location.href = '/entry/' + ENTRY_ID;
+      return;
+    }
+
+    var title = document.getElementById('title').value.trim();
+    if (!title) { showError('Title is required.'); return; }
+
+    saveBtn.disabled    = true;
+    saveBtn.textContent = 'Saving…';
+
+    try {
+      // Step 1: patch entry metadata
+      var captionVal = document.getElementById('caption').value.trim();
+      var patchRes = await fetch('/api/entries/' + ENTRY_ID, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          title:           title,
+          caption:         captionVal,
+          visibility:      visInput.value,
+          commentsEnabled: document.getElementById('comments-input').value,
+          matureContent:   document.getElementById('mature-input').value,
+          tags:            tags,
+        }),
+      });
+      var patchData = await patchRes.json();
+      if (!patchRes.ok || patchData.error) throw new Error(patchData.error || 'Failed to save.');
+
+      // Step 2: handle contest/nomination
+      var checkedNom    = document.querySelector('.nomination-radio:checked');
+      var newNominees  = selectedNominees.filter(function (o) { return !existingNomineeIds.has(o._id); });
+      var hasChallenge  = challengeToggle && challengeToggle.dataset.on === 'true' && newNominees.length > 0;
+      var isPrivate     = cvisInput && cvisInput.value === 'private';
+      if (hasChallenge && isPrivate && selectedVoters.length < 5) {
+        showError('Private contests require at least 5 designated voters.');
+        saveBtn.disabled = false; saveBtn.textContent = DIRTY_LABEL;
+        return;
+      }
+
+      if (checkedNom) {
+        var nomRes = await fetch('/api/nominations/' + checkedNom.value + '/accept', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ entryId: ENTRY_ID }),
+        });
+        var nomData = await nomRes.json();
+        if (!nomRes.ok || nomData.error) throw new Error(nomData.error || 'Failed to accept nomination.');
+        window.location.href = '/contest/' + nomData.contestId;
+        return;
+      }
+
+      if (hasChallenge) {
+        var lastContestId = null;
+        for (var i = 0; i < newNominees.length; i++) {
+          var challRes = await fetch('/api/contests/challenge', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+              entryId:           ENTRY_ID,
+              challengeUsername: newNominees[i].username,
+              visibility:        cvisInput ? cvisInput.value : 'public',
+              hideEntry:         document.getElementById('hide-entry-input').value,
+              voterIds:          selectedVoters.map(function (v) { return v._id; }),
+              windowHours:       cwinInput ? parseInt(cwinInput.value, 10) : 72,
+            }),
+          });
+          var challData = await challRes.json();
+          if (!challRes.ok || challData.error) throw new Error(challData.error || 'Failed to create contest.');
+          lastContestId = challData.contestId;
+        }
+        window.location.href = lastContestId ? '/contest/' + lastContestId : '/entry/' + ENTRY_ID;
+        return;
+      }
+
+      // Metadata-only save — reset snapshot so button returns to clean state
+      _snapshot.title    = title;
+      _snapshot.caption  = captionVal;
+      _snapshot.tags     = tags.slice();
+      _snapshot.vis      = visInput.value;
+      _snapshot.comments = document.getElementById('comments-input').value;
+      _snapshot.mature   = document.getElementById('mature-input').value;
+      saveBtn.disabled    = false;
+      saveBtn.textContent = CLEAN_LABEL;
+    } catch (err) {
+      showError(err.message || 'Something went wrong. Please try again.');
+      saveBtn.disabled    = false;
+      saveBtn.textContent = DIRTY_LABEL;
+    }
+  });
+}());
+</script>
+
+<%- include('partials/appEnd') %>

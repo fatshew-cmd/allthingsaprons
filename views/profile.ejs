@@ -234,7 +234,7 @@
     <% } else { %>
     <div id="entries-grid" class="grid grid-cols-1 gap-3 px-3 pb-3">
       <% entries.slice(0, 12).forEach(function(entry) { %>
-      <%- include('partials/entryCard', { entry: entry, owner: profileUser, currentUserId: currentUser ? currentUser._id.toString() : null, isFollowing: isFollowing }) %>
+      <%- include('partials/entryCard', { entry: entry, owner: profileUser, currentUserId: currentUser ? currentUser._id.toString() : null, isFollowing: isFollowing, contestInfo: contestMap[entry._id.toString()] || null, nominees: nomineesMap[entry._id.toString()] || [] }) %>
       <% }); %>
     </div>
     <div id="entries-sentinel"></div>
@@ -297,7 +297,7 @@
         <div class="w-9 flex items-center justify-center bg-shark-950 shrink-0">
           <span class="text-[10px] font-bold text-white/25 tracking-widest">VS</span>
         </div>
-        <!-- Opponent's entry -->
+        <!-- Nominee's entry -->
         <div class="flex-1 relative overflow-hidden bg-shark-900">
           <% if (oppEntry && oppEntry.entryId && oppEntry.entryId.mediaUrl) { %>
           <img src="<%= oppEntry.entryId.mediaUrl %>" alt="" class="w-full h-full object-cover">
