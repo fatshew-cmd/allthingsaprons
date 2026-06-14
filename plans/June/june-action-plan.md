@@ -1,8 +1,8 @@
 # June Action Plan
 
-## Current State (June 13)
+## Current State (June 14)
 
-Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, and private contests — is substantially done; only background job–driven state transitions (void deadline, voting deadline) remain. What remains is feed content, entry comments, notifications, and the remaining Phase 6 admin UI pages.
+Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, and private contests — is substantially done; only background job–driven state transitions (void deadline, voting deadline) remain. The feed Ratings tab is now fully wired with an affinity-based scoring system. What remains is entry comments, notifications, right panel data, and the remaining Phase 6 admin UI pages.
 
 ### What is done
 | Asset | Status |
@@ -29,6 +29,7 @@ Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Ph
 | Admin audit log | Append-only `admin_audit_logs` collection, `ATA-YYYYMMDD-XXXXXXXX` ticket refs, full metadata, filterable at `/admin/audit-log` — fully working |
 | Admin profile | Dedicated admin profile page at `/admin/profile` — fully working |
 | BannedEmail / BannedDocHash models | Schema-level infrastructure for ban enforcement — done |
+| Feed — Ratings tab | Fully wired: entry query, `UserAffinity` model, `utils/feedScorer.js` (affinity + velocity + follow weighting, decay scoring), `buildFeedPage`, `entryCard` rendered with pre-locked ratings — fully working |
 | Contest creation | Creator challenges a user via `POST /api/contests/challenge` or during entry submission; Nomination created with 24hr expiry — fully working |
 | Nomination flow | Pending nominations shown on entry edit and submit pages; accept via existing entry or new submission; decline available — fully working |
 | Contest voting | Side-by-side entry display, vote counts + percentages, winner badge, vote toggle; no self-vote enforced — fully working |
@@ -37,10 +38,10 @@ Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Ph
 | Private contests | Creator designates ≥5 voters; `designatedVoters` array enforced on creation — fully working |
 
 ### What is not done yet
-- Feed content (tab bar exists with 3 tabs, all three are empty — no entry data wired) → [milestone breakdown](feed-ratings-tab-milestones.md)
+- Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
 - Right panel trending/contests data (shows skeleton permanently)
 - Entry comments, replies, moderation, reporting (distinct from contest comments, which are done)
-- Notifications (no model, no routes)
+- Notifications (stub route only at `/notifications` — no model, no data)
 - Background jobs: void deadline enforcement, voting deadline + close logic (Phase 5 scope)
 - Phase 6 admin UI pages: tournament management, content moderation, and entries moderation are placeholder stubs only; admin dashboard, user list/detail, ID verification queue, and audit log are done
 
@@ -102,7 +103,7 @@ The default engagement layer. Every user on the platform interacts with this.
 - [x] Tags: entry owner can add, edit, or remove up to 6 free-form tags on their entry at any time.
 - [x] **Fix leaderboard route:** real query implemented — top entries by `ratingAvg` with minimum 3 ratings, populated owner info, passed as `items` to the view.
 - [ ] **Wire up right panel data:** `rightPanel.ejs` references `trendingItems` and `contests` that no route ever populates — the panel shows skeleton placeholders permanently. Feed and leaderboard routes should query and pass this data.
-- [ ] Feed page: build out the Ratings tab — show recent entries from all users as cards with rating UI. The tab structure and layout exist; the content does not. → [milestone breakdown](feed-ratings-tab-milestones.md)
+- [x] Feed page: Ratings tab fully wired — `UserAffinity` model + `utils/feedScorer.js` affinity/velocity/follow scoring, entries rendered as `entryCard` with pre-locked ratings for already-rated entries.
 - [ ] Comment flow: any registered user can comment on an entry. Users can delete their own comments. Entry owner can hide any comment (hidden comments move to a private "hidden comments" section, visible only to the owner). Any user can report a comment.
 - [ ] Reply flow: any registered user can reply to a top-level comment (one level only). Reply body is automatically prefixed with @username of the parent commenter.
 - [ ] Comment notifications: notify entry owner when someone comments on their entry. Notify parent commenter when someone replies to their comment.
