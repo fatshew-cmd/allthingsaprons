@@ -292,10 +292,10 @@
       <label for="caption" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
         Description <span class="text-white/25 font-normal normal-case">(optional)</span>
       </label>
-      <textarea id="caption" name="caption" rows="3" maxlength="280"
-        placeholder="Describe your apron…"
+      <textarea id="caption" name="caption" rows="3"
+        placeholder="Describe your entry…"
         class="w-full bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"></textarea>
-      <p class="text-xs text-white/25 text-right"><span id="caption-count">0</span>/280</p>
+      <p class="text-xs text-white/25 text-right"><span id="caption-count">0</span>/140</p>
     </div>
 
     <!-- ── Tags ──────────────────────────────────────────────────── -->
@@ -497,6 +497,20 @@
             class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform"></span>
         </button>
         <input type="hidden" name="matureContent" id="mature-input" value="false">
+      </div>
+
+      <!-- AI generated -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">AI generated</span>
+          <span class="text-xs text-white/35">Created with AI tools</span>
+        </div>
+        <button type="button" id="ai-generated-toggle" data-on="false"
+          class="relative w-14 h-7 rounded-full transition-colors cursor-pointer bg-shark-700 shrink-0">
+          <span id="ai-generated-thumb"
+            class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform"></span>
+        </button>
+        <input type="hidden" name="aiGenerated" id="ai-generated-input" value="false">
       </div>
     </div>
 
@@ -1709,7 +1723,7 @@
   // ── Caption counter ──────────────────────────────────────────────
 
   document.getElementById('caption').addEventListener('input', function () {
-    document.getElementById('caption-count').textContent = this.value.length;
+    document.getElementById('caption-count').textContent = this.value.replace(/\s/g, '').length;
   });
 
   // ── Tag input ────────────────────────────────────────────────────
@@ -1817,8 +1831,9 @@
   }
 
   makeToggle('comments-toggle',  'comments-thumb',    'comments-input');
-  makeToggle('mature-toggle',    'mature-thumb',      'mature-input');
-  makeToggle('hide-entry-toggle','hide-entry-thumb',  'hide-entry-input');
+  makeToggle('mature-toggle',       'mature-thumb',         'mature-input');
+  makeToggle('ai-generated-toggle', 'ai-generated-thumb',   'ai-generated-input');
+  makeToggle('hide-entry-toggle',   'hide-entry-thumb',     'hide-entry-input');
 
   // ── Nominations ──────────────────────────────────────────────────
 
@@ -1918,8 +1933,9 @@
     }
 
     var visibility      = visInput ? visInput.value : 'public';
-    var commentsEnabled = document.getElementById('comments-input')?.value || 'true';
-    var matureContent   = document.getElementById('mature-input')?.value   || 'false';
+    var commentsEnabled = document.getElementById('comments-input')?.value    || 'true';
+    var matureContent   = document.getElementById('mature-input')?.value     || 'false';
+    var aiGenerated     = document.getElementById('ai-generated-input')?.value || 'false';
     var hasChallenge    = challengeToggle?.dataset.on === 'true' && selectedNominees.length > 0;
     var challengeVis    = cvisInput?.value || 'public';
     var hideEntry       = document.getElementById('hide-entry-input')?.value || 'false';
@@ -1944,6 +1960,7 @@
       fd.append('visibility',      visibility);
       fd.append('commentsEnabled', commentsEnabled);
       fd.append('matureContent',   matureContent);
+      fd.append('aiGenerated',     aiGenerated);
       if (nomId) fd.append('nominationId', nomId);
       if (hasChallenge) {
         selectedNominees.forEach(function (o) { fd.append('challengeUsername', o.username); });

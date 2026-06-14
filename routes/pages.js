@@ -17,6 +17,8 @@ const RatingsChallengeVote  = require('../models/RatingsChallengeVote');
 const TournamentEntry       = require('../models/TournamentEntry');
 const Tournament            = require('../models/Tournament');
 const Follow                = require('../models/Follow');
+const UserAffinity          = require('../models/UserAffinity');
+const { computeEffectiveAffinity, buildFeedPage } = require('../utils/feedScorer');
 const requireAuth   = require('../middleware/requireAuth');
 const requireApproved = require('../middleware/requireApproved');
 const upload        = require('../middleware/upload');
@@ -26,11 +28,63 @@ router.use(requireApproved);
 
 router.get('/', (req, res) => res.redirect('/feed'));
 
-router.get('/feed', (req, res) => {
+router.get('/feed', async (req, res) => {
+  const currentUserId = req.session.userId;
+
+  const candidates = await Entry.find({ userId: { $ne: currentUserId } })
+    .sort({ createdAt: -1 })
+    .limit(150)
+    .populate('userId', 'username displayName avatar')
+    .lean();
+
+  if (!candidates.length) {
+    return res.render('feed', {
+      title: 'Feed', activePage: 'feed', currentUser: req.currentUser, feedEntries: [],
+    });
+  }
+
+  const ids         = candidates.map(e => e._id);
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+
+  const [myRatings, follows, velocityAgg, activeContests, affinityDoc] = await Promise.all([
+    Rating.find({ userId: currentUserId, entryId: { $in: ids } }).select('entryId score').lean(),
+    Follow.find({ followerId: currentUserId }).select('followingId').lean(),
+    Rating.aggregate([
+      { $match: { entryId: { $in: ids }, createdAt: { $gte: sixHoursAgo } } },
+      { $group: { _id: '$entryId', count: { $sum: 1 } } },
+    ]),
+    Contest.find({ 'entries.entryId': { $in: ids }, status: 'active' }).select('entries').lean(),
+    UserAffinity.findOne({ userId: currentUserId }).lean(),
+  ]);
+
+  const ratedMap = {};
+  for (const r of myRatings) ratedMap[r.entryId.toString()] = r.score;
+
+  const followingSet = new Set(follows.map(f => f.followingId.toString()));
+
+  const velocityMap = {};
+  for (const v of velocityAgg) velocityMap[v._id.toString()] = v.count;
+
+  const inActiveContestSet = new Set();
+  for (const c of activeContests) {
+    for (const e of c.entries) inActiveContestSet.add(e.entryId.toString());
+  }
+
+  const affinity = computeEffectiveAffinity(affinityDoc?.history || []);
+
+  const feedEntries = buildFeedPage(candidates, {
+    followingSet,
+    ratedMap,
+    velocityMap,
+    inActiveContestSet,
+    affinity,
+  });
+
   res.render('feed', {
     title:      'Feed',
     activePage: 'feed',
     currentUser: req.currentUser,
+    feedEntries,
   });
 });
 
@@ -384,11 +438,14 @@ router.post('/submit', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), asy
   }
 
   try {
+    const caption = req.body.caption?.trim() || undefined;
+    if (caption && caption.replace(/\s/g, '').length > 140) return renderError('Description cannot exceed 140 characters (spaces not counted).');
+
     const entry = await Entry.create({
       userId:    req.session.userId,
       mediaUrl:  `/uploads/entries/${file.filename}`,
       mediaType: isVideo ? 'video' : 'photo',
-      caption:   req.body.caption?.trim() || undefined,
+      caption,
       tags,
     });
     res.redirect(`/entry/${entry._id}`);
@@ -634,7 +691,7 @@ router.post('/settings/profile', upload.fields([{ name: 'avatar', maxCount: 1 },
 
 router.get('/contest/:id', async (req, res) => {
   const contest = await Contest.findById(req.params.id)
-    .populate('entries.entryId', 'mediaUrl mediaType title caption tags ratingAvg ratingCount')
+    .populate('entries.entryId', 'mediaUrl mediaType title caption tags ratingAvg ratingCount aiGenerated')
     .populate('createdBy', 'username displayName avatar')
     .lean()
     .catch(() => null);
@@ -743,6 +800,28 @@ router.get('/contest/:id', async (req, res) => {
   }
   const comments = topLevelComments.map(c => ({ ...c, replies: replyMap[c._id.toString()] || [] }));
 
+  const participantIds = [left?.userId, right?.userId].filter(Boolean);
+  const relatedContests = participantIds.length
+    ? await Contest.find({
+        _id:               { $ne: contest._id },
+        'entries.userId':  { $in: participantIds },
+        visibility:        'public',
+        status:            { $nin: ['void'] },
+      })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate('entries.entryId', 'mediaUrl mediaType')
+      .lean()
+      .catch(() => [])
+    : [];
+
+  const relatedUserIds = [...new Set(relatedContests.flatMap(c => c.entries.map(e => e.userId.toString())))];
+  const relatedUserDocs = relatedUserIds.length
+    ? await User.find({ _id: { $in: relatedUserIds } }).select('username displayName avatar').lean().catch(() => [])
+    : [];
+  const relatedUserMap = {};
+  relatedUserDocs.forEach(u => { relatedUserMap[u._id.toString()] = u; });
+
   res.render('contest', {
     title:      'H2H Contest',
     activePage: '',
@@ -759,6 +838,8 @@ router.get('/contest/:id', async (req, res) => {
     showVotes:   !!(myVote || contest.status === 'closed'),
     statusLabel,
     comments,
+    relatedContests,
+    relatedUserMap,
   });
 });
 

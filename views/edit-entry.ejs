@@ -15,11 +15,14 @@
   </div>
 
   <!-- Existing media (read-only) -->
-  <div class="rounded-md overflow-hidden bg-shark-950 mb-4">
+  <div class="relative rounded-md overflow-hidden bg-shark-950 mb-4">
     <% if (entry.mediaType === 'video') { %>
     <video src="<%= entry.mediaUrl %>" controls class="w-full max-h-72 object-contain"></video>
     <% } else { %>
     <img src="<%= entry.mediaUrl %>" alt="" class="w-full max-h-72 object-contain">
+    <% } %>
+    <% if (entry.aiGenerated) { %>
+    <div class="absolute bottom-3 left-3 bg-violet-600 text-white text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
     <% } %>
   </div>
 
@@ -39,10 +42,10 @@
       <label for="caption" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
         Description <span class="text-white/25 font-normal normal-case">(optional)</span>
       </label>
-      <textarea id="caption" name="caption" rows="3" maxlength="280"
-        placeholder="Describe your apron…"
+      <textarea id="caption" name="caption" rows="3"
+        placeholder="Describe your entry…"
         class="w-full bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"><%= entry.caption || '' %></textarea>
-      <p class="text-xs text-white/25 text-right"><span id="caption-count"><%= (entry.caption || '').length %></span>/280</p>
+      <p class="text-xs text-white/25 text-right"><span id="caption-count"><%= (entry.caption || '').replace(/\s/g, '').length %></span>/140</p>
     </div>
 
     <!-- ── Tags ───────────────────────────────────────────────────── -->
@@ -243,6 +246,21 @@
         </button>
         <input type="hidden" name="matureContent" id="mature-input" value="<%= entry.matureContent ? 'true' : 'false' %>">
       </div>
+
+      <!-- AI generated -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">AI generated</span>
+          <span class="text-xs text-white/35">Created with AI tools</span>
+        </div>
+        <button type="button" id="ai-generated-toggle"
+          data-on="<%= entry.aiGenerated ? 'true' : 'false' %>"
+          class="relative w-14 h-7 rounded-full transition-colors cursor-pointer <%= entry.aiGenerated ? 'bg-charm-600' : 'bg-shark-700' %> shrink-0">
+          <span id="ai-generated-thumb"
+            class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%= entry.aiGenerated ? 'translate-x-7' : '' %>"></span>
+        </button>
+        <input type="hidden" name="aiGenerated" id="ai-generated-input" value="<%= entry.aiGenerated ? 'true' : 'false' %>">
+      </div>
     </div>
 
     <button type="submit" id="save-btn"
@@ -287,12 +305,13 @@
   var CLEAN_LABEL = 'Go to entry';
   var DIRTY_LABEL = 'Save changes';
   var _snapshot = {
-    title:    document.getElementById('title').value,
-    caption:  document.getElementById('caption').value,
-    tags:     INITIAL_TAGS.slice(),
-    vis:      document.getElementById('visibility-input').value,
-    comments: document.getElementById('comments-input').value,
-    mature:   document.getElementById('mature-input').value,
+    title:       document.getElementById('title').value,
+    caption:     document.getElementById('caption').value,
+    tags:        INITIAL_TAGS.slice(),
+    vis:         document.getElementById('visibility-input').value,
+    comments:    document.getElementById('comments-input').value,
+    mature:      document.getElementById('mature-input').value,
+    aiGenerated: document.getElementById('ai-generated-input').value,
   };
   saveBtn.textContent = CLEAN_LABEL;
 
@@ -301,8 +320,9 @@
       document.getElementById('title').value   !== _snapshot.title   ||
       document.getElementById('caption').value !== _snapshot.caption ||
       document.getElementById('visibility-input').value  !== _snapshot.vis      ||
-      document.getElementById('comments-input').value    !== _snapshot.comments ||
-      document.getElementById('mature-input').value      !== _snapshot.mature   ||
+      document.getElementById('comments-input').value      !== _snapshot.comments    ||
+      document.getElementById('mature-input').value        !== _snapshot.mature      ||
+      document.getElementById('ai-generated-input').value  !== _snapshot.aiGenerated ||
       JSON.stringify(tags.slice().sort()) !== JSON.stringify(_snapshot.tags.slice().sort()) ||
       (challengeToggle && challengeToggle.dataset.on === 'true' &&
         selectedNominees.filter(function (o) { return !existingNomineeIds.has(o._id); }).length > 0);
@@ -311,7 +331,7 @@
 
   // ── Caption counter ───────────────────────────────────────────────
   document.getElementById('caption').addEventListener('input', function () {
-    document.getElementById('caption-count').textContent = this.value.length;
+    document.getElementById('caption-count').textContent = this.value.replace(/\s/g, '').length;
     checkDirty();
   });
   document.getElementById('title').addEventListener('input', checkDirty);
@@ -716,9 +736,10 @@
     });
   }
 
-  makeToggle('comments-toggle',   'comments-thumb',   'comments-input');
-  makeToggle('mature-toggle',     'mature-thumb',      'mature-input');
-  makeToggle('hide-entry-toggle', 'hide-entry-thumb',  'hide-entry-input');
+  makeToggle('comments-toggle',     'comments-thumb',       'comments-input');
+  makeToggle('mature-toggle',       'mature-thumb',         'mature-input');
+  makeToggle('ai-generated-toggle', 'ai-generated-thumb',   'ai-generated-input');
+  makeToggle('hide-entry-toggle',   'hide-entry-thumb',     'hide-entry-input');
 
   // ── Force fresh load when restored from bfcache ──────────────────
   window.addEventListener('pageshow', function (e) {
@@ -754,6 +775,7 @@
           visibility:      visInput.value,
           commentsEnabled: document.getElementById('comments-input').value,
           matureContent:   document.getElementById('mature-input').value,
+          aiGenerated:     document.getElementById('ai-generated-input').value,
           tags:            tags,
         }),
       });
@@ -811,8 +833,9 @@
       _snapshot.caption  = captionVal;
       _snapshot.tags     = tags.slice();
       _snapshot.vis      = visInput.value;
-      _snapshot.comments = document.getElementById('comments-input').value;
-      _snapshot.mature   = document.getElementById('mature-input').value;
+      _snapshot.comments    = document.getElementById('comments-input').value;
+      _snapshot.mature      = document.getElementById('mature-input').value;
+      _snapshot.aiGenerated = document.getElementById('ai-generated-input').value;
       saveBtn.disabled    = false;
       saveBtn.textContent = CLEAN_LABEL;
     } catch (err) {

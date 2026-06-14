@@ -12,6 +12,7 @@ const entrySchema = new mongoose.Schema({
   visibility:      { type: String, enum: ['public', 'followers'], default: 'public' },
   commentsEnabled: { type: Boolean, default: true },
   matureContent:   { type: Boolean, default: false },
+  aiGenerated:     { type: Boolean, default: false },
 }, { timestamps: true });
 
 entrySchema.index({ userId: 1 });

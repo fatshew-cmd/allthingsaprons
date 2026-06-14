@@ -148,6 +148,7 @@ router.post('/entries', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), as
       visibility:      ['public', 'followers'].includes(req.body.visibility) ? req.body.visibility : 'public',
       commentsEnabled: req.body.commentsEnabled !== 'false',
       matureContent:   req.body.matureContent === 'true',
+      aiGenerated:     req.body.aiGenerated === 'true',
     });
 
     let contestId = null;
@@ -335,6 +336,7 @@ router.patch('/entries/:id', async (req, res) => {
       visibility:      ['public', 'followers'].includes(req.body.visibility) ? req.body.visibility : 'public',
       commentsEnabled: req.body.commentsEnabled !== 'false' && req.body.commentsEnabled !== false,
       matureContent:   req.body.matureContent === 'true'  || req.body.matureContent === true,
+      aiGenerated:     req.body.aiGenerated === 'true'    || req.body.aiGenerated === true,
       tags:            rawTags.map(t => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 6),
     };
 
@@ -457,7 +459,7 @@ router.post('/contests/:id/comments', async (req, res) => {
 
   const body = req.body.body?.trim();
   if (!body || body.length === 0) return res.status(400).json({ error: 'Comment body is required.' });
-  if (body.length > 1000) return res.status(400).json({ error: 'Comment must be 1000 characters or fewer.' });
+  if (body.replace(/\s/g, '').length > 280) return res.status(400).json({ error: 'Comment cannot exceed 280 characters (spaces not counted).' });
 
   const parentId = req.body.parentId || null;
   if (parentId && !mongoose.isValidObjectId(parentId)) return res.status(400).json({ error: 'Invalid parentId.' });
@@ -513,7 +515,7 @@ router.patch('/contests/:id/comments/:cid', async (req, res) => {
 
   const body = req.body.body?.trim();
   if (!body || body.length === 0) return res.status(400).json({ error: 'Comment body is required.' });
-  if (body.length > 1000) return res.status(400).json({ error: 'Comment must be 1000 characters or fewer.' });
+  if (body.replace(/\s/g, '').length > 280) return res.status(400).json({ error: 'Comment cannot exceed 280 characters (spaces not counted).' });
 
   const comment = await ContestComment.findById(req.params.cid).catch(() => null);
   if (!comment || comment.contestId.toString() !== req.params.id) {

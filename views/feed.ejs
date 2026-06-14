@@ -1,4 +1,4 @@
-﻿<%- include('partials/appStart', { title: 'Feed', activePage: 'feed' }) %>
+<%- include('partials/appStart', { title: 'Feed', activePage: 'feed' }) %>
 
 <div class="flex flex-col pb-20 md:pb-0">
 
@@ -11,6 +11,42 @@
             class="tab-btn tab-inactive text-sm font-semibold px-6 h-10 flex items-center transition-all cursor-pointer">Tournaments</button>
   </header>
 
+  <!-- Ratings tab -->
+  <div id="feed-ratings">
+    <% if (locals.feedEntries && feedEntries.length > 0) { %>
+      <% feedEntries.forEach(function(fe) { %>
+        <%- include('partials/entryCard', {
+          entry:         fe,
+          owner:         fe.owner,
+          currentUserId: currentUser._id.toString(),
+          isFollowing:   false,
+          userRating:    fe.userRating,
+        }) %>
+      <% }) %>
+    <% } else { %>
+    <div class="flex flex-col items-center justify-center py-20 gap-3 text-center">
+      <iconify-icon icon="bx:photo-album" width="40" class="text-white/15"></iconify-icon>
+      <p class="text-sm text-white/30">No entries to rate yet.</p>
+    </div>
+    <% } %>
+  </div>
+
+  <!-- Head To Head tab -->
+  <div id="feed-compare" class="hidden">
+    <div class="flex flex-col items-center justify-center py-20 gap-3 text-center">
+      <iconify-icon icon="boxicons:git-compare" width="40" class="text-white/15"></iconify-icon>
+      <p class="text-sm text-white/30">No head-to-head contests yet.</p>
+    </div>
+  </div>
+
+  <!-- Tournaments tab -->
+  <div id="feed-tournaments" class="hidden">
+    <div class="flex flex-col items-center justify-center py-20 gap-3 text-center">
+      <iconify-icon icon="bx:trophy" width="40" class="text-white/15"></iconify-icon>
+      <p class="text-sm text-white/30">No tournaments yet.</p>
+    </div>
+  </div>
+
 </div>
 
 <style>
@@ -19,11 +55,14 @@
 </style>
 
 <script>
-  const BASE_BTN = 'tab-btn text-sm font-semibold px-6 h-10 flex items-center transition-all cursor-pointer ';
+  var BASE_BTN = 'tab-btn text-sm font-semibold px-6 h-10 flex items-center transition-all cursor-pointer ';
   function switchMode(mode) {
     document.getElementById('tab-rate').className        = BASE_BTN + (mode === 'rate'        ? 'tab-active' : 'tab-inactive');
     document.getElementById('tab-compare').className     = BASE_BTN + (mode === 'compare'     ? 'tab-active' : 'tab-inactive');
     document.getElementById('tab-tournaments').className = BASE_BTN + (mode === 'tournaments' ? 'tab-active' : 'tab-inactive');
+    document.getElementById('feed-ratings').classList.toggle('hidden',     mode !== 'rate');
+    document.getElementById('feed-compare').classList.toggle('hidden',     mode !== 'compare');
+    document.getElementById('feed-tournaments').classList.toggle('hidden', mode !== 'tournaments');
   }
 </script>
 

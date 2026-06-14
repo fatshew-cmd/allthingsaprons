@@ -36,11 +36,15 @@
   <div class="px-4 py-2.5 border-b border-white/10 flex items-center gap-2">
     <iconify-icon icon="bx:time-five" width="15" class="text-amber-400 shrink-0"></iconify-icon>
     <span class="text-sm text-white/50 flex-1">Nomination expires <span id="contest-void-deadline" data-ts="<%= new Date(contest.voidDeadline).getTime() %>" class="text-amber-300 font-medium">...</span></span>
+    <button id="cv-share-btn" type="button" class="shrink-0 flex items-center gap-1 text-xs font-medium text-white/50 hover:text-white/80 transition-colors cursor-pointer">
+      <iconify-icon icon="bx:share-alt" width="14"></iconify-icon>
+      Share
+    </button>
     <% if (locals.isNominator) { %>
     <button id="cv-void-btn" type="button" data-contest-id="<%= contest._id %>"
-      class="shrink-0 text-xs font-medium text-white/70 hover:text-red-400 transition-colors cursor-pointer"
+      class="shrink-0 text-xs font-medium text-white/50 hover:text-red-400 transition-colors cursor-pointer"
       title="Cancel contest">
-      Cancel Contest
+      Cancel
     </button>
     <% } %>
   </div>
@@ -93,6 +97,9 @@
           <% if (ls && ls.isWinner) { %>
           <div class="absolute inset-0 ring-2 ring-inset ring-charm-500 pointer-events-none"></div>
           <div class="absolute top-2 left-2 bg-charm-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md">Winner</div>
+          <% } %>
+          <% if (ls && ls.entry && ls.entry.aiGenerated) { %>
+          <div class="absolute bottom-2 left-2 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
           <% } %>
           <% if (ls && ls.iVotedFor) { %>
           <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-charm-500 flex items-center justify-center shadow-md">
@@ -149,14 +156,14 @@
           <% } %>
           <div data-cv-action="<%= ls.entryId %>">
             <% if (canVote) { %>
-            <button class="contest-vote-btn flex items-center gap-2 h-10 px-3 text-amber-400 hover:text-amber-300 transition-colors cursor-pointer font-semibold text-sm"
+            <button class="contest-vote-btn flex items-center gap-2 h-8 px-2 text-amber-400 hover:text-amber-300 transition-colors cursor-pointer font-semibold text-sm"
               data-contest-id="<%= contest._id %>"
               data-entry-id="<%= ls.entryId %>">
               <iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon>
               <span><%= ls.voteCount %></span>
             </button>
             <% } else if (ls.iVotedFor) { %>
-            <button class="contest-unvote-btn flex items-center gap-2 h-10 px-4 rounded-md bg-amber-500/30 border border-amber-500/60 text-amber-300 hover:bg-white/8 hover:border-white/20 hover:text-white/50 transition-colors cursor-pointer font-semibold text-sm" data-contest-id="<%= contest._id %>">
+            <button class="contest-unvote-btn flex items-center gap-2 h-8 px-2 text-amber-300 hover:text-white/50 transition-colors cursor-pointer font-semibold text-sm" data-contest-id="<%= contest._id %>">
               <iconify-icon icon="boxicons:thumb-up-filled" width="16"></iconify-icon>
               <span><%= ls.voteCount %></span>
             </button>
@@ -197,6 +204,9 @@
           <% if (rs && rs.isWinner) { %>
           <div class="absolute inset-0 ring-2 ring-inset ring-charm-500 pointer-events-none"></div>
           <div class="absolute top-2 left-2 bg-charm-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md">Winner</div>
+          <% } %>
+          <% if (rs && rs.entry && rs.entry.aiGenerated) { %>
+          <div class="absolute bottom-2 left-2 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
           <% } %>
           <% if (rs && rs.iVotedFor) { %>
           <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-charm-500 flex items-center justify-center shadow-md">
@@ -267,14 +277,14 @@
           <% } %>
           <div data-cv-action="<%= rs.entryId %>">
             <% if (canVote) { %>
-            <button class="contest-vote-btn flex items-center gap-2 h-10 px-3 text-amber-400 hover:text-amber-300 transition-colors cursor-pointer font-semibold text-sm"
+            <button class="contest-vote-btn flex items-center gap-2 h-8 px-2 text-amber-400 hover:text-amber-300 transition-colors cursor-pointer font-semibold text-sm"
               data-contest-id="<%= contest._id %>"
               data-entry-id="<%= rs.entryId %>">
               <iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon>
               <span><%= rs.voteCount %></span>
             </button>
             <% } else if (rs.iVotedFor) { %>
-            <button class="contest-unvote-btn flex items-center gap-2 h-10 px-4 rounded-md bg-amber-500/30 border border-amber-500/60 text-amber-300 hover:bg-white/8 hover:border-white/20 hover:text-white/50 transition-colors cursor-pointer font-semibold text-sm" data-contest-id="<%= contest._id %>">
+            <button class="contest-unvote-btn flex items-center gap-2 h-8 px-2 text-amber-300 hover:text-white/50 transition-colors cursor-pointer font-semibold text-sm" data-contest-id="<%= contest._id %>">
               <iconify-icon icon="boxicons:thumb-up-filled" width="16"></iconify-icon>
               <span><%= rs.voteCount %></span>
             </button>
@@ -306,31 +316,48 @@
   <!-- Total vote count (once revealed) -->
   <p id="cv-total" class="px-4 pb-4 text-xs text-white/25 text-center<%= (showVotes && totalVotes > 0) ? '' : ' hidden' %>"><%= totalVotes %> total vote<%= totalVotes !== 1 ? 's' : '' %></p>
 
-  <!-- Comments -->
-  <div class="border-t border-white/10 pt-4 pb-6">
+  <%
+  function linkifyCommentBody(body) {
+    var esc = String(body).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return esc.replace(/@(\w+)/g, '<a href="/$1" class="text-charm-400 hover:opacity-80 transition-opacity">@$1</a>');
+  }
+  var _totalComments = comments.reduce(function(n,c){return n+1+c.replies.length;},0);
+  var _statusCls = { pending: 'bg-amber-500/15 text-amber-400', active: 'bg-green-500/15 text-green-400', closed: 'bg-white/10 text-white/50' };
+  %>
 
-    <h2 class="px-4 text-sm font-semibold text-white/70 mb-3">Comments<% if (comments.length) { %> <span class="text-white/30 font-normal">(<%= comments.reduce(function(n,c){return n+1+c.replies.length;},0) %>)</span><% } %></h2>
+  <!-- Tab bar -->
+  <div class="border-t border-white/10 flex">
+    <button id="tab-btn-comments" class="tab-btn px-4 py-3 text-sm font-semibold text-white border-b-2 border-charm-500 transition-colors cursor-pointer" data-tab="comments">
+      Comments<% if (_totalComments) { %> <span class="text-white/40 font-normal text-xs">(<%= _totalComments %>)</span><% } %>
+    </button>
+    <button id="tab-btn-related" class="tab-btn px-4 py-3 text-sm font-semibold text-white/40 border-b-2 border-transparent hover:text-white/70 transition-colors cursor-pointer" data-tab="related">
+      Related<% if (relatedContests.length) { %> <span class="text-white/30 font-normal text-xs">(<%= relatedContests.length %>)</span><% } %>
+    </button>
+  </div>
+
+  <!-- Comments panel -->
+  <div id="tab-panel-comments" class="pt-4 pb-6">
 
     <!-- New comment input -->
     <% if (locals.currentUser) { %>
-    <div class="px-4 mb-5" id="cc-new-root">
+    <div class="px-2 mb-5" id="cc-new-root">
       <div class="flex gap-2.5">
-        <a href="/<%= currentUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
-          <% if (currentUser.avatar?.value) { %>
-          <img src="<%= currentUser.avatar.value %>" class="w-full h-full object-cover">
+        <a href="/<%= currentUser.username %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+          <% if (currentUser.avatar) { %>
+          <img src="<%= currentUser.avatar %>" class="w-full h-full object-cover">
           <% } else { %>
           <iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon>
           <% } %>
         </a>
         <div class="flex-1 flex flex-col gap-1.5">
-          <textarea id="cc-new-body" rows="2" maxlength="1000" placeholder="Add a comment…"
+          <textarea id="cc-new-body" rows="2" placeholder="Add a comment…"
             class="w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors"></textarea>
           <div class="flex items-center justify-between">
-            <span id="cc-new-count" class="text-xs text-white/25">0 / 1000</span>
-            <button id="cc-new-submit" type="button"
-              class="text-xs font-semibold px-3 py-1.5 rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer disabled:opacity-40">
-              Post
-            </button>
+            <span id="cc-new-count" class="text-xs text-white/25">0/280</span>
+            <div class="flex items-center gap-2">
+              <button id="cc-new-cancel" type="button" class="h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer">Cancel</button>
+              <button id="cc-new-submit" type="button" class="h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer">Post</button>
+            </div>
           </div>
         </div>
       </div>
@@ -345,7 +372,7 @@
       var cUser       = comment.userId;
       var isOwnTop    = locals.currentUser && cUser._id.toString() === currentUser._id.toString();
     %>
-    <div class="cc-item px-4 py-3 border-t border-white/6" data-cid="<%= cid %>">
+    <div class="cc-item px-2 py-3 border-t border-white/6" data-cid="<%= cid %>">
       <div class="flex gap-2.5">
         <a href="/<%= cUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
           <% if (cUser.avatar?.value) { %>
@@ -360,13 +387,13 @@
             <span class="text-xs text-white/25"><%= new Date(comment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
             <% if (comment.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
           </div>
-          <p class="cc-body text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%= comment.body %></p>
+          <p class="cc-body text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- linkifyCommentBody(comment.body) %></p>
           <!-- edit textarea (hidden) -->
           <div class="cc-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">
-            <textarea class="cc-edit-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" maxlength="1000"><%= comment.body %></textarea>
+            <textarea class="cc-edit-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2"><%= comment.body %></textarea>
             <div class="flex items-center gap-2 justify-end">
-              <button type="button" class="cc-edit-cancel text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer">Cancel</button>
-              <button type="button" class="cc-edit-save text-xs font-semibold px-3 py-1 rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-cid="<%= cid %>" data-contest-id="<%= contest._id %>">Save</button>
+              <button type="button" class="cc-edit-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer">Cancel</button>
+              <button type="button" class="cc-edit-save h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-cid="<%= cid %>" data-contest-id="<%= contest._id %>">Save</button>
             </div>
           </div>
           <div class="flex items-center gap-3 mt-1.5">
@@ -381,13 +408,13 @@
             <% } %>
           </div>
           <!-- Reply input (hidden) -->
-          <div class="cc-reply-form hidden mt-2.5 flex gap-2">
+          <div class="cc-reply-form hidden mt-2.5 flex gap-2" data-parent-id="<%= cid %>">
             <div class="w-px bg-white/10 self-stretch shrink-0 ml-0.5"></div>
-            <div class="flex-1 flex flex-col gap-1.5">
-              <textarea class="cc-reply-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" maxlength="1000" placeholder="Reply…"></textarea>
-              <div class="flex items-center gap-2 justify-end">
-                <button type="button" class="cc-reply-cancel text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer">Cancel</button>
-                <button type="button" class="cc-reply-submit text-xs font-semibold px-3 py-1 rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="<%= cid %>" data-contest-id="<%= contest._id %>">Reply</button>
+            <div class="flex-1 flex flex-col gap-1">
+              <textarea class="cc-reply-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" placeholder="Reply…"></textarea>
+              <div class="flex items-center justify-end gap-2">
+                <button type="button" class="cc-reply-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer">Cancel</button>
+                <button type="button" class="cc-reply-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="<%= cid %>" data-contest-id="<%= contest._id %>">Reply</button>
               </div>
             </div>
           </div>
@@ -414,7 +441,7 @@
                     <span class="text-xs text-white/25"><%= new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
                     <% if (reply.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
                   </div>
-                  <p class="cc-body text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%= reply.body %></p>
+                  <p class="cc-body text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- linkifyCommentBody(reply.body) %></p>
                   <!-- edit textarea (hidden) -->
                   <div class="cc-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">
                     <textarea class="cc-edit-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" maxlength="1000"><%= reply.body %></textarea>
@@ -445,11 +472,73 @@
     <% }); %>
 
     <% if (!comments.length) { %>
-    <p class="px-4 pt-2 text-sm text-white/25">No comments yet.</p>
+    <p class="px-2 pt-2 text-sm text-white/25">No comments yet.</p>
     <% } %>
 
     </div><!-- /cc-list -->
-  </div><!-- /Comments -->
+  </div><!-- /tab-panel-comments -->
+
+  <!-- Related panel -->
+  <div id="tab-panel-related" class="hidden pb-6">
+    <% if (!relatedContests.length) { %>
+    <p class="px-2 pt-4 text-sm text-white/25">No other contests found for these participants.</p>
+    <% } else { %>
+    <div class="flex flex-col">
+      <% relatedContests.forEach(function(rc) {
+        var rcLeft  = rc.entries[0] || null;
+        var rcRight = rc.entries[1] || null;
+        var rcLUser = rcLeft  ? relatedUserMap[rcLeft.userId.toString()]  : null;
+        var rcRUser = rcRight ? relatedUserMap[rcRight.userId.toString()] : null;
+        var rcSt    = rc.status;
+        var rcStCls = rcSt === 'active' ? 'bg-green-500/15 text-green-400' : rcSt === 'pending' ? 'bg-amber-500/15 text-amber-400' : 'bg-white/8 text-white/40';
+        var rcStLbl = rcSt === 'active' ? 'Live' : rcSt === 'pending' ? 'Pending' : 'Closed';
+      %>
+      <a href="/contest/<%= rc._id %>" class="flex items-center gap-3 px-2 py-3 border-t border-white/6 hover:bg-white/4 transition-colors">
+        <!-- Thumbnails -->
+        <div class="flex items-center gap-1 shrink-0">
+          <div class="w-10 h-10 rounded-md overflow-hidden bg-shark-900 shrink-0">
+            <% if (rcLeft && rcLeft.entryId && rcLeft.entryId.mediaUrl) { %>
+            <% if (rcLeft.entryId.mediaType === 'video') { %>
+            <video src="<%= rcLeft.entryId.mediaUrl %>" class="w-full h-full object-cover" muted preload="none"></video>
+            <% } else { %>
+            <img src="<%= rcLeft.entryId.mediaUrl %>" class="w-full h-full object-cover" alt="">
+            <% } %>
+            <% } else { %>
+            <div class="w-full h-full flex items-center justify-center"><iconify-icon icon="bx:image" width="16" class="text-white/15"></iconify-icon></div>
+            <% } %>
+          </div>
+          <span class="text-[10px] font-black text-white/20 tracking-widest px-0.5">VS</span>
+          <div class="w-10 h-10 rounded-md overflow-hidden bg-shark-900 shrink-0">
+            <% if (rcRight && rcRight.entryId && rcRight.entryId.mediaUrl) { %>
+            <% if (rcRight.entryId.mediaType === 'video') { %>
+            <video src="<%= rcRight.entryId.mediaUrl %>" class="w-full h-full object-cover" muted preload="none"></video>
+            <% } else { %>
+            <img src="<%= rcRight.entryId.mediaUrl %>" class="w-full h-full object-cover" alt="">
+            <% } %>
+            <% } else { %>
+            <div class="w-full h-full flex items-center justify-center"><iconify-icon icon="bx:user-plus" width="16" class="text-white/15"></iconify-icon></div>
+            <% } %>
+          </div>
+        </div>
+        <!-- Names -->
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-white/70 truncate">
+            <%= rcLUser ? (rcLUser.displayName?.value || rcLUser.username?.value) : '—' %>
+            <span class="text-white/25 text-xs mx-1">vs</span>
+            <%= rcRUser ? (rcRUser.displayName?.value || rcRUser.username?.value) : 'Awaiting' %>
+          </p>
+          <p class="text-xs text-white/30 mt-0.5"><%= new Date(rc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></p>
+        </div>
+        <!-- Status -->
+        <span class="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-md <%= rcStCls %>"><%= rcStLbl %></span>
+      </a>
+      <% }); %>
+    </div>
+    <% } %>
+  </div><!-- /tab-panel-related -->
+
+  <!-- @mention dropdown -->
+  <div id="cc-mention-dd" class="hidden fixed z-50 w-56 bg-shark-900 border border-white/12 rounded-md shadow-xl overflow-hidden"></div>
 
 </div>
 
@@ -530,9 +619,10 @@
       var h = Math.floor((diff % 86400000) / 3600000);
       var m = Math.floor((diff % 3600000) / 60000);
       var s = Math.floor((diff % 60000) / 1000);
-      if (d > 0) el.textContent = 'in ' + d + 'd ' + h + 'h';
-      else if (h > 0) el.textContent = 'in ' + h + 'h' + (m > 0 ? ' ' + m + 'm' : '') + ' ' + s + 's';
-      else el.textContent = 'in ' + m + 'm ' + s + 's';
+      function pad(n) { return n < 10 ? '0' + n : '' + n; }
+      if (d > 0) el.textContent = 'in ' + d + 'd ' + pad(h) + 'h';
+      else if (h > 0) el.textContent = 'in ' + pad(h) + 'h ' + pad(m) + 'm ' + pad(s) + 's';
+      else el.textContent = 'in ' + pad(m) + 'm ' + pad(s) + 's';
     }
     update();
     setInterval(update, 1000);
@@ -602,7 +692,7 @@
         document.querySelectorAll('[data-cv-action]').forEach(function (action) {
           var eid = action.dataset.cvAction;
           if (eid === votedFor) {
-            action.innerHTML = '<button class="contest-unvote-btn flex items-center gap-2 h-10 px-4 rounded-md bg-amber-500/30 border border-amber-500/60 text-amber-300 hover:bg-white/8 hover:border-white/20 hover:text-white/50 transition-colors cursor-pointer font-semibold text-sm" data-contest-id="' + CONTEST_ID + '"><iconify-icon icon="boxicons:thumb-up-filled" width="16"></iconify-icon><span>' + (voteCounts[eid] || 0) + '</span></button>';
+            action.innerHTML = '<button class="contest-unvote-btn flex items-center gap-2 h-8 px-2 text-amber-300 hover:text-white/50 transition-colors cursor-pointer font-semibold text-sm" data-contest-id="' + CONTEST_ID + '"><iconify-icon icon="boxicons:thumb-up-filled" width="16"></iconify-icon><span>' + (voteCounts[eid] || 0) + '</span></button>';
           } else {
             action.innerHTML = '';
           }
@@ -639,7 +729,7 @@
         document.querySelectorAll('[data-cv-action]').forEach(function (action) {
           var eid = action.dataset.cvAction;
           if (!eid) return;
-          action.innerHTML = '<button class="contest-vote-btn flex items-center gap-2 h-10 px-3 text-amber-400 hover:text-amber-300 transition-colors cursor-pointer font-semibold text-sm" data-contest-id="' + CONTEST_ID + '" data-entry-id="' + eid + '"><iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon><span>0</span></button>';
+          action.innerHTML = '<button class="contest-vote-btn flex items-center gap-2 h-8 px-2 text-amber-400 hover:text-amber-300 transition-colors cursor-pointer font-semibold text-sm" data-contest-id="' + CONTEST_ID + '" data-entry-id="' + eid + '"><iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon><span>0</span></button>';
         });
         var totalEl = document.getElementById('cv-total');
         if (totalEl) totalEl.classList.add('hidden');
@@ -676,6 +766,41 @@
     });
   }
 
+  var shareBtn = document.getElementById('cv-share-btn');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', function () {
+      var url   = window.location.href;
+      var title = 'H2H Contest';
+      if (navigator.share) {
+        navigator.share({ title: title, url: url }).catch(function () {});
+      } else {
+        navigator.clipboard.writeText(url).then(function () {
+          if (window.showToast) window.showToast('Link copied to clipboard', 'success');
+        }).catch(function () {
+          if (window.showToast) window.showToast('Could not copy link', 'error');
+        });
+      }
+    });
+  }
+
+  // ── Tab switcher ─────────────────────────────────────────────────
+
+  document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(function (b) {
+        var active = b.dataset.tab === tab;
+        b.classList.toggle('text-white',        active);
+        b.classList.toggle('border-charm-500',  active);
+        b.classList.toggle('text-white/40',    !active);
+        b.classList.toggle('border-transparent',!active);
+      });
+      document.querySelectorAll('[id^="tab-panel-"]').forEach(function (p) {
+        p.classList.toggle('hidden', p.id !== 'tab-panel-' + tab);
+      });
+    });
+  });
+
   // ── Contest comments ──────────────────────────────────────────────
 
   var CONTEST_ID_CC = '<%= contest._id %>';
@@ -683,10 +808,10 @@
   function ccAvatarHtml(size) {
     var sz = size === 'sm' ? 'w-6 h-6' : 'w-7 h-7';
     var ic = size === 'sm' ? '12' : '14';
-    <% if (locals.currentUser && currentUser.avatar && currentUser.avatar.value) { %>
-    return '<a href="/<%= currentUser.username?.value %>" class="shrink-0 ' + sz + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><img src="<%= currentUser.avatar.value %>" class="w-full h-full object-cover"></a>';
+    <% if (locals.currentUser && currentUser.avatar) { %>
+    return '<a href="/<%= currentUser.username %>" class="shrink-0 ' + sz + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><img src="<%= currentUser.avatar %>" class="w-full h-full object-cover"></a>';
     <% } else if (locals.currentUser) { %>
-    return '<a href="/<%= currentUser.username?.value %>" class="shrink-0 ' + sz + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><iconify-icon icon="bx:user" width="' + ic + '" class="text-white/30"></iconify-icon></a>';
+    return '<a href="/<%= currentUser.username %>" class="shrink-0 ' + sz + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><iconify-icon icon="bx:user" width="' + ic + '" class="text-white/30"></iconify-icon></a>';
     <% } else { %>
     return '';
     <% } %>
@@ -709,9 +834,9 @@
       ? '<button type="button" class="cc-reply-btn text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Reply</button>'
       : '';
     var replyForm = !isReply
-      ? '<div class="cc-reply-form hidden mt-2.5 flex gap-2"><div class="w-px bg-white/10 self-stretch shrink-0 ml-0.5"></div><div class="flex-1 flex flex-col gap-1.5"><textarea class="cc-reply-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" maxlength="1000" placeholder="Reply…"></textarea><div class="flex items-center gap-2 justify-end"><button type="button" class="cc-reply-cancel text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer">Cancel</button><button type="button" class="cc-reply-submit text-xs font-semibold px-3 py-1 rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="' + c._id + '" data-contest-id="' + CONTEST_ID_CC + '">Reply</button></div></div></div>'
+      ? '<div class="cc-reply-form hidden mt-2.5 flex gap-2" data-parent-id="' + c._id + '"><div class="w-px bg-white/10 self-stretch shrink-0 ml-0.5"></div><div class="flex-1 flex flex-col gap-1.5"><textarea class="cc-reply-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" placeholder="Reply…"></textarea><div class="flex items-center justify-end gap-2"><button type="button" class="cc-reply-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer">Cancel</button><button type="button" class="cc-reply-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="' + c._id + '" data-contest-id="' + CONTEST_ID_CC + '">Reply</button></div></div></div>'
       : '';
-    return '<div class="cc-item' + (!isReply ? ' px-4 py-3 border-t border-white/6' : '') + '" data-cid="' + c._id + '">'
+    return '<div class="cc-item' + (!isReply ? ' px-2 py-3 border-t border-white/6' : '') + '" data-cid="' + c._id + '">'
       + '<div class="flex ' + gap + '">'
       + avatarHtml
       + '<div class="flex-1 min-w-0">'
@@ -719,10 +844,10 @@
       + '<a href="/' + c.user.username + '" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity">' + displayName + '</a>'
       + '<span class="text-xs text-white/25">' + date + '</span>'
       + '</div>'
-      + '<p class="cc-body text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words">' + escHtml(c.body) + '</p>'
+      + '<p class="cc-body text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words">' + linkifyMentions(escHtml(c.body)) + '</p>'
       + '<div class="cc-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">'
-      + '<textarea class="cc-edit-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" maxlength="1000">' + escHtml(c.body) + '</textarea>'
-      + '<div class="flex items-center gap-2 justify-end"><button type="button" class="cc-edit-cancel text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer">Cancel</button><button type="button" class="cc-edit-save text-xs font-semibold px-3 py-1 rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-cid="' + c._id + '" data-contest-id="' + CONTEST_ID_CC + '">Save</button></div>'
+      + '<textarea class="cc-edit-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2">' + escHtml(c.body) + '</textarea>'
+      + '<div class="flex items-center justify-end gap-2"><button type="button" class="cc-edit-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer">Cancel</button><button type="button" class="cc-edit-save h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-cid="' + c._id + '" data-contest-id="' + CONTEST_ID_CC + '">Save</button></div>'
       + '</div>'
       + '<div class="flex items-center gap-3 mt-1.5">'
       + replyBtn
@@ -738,53 +863,212 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  function linkifyMentions(escapedHtml) {
+    return escapedHtml.replace(/@(\w+)/g, '<a href="/$1" class="text-charm-400 hover:opacity-80 transition-opacity">@$1</a>');
+  }
+
+  // ── @mention autocomplete ─────────────────────────────────────────
+
+  var mentionDd    = document.getElementById('cc-mention-dd');
+  var mentionTa    = null;
+  var mentionTimer = null;
+
+  function getMentionQuery(ta) {
+    var before = ta.value.slice(0, ta.selectionStart);
+    var m = before.match(/@(\w*)$/);
+    return m ? m[1] : null;
+  }
+
+  function hideMentionDd() {
+    mentionDd.classList.add('hidden');
+    mentionDd.innerHTML = '';
+    mentionTa = null;
+  }
+
+  function positionMentionDd(ta) {
+    var r = ta.getBoundingClientRect();
+    var ddH = mentionDd.offsetHeight;
+    var spaceBelow = window.innerHeight - r.bottom;
+    if (spaceBelow < ddH + 8 && r.top > ddH + 8) {
+      mentionDd.style.top = (r.top - ddH - 4) + 'px';
+    } else {
+      mentionDd.style.top = (r.bottom + 4) + 'px';
+    }
+    mentionDd.style.left  = r.left + 'px';
+    mentionDd.style.width = Math.min(r.width, 224) + 'px';
+  }
+
+  function insertMention(username) {
+    if (!mentionTa) return;
+    var val    = mentionTa.value;
+    var pos    = mentionTa.selectionStart;
+    var before = val.slice(0, pos);
+    var after  = val.slice(pos);
+    var atIdx  = before.lastIndexOf('@');
+    var inserted = '@' + username + ' ';
+    mentionTa.value = before.slice(0, atIdx) + inserted + after;
+    var newPos = atIdx + inserted.length;
+    mentionTa.setSelectionRange(newPos, newPos);
+    mentionTa.focus();
+    hideMentionDd();
+  }
+
+  function renderMentionDd(users, ta) {
+    mentionDd.innerHTML = '';
+    users.forEach(function (u) {
+      var item = document.createElement('div');
+      item.className = 'flex items-center gap-2.5 px-3 py-2 hover:bg-white/6 cursor-pointer transition-colors';
+      item.innerHTML = (u.avatar
+        ? '<img src="' + u.avatar + '" class="w-6 h-6 rounded-full object-cover shrink-0">'
+        : '<div class="w-6 h-6 rounded-full bg-shark-800 border border-white/10 shrink-0 flex items-center justify-center"><iconify-icon icon="bx:user" width="12" class="text-white/30"></iconify-icon></div>')
+        + '<div class="flex flex-col min-w-0">'
+        + '<span class="text-xs font-semibold text-white/80 truncate">' + escHtml(u.displayName || u.username) + '</span>'
+        + '<span class="text-xs text-white/35 truncate">@' + escHtml(u.username) + '</span>'
+        + '</div>';
+      item.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        insertMention(u.username);
+      });
+      mentionDd.appendChild(item);
+    });
+    mentionTa = ta;
+    mentionDd.classList.remove('hidden');
+    positionMentionDd(ta);
+  }
+
+  document.addEventListener('input', function (e) {
+    var ta = e.target;
+    if (!ta.matches('#cc-new-body, .cc-reply-body, .cc-edit-body')) return;
+    if (ta.id === 'cc-new-body') {
+      var countEl = document.getElementById('cc-new-count');
+      if (countEl) countEl.textContent = ta.value.replace(/\s/g, '').length + '/280';
+    }
+    var q = getMentionQuery(ta);
+    if (q === null || q === '') { hideMentionDd(); return; }
+    clearTimeout(mentionTimer);
+    mentionTimer = setTimeout(function () {
+      fetch('/api/users/search?q=' + encodeURIComponent(q))
+        .then(function (r) { return r.json(); })
+        .then(function (users) {
+          if (!users.length) { hideMentionDd(); return; }
+          renderMentionDd(users, ta);
+        })
+        .catch(function () { hideMentionDd(); });
+    }, 200);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (!mentionDd.classList.contains('hidden') && e.key === 'Escape') {
+      e.stopPropagation();
+      hideMentionDd();
+      return;
+    }
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!mentionDd.contains(e.target)) hideMentionDd();
+  });
+
+  document.addEventListener('scroll', function () {
+    if (!mentionDd.classList.contains('hidden') && mentionTa) positionMentionDd(mentionTa);
+  }, true);
+
   function updateCommentCount(delta) {
-    var h2 = document.querySelector('#cc-list').closest('.border-t').querySelector('h2');
-    if (!h2) return;
-    var span = h2.querySelector('span');
+    var btn  = document.getElementById('tab-btn-comments');
+    if (!btn) return;
+    var span = btn.querySelector('span');
     var cur  = span ? parseInt(span.textContent.replace(/\D/g,''), 10) || 0 : 0;
     var next = Math.max(0, cur + delta);
     if (!span) {
       span = document.createElement('span');
-      span.className = 'text-white/30 font-normal';
-      h2.appendChild(document.createTextNode(' '));
-      h2.appendChild(span);
+      span.className = 'text-white/40 font-normal text-xs';
+      btn.appendChild(span);
     }
-    span.textContent = '(' + next + ')';
+    span.textContent = next ? '(' + next + ')' : '';
   }
 
   // New top-level comment
   var newBody   = document.getElementById('cc-new-body');
-  var newCount  = document.getElementById('cc-new-count');
   var newSubmit = document.getElementById('cc-new-submit');
+  var newCancel = document.getElementById('cc-new-cancel');
+
+  function postNewComment() {
+    var body = newBody.value.trim();
+    if (!body || newBody.dataset.posting) return;
+    if (body.replace(/\s/g, '').length > 280) {
+      if (window.showToast) window.showToast('Comment cannot exceed 280 characters (spaces not counted).', 'error');
+      return;
+    }
+    newBody.dataset.posting = '1';
+    if (newSubmit) newSubmit.disabled = true;
+    fetch('/api/contests/' + CONTEST_ID_CC + '/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: body }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
+      var list  = document.getElementById('cc-list');
+      var empty = list.querySelector('p.text-white\\/25');
+      if (empty) empty.remove();
+      list.insertAdjacentHTML('beforeend', buildCommentHtml(data, false));
+      newBody.value = '';
+      updateCommentCount(1);
+    })
+    .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
+    .finally(function () { delete newBody.dataset.posting; if (newSubmit) newSubmit.disabled = false; });
+  }
+
   if (newBody) {
-    newBody.addEventListener('input', function () {
-      newCount.textContent = newBody.value.length + ' / 1000';
-    });
-    newSubmit.addEventListener('click', function () {
-      var body = newBody.value.trim();
-      if (!body) return;
-      newSubmit.disabled = true;
-      fetch('/api/contests/' + CONTEST_ID_CC + '/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: body }),
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
-        var list = document.getElementById('cc-list');
-        var empty = list.querySelector('.text-white\\/25');
-        if (empty) empty.remove();
-        list.insertAdjacentHTML('beforeend', buildCommentHtml(data, false));
-        newBody.value = '';
-        newCount.textContent = '0 / 1000';
-        updateCommentCount(1);
-      })
-      .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
-      .finally(function () { newSubmit.disabled = false; });
+    newBody.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postNewComment(); }
     });
   }
+  if (newSubmit) newSubmit.addEventListener('click', postNewComment);
+  if (newCancel) newCancel.addEventListener('click', function () { newBody.value = ''; newBody.focus(); });
+
+  function submitReply(form) {
+    var ta       = form.querySelector('.cc-reply-body');
+    var body     = ta.value.trim();
+    var parentId = form.dataset.parentId;
+    if (!body || !parentId || ta.dataset.posting) return;
+    if (body.replace(/\s/g, '').length > 280) {
+      if (window.showToast) window.showToast('Comment cannot exceed 280 characters (spaces not counted).', 'error');
+      return;
+    }
+    ta.dataset.posting = '1';
+    var btn = form.querySelector('.cc-reply-submit');
+    if (btn) btn.disabled = true;
+    fetch('/api/contests/' + CONTEST_ID_CC + '/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: body, parentId: parentId }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
+      var repliesEl = document.querySelector('.cc-replies[data-parent-id="' + parentId + '"]');
+      if (repliesEl) {
+        repliesEl.classList.remove('hidden');
+        repliesEl.insertAdjacentHTML('beforeend', buildCommentHtml(data, true));
+      }
+      form.classList.add('hidden');
+      ta.value = '';
+      updateCommentCount(1);
+    })
+    .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
+    .finally(function () { delete ta.dataset.posting; if (btn) btn.disabled = false; });
+  }
+
+  // Reply — Enter to send, Shift+Enter for newline
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    var ta = e.target.closest('.cc-reply-body');
+    if (!ta) return;
+    e.preventDefault();
+    submitReply(ta.closest('.cc-reply-form'));
+  });
 
   document.addEventListener('click', function (e) {
 
@@ -800,42 +1084,18 @@
       return;
     }
 
+    // Reply submit button
+    var replySubmit = e.target.closest('.cc-reply-submit');
+    if (replySubmit && !replySubmit.disabled) {
+      submitReply(replySubmit.closest('.cc-reply-form'));
+      return;
+    }
+
     // Reply cancel
     var replyCancel = e.target.closest('.cc-reply-cancel');
     if (replyCancel) {
       var form = replyCancel.closest('.cc-reply-form');
       if (form) { form.classList.add('hidden'); form.querySelector('.cc-reply-body').value = ''; }
-      return;
-    }
-
-    // Reply submit
-    var replySubmit = e.target.closest('.cc-reply-submit');
-    if (replySubmit && !replySubmit.disabled) {
-      var body      = replySubmit.closest('.cc-reply-form').querySelector('.cc-reply-body').value.trim();
-      var parentId  = replySubmit.dataset.parentId;
-      var contestId = replySubmit.dataset.contestId;
-      if (!body) return;
-      replySubmit.disabled = true;
-      fetch('/api/contests/' + contestId + '/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: body, parentId: parentId }),
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
-        var repliesEl = document.querySelector('.cc-replies[data-parent-id="' + parentId + '"]');
-        if (repliesEl) {
-          repliesEl.classList.remove('hidden');
-          repliesEl.insertAdjacentHTML('beforeend', buildCommentHtml(data, true));
-        }
-        var form = replySubmit.closest('.cc-reply-form');
-        form.classList.add('hidden');
-        form.querySelector('.cc-reply-body').value = '';
-        updateCommentCount(1);
-      })
-      .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
-      .finally(function () { replySubmit.disabled = false; });
       return;
     }
 
@@ -866,6 +1126,10 @@
       var cid       = editSave.dataset.cid;
       var contestId = editSave.dataset.contestId;
       if (!body) return;
+      if (body.replace(/\s/g, '').length > 280) {
+        if (window.showToast) window.showToast('Comment cannot exceed 280 characters (spaces not counted).', 'error');
+        return;
+      }
       editSave.disabled = true;
       fetch('/api/contests/' + contestId + '/comments/' + cid, {
         method: 'PATCH',
@@ -876,7 +1140,7 @@
       .then(function (data) {
         if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
         var bodyEl = item.querySelector('.cc-body');
-        bodyEl.textContent = data.body;
+        bodyEl.innerHTML = linkifyMentions(escHtml(data.body));
         bodyEl.classList.remove('hidden');
         item.querySelector('.cc-edit-wrap').classList.add('hidden');
         item.querySelector('.cc-edit-body').value = data.body;

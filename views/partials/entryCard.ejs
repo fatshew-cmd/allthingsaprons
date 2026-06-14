@@ -43,6 +43,9 @@
       <span><%= contestInfo.status === 'active' ? 'H2H Live' : 'H2H' %></span>
     </a>
     <% } %>
+    <% if (entry.aiGenerated) { %>
+    <div class="absolute bottom-3 left-3 bg-violet-600 text-white text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
+    <% } %>
   </div>
   <% } else { %>
   <div class="relative bg-shark-950 overflow-hidden aspect-video">
@@ -60,6 +63,9 @@
       <iconify-icon icon="boxicons:git-compare" width="10"></iconify-icon>
       <span><%= contestInfo.status === 'active' ? 'H2H Live' : 'H2H' %></span>
     </a>
+    <% } %>
+    <% if (entry.aiGenerated) { %>
+    <div class="absolute bottom-2 left-2 z-10 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
     <% } %>
   </div>
   <% } %>
@@ -184,7 +190,7 @@
   </div>
 
   <!-- Rating panel -->
-  <div class="ec-panel hidden border-t border-white/8 px-3 py-4" data-eid="<%= _eid %>" data-panel="rating">
+  <div class="ec-panel hidden border-t border-white/8 px-3 py-4" data-eid="<%= _eid %>" data-panel="rating"<% if (locals.userRating) { %> data-user-rating="<%= locals.userRating %>"<% } %>>
     <% if (_isOwner) { %>
     <div class="flex flex-col items-center gap-2 text-center py-2">
       <iconify-icon icon="bx:lock" width="22" class="text-white/15"></iconify-icon>
@@ -451,6 +457,12 @@
     var sel = card.querySelector('.ec-rating-tile.ec-sel');
     var lbl = card.querySelector('.ec-rlabel');
     if (lbl) lbl.textContent = sel ? (LABELS[parseInt(sel.dataset.score, 10)] || '') : '';
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.ec-panel[data-panel="rating"][data-user-rating]').forEach(function (panel) {
+      lockRatingPanel(panel.dataset.eid, parseInt(panel.dataset.userRating, 10));
+    });
   });
 }());
 </script>

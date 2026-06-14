@@ -1,8 +1,8 @@
 # June Action Plan
 
-## Current State (June 10)
+## Current State (June 13)
 
-Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. What remains is content display (feed, comments), the contest system, and the remaining Phase 6 admin UI pages.
+Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, and private contests — is substantially done; only background job–driven state transitions (void deadline, voting deadline) remain. What remains is feed content, entry comments, notifications, and the remaining Phase 6 admin UI pages.
 
 ### What is done
 | Asset | Status |
@@ -16,6 +16,7 @@ Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Ph
 | `requireApproved` middleware | Non-approved users confined to onboarding domain |
 | Entry upload | Photo + video, tags, caption — fully working |
 | Entry display page | Media, owner info, rating avg/count — fully working |
+| Entry edit page | Title, caption, tags, visibility, mature/AI flags; locked during active contests — fully working |
 | Rating flow | 1–10, no self-rate, no duplicate, denormalized onto entry — fully working |
 | Profile page | Entries, follow counts, stats, contest/tournament history, banner pan/zoom — fully working |
 | Settings page | Edit username, bio, avatar, banner with drag pan/zoom positioning — fully working |
@@ -28,13 +29,19 @@ Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Ph
 | Admin audit log | Append-only `admin_audit_logs` collection, `ATA-YYYYMMDD-XXXXXXXX` ticket refs, full metadata, filterable at `/admin/audit-log` — fully working |
 | Admin profile | Dedicated admin profile page at `/admin/profile` — fully working |
 | BannedEmail / BannedDocHash models | Schema-level infrastructure for ban enforcement — done |
+| Contest creation | Creator challenges a user via `POST /api/contests/challenge` or during entry submission; Nomination created with 24hr expiry — fully working |
+| Nomination flow | Pending nominations shown on entry edit and submit pages; accept via existing entry or new submission; decline available — fully working |
+| Contest voting | Side-by-side entry display, vote counts + percentages, winner badge, vote toggle; no self-vote enforced — fully working |
+| Contest page | Full page at `/contest/:id` — both entries, owner info, vote state, related contests, status label — fully working |
+| Contest comments | Full CRUD (post, edit, delete, report) for contest-level comments and one-level replies; private contest access guard — fully working |
+| Private contests | Creator designates ≥5 voters; `designatedVoters` array enforced on creation — fully working |
 
 ### What is not done yet
-- Feed content (tabs exist, all three are empty)
+- Feed content (tab bar exists with 3 tabs, all three are empty — no entry data wired) → [milestone breakdown](feed-ratings-tab-milestones.md)
 - Right panel trending/contests data (shows skeleton permanently)
-- Comments, replies, moderation, reporting
+- Entry comments, replies, moderation, reporting (distinct from contest comments, which are done)
 - Notifications (no model, no routes)
-- Standalone contests (full lifecycle)
+- Background jobs: void deadline enforcement, voting deadline + close logic (Phase 5 scope)
 - Phase 6 admin UI pages: tournament management, content moderation, and entries moderation are placeholder stubs only; admin dashboard, user list/detail, ID verification queue, and audit log are done
 
 ---
@@ -111,15 +118,15 @@ The default engagement layer. Every user on the platform interacts with this.
 The core competitive mechanic. Build the HTH contest flow end to end.
 
 **Tasks:**
-- [ ] Contest creation: creator self-nominates (they are contestant A), nominates a specific opponent (contestant B).
-- [ ] Nomination delivery: opponent receives a notification/message. 24hr acceptance window starts.
-- [ ] Acceptance flow: opponent submits an entry → contest moves to `active`. Voting deadline set to `submittedAt + 72h`.
+- [x] Contest creation: creator self-nominates (they are contestant A), nominates a specific opponent (contestant B).
+- [x] Nomination delivery: opponent receives a pending nomination visible on their entry edit and submit pages. 24hr acceptance window starts.
+- [x] Acceptance flow: opponent accepts via an existing entry (`/api/nominations/:id/accept`) or by submitting a new entry with `?nomination=<id>` → contest moves to `active`. Voting deadline set to `submittedAt + 72h`.
 - [ ] Void logic: background job checks `voidDeadline`. If no second entry → status set to `void`. Creator notified.
-- [ ] Contest voting page: show both entries side by side. Authenticated user picks one. Enforce no self-vote, no duplicate vote. Store `valueCents` on each vote (use $0.001 for now, tournament organizer logic comes later).
+- [x] Contest voting page: both entries displayed side by side with vote counts, percentages, and winner badge. Authenticated user picks one. Enforce no self-vote, no duplicate vote.
 - [ ] **REVERT BEFORE LAUNCH:** Re-enable participant vote guard and `status === 'active'` checks in `routes/api.js` (contest vote handler) and `routes/pages.js` (contest GET handler) — both are commented out with `// TEMP` for local testing.
 - [ ] Contest close logic: background job checks `votingDeadline`. Count votes per entry. Set `winnerEntryId`. Status → `closed`.
-- [ ] Contest page: show result, vote counts, winner after close.
-- [ ] Private contest flow: creator designates minimum 5 voters. Only designated voters can vote.
+- [x] Contest page: result, vote counts, winner after close — `winnerEntryId` logic renders winner badge correctly.
+- [x] Private contest flow: creator designates minimum 5 voters. `designatedVoters` array enforced on creation; access guard in comment routes.
 
 **Exit criteria:** Two users can complete a full contest cycle — nomination → acceptance → voting → result — with both public and private variants working.
 
