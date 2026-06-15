@@ -248,7 +248,7 @@
         <% } else { %>
         <div class="flex items-center gap-2">
           <div class="w-7 h-7 rounded-full bg-shark-800 border border-white/10 shrink-0"></div>
-          <span class="text-sm text-white/25">Awaiting nominee</span>
+          <span class="text-sm text-white/25"><%= contest.status === 'void' ? 'No response' : 'Awaiting nominee' %></span>
         </div>
         <% } %>
 

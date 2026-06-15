@@ -10,6 +10,9 @@ const Contest    = require('../models/Contest');
 const ContestVote = require('../models/ContestVote');
 const ContestComment = require('../models/ContestComment');
 const ContestCommentReport = require('../models/ContestCommentReport');
+const Comment       = require('../models/Comment');
+const CommentReport = require('../models/CommentReport');
+const Notification  = require('../models/Notification');
 const upload     = require('../middleware/upload');
 
 router.get('/me', (req, res) => {
@@ -279,6 +282,19 @@ router.post('/contests/challenge', async (req, res) => {
     expiresAt:   expiry,
     status:      'pending',
   });
+
+  const nominator = await User.findById(req.session.userId).select('username avatar').lean();
+  Notification.create({
+    userId:  nominee._id,
+    type:    'nomination_received',
+    payload: {
+      actorUsername: nominator?.username?.value || 'Someone',
+      actorAvatar:   nominator?.avatar?.value || null,
+      contestId:     contest._id,
+      url:           '/entry/' + entryId,
+    },
+  }).catch(() => {});
+
   res.json({ ok: true, contestId: contest._id });
 });
 
@@ -626,6 +642,177 @@ router.get('/similar-accounts/:username', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ accounts: [] });
+  }
+});
+
+// ── Entry comments ────────────────────────────────────────────────
+
+router.post('/entries/:eid/comments', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.eid)) return res.status(400).json({ error: 'Invalid ID.' });
+
+  const body = req.body.body?.trim();
+  if (!body) return res.status(400).json({ error: 'Comment body is required.' });
+  if (body.replace(/\s/g, '').length > 280) return res.status(400).json({ error: 'Comment cannot exceed 280 characters (spaces not counted).' });
+
+  const parentId = req.body.parentId || null;
+  if (parentId && !mongoose.isValidObjectId(parentId)) return res.status(400).json({ error: 'Invalid parentId.' });
+
+  const entry = await Entry.findById(req.params.eid).select('userId commentsEnabled').lean().catch(() => null);
+  if (!entry) return res.status(404).json({ error: 'Entry not found.' });
+  if (!entry.commentsEnabled) return res.status(403).json({ error: 'Comments are disabled for this entry.' });
+
+  let parentComment = null;
+  if (parentId) {
+    parentComment = await Comment.findById(parentId).select('entryId parentId userId').lean().catch(() => null);
+    if (!parentComment || parentComment.entryId.toString() !== req.params.eid) {
+      return res.status(400).json({ error: 'Invalid parent comment.' });
+    }
+    if (parentComment.parentId) return res.status(400).json({ error: 'Replies cannot be nested further.' });
+  }
+
+  try {
+    const comment = await Comment.create({
+      entryId:  req.params.eid,
+      userId:   req.session.userId,
+      parentId: parentId || null,
+      body,
+    });
+    await Entry.updateOne({ _id: req.params.eid }, { $inc: { commentCount: 1 } });
+    const user = await User.findById(req.session.userId).select('username displayName avatar').lean();
+
+    const actorUsername = user.username?.value || 'Someone';
+    const actorAvatar   = user.avatar?.value || null;
+    const preview       = body.length > 80 ? body.slice(0, 80) + '…' : body;
+    const entryUrl      = '/entry/' + req.params.eid;
+    const myId          = req.session.userId.toString();
+    const notifPromises = [];
+
+    if (!parentId) {
+      // Top-level comment — notify entry owner
+      if (entry.userId.toString() !== myId) {
+        notifPromises.push(Notification.create({
+          userId:  entry.userId,
+          type:    'comment',
+          payload: { actorUsername, actorAvatar, preview, url: entryUrl },
+        }));
+      }
+    } else {
+      // Reply — notify parent comment author
+      if (parentComment.userId.toString() !== myId) {
+        notifPromises.push(Notification.create({
+          userId:  parentComment.userId,
+          type:    'reply',
+          payload: { actorUsername, actorAvatar, preview, url: entryUrl },
+        }));
+      }
+    }
+
+    await Promise.allSettled(notifPromises);
+
+    res.json({
+      _id:       comment._id,
+      entryId:   comment.entryId,
+      parentId:  comment.parentId,
+      body:      comment.body,
+      createdAt: comment.createdAt,
+      user: {
+        username:    user.username?.value,
+        displayName: user.displayName?.value || null,
+        avatar:      user.avatar?.value || null,
+      },
+    });
+  } catch (err) {
+    console.error('Entry comment create error:', err);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+router.patch('/entries/:eid/comments/:cid', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.eid) || !mongoose.isValidObjectId(req.params.cid)) {
+    return res.status(400).json({ error: 'Invalid ID.' });
+  }
+  const body = req.body.body?.trim();
+  if (!body) return res.status(400).json({ error: 'Comment body is required.' });
+  if (body.replace(/\s/g, '').length > 280) return res.status(400).json({ error: 'Comment cannot exceed 280 characters (spaces not counted).' });
+
+  const comment = await Comment.findById(req.params.cid).catch(() => null);
+  if (!comment || comment.entryId.toString() !== req.params.eid) return res.status(404).json({ error: 'Comment not found.' });
+  if (comment.userId.toString() !== req.session.userId.toString()) return res.status(403).json({ error: 'Not your comment.' });
+
+  comment.body     = body;
+  comment.editedAt = new Date();
+  await comment.save();
+  res.json({ ok: true, body: comment.body, editedAt: comment.editedAt });
+});
+
+router.delete('/entries/:eid/comments/:cid', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.eid) || !mongoose.isValidObjectId(req.params.cid)) {
+    return res.status(400).json({ error: 'Invalid ID.' });
+  }
+  const [comment, entry] = await Promise.all([
+    Comment.findById(req.params.cid).select('entryId userId parentId').lean().catch(() => null),
+    Entry.findById(req.params.eid).select('userId').lean().catch(() => null),
+  ]);
+  if (!comment || comment.entryId.toString() !== req.params.eid) return res.status(404).json({ error: 'Comment not found.' });
+  if (!entry) return res.status(404).json({ error: 'Entry not found.' });
+
+  const isOwn        = comment.userId.toString() === req.session.userId.toString();
+  const isEntryOwner = entry.userId.toString() === req.session.userId.toString();
+  if (!isOwn && !isEntryOwner) return res.status(403).json({ error: 'Not authorized.' });
+
+  let deletedCount = 1;
+  if (!comment.parentId) {
+    const replies = await Comment.find({ parentId: comment._id }).select('_id').lean();
+    if (replies.length) {
+      await CommentReport.deleteMany({ commentId: { $in: replies.map(r => r._id) } });
+      await Comment.deleteMany({ parentId: comment._id });
+      deletedCount += replies.length;
+    }
+    await CommentReport.deleteMany({ commentId: comment._id });
+  } else {
+    await CommentReport.deleteMany({ commentId: comment._id });
+  }
+  await Comment.deleteOne({ _id: comment._id });
+  await Entry.updateOne({ _id: req.params.eid }, { $inc: { commentCount: -deletedCount } });
+  res.json({ ok: true, deletedCount });
+});
+
+router.post('/entries/:eid/comments/:cid/hide', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.eid) || !mongoose.isValidObjectId(req.params.cid)) {
+    return res.status(400).json({ error: 'Invalid ID.' });
+  }
+  const [comment, entry] = await Promise.all([
+    Comment.findById(req.params.cid).catch(() => null),
+    Entry.findById(req.params.eid).select('userId').lean().catch(() => null),
+  ]);
+  if (!comment || comment.entryId.toString() !== req.params.eid) return res.status(404).json({ error: 'Comment not found.' });
+  if (!entry || entry.userId.toString() !== req.session.userId.toString()) return res.status(403).json({ error: 'Not your entry.' });
+
+  comment.hidden = !comment.hidden;
+  await comment.save();
+  res.json({ ok: true, hidden: comment.hidden });
+});
+
+router.post('/entries/:eid/comments/:cid/report', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.eid) || !mongoose.isValidObjectId(req.params.cid)) {
+    return res.status(400).json({ error: 'Invalid ID.' });
+  }
+  const comment = await Comment.findById(req.params.cid).select('userId entryId').lean().catch(() => null);
+  if (!comment || comment.entryId.toString() !== req.params.eid) return res.status(404).json({ error: 'Comment not found.' });
+  if (comment.userId.toString() === req.session.userId.toString()) return res.status(400).json({ error: "You can't report your own comment." });
+
+  try {
+    await CommentReport.create({ commentId: comment._id, reportedBy: req.session.userId });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: "You've already reported this comment." });
+    console.error('Comment report error:', err);
+    res.status(500).json({ error: 'Something went wrong.' });
   }
 });
 

@@ -2,13 +2,15 @@
 
 <div class="max-w-2xl mx-auto py-6 pb-24 md:pb-6">
   <%- include('partials/entryCard', {
-    entry:         entry,
-    owner:         entry.userId,
-    currentUserId: currentUserId,
-    isFollowing:   isFollowing,
-    mediaFull:     true,
-    contestInfo:   locals.contestInfo || null,
-    nominees:      locals.nominees || []
+    entry:          entry,
+    owner:          entry.userId,
+    currentUserId:  currentUserId,
+    isFollowing:    isFollowing,
+    mediaFull:      true,
+    contestInfo:    locals.contestInfo || null,
+    nominees:       locals.nominees || [],
+    comments:       locals.comments || [],
+    hiddenComments: locals.hiddenComments || [],
   }) %>
 </div>
 

@@ -31,10 +31,15 @@
             <span class="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-charm-400"></span>
           <% } %>
           <iconify-icon icon="<%= activePage === link.page ? link.iconActive : link.icon %>" width="24" height="24"></iconify-icon>
+          <% if (link.page === 'notifications' && typeof unreadNotifications !== 'undefined' && unreadNotifications > 0) { %>
+            <span class="xl:hidden absolute -top-1 -right-1 w-2 h-2 rounded-full bg-charm-400 block"></span>
+          <% } %>
         </div>
         <span class="hidden xl:inline font-medium text-sm truncate"><%= link.label %></span>
         <% if (link.future) { %>
           <span class="hidden xl:inline text-xs text-white/25 ml-auto">Soon</span>
+        <% } else if (link.page === 'notifications' && typeof unreadNotifications !== 'undefined' && unreadNotifications > 0) { %>
+          <span id="notif-badge" class="hidden xl:inline text-xs bg-charm-600 text-white font-bold px-1.5 py-0.5 rounded-md ml-auto leading-none"><%= unreadNotifications > 99 ? '99+' : unreadNotifications %></span>
         <% } %>
       </a>
     <% }) %>

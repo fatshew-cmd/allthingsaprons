@@ -14,6 +14,8 @@ const contactRouter    = require('./routes/contact');
 const careersRouter    = require('./routes/careers');
 const followRouter     = require('./routes/follow');
 const messagesRouter   = require('./routes/messages');
+const notificationsRouter = require('./routes/notifications');
+const injectNotificationCount = require('./middleware/injectNotificationCount');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,8 +41,9 @@ app.use('/contact', contactRouter);
 app.use('/careers', careersRouter);
 app.use('/admin', adminRouter);
 app.use('/', followRouter);
-app.use('/messages', messagesRouter);
-app.use('/', pagesRouter);
+app.use('/messages', injectNotificationCount, messagesRouter);
+app.use('/notifications', injectNotificationCount, notificationsRouter);
+app.use('/', injectNotificationCount, pagesRouter);
 app.use('/api', apiRouter);
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/allthingsaprons';

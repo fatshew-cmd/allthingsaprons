@@ -148,8 +148,8 @@ router.get('/entry/:id', async (req, res) => {
       ? Follow.findOne({ followerId: req.session.userId, followingId: ownerId }).lean()
       : Promise.resolve(null),
     Contest.findOne({ 'entries.entryId': entry._id, status: { $in: ['pending', 'active'] } })
-      .select('_id status').lean().catch(() => null),
-    Contest.find({ 'entries.entryId': entry._id }).select('_id status entries').lean(),
+      .select('_id status voidDeadline').lean().catch(() => null),
+    Contest.find({ 'entries.entryId': entry._id }).select('_id status entries voidDeadline').lean(),
   ]);
 
   const nominations = entryContests.length
@@ -195,22 +195,53 @@ router.get('/entry/:id', async (req, res) => {
       username:         uname,
       displayName:      n.nomineeId.displayName?.value || uname,
       avatar:           n.nomineeId.avatar?.value || null,
-      status:           n.status,
+      status:           contest?.status === 'void' ? 'void' : n.status,
       contestStatus:    contest?.status || null,
       voteCountMine:     cvotes[myEid]  || 0,
       voteCountNominee: oppEid ? (cvotes[oppEid] || 0) : 0,
     });
   }
 
+  const [topLevelComments, hiddenComments] = await Promise.all([
+    Comment.find({ entryId: entry._id, parentId: null, hidden: false })
+      .populate('userId', 'username displayName avatar')
+      .sort({ createdAt: 1 })
+      .lean(),
+    isOwn
+      ? Comment.find({ entryId: entry._id, parentId: null, hidden: true })
+          .populate('userId', 'username displayName avatar')
+          .sort({ createdAt: 1 })
+          .lean()
+      : Promise.resolve([]),
+  ]);
+
+  const topLevelIds = topLevelComments.map(c => c._id);
+  const replies = topLevelIds.length
+    ? await Comment.find({ parentId: { $in: topLevelIds }, hidden: false })
+        .populate('userId', 'username displayName avatar')
+        .sort({ createdAt: 1 })
+        .lean()
+    : [];
+
+  const replyMap = {};
+  for (const r of replies) {
+    const pid = r.parentId.toString();
+    if (!replyMap[pid]) replyMap[pid] = [];
+    replyMap[pid].push(r);
+  }
+  const comments = topLevelComments.map(c => ({ ...c, replies: replyMap[c._id.toString()] || [] }));
+
   res.render('entry', {
     title:       entry.title || entry.caption?.slice(0, 60) || 'Entry',
     activePage:  '',
     currentUser: req.currentUser,
     entry,
-    isFollowing:   !!followDoc,
-    currentUserId: req.session.userId || null,
-    contestInfo:   activeContest ? { contestId: activeContest._id.toString(), status: activeContest.status } : null,
+    isFollowing:    !!followDoc,
+    currentUserId:  req.session.userId || null,
+    contestInfo:    (activeContest && activeContest.status !== 'void') ? { contestId: activeContest._id.toString(), status: activeContest.status } : null,
     nominees,
+    comments,
+    hiddenComments,
   });
 });
 
@@ -237,7 +268,7 @@ router.get('/entry/:id/edit', async (req, res) => {
     Contest.find({
       entries: { $elemMatch: { entryId: entry._id, userId: req.session.userId } },
       status: 'pending',
-    }).select('_id').lean().catch(() => []),
+    }).select('_id status voidDeadline').lean().catch(() => []),
     Nomination.find({ nomineeId: req.session.userId, status: 'pending', expiresAt: { $gt: new Date() } })
       .populate('nominatorId', 'username displayName avatar')
       .sort({ createdAt: -1 })
@@ -245,7 +276,8 @@ router.get('/entry/:id/edit', async (req, res) => {
       .catch(() => []),
   ]);
 
-  const pendingContest = pendingContests[0] || null;
+  const timedOutContestIds = new Set(pendingContests.filter(c => c.status === 'void').map(c => c._id.toString()));
+  const pendingContest = pendingContests.find(c => c.status === 'pending') || null;
 
   const outgoingNoms = pendingContests.length
     ? await Nomination.find({
@@ -267,6 +299,7 @@ router.get('/entry/:id/edit', async (req, res) => {
       displayName: n.nomineeId.displayName?.value || n.nomineeId.username?.value,
       avatar:      n.nomineeId.avatar?.value || null,
       contestId:   n.contestId.toString(),
+      timedOut:    timedOutContestIds.has(n.contestId.toString()),
     });
   }
 
@@ -933,7 +966,7 @@ router.get('/:username', async (req, res) => {
       contestId:         cid,
       username:          uname,
       avatar:            n.nomineeId.avatar?.value || null,
-      status:            n.status,
+      status:            pContest?.status === 'void' ? 'void' : n.status,
       contestStatus:     pContest?.status || null,
       voteCountMine:     cvotes[eid]    || 0,
       voteCountNominee: oppEid ? (cvotes[oppEid] || 0) : 0,

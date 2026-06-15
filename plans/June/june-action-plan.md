@@ -1,8 +1,8 @@
 # June Action Plan
 
-## Current State (June 14)
+## Current State (June 15)
 
-Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, and private contests — is substantially done; only background job–driven state transitions (void deadline, voting deadline) remain. The feed Ratings tab is now fully wired with an affinity-based scoring system. What remains is entry comments, notifications, right panel data, and the remaining Phase 6 admin UI pages.
+Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, and private contests — is substantially done. Void deadline state is now normalized at read time via Mongoose post-hooks (a bridge until Phase 5 background jobs land); UI correctly shows "Timed out" / "No response" states across entryCard, edit-entry, and the contest page. Entry comments and replies are now fully implemented — post, edit, delete, hide (owner), report, denormalized `commentCount`, and the hidden comments section visible to the entry owner only. The notification system is now live: dedicated `Notification` collection (Option A), `injectNotificationCount` middleware injecting unread badge counts into all main platform views, per-notification click-to-mark-read, mark-all-as-read, sidebar badge (count label + collapsed dot), and triggers wired for new comments, replies, and nominations. What remains is right panel data, viewer nominations, background jobs (including contest_closed / contest_voided notification triggers), and the remaining Phase 6 admin UI pages.
 
 ### What is done
 | Asset | Status |
@@ -36,13 +36,15 @@ Phase 1 (schema alignment), Phase 2 (auth + user foundation), and the core of Ph
 | Contest page | Full page at `/contest/:id` — both entries, owner info, vote state, related contests, status label — fully working |
 | Contest comments | Full CRUD (post, edit, delete, report) for contest-level comments and one-level replies; private contest access guard — fully working |
 | Private contests | Creator designates ≥5 voters; `designatedVoters` array enforced on creation — fully working |
+| Void deadline — read-time normalization | Mongoose post-hooks on `Contest.find` / `findOne` flip `status` to `void` at read time when `voidDeadline` has passed; UI shows "Timed out" / "No response" across entryCard, edit-entry, and contest page — fully working (background job promotion deferred to Phase 5) |
+| Entry comments + replies | Full CRUD on entry-level comments: post, edit, delete (own or entry owner), hide/unhide (entry owner only, moves to private section), report. One level of replies. `commentCount` denormalized on Entry and kept in sync. Comments panel in `entryCard` auto-opens on the entry page; feed cards keep the empty stub. — fully working |
+| Notification system | Dedicated `Notification` collection with compound index `{userId, read, createdAt}` and 90-day TTL. `injectNotificationCount` middleware on all main platform routes. `GET /notifications` paginated list, `POST /notifications/:id/read`, `POST /notifications/read-all`. Sidebar badge (count label on expanded, dot on collapsed). Triggers: comment on entry → entry owner notified; reply → parent commenter notified; nomination created → nominee notified. `contest_closed` / `contest_voided` triggers deferred to Phase 5 background jobs. |
 
 ### What is not done yet
 - Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
 - Right panel trending/contests data (shows skeleton permanently)
-- Entry comments, replies, moderation, reporting (distinct from contest comments, which are done)
-- Notifications (stub route only at `/notifications` — no model, no data)
-- Background jobs: void deadline enforcement, voting deadline + close logic (Phase 5 scope)
+- Background jobs: void deadline enforcement, voting deadline + close logic, contest_closed / contest_voided notification triggers (Phase 5 scope)
+- Viewer nomination flow (any user nominates two others for a HTH with a message)
 - Phase 6 admin UI pages: tournament management, content moderation, and entries moderation are placeholder stubs only; admin dashboard, user list/detail, ID verification queue, and audit log are done
 
 ---
@@ -104,9 +106,9 @@ The default engagement layer. Every user on the platform interacts with this.
 - [x] **Fix leaderboard route:** real query implemented — top entries by `ratingAvg` with minimum 3 ratings, populated owner info, passed as `items` to the view.
 - [ ] **Wire up right panel data:** `rightPanel.ejs` references `trendingItems` and `contests` that no route ever populates — the panel shows skeleton placeholders permanently. Feed and leaderboard routes should query and pass this data.
 - [x] Feed page: Ratings tab fully wired — `UserAffinity` model + `utils/feedScorer.js` affinity/velocity/follow scoring, entries rendered as `entryCard` with pre-locked ratings for already-rated entries.
-- [ ] Comment flow: any registered user can comment on an entry. Users can delete their own comments. Entry owner can hide any comment (hidden comments move to a private "hidden comments" section, visible only to the owner). Any user can report a comment.
-- [ ] Reply flow: any registered user can reply to a top-level comment (one level only). Reply body is automatically prefixed with @username of the parent commenter.
-- [ ] Comment notifications: notify entry owner when someone comments on their entry. Notify parent commenter when someone replies to their comment.
+- [x] Comment flow: any registered user can comment on an entry. Users can delete their own comments. Entry owner can hide any comment (hidden comments move to a private "hidden comments" section, visible only to the owner). Any user can report a comment.
+- [x] Reply flow: any registered user can reply to a top-level comment (one level only).
+- [x] Comment notifications: notify entry owner when someone comments on their entry. Notify parent commenter when someone replies to their comment.
 
 **Exit criteria:** A user can upload an entry, other users can rate it 1–10, and the feed and leaderboard reflect live data. Comments work end to end. Right panel shows real trending data.
 
@@ -122,7 +124,7 @@ The core competitive mechanic. Build the HTH contest flow end to end.
 - [x] Contest creation: creator self-nominates (they are contestant A), nominates a specific opponent (contestant B).
 - [x] Nomination delivery: opponent receives a pending nomination visible on their entry edit and submit pages. 24hr acceptance window starts.
 - [x] Acceptance flow: opponent accepts via an existing entry (`/api/nominations/:id/accept`) or by submitting a new entry with `?nomination=<id>` → contest moves to `active`. Voting deadline set to `submittedAt + 72h`.
-- [ ] Void logic: background job checks `voidDeadline`. If no second entry → status set to `void`. Creator notified.
+- [~] Void logic: Mongoose post-hooks normalize expired-pending contests to `void` at read time (bridge until Phase 5). Background job promotion + creator notification still deferred to Phase 5.
 - [x] Contest voting page: both entries displayed side by side with vote counts, percentages, and winner badge. Authenticated user picks one. Enforce no self-vote, no duplicate vote.
 - [ ] **REVERT BEFORE LAUNCH:** Re-enable participant vote guard and `status === 'active'` checks in `routes/api.js` (contest vote handler) and `routes/pages.js` (contest GET handler) — both are commented out with `// TEMP` for local testing.
 - [ ] Contest close logic: background job checks `votingDeadline`. Count votes per entry. Set `winnerEntryId`. Status → `closed`.
@@ -143,8 +145,8 @@ The system that makes everything time-sensitive work reliably.
 - [ ] Implement voting deadline job: runs every 15 minutes, closes active contests past their `votingDeadline`.
 - [ ] Implement entry review timeout job: runs every 5 minutes. Finds `tournament_entries` with `approvalStatus: 'pending'` and `submittedAt < now - 30min`. For each: set `approvalStatus: 'timed_out'`, increment `tournament.missedReviews`, notify the submitting user (`onboardingStatus` → `rejected`). If `tournament.missedReviews >= 3`: cancel the tournament, notify all `pending_approval` users to resubmit elsewhere.
 - [ ] Gate tournament creation behind `idVerified: true` check — server-side safeguard only. Since all approved users complete ID verification during onboarding, the "prompt ID verification" path is unreachable under normal flow; this is a hard server-side guard against bypasses.
-- [ ] Notification model or in-document array: store unread notifications per user.
-- [ ] Notifications page: show nominations received, contest results, contest voided.
+- [x] Notification model: dedicated `Notification` collection (Option A) with compound index `{userId, read, createdAt}` and 90-day TTL index. `injectNotificationCount` middleware injects unread count into all main platform views. Sidebar badge (count label + collapsed dot). Per-notification click-to-mark-read + mark-all-as-read. Triggers: new comment → entry owner, reply → parent commenter, nomination created → nominee.
+- [x] Notifications page: paginated list at `/notifications` — actor avatar, notification text, relative timestamp, unread highlight. `contest_closed` / `contest_voided` rows render correctly when triggers fire (wired in Phase 5 background jobs).
 - [x] Messages page: direct messaging between users — `Conversation` + `DirectMessage` models, `routes/messages.js`, two-panel view (`/messages` list + `/messages/:username` thread). Polled every 5s. Message button on profile opens or creates a conversation.
 - [ ] Viewer nomination flow: any registered user can nominate two other users for a HTH, with an optional message. Both nominees receive a notification.
 

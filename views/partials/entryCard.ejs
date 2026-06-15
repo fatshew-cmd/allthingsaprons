@@ -142,7 +142,10 @@
         </span>
         <% } %>
         <span class="text-xs font-medium <%= isVoid ? 'text-white/40' : 'text-white/70' %>">@<%= n.username %></span>
-        <% if (isPending) { %>
+        <% if (isVoid) { %>
+        <span class="text-white/20 text-xs">|</span>
+        <span class="text-xs font-semibold text-white">Timed out</span>
+        <% } else if (isPending) { %>
         <span class="text-white/20 text-xs">|</span>
         <span class="text-xs font-semibold text-amber-400/70">Pending</span>
         <% } else if (showVotes) { %>
@@ -208,11 +211,182 @@
   </div>
 
   <!-- Comments panel -->
-  <div class="ec-panel hidden border-t border-white/8 px-3 py-6" data-eid="<%= _eid %>" data-panel="comments">
-    <div class="flex flex-col items-center gap-2 text-center">
-      <iconify-icon icon="bx:comment-dots" width="28" class="text-white/15"></iconify-icon>
-      <p class="text-xs text-white/30">No comments yet</p>
+  <div class="ec-panel hidden border-t border-white/8" data-eid="<%= _eid %>" data-panel="comments">
+  <% if (locals.mediaFull && Array.isArray(locals.comments)) { %>
+  <%
+  function ecLinkifyBody(body) {
+    var esc = String(body).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return esc.replace(/@(\w+)/g, '<a href="/$1" class="text-charm-400 hover:opacity-80 transition-opacity">@$1</a>');
+  }
+  %>
+
+  <!-- Compose box -->
+  <div class="px-3 pt-3 pb-2.5 border-b border-white/8 ec-compose-box"
+    data-eid="<%= _eid %>"
+    data-is-owner="<%= _isOwner ? '1' : '0' %>"
+    data-cur-username="<%= locals.currentUser ? locals.currentUser.username : '' %>"
+    data-cur-avatar="<%= (locals.currentUser && locals.currentUser.avatar) ? locals.currentUser.avatar : '' %>">
+    <div class="flex gap-2.5">
+      <a href="<%= locals.currentUser ? '/' + locals.currentUser.username : '#' %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
+        <% if (locals.currentUser && locals.currentUser.avatar) { %>
+        <img src="<%= locals.currentUser.avatar %>" class="w-full h-full object-cover">
+        <% } else { %>
+        <iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon>
+        <% } %>
+      </a>
+      <div class="flex-1 flex flex-col gap-1.5">
+        <textarea class="ec-comment-ta w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" placeholder="Add a comment…" data-eid="<%= _eid %>"></textarea>
+        <div class="flex items-center justify-between">
+          <span class="ec-comment-count text-xs text-white/25" data-eid="<%= _eid %>">0/280</span>
+          <div class="flex items-center gap-2">
+            <button type="button" class="ec-comment-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer" data-eid="<%= _eid %>">Cancel</button>
+            <button type="button" class="ec-comment-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-eid="<%= _eid %>">Post</button>
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
+
+  <!-- Comment list -->
+  <div class="ec-clist flex flex-col" data-eid="<%= _eid %>">
+    <% if (!locals.comments.length) { %>
+    <p class="ec-clist-empty px-3 py-4 text-sm text-white/25">No comments yet.</p>
+    <% } %>
+
+    <% locals.comments.forEach(function(comment) {
+      var cid          = comment._id.toString();
+      var cUser        = comment.userId;
+      var isOwnComment = currentUserId && cUser._id.toString() === currentUserId;
+    %>
+    <div class="ec-citem px-3 py-3 border-t border-white/6" data-cid="<%= cid %>">
+      <div class="flex gap-2.5">
+        <a href="/<%= cUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
+          <% if (cUser.avatar?.value) { %><img src="<%= cUser.avatar.value %>" class="w-full h-full object-cover">
+          <% } else { %><iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon><% } %>
+        </a>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline gap-1.5 flex-wrap">
+            <a href="/<%= cUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= cUser.displayName?.value || ('@' + cUser.username?.value) %></a>
+            <span class="text-xs text-white/25"><%= new Date(comment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+            <% if (comment.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
+          </div>
+          <p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- ecLinkifyBody(comment.body) %></p>
+          <div class="ec-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">
+            <textarea class="ec-edit-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2"><%= comment.body %></textarea>
+            <div class="flex items-center justify-end gap-2">
+              <button type="button" class="ec-edit-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 transition-colors cursor-pointer">Cancel</button>
+              <button type="button" class="ec-edit-save h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Save</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 mt-1.5">
+            <button type="button" class="ec-reply-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= cid %>">Reply</button>
+            <% if (isOwnComment) { %>
+            <button type="button" class="ec-edit-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= cid %>">Edit</button>
+            <button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Delete</button>
+            <% } else if (_isOwner) { %>
+            <button type="button" class="ec-chide text-xs text-white/30 hover:text-amber-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Hide</button>
+            <button type="button" class="ec-creport text-xs text-white/20 hover:text-white/50 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Report</button>
+            <% } else { %>
+            <button type="button" class="ec-creport text-xs text-white/20 hover:text-white/50 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Report</button>
+            <% } %>
+          </div>
+          <div class="ec-reply-form hidden mt-2.5 flex gap-2" data-parent-id="<%= cid %>">
+            <div class="w-px bg-white/10 self-stretch shrink-0 ml-0.5"></div>
+            <div class="flex-1 flex flex-col gap-1">
+              <textarea class="ec-reply-ta w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" placeholder="Reply…"></textarea>
+              <div class="flex justify-end gap-2">
+                <button type="button" class="ec-reply-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 transition-colors cursor-pointer">Cancel</button>
+                <button type="button" class="ec-reply-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="<%= cid %>" data-eid="<%= _eid %>">Reply</button>
+              </div>
+            </div>
+          </div>
+          <% if (comment.replies && comment.replies.length) { %>
+          <div class="ec-replies mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="<%= cid %>">
+            <% comment.replies.forEach(function(reply) {
+              var rid       = reply._id.toString();
+              var rUser     = reply.userId;
+              var isOwnReply = currentUserId && rUser._id.toString() === currentUserId;
+            %>
+            <div class="ec-citem" data-cid="<%= rid %>">
+              <div class="flex gap-2">
+                <a href="/<%= rUser.username?.value %>" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
+                  <% if (rUser.avatar?.value) { %><img src="<%= rUser.avatar.value %>" class="w-full h-full object-cover">
+                  <% } else { %><iconify-icon icon="bx:user" width="12" class="text-white/30"></iconify-icon><% } %>
+                </a>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-baseline gap-1.5 flex-wrap">
+                    <a href="/<%= rUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= rUser.displayName?.value || ('@' + rUser.username?.value) %></a>
+                    <span class="text-xs text-white/25"><%= new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+                    <% if (reply.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
+                  </div>
+                  <p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- ecLinkifyBody(reply.body) %></p>
+                  <div class="ec-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">
+                    <textarea class="ec-edit-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2"><%= reply.body %></textarea>
+                    <div class="flex items-center justify-end gap-2">
+                      <button type="button" class="ec-edit-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 transition-colors cursor-pointer">Cancel</button>
+                      <button type="button" class="ec-edit-save h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-cid="<%= rid %>" data-eid="<%= _eid %>">Save</button>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3 mt-1.5">
+                    <% if (isOwnReply) { %>
+                    <button type="button" class="ec-edit-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= rid %>">Edit</button>
+                    <button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= rid %>" data-eid="<%= _eid %>">Delete</button>
+                    <% } else { %>
+                    <button type="button" class="ec-creport text-xs text-white/20 hover:text-white/50 transition-colors cursor-pointer" data-cid="<%= rid %>" data-eid="<%= _eid %>">Report</button>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <% }); %>
+          </div>
+          <% } else { %>
+          <div class="ec-replies hidden mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="<%= cid %>"></div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+
+  <% if (_isOwner && locals.hiddenComments && locals.hiddenComments.length) { %>
+  <div class="px-3 py-3 border-t border-white/8">
+    <p class="text-xs font-semibold text-white/30 uppercase tracking-wide mb-3">Hidden (<%= locals.hiddenComments.length %>)</p>
+    <div class="flex flex-col gap-4">
+      <% locals.hiddenComments.forEach(function(hc) {
+        var hcid   = hc._id.toString();
+        var hcUser = hc.userId;
+      %>
+      <div class="ec-citem opacity-45" data-cid="<%= hcid %>">
+        <div class="flex gap-2.5">
+          <a href="/<%= hcUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
+            <% if (hcUser.avatar?.value) { %><img src="<%= hcUser.avatar.value %>" class="w-full h-full object-cover">
+            <% } else { %><iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon><% } %>
+          </a>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline gap-1.5 flex-wrap">
+              <a href="/<%= hcUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= hcUser.displayName?.value || ('@' + hcUser.username?.value) %></a>
+              <span class="text-xs text-white/25"><%= new Date(hc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+            </div>
+            <p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- ecLinkifyBody(hc.body) %></p>
+            <div class="flex items-center gap-3 mt-1.5">
+              <button type="button" class="ec-chide text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= hcid %>" data-eid="<%= _eid %>">Unhide</button>
+              <button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= hcid %>" data-eid="<%= _eid %>">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% }); %>
+    </div>
+  </div>
+  <% } %>
+
+  <% } else { %>
+  <div class="flex flex-col items-center gap-2 text-center px-3 py-6">
+    <iconify-icon icon="bx:comment-dots" width="28" class="text-white/15"></iconify-icon>
+    <p class="text-xs text-white/30">No comments yet</p>
+  </div>
+  <% } %>
   </div>
 
   <!-- Likes panel -->
@@ -463,7 +637,360 @@
     document.querySelectorAll('.ec-panel[data-panel="rating"][data-user-rating]').forEach(function (panel) {
       lockRatingPanel(panel.dataset.eid, parseInt(panel.dataset.userRating, 10));
     });
+    // Auto-open comments panel on the full entry page
+    document.querySelectorAll('.ec-panel[data-panel="comments"]').forEach(function (panel) {
+      var eid = panel.dataset.eid;
+      if (panel.closest('[data-ec-nav]')) return; // feed card — leave collapsed
+      setTab(eid, 'comments');
+    });
   });
+}());
+</script>
+<% } %>
+
+<% if (locals.mediaFull && Array.isArray(locals.comments)) { %>
+<script>
+(function () {
+  function ecEsc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function ecLinkify(esc) {
+    return esc.replace(/@(\w+)/g, '<a href="/$1" class="text-charm-400 hover:opacity-80 transition-opacity">@$1</a>');
+  }
+
+  function ecGetCompose(eid) {
+    return document.querySelector('.ec-compose-box[data-eid="' + eid + '"]');
+  }
+  function ecUpdateCount(eid, delta) {
+    var btn  = document.querySelector('.ec-tab-btn[data-panel="comments"][data-eid="' + eid + '"]');
+    if (!btn) return;
+    var span = btn.querySelector('span');
+    var cur  = span ? (parseInt(span.textContent, 10) || 0) : 0;
+    if (span) span.textContent = Math.max(0, cur + delta);
+  }
+
+  function ecBuildTopHtml(c, eid, isOwner) {
+    var dn  = c.user.displayName || ('@' + c.user.username);
+    var dt  = new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    var av  = c.user.avatar
+      ? '<img src="' + ecEsc(c.user.avatar) + '" class="w-full h-full object-cover">'
+      : '<iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon>';
+    var act = '<button type="button" class="ec-edit-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Edit</button>'
+      + '<button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="' + c._id + '" data-eid="' + eid + '">Delete</button>';
+    return '<div class="ec-citem px-3 py-3 border-t border-white/6" data-cid="' + c._id + '">'
+      + '<div class="flex gap-2.5">'
+      + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'
+      + '<div class="flex-1 min-w-0">'
+      + '<div class="flex items-baseline gap-1.5 flex-wrap">'
+      + '<a href="/' + ecEsc(c.user.username) + '" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity">' + ecEsc(dn) + '</a>'
+      + '<span class="text-xs text-white/25">' + dt + '</span>'
+      + '</div>'
+      + '<p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words">' + ecLinkify(ecEsc(c.body)) + '</p>'
+      + '<div class="ec-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">'
+      + '<textarea class="ec-edit-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2">' + ecEsc(c.body) + '</textarea>'
+      + '<div class="flex items-center justify-end gap-2">'
+      + '<button type="button" class="ec-edit-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 transition-colors cursor-pointer">Cancel</button>'
+      + '<button type="button" class="ec-edit-save h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-cid="' + c._id + '" data-eid="' + eid + '">Save</button>'
+      + '</div></div>'
+      + '<div class="flex items-center gap-3 mt-1.5">'
+      + '<button type="button" class="ec-reply-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Reply</button>'
+      + act
+      + '</div>'
+      + '<div class="ec-reply-form hidden mt-2.5 flex gap-2" data-parent-id="' + c._id + '">'
+      + '<div class="w-px bg-white/10 self-stretch shrink-0 ml-0.5"></div>'
+      + '<div class="flex-1 flex flex-col gap-1">'
+      + '<textarea class="ec-reply-ta w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" placeholder="Reply…"></textarea>'
+      + '<div class="flex justify-end gap-2">'
+      + '<button type="button" class="ec-reply-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 transition-colors cursor-pointer">Cancel</button>'
+      + '<button type="button" class="ec-reply-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="' + c._id + '" data-eid="' + eid + '">Reply</button>'
+      + '</div></div></div>'
+      + '<div class="ec-replies hidden mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="' + c._id + '"></div>'
+      + '</div></div></div>';
+  }
+
+  function ecBuildReplyHtml(c, eid) {
+    var dn = c.user.displayName || ('@' + c.user.username);
+    var dt = new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    var av = c.user.avatar
+      ? '<img src="' + ecEsc(c.user.avatar) + '" class="w-full h-full object-cover">'
+      : '<iconify-icon icon="bx:user" width="12" class="text-white/30"></iconify-icon>';
+    return '<div class="ec-citem" data-cid="' + c._id + '">'
+      + '<div class="flex gap-2">'
+      + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'
+      + '<div class="flex-1 min-w-0">'
+      + '<div class="flex items-baseline gap-1.5 flex-wrap">'
+      + '<a href="/' + ecEsc(c.user.username) + '" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity">' + ecEsc(dn) + '</a>'
+      + '<span class="text-xs text-white/25">' + dt + '</span>'
+      + '</div>'
+      + '<p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words">' + ecLinkify(ecEsc(c.body)) + '</p>'
+      + '<div class="ec-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">'
+      + '<textarea class="ec-edit-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2">' + ecEsc(c.body) + '</textarea>'
+      + '<div class="flex items-center justify-end gap-2">'
+      + '<button type="button" class="ec-edit-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 transition-colors cursor-pointer">Cancel</button>'
+      + '<button type="button" class="ec-edit-save h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-cid="' + c._id + '" data-eid="' + eid + '">Save</button>'
+      + '</div></div>'
+      + '<div class="flex items-center gap-3 mt-1.5">'
+      + '<button type="button" class="ec-edit-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Edit</button>'
+      + '<button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="' + c._id + '" data-eid="' + eid + '">Delete</button>'
+      + '</div>'
+      + '</div></div></div>';
+  }
+
+  // Post new top-level comment
+  function ecPostComment(eid) {
+    var compose = ecGetCompose(eid);
+    if (!compose) return;
+    var ta = compose.querySelector('.ec-comment-ta');
+    if (!ta || ta.dataset.posting) return;
+    var body = ta.value.trim();
+    if (!body) return;
+    if (body.replace(/\s/g, '').length > 280) {
+      if (window.showToast) window.showToast('Comment cannot exceed 280 characters.', 'error');
+      return;
+    }
+    var isOwner = compose.dataset.isOwner === '1';
+    var btn = compose.querySelector('.ec-comment-submit');
+    ta.dataset.posting = '1';
+    if (btn) btn.disabled = true;
+    fetch('/api/entries/' + eid + '/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: body }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
+      var list  = document.querySelector('.ec-clist[data-eid="' + eid + '"]');
+      var empty = list && list.querySelector('.ec-clist-empty');
+      if (empty) empty.remove();
+      if (list) list.insertAdjacentHTML('beforeend', ecBuildTopHtml(data, eid, isOwner));
+      ta.value = '';
+      var countEl = compose.querySelector('.ec-comment-count');
+      if (countEl) countEl.textContent = '0/280';
+      ecUpdateCount(eid, 1);
+    })
+    .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
+    .finally(function () { delete ta.dataset.posting; if (btn) btn.disabled = false; });
+  }
+
+  // Post reply
+  function ecPostReply(form) {
+    var ta       = form.querySelector('.ec-reply-ta');
+    var parentId = form.dataset.parentId;
+    var eid      = form.querySelector('.ec-reply-submit')?.dataset.eid;
+    if (!ta || !parentId || !eid || ta.dataset.posting) return;
+    var body = ta.value.trim();
+    if (!body) return;
+    if (body.replace(/\s/g, '').length > 280) {
+      if (window.showToast) window.showToast('Reply cannot exceed 280 characters.', 'error');
+      return;
+    }
+    var btn = form.querySelector('.ec-reply-submit');
+    ta.dataset.posting = '1';
+    if (btn) btn.disabled = true;
+    fetch('/api/entries/' + eid + '/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: body, parentId: parentId }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
+      var repliesEl = document.querySelector('.ec-replies[data-parent-id="' + parentId + '"]');
+      if (repliesEl) {
+        repliesEl.classList.remove('hidden');
+        repliesEl.insertAdjacentHTML('beforeend', ecBuildReplyHtml(data, eid));
+      }
+      form.classList.add('hidden');
+      ta.value = '';
+      ecUpdateCount(eid, 1);
+    })
+    .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
+    .finally(function () { delete ta.dataset.posting; if (btn) btn.disabled = false; });
+  }
+
+  // Char count
+  document.addEventListener('input', function (e) {
+    var ta = e.target.closest('.ec-comment-ta');
+    if (!ta) return;
+    var eid     = ta.dataset.eid;
+    var compose = ecGetCompose(eid);
+    if (!compose) return;
+    var countEl = compose.querySelector('.ec-comment-count');
+    if (countEl) countEl.textContent = ta.value.replace(/\s/g, '').length + '/280';
+  });
+
+  // Enter to submit (Shift+Enter = newline)
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    var ta = e.target;
+    if (ta.classList.contains('ec-comment-ta')) {
+      e.preventDefault();
+      ecPostComment(ta.dataset.eid);
+      return;
+    }
+    if (ta.classList.contains('ec-reply-ta')) {
+      e.preventDefault();
+      ecPostReply(ta.closest('.ec-reply-form'));
+      return;
+    }
+  });
+
+  document.addEventListener('click', function (e) {
+
+    // Post comment
+    var submitBtn = e.target.closest('.ec-comment-submit');
+    if (submitBtn && !submitBtn.disabled) { ecPostComment(submitBtn.dataset.eid); return; }
+
+    // Cancel compose
+    var cancelBtn = e.target.closest('.ec-comment-cancel');
+    if (cancelBtn) {
+      var compose = ecGetCompose(cancelBtn.dataset.eid);
+      if (compose) { var ta = compose.querySelector('.ec-comment-ta'); if (ta) ta.value = ''; }
+      return;
+    }
+
+    // Toggle reply form
+    var replyToggle = e.target.closest('.ec-reply-toggle');
+    if (replyToggle) {
+      var item = replyToggle.closest('.ec-citem');
+      var form = item && item.querySelector('.ec-reply-form');
+      if (form) {
+        form.classList.toggle('hidden');
+        if (!form.classList.contains('hidden')) form.querySelector('.ec-reply-ta').focus();
+      }
+      return;
+    }
+
+    // Submit reply
+    var replySubmit = e.target.closest('.ec-reply-submit');
+    if (replySubmit && !replySubmit.disabled) { ecPostReply(replySubmit.closest('.ec-reply-form')); return; }
+
+    // Cancel reply
+    var replyCancel = e.target.closest('.ec-reply-cancel');
+    if (replyCancel) {
+      var form = replyCancel.closest('.ec-reply-form');
+      if (form) { form.classList.add('hidden'); form.querySelector('.ec-reply-ta').value = ''; }
+      return;
+    }
+
+    // Toggle edit form
+    var editToggle = e.target.closest('.ec-edit-toggle');
+    if (editToggle) {
+      var item = editToggle.closest('.ec-citem');
+      if (item) {
+        item.querySelector('.ec-cbody').classList.add('hidden');
+        item.querySelector('.ec-edit-wrap').classList.remove('hidden');
+        item.querySelector('.ec-edit-body').focus();
+      }
+      return;
+    }
+
+    // Cancel edit
+    var editCancel = e.target.closest('.ec-edit-cancel');
+    if (editCancel) {
+      var item = editCancel.closest('.ec-citem');
+      if (item) {
+        item.querySelector('.ec-cbody').classList.remove('hidden');
+        item.querySelector('.ec-edit-wrap').classList.add('hidden');
+      }
+      return;
+    }
+
+    // Save edit
+    var editSave = e.target.closest('.ec-edit-save');
+    if (editSave && !editSave.disabled) {
+      var item = editSave.closest('.ec-citem');
+      var cid  = editSave.dataset.cid;
+      var eid  = editSave.dataset.eid;
+      var body = item && item.querySelector('.ec-edit-body').value.trim();
+      if (!body) return;
+      if (body.replace(/\s/g, '').length > 280) {
+        if (window.showToast) window.showToast('Comment cannot exceed 280 characters.', 'error');
+        return;
+      }
+      editSave.disabled = true;
+      fetch('/api/entries/' + eid + '/comments/' + cid, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: body }),
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
+        var bodyEl = item.querySelector('.ec-cbody');
+        bodyEl.innerHTML = ecLinkify(ecEsc(data.body));
+        bodyEl.classList.remove('hidden');
+        item.querySelector('.ec-edit-wrap').classList.add('hidden');
+        item.querySelector('.ec-edit-body').value = data.body;
+        var meta = item.querySelector('.flex.items-baseline');
+        if (meta && !meta.querySelector('.ec-edited')) {
+          var badge = document.createElement('span');
+          badge.className = 'ec-edited text-xs text-white/20 italic';
+          badge.textContent = 'edited';
+          meta.appendChild(badge);
+        }
+      })
+      .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
+      .finally(function () { editSave.disabled = false; });
+      return;
+    }
+
+    // Delete
+    var delBtn = e.target.closest('.ec-cdelete');
+    if (delBtn && !delBtn.disabled) {
+      var cid = delBtn.dataset.cid;
+      var eid = delBtn.dataset.eid;
+      delBtn.disabled = true;
+      fetch('/api/entries/' + eid + '/comments/' + cid, { method: 'DELETE' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
+        var item = document.querySelector('.ec-citem[data-cid="' + cid + '"]');
+        if (item) item.remove();
+        ecUpdateCount(eid, -(data.deletedCount || 1));
+      })
+      .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
+      .finally(function () { delBtn.disabled = false; });
+      return;
+    }
+
+    // Hide / Unhide
+    var hideBtn = e.target.closest('.ec-chide');
+    if (hideBtn && !hideBtn.disabled) {
+      var cid = hideBtn.dataset.cid;
+      var eid = hideBtn.dataset.eid;
+      hideBtn.disabled = true;
+      fetch('/api/entries/' + eid + '/comments/' + cid + '/hide', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
+        // Reload the page so hidden/visible sections update correctly
+        window.location.reload();
+      })
+      .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); hideBtn.disabled = false; });
+      return;
+    }
+
+    // Report
+    var reportBtn = e.target.closest('.ec-creport');
+    if (reportBtn && !reportBtn.disabled) {
+      var cid = reportBtn.dataset.cid;
+      var eid = reportBtn.dataset.eid;
+      reportBtn.disabled = true;
+      fetch('/api/entries/' + eid + '/comments/' + cid + '/report', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); reportBtn.disabled = false; return; }
+        reportBtn.textContent = 'Reported';
+        reportBtn.classList.add('text-white/20');
+      })
+      .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); reportBtn.disabled = false; });
+      return;
+    }
+
+  });
+
 }());
 </script>
 <% } %>

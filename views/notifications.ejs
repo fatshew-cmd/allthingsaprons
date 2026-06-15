@@ -1,20 +1,169 @@
-﻿<%- include('partials/appStart', { title: title, activePage: 'notifications' }) %>
+<%- include('partials/appStart', { title: title, activePage: 'notifications' }) %>
+
+<%
+function fmtNotifTime(d) {
+  if (!d) return '';
+  const now = new Date();
+  const dt  = new Date(d);
+  const diffMs  = now - dt;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH   = Math.floor(diffMs / 3600000);
+  const diffD   = Math.floor(diffMs / 86400000);
+  if (diffMin < 1)  return 'now';
+  if (diffMin < 60) return diffMin + 'm ago';
+  if (diffH   < 24) return diffH   + 'h ago';
+  if (diffD   <  7) return diffD   + 'd ago';
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function notifText(n) {
+  const p = n.payload || {};
+  switch (n.type) {
+    case 'comment':
+      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> commented on your entry';
+    case 'reply':
+      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> replied to your comment';
+    case 'nomination_received':
+      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> challenged you to a head-to-head';
+    case 'contest_closed':
+      return p.won
+        ? 'You won your contest against <strong>' + (p.opponentUsername || 'your opponent') + '</strong>'
+        : 'Your contest against <strong>' + (p.opponentUsername || 'your opponent') + '</strong> ended';
+    case 'contest_voided':
+      return 'Your contest was voided — the opponent didn\'t respond in time';
+    case 'viewer_nomination':
+      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> nominated you for a head-to-head';
+    default:
+      return 'New notification';
+  }
+}
+
+function notifIcon(type) {
+  switch (type) {
+    case 'comment':           return 'boxicons:comment';
+    case 'reply':             return 'boxicons:reply';
+    case 'nomination_received':
+    case 'viewer_nomination': return 'boxicons:trophy';
+    case 'contest_closed':    return 'boxicons:check-circle';
+    case 'contest_voided':    return 'boxicons:x-circle';
+    default:                  return 'boxicons:bell';
+  }
+}
+%>
 
 <div class="flex flex-col pb-20 md:pb-0">
 
   <!-- Header -->
-  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm flex items-center justify-between">
     <h1 class="font-black text-xl tracking-tight">Notifications</h1>
+    <% if (notifications.length > 0) { %>
+    <button id="mark-all-btn" class="text-xs text-white/40 hover:text-charm-400 transition-colors">
+      Mark all as read
+    </button>
+    <% } %>
   </header>
 
+  <% if (!notifications.length) { %>
   <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
     <div class="w-16 h-16 rounded-md bg-white/5 flex items-center justify-center mb-4">
       <iconify-icon icon="boxicons:bell" width="32" height="32" class="text-white/20"></iconify-icon>
     </div>
-    <p class="text-white/40 text-sm">Notifications coming soon</p>
-    <p class="text-white/20 text-xs mt-1">You'll see contest updates, votes, and mentions here</p>
+    <p class="text-white/40 text-sm">No notifications yet</p>
+    <p class="text-white/20 text-xs mt-1">You'll see contest updates, comments, and mentions here</p>
   </div>
+  <% } else { %>
 
+  <ul id="notif-list" class="divide-y divide-white/5">
+    <% notifications.forEach(function(n) { %>
+    <li data-id="<%= n._id %>" data-url="<%= (n.payload && n.payload.url) ? n.payload.url : '/notifications' %>"
+        class="notif-item flex items-start gap-3 px-5 py-4 cursor-pointer transition-colors hover:bg-white/4 <%= n.read ? '' : 'bg-white/3' %>">
+
+      <!-- Actor avatar or icon -->
+      <div class="shrink-0 mt-0.5">
+        <% if (n.payload && n.payload.actorAvatar) { %>
+        <img src="<%= n.payload.actorAvatar %>" alt="" class="w-9 h-9 rounded-full object-cover">
+        <% } else { %>
+        <div class="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
+          <iconify-icon icon="<%= notifIcon(n.type) %>" width="18" class="text-charm-400"></iconify-icon>
+        </div>
+        <% } %>
+      </div>
+
+      <!-- Text + timestamp -->
+      <div class="flex-1 min-w-0">
+        <p class="text-sm text-white/80 leading-snug"><%- notifText(n) %></p>
+        <% if (n.payload && n.payload.preview) { %>
+        <p class="text-xs text-white/35 mt-1 truncate">"<%= n.payload.preview %>"</p>
+        <% } %>
+        <p class="text-xs text-white/25 mt-1"><%= fmtNotifTime(n.createdAt) %></p>
+      </div>
+
+      <!-- Unread dot -->
+      <div class="shrink-0 mt-2">
+        <% if (!n.read) { %>
+        <span class="unread-dot w-2 h-2 rounded-full bg-charm-400 block"></span>
+        <% } else { %>
+        <span class="w-2 h-2 block"></span>
+        <% } %>
+      </div>
+    </li>
+    <% }) %>
+  </ul>
+
+  <% if (hasMore) { %>
+  <div class="px-5 py-6 text-center">
+    <a href="/notifications?page=<%= page + 1 %>" class="text-sm text-white/40 hover:text-charm-400 transition-colors">
+      Load older notifications
+    </a>
+  </div>
+  <% } %>
+
+  <% } %>
 </div>
+
+<script>
+(function () {
+  async function markRead(id) {
+    const res = await fetch('/notifications/' + id + '/read', { method: 'POST' });
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  document.querySelectorAll('.notif-item').forEach(function (item) {
+    item.addEventListener('click', async function () {
+      const id  = item.dataset.id;
+      const url = item.dataset.url;
+      const dot = item.querySelector('.unread-dot');
+      if (dot) {
+        await markRead(id);
+        dot.remove();
+        item.classList.remove('bg-white/3');
+        // Update badge
+        const badge = document.getElementById('notif-badge');
+        if (badge) {
+          const count = parseInt(badge.textContent, 10) - 1;
+          if (count <= 0) badge.remove();
+          else badge.textContent = count > 99 ? '99+' : count;
+        }
+      }
+      window.location.href = url;
+    });
+  });
+
+  const markAllBtn = document.getElementById('mark-all-btn');
+  if (markAllBtn) {
+    markAllBtn.addEventListener('click', async function () {
+      await fetch('/notifications/read-all', { method: 'POST' });
+      document.querySelectorAll('.unread-dot').forEach(function (dot) { dot.remove(); });
+      document.querySelectorAll('.notif-item').forEach(function (item) {
+        item.classList.remove('bg-white/3');
+      });
+      const badge = document.getElementById('notif-badge');
+      if (badge) badge.remove();
+      markAllBtn.remove();
+    });
+  }
+})();
+</script>
 
 <%- include('partials/appEnd') %>

@@ -26,4 +26,13 @@ contestSchema.index({ status: 1 });
 contestSchema.index({ voidDeadline: 1 });
 contestSchema.index({ votingDeadline: 1 });
 
+// Normalize expired-pending contests to void at read time (until the background job runs in Phase 5)
+function applyVoidDeadline(doc) {
+  if (doc && doc.status === 'pending' && doc.voidDeadline && new Date() > new Date(doc.voidDeadline)) {
+    doc.status = 'void';
+  }
+}
+contestSchema.post('find',      function(docs) { docs.forEach(applyVoidDeadline); });
+contestSchema.post('findOne',   function(doc)  { applyVoidDeadline(doc); });
+
 module.exports = mongoose.model('Contest', contestSchema);

@@ -9,6 +9,7 @@ const entrySchema = new mongoose.Schema({
   tags:        { type: [String], default: [], validate: { validator: v => v.length <= 6, message: 'Maximum 6 tags allowed' } },
   ratingCount:     { type: Number, default: 0 },
   ratingAvg:       { type: Number, default: 0 },
+  commentCount:    { type: Number, default: 0 },
   visibility:      { type: String, enum: ['public', 'followers'], default: 'public' },
   commentsEnabled: { type: Boolean, default: true },
   matureContent:   { type: Boolean, default: false },

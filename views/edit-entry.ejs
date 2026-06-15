@@ -589,7 +589,7 @@
       badge.innerHTML =
         '<img src="' + escHtml(u.avatar || '/img/default-avatar.png') + '" class="w-5 h-5 rounded object-cover bg-shark-800 shrink-0" alt="">' +
         '<span class="text-xs text-white/80 font-medium">@' + escHtml(u.username) + '</span>' +
-        (isExisting ? '<span class="text-white/20 text-xs">|</span><span class="text-xs font-semibold text-amber-400/70">Pending</span>' : '') +
+        (isExisting ? '<span class="text-white/20 text-xs">|</span><span class="text-xs font-semibold ' + (u.timedOut ? 'text-white' : 'text-amber-400/70') + '">' + (u.timedOut ? 'Timed out' : 'Pending') + '</span>' : '') +
         '<button type="button" class="nominee-remove text-white/30 hover:text-white/70 transition-colors cursor-pointer p-0.5 shrink-0" data-id="' + escHtml(u._id) + '">' +
           '<iconify-icon icon="boxicons:x" width="12"></iconify-icon>' +
         '</button>';

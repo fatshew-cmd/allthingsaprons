@@ -6,6 +6,7 @@ const commentSchema = new mongoose.Schema({
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', default: null },
   body:     { type: String, required: true },
   hidden:   { type: Boolean, default: false },
+  editedAt: { type: Date, default: null },
 }, { timestamps: true });
 
 commentSchema.index({ entryId: 1 });
