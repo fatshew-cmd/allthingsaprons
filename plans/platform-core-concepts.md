@@ -240,36 +240,16 @@ The reason vote value is $0 in user-organized tournaments: the organizer deposit
 | Role | Capabilities |
 |---|---|
 | Anonymous | No access — redirected to signup. There is no read-only browsing mode. |
-| Registered | Rate entries, vote in contests, create contests, submit entries, nominate others, create user-organized tournaments (with funds + ID verification + admin review) |
+| Registered | Full platform access immediately after signup: browse, rate entries, comment, follow, message, vote in contests, nominate others. Submitting an entry or creating a user-organized tournament additionally requires ID verification (see below). |
 | Admin | All of the above + create platform-funded tournaments, approve user-organized tournaments |
 
 "Organizer" is not a role — it is a label applied contextually to the creator of a specific tournament. A registered user becomes the organizer of any tournament they create, and their votes in that tournament are worth $0.01 instead of $0.001.
 
-### Onboarding Flow
+### No Onboarding Gate — Access Is Immediate
 
-Every new user must pass through a mandatory onboarding sequence before accessing the platform. Anonymous users are redirected to signup — there is nothing they can do on the platform.
+A new user gets full platform access the moment their account is created (after the inline email OTP step during signup — see below). There is no mandatory sequence of steps blocking access, and no admin review queue standing between signup and using the platform.
 
-**Onboarding states:**
-
-```
-account_created → pending_id_verification → pending_submission → pending_approval → approved
-                                                                                  → rejected → pending_submission
-```
-
-| State | What the user sees |
-|---|---|
-| `pending_id_verification` | Identity verification screen — generate a code, upload a selfie with the code visible, upload a government ID. Stays here until an admin approves the documents and sets `idVerified: true`. |
-| `pending_submission` | Prompted to submit an entry to an open tournament. If no tournament is open, a holding screen tells them to come back later. |
-| `pending_approval` | Waiting screen. The organizer is reviewing their entry. No platform access yet. |
-| `approved` | Full platform access. Email confirmation and ID verification requirements apply (see below). |
-| `rejected` | Notified of rejection. Prompted to submit another entry or choose a different open tournament. |
-
-**Rules:**
-- Only tournaments with `status: 'open'` are shown during onboarding. Live, cooldown, and closed tournaments are never presented to newcomers.
-- Submitted entries are not automatically accepted. The tournament organizer reviews and approves or rejects each submission during the `open` phase.
-- The organizer has **30 minutes** to review each submission. If they miss it, the entry is `timed_out` — the user is treated as rejected and can resubmit. 3 missed reviews cancels the tournament with no refund.
-- Until approved, the user cannot leave the onboarding domain.
-- If the tournament a user submitted to is canceled while their entry is `pending_approval`, they are returned to `pending_submission`.
+This is a deliberate choice: ID verification collects PII (selfie + government ID), and review work doesn't scale to "every signup" without dedicated staff. Big platforms scope identity verification to users with real creator/monetization intent, not casual viewers — ATA follows the same pattern. A user can browse, rate, comment, vote, and even receive contest nominations without ever verifying their identity. The verification gate only appears at the point where it matters: submitting an entry.
 
 **Post-signup gate:**
 
@@ -279,9 +259,9 @@ account_created → pending_id_verification → pending_submission → pending_a
 
 Email confirmation is synchronous and inline — it is a step within the signup form, not a post-signup async flow. `emailConfirmed` will always be `true` by the time an account exists.
 
-**ID Verification — Onboarding Step 1**
+**ID Verification — Scoped to Submission, Not Onboarding**
 
-After account creation, the user must complete identity verification before they can submit an entry. The flow:
+ID verification is not part of account creation. It is only triggered when a registered user attempts to submit an entry (or create a user-organized tournament) without `idVerified: true` — they're redirected to the verification flow at that point, not before. The flow:
 
 1. Generate an 8-character verification code.
 2. Upload a selfie with the code visibly held (5-minute window before code expires).
@@ -299,7 +279,7 @@ Abuse prevention: each code generation increments `idVerifyFailedAttempts`. Afte
 These apply across the entire platform, regardless of system:
 
 - Anonymous users cannot access any platform page — redirected to signup
-- Users with `onboardingStatus !== 'approved'` cannot leave the onboarding domain
+- Registered users have full platform access immediately — no onboarding confinement
 - A user cannot rate or vote for their own entry, anywhere
 - A user cannot rate the same entry more than once
 - A user cannot vote in the same contest more than once
@@ -335,9 +315,8 @@ These apply across the entire platform, regardless of system:
   birthdate: Date,
 
   // Account status
-  accountStatus: String,         // 'onboarding' | 'active'
+  accountStatus: String,         // 'active' | 'invited' | 'banned'
   role: String,                  // 'user' | 'admin'
-  onboardingStatus: String,      // 'pending_id_verification' | 'pending_submission' | 'pending_approval' | 'approved' | 'rejected'
   emailConfirmed: Boolean,       // always true post-signup — OTP verified inline during registration via Resend
 
   // Identity verification
@@ -363,7 +342,7 @@ These apply across the entire platform, regardless of system:
 
 `wallet` is embedded — it is always fetched alongside the user and is a 1-to-1 relationship.
 
-`accountStatus` is a top-level gate: `'onboarding'` until the user reaches `approved`, then `'active'`. It can be checked without inspecting `onboardingStatus`.
+`accountStatus` only gates banned/invited accounts (see `requireAuth`). It is not used to confine new users — registration grants full access immediately. `idVerified` is the only gate, and it only applies at the point of entry submission or tournament creation.
 
 ---
 

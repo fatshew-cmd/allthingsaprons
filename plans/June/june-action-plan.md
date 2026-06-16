@@ -9,11 +9,11 @@ Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entri
 |---|---|
 | All models | Complete and aligned with `platform-core-concepts.md` |
 | Auth routes | Signup (OTP via Resend), login, logout — fully working |
-| Onboarding flow | ID verification → submit entry → pending approval → approved/rejected — fully working |
-| ID verification | Moved to own route file (`routes/verify-identity.js`). Selfie + government ID upload, code generation, attempt limiting, 2hr block after 3 failures — fully working |
-| Admin entry review | Approve/reject tournament entries, sets `onboardingStatus` — fully working |
+| Access model | No onboarding gate — registered users get full platform access immediately after signup. ID verification is scoped: only triggered when a user attempts to submit an entry or create a tournament without `idVerified: true` |
+| ID verification | Own route file (`routes/verify-identity.js`). Selfie + government ID upload, code generation, attempt limiting, 2hr block after 3 failures. Triggered on-demand from `/submit`, not as a signup step — fully working |
+| Admin entry review | Approve/reject ID verification submissions, sets `idVerified` — fully working |
 | `requireAuth` middleware | Unauthenticated users redirected to signup |
-| `requireApproved` middleware | Non-approved users confined to onboarding domain |
+| `requireApproved` middleware | Loads `req.currentUser`; blocks only `banned` accounts — does not confine users by onboarding state (there is none) |
 | Entry upload | Photo + video, tags, caption — fully working |
 | Entry display page | Media, owner info, rating avg/count — fully working |
 | Entry edit page | Title, caption, tags, visibility, mature/AI flags; locked during active contests — fully working |
@@ -58,7 +58,7 @@ The foundation. Nothing else gets built until the data models match the design.
 **Tasks:**
 - [x] Rename `Item` → `Entry`. Update all references across routes, views, and other models.
 - [x] Update `Entry` schema: remove `title`, `price`, `isListed`, `contest` (link managed separately). Keep `mediaUrl`, `mediaType`, `caption`, `creator`, `ratingCount`, `ratingAvg`.
-- [x] Update `User` schema: replace `isAdmin: Boolean` with `role: enum('user', 'admin')`. Add `onboardingStatus` (initial value: `pending_id_verification`), `emailConfirmed`, `idVerified`, `idVerificationStatus`, `idSelfieUrl`, `idDocUrl`, `idVerificationCode`, `idVerifyFailedAttempts`, `idVerifyBlockedUntil`, `accountStatus`. Add embedded `wallet`.
+- [x] Update `User` schema: replace `isAdmin: Boolean` with `role: enum('user', 'admin')`. Add `emailConfirmed`, `idVerified`, `idVerificationStatus`, `idSelfieUrl`, `idDocUrl`, `idVerificationCode`, `idVerifyFailedAttempts`, `idVerifyBlockedUntil`, `accountStatus` (`'active' | 'invited' | 'banned'`). Add embedded `wallet`. (No `onboardingStatus` field — there is no onboarding gate; see Phase 2.)
 - [x] Rebuild `Rating` schema: reference `Entry` (not `Item`). Remove `mode` field. Add unique compound index on `{ entryId, userId }`.
 - [x] Delete old `Contest` model. Create new `Contest` schema per design (entries embedded, designatedVoters embedded, status lifecycle, windowHours, deadlines, etc.).
 - [x] Create `Nomination` schema.
@@ -77,16 +77,13 @@ The foundation. Nothing else gets built until the data models match the design.
 ### Phase 2 — Auth + User Foundation ✅ (completed early)
 
 **Tasks:**
-- [x] Complete signup flow: form validates, hashes password, creates user + wallet. Set `onboardingStatus: 'pending_id_verification'` on creation.
+- [x] Complete signup flow: form validates, hashes password, creates user + wallet. Account is created with full platform access immediately — no onboarding status to set.
 - [x] Redirect middleware: any request from an unauthenticated user goes to signup — no exceptions, no read-only browsing.
-- [x] Onboarding middleware: any authenticated user with `onboardingStatus !== 'approved'` is confined to the onboarding domain. They cannot access the main platform.
+- [x] ~~Onboarding middleware~~ — dropped by design. Mandatory ID-verification-before-access was reconsidered: review work doesn't scale to every signup without dedicated staff, and it collects PII (selfie + government ID) from users who may never intend to submit anything. Scoped instead to the point of actual need (see ID verification below).
 - [x] Install and configure **Resend** for transactional email.
 - [x] OTP email verification step within the signup form: user submits their email → Resend sends a 6-digit OTP → user enters it on the next signup step → verified before account is created. No async flow, no expiry timers. `emailConfirmed` is always `true` on any account that exists.
-- [x] Onboarding flow (multi-step, replaces normal post-login redirect):
-  - **Step 1 — ID verification:** user generates an 8-character code, uploads a selfie with the code visible, and uploads a government-issued ID. Submission sets `idVerificationStatus: 'pending'`. Admin reviews manually; approval sets `idVerified: true` and advances user to `pending_submission`. Failed attempts are tracked; 3 failures trigger a 2-hour block.
-  - **Step 2 — Submit entry:** query tournaments with `status: 'open'`. If found, show them. User picks one and submits an entry. `onboardingStatus` → `pending_approval`. If none found → holding screen ("No tournament is accepting entries right now. Come back later.").
-  - **Step 3 — Waiting for approval:** user sees a waiting screen. Organizer reviews the submission in their dashboard. On approval → `onboardingStatus: 'approved'`, user gains full platform access. On rejection or `timed_out` → `onboardingStatus: 'rejected'`, user is notified and sent back to Step 2.
-- [x] Organizer entry review dashboard: list of `pending` tournament entries for each tournament they created. Approve or reject with one action. Rejected entries trigger a notification to the submitting user.
+- [x] ID verification, scoped to entry submission: visiting `/submit` without `idVerified: true` redirects to `/verify-identity`. User generates an 8-character code, uploads a selfie with the code visible, and uploads a government-issued ID. Submission sets `idVerificationStatus: 'pending'`. Admin reviews manually; approval sets `idVerified: true` and sends the user back to `/submit`. Failed attempts are tracked; 3 failures trigger a 2-hour block. The same gate applies to tournament creation.
+- [x] Admin ID verification review queue: list of `pending` verification submissions. Approve or reject with one action.
 - [x] Complete login flow: session + `requireAuth` middleware, protect routes.
 - [x] Profile page: display user's entries, average rating, username, avatar, bio, follow counts, contest/tournament history.
 - [x] Settings page: edit username, bio, avatar upload, banner upload, account deletion.
@@ -143,8 +140,8 @@ The system that makes everything time-sensitive work reliably.
 - [ ] Choose and install a job scheduler (`node-cron` or `agenda`).
 - [ ] Implement void deadline job: runs every 15 minutes, voids pending contests past their `voidDeadline`.
 - [ ] Implement voting deadline job: runs every 15 minutes, closes active contests past their `votingDeadline`.
-- [ ] Implement entry review timeout job: runs every 5 minutes. Finds `tournament_entries` with `approvalStatus: 'pending'` and `submittedAt < now - 30min`. For each: set `approvalStatus: 'timed_out'`, increment `tournament.missedReviews`, notify the submitting user (`onboardingStatus` → `rejected`). If `tournament.missedReviews >= 3`: cancel the tournament, notify all `pending_approval` users to resubmit elsewhere.
-- [ ] Gate tournament creation behind `idVerified: true` check — server-side safeguard only. Since all approved users complete ID verification during onboarding, the "prompt ID verification" path is unreachable under normal flow; this is a hard server-side guard against bypasses.
+- [ ] Implement entry review timeout job (July/tournament scope): runs every 5 minutes. Finds `tournament_entries` with `approvalStatus: 'pending'` and `submittedAt < now - 30min`. For each: set `approvalStatus: 'timed_out'`, increment `tournament.missedReviews`, notify the submitting user their entry timed out. If `tournament.missedReviews >= 3`: cancel the tournament, notify all `pending_approval` users to resubmit elsewhere.
+- [ ] Gate tournament creation behind `idVerified: true` check. Since ID verification is now scoped and on-demand (not a mandatory onboarding step), a user can reach the "create tournament" action without ever having verified — this check is a real, reachable gate, not just a bypass safeguard.
 - [x] Notification model: dedicated `Notification` collection (Option A) with compound index `{userId, read, createdAt}` and 90-day TTL index. `injectNotificationCount` middleware injects unread count into all main platform views. Sidebar badge (count label + collapsed dot). Per-notification click-to-mark-read + mark-all-as-read. Triggers: new comment → entry owner, reply → parent commenter, nomination created → nominee.
 - [x] Notifications page: paginated list at `/notifications` — actor avatar, notification text, relative timestamp, unread highlight. `contest_closed` / `contest_voided` rows render correctly when triggers fire (wired in Phase 5 background jobs).
 - [x] Messages page: direct messaging between users — `Conversation` + `DirectMessage` models, `routes/messages.js`, two-panel view (`/messages` list + `/messages/:username` thread). Polled every 5s. Message button on profile opens or creates a conversation.
@@ -255,7 +252,6 @@ Menus are **non-inclusive**. Higher roles do not inherit lower-role menus. Each 
 | Overview | Dashboard | Role-specific summary view |
 | Users | User Management | Browse and edit user accounts |
 | Users | ID Verification | Review identity documents |
-| Users | Onboarding Queue | Approve/reject new user entry submissions |
 | Content | Entry Review | Approve/reject pending entries |
 | Content | All Entries | Browse the full entry catalog |
 | Moderation | Reported Comments | Review flagged comments |
@@ -276,7 +272,6 @@ Menus are **non-inclusive**. Higher roles do not inherit lower-role menus. Each 
 | Dashboard | ✓ | ✓ | ✓ | ✓ | ✓ |
 | User Management | | ✓ | ✓ | | |
 | ID Verification | | | | ✓ | |
-| Onboarding Queue | | ✓ | ✓ | | |
 | Entry Review | | | ✓ | ✓ | |
 | All Entries | | ✓ | ✓ | | |
 | Reported Comments | | | ✓ | ✓ | |
@@ -305,7 +300,7 @@ The dashboard is served at `/admin` for all roles but renders entirely different
 
 **Founder:** Revenue and prize payouts this month, platform growth (new users, entries submitted), admin team headcount and open applications, high-level tournament activity (running, completed, total prize pool). No queues, no flags.
 
-**Superadmin:** Active tournaments (status, entries pending review), user registration trend, onboarding queue depth, escalations pending, entry volume (submitted/approved/rejected this week).
+**Superadmin:** Active tournaments (status, entries pending review), user registration trend, ID verification queue depth, escalations pending, entry volume (submitted/approved/rejected this week).
 
 **Supervisor:** Moderation queue depth (reported comments, pending reviews), moderator activity (who reviewed what, response times), escalations assigned to them, entry review throughput.
 
@@ -318,9 +313,9 @@ The dashboard is served at `/admin` for all roles but renders entirely different
 **Pages and tasks:**
 
 - [x] **Admin dashboard:** role-specific view — Founder sees financials and org health; Superadmin sees operational metrics; Supervisor sees moderation throughput; Moderator sees their personal queue and stats; Support sees inbox metrics. One route, one conditional render per role.
-- [x] **User management — list:** paginated user list with filters for role, onboarding status, account status, and `idVerified`
-- [x] **User management — detail:** profile info, uploaded entries, contest/tournament history, onboarding status, ID verification documents, wallet balance; admin actions (role assignment using 2-tier-ahead rule, account suspension)
-- [x] **ID verification queue:** list of users with `idVerificationStatus: 'pending'`; review view showing selfie and government ID side by side; approve / reject action (approval sets `idVerified: true` and advances user to `pending_submission`)
+- [x] **User management — list:** paginated user list with filters for role, `idVerificationStatus`, account status, and `idVerified`
+- [x] **User management — detail:** profile info, uploaded entries, contest/tournament history, ID verification status and documents, wallet balance; admin actions (role assignment using 2-tier-ahead rule, account suspension)
+- [x] **ID verification queue:** list of users with `idVerificationStatus: 'pending'`; review view showing selfie and government ID side by side; approve / reject action (approval sets `idVerified: true`, user can now submit an entry)
 - [x] **Admin audit log:** append-only `admin_audit_logs` collection, `ATA-YYYYMMDD-XXXXXXXX` ticket refs, actor ID + role, action slug, affected entity, target user, `remarks`, and `metadata` payload. Global log view at `/admin/audit-log` visible to supervisor+; filterable by action, target user, and ticket ref. `utils/auditLog.js` helper used throughout.
 - [ ] **Tournament management — list:** all tournaments with status filter; entry point for creating a platform-funded tournament
 - [ ] **Tournament management — create:** form to create a platform-funded tournament (name, description, participant cap, time config, prize amounts); starts directly at `open` status

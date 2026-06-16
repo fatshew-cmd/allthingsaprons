@@ -176,6 +176,7 @@ router.post('/entries', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), as
       const rawWin      = parseInt(req.body.challengeWindowHours, 10);
       const windowHours = [24, 48, 72, 168].includes(rawWin) ? rawWin : 72;
       const expiry      = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const nominator   = await User.findById(req.session.userId).select('username avatar').lean();
       const contests    = await Promise.all(nominees.map(nom =>
         Contest.create({
           createdBy:        req.session.userId,
@@ -191,7 +192,19 @@ router.post('/entries', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), as
           nomineeId:   nom._id,
           expiresAt:   expiry,
           status:      'pending',
-        }).then(() => c._id))
+        }).then(nomination => {
+          Notification.create({
+            userId:  nom._id,
+            type:    'nomination_received',
+            payload: {
+              actorUsername: nominator?.username?.value || 'Someone',
+              actorAvatar:   nominator?.avatar?.value || null,
+              contestId:     c._id,
+              url:           '/submit?nomination=' + nomination._id,
+            },
+          }).catch(() => {});
+          return c._id;
+        }))
       ));
       contestId = contests.length === 1 ? contests[0] : null;
     }
@@ -275,7 +288,7 @@ router.post('/contests/challenge', async (req, res) => {
     entries:          [{ entryId, userId: req.session.userId, submittedAt: new Date(), hidden: hide }],
     designatedVoters,
   });
-  await Nomination.create({
+  const nomination = await Nomination.create({
     contestId:   contest._id,
     nominatorId: req.session.userId,
     nomineeId:   nominee._id,
@@ -291,7 +304,7 @@ router.post('/contests/challenge', async (req, res) => {
       actorUsername: nominator?.username?.value || 'Someone',
       actorAvatar:   nominator?.avatar?.value || null,
       contestId:     contest._id,
-      url:           '/entry/' + entryId,
+      url:           '/submit?nomination=' + nomination._id,
     },
   }).catch(() => {});
 
