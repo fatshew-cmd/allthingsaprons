@@ -213,25 +213,27 @@ Three prizes are awarded at tournament close:
 
 ---
 
-## 5. Vote Economics _(designed; implementation deferred to July)_
+## 5. Contestant Payouts & Credits _(designed; implementation deferred — supersedes the old "Vote Economics" model)_
 
-Votes have monetary value — the platform pays voters for participating. Value is computed at vote time and stored on the vote record for auditability.
+**Correction to the prior design:** the platform does not pay voters. Votes have monetary value, but that value is paid to the **contestant** (the entry owner being voted for), not the person casting the vote. This applies uniformly — standalone contests and tournament contests are treated the same way.
 
-**"Organizer" is not a permanent role or badge.** It is contextual: for any given tournament, the user who created it is its organizer. This is determined by `tournaments.created_by`. Outside of a tournament context, there is no organizer — all voters are treated as regular users.
+**Funding mechanism — credits:**
 
-| Voter context | Value per vote |
-|---|---|
-| Regular user (any contest) | $0.001 |
-| Tournament creator voting in their own tournament | $0.01 |
+- Voting is no longer free. A user spends **credits** to cast a vote. Credits are purchased with real money (via the platform's payment processor — see Section 9).
+- This is the deliberate fix for a liability problem in the earlier design: if the platform or the tournament organizer is on the hook for a fixed amount per vote, total payout exposure is unbounded — nobody can predict how many votes a contest will draw. Funding payouts from voter-purchased credits caps total exposure at exactly what voters have paid in. The platform/organizer can never owe more than was actually spent.
+- Ratings remain free and uninvolved — this credit cost applies to **voting only**.
 
-**Exceptions — vote value drops to $0:**
+**Split:** a contestant receives a majority share of the credit value spent on votes cast for them; the platform retains the remainder. Eyeballed at roughly **80% contestant / 20% platform**, not finalized.
 
-| Context | Affected voters |
-|---|---|
-| Round reaches sudden death (tied result) | Regular users — organizer rate unaffected |
-| User-organized tournament (any round) | All voters |
+**Relationship to tournament prizes (Section 4.5):** unchanged and additive. The organizer's upfront prize-fund commitment covers only the fixed 1st/2nd/3rd placement prizes (Golden/Silver/Red Apron). It does not need to cover per-vote contestant payouts — those are funded by credit spend, not by the organizer or platform.
 
-The reason vote value is $0 in user-organized tournaments: the organizer deposits a fixed prize pool upfront. Since total vote count is unpredictable, the platform cannot budget a per-vote payout — prizes only.
+**Open questions** (tracked in Section 9):
+- Credit-to-cash exchange rate and purchasable credit package sizes
+- Exact contestant/platform split (80/20 is a placeholder)
+- Whether the old per-vote $0 exceptions (sudden death, user-organized tournament rounds) still make sense now that payout is funded by voter credit spend rather than organizer/platform funds
+- Whether a tournament organizer's own vote in their own tournament should retain any special weighting, now that all votes cost real purchased credits
+- A proposed new "Apron" trophy awarded per contest win based on total credit value received, distinct from the existing placement-based tournament Aprons. Tier names decided — **Velvet** (1st), **Denim** (2nd), **Flannel** (3rd) — but the credit-value thresholds per tier are not yet defined
+- Credit balance / credit transaction schema — not yet modeled
 
 ---
 
@@ -329,9 +331,10 @@ These apply across the entire platform, regardless of system:
   idVerifyBlockedUntil: Date,    // set to +2h after 3 failed attempts; null when not blocked
 
   wallet: {
-    balanceCents: Number,        // default: 0 — accumulated vote earnings
+    balanceCents: Number,        // default: 0 — accumulated payouts from votes received as a contestant (see Section 5)
     updatedAt: Date
   },
+  // creditBalance / credit ledger — not yet modeled (see Section 5 open questions)
 
   createdAt: Date,
   updatedAt: Date
@@ -467,9 +470,9 @@ Rules enforced at application level:
 {
   _id: ObjectId,
   contestId: ObjectId,   // ref: contests
-  entryId: ObjectId,     // ref: entries — the entry voted for
-  userId: ObjectId,      // ref: users — the voter
-  valueCents: Number,    // monetary value at cast time (0 if sudden death or user-organized tournament)
+  entryId: ObjectId,     // ref: entries — the entry voted for, and the payout recipient (see Section 5)
+  userId: ObjectId,      // ref: users — the voter, spends credits to cast this vote
+  valueCents: Number,    // amount paid out to the voted entry's owner at cast time — exceptions/exact split TBD, see Section 5
   createdAt: Date
 }
 ```
@@ -624,8 +627,9 @@ Application enforces: `userId` must not equal the submitting contestant's `userI
 
 ## 9. Open Questions
 
-- **Payment processor:** CCBill selected as first option. Epoch does not support US-based businesses. Verify CCBill's current ToS covers the platform's content category and escrow/payout requirements before integrating.
+- **Payment processor:** CCBill selected as first option. Epoch does not support US-based businesses. Verify CCBill's current ToS covers the platform's content category and escrow/payout requirements before integrating. Now also the processor for credit purchases (Section 5), which pulls payment integration earlier than originally planned.
 - **Follow system:** A `follows` collection exists in the data model (follower/followee user relationships) but the feature is not yet documented. Scope, UI surface, and notification behavior TBD.
+- **Credits & contestant payouts (Section 5):** exchange rate, credit package pricing, exact contestant/platform split, whether old $0 exceptions still apply, organizer vote weighting, and the new spend-based Apron tier (names/thresholds) are all undecided.
 
 ## 10. Post-MVP: Open Challenges
 

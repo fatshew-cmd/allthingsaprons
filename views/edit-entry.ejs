@@ -175,18 +175,16 @@
           <input type="radio" name="nominationId" value="<%= nom._id %>"
             class="nomination-radio w-4 h-4 accent-charm-500 shrink-0 cursor-pointer">
           <img src="<%= nom.nominatorId.avatar?.value || '/img/default-avatar.png' %>"
-            alt="" class="w-7 h-7 rounded-md object-cover bg-shark-800 shrink-0">
+            alt="" class="w-7 h-7 rounded-full object-cover bg-shark-800 shrink-0">
           <div class="flex flex-col gap-0.5 min-w-0 flex-1">
             <span class="text-sm text-white/80 font-medium truncate">
-              <%= nom.nominatorId.displayName?.value || nom.nominatorId.username?.value %>
-              <span class="text-white/35 font-normal">nominated you</span>
+              <%= nom.nominatorId.displayName?.value || ('@' + nom.nominatorId.username?.value) %>
             </span>
+            <span class="text-xs text-white/35 truncate">@<%= nom.nominatorId.username?.value %> · nominated you</span>
             <% if (nom.message) { %>
             <span class="text-xs text-white/40 truncate">"<%= nom.message %>"</span>
             <% } %>
-            <span class="text-xs text-white/25">
-              Expires <%= new Date(nom.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %>
-            </span>
+            <span class="nom-card-countdown text-xs text-amber-300 font-medium tabular-nums" data-expires="<%= nom.expiresAt.toISOString() %>"></span>
           </div>
         </label>
         <% }); %>
@@ -285,6 +283,25 @@
   var REDIRECT_AFTER     = '<%= pendingContestId ? "/contest/" + pendingContestId : "/entry/" + entry._id %>';
   var INITIAL_TAGS       = <%- JSON.stringify(entry.tags || []) %>;
   var INITIAL_NOMINEES  = <%- JSON.stringify(existingNominees || []) %>;
+
+  // ── Nomination countdown ─────────────────────────────────────────
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+  var countdownEls = document.querySelectorAll('.nom-card-countdown');
+  if (countdownEls.length) {
+    function updateCountdowns() {
+      countdownEls.forEach(function (el) {
+        var diff = new Date(el.dataset.expires) - Date.now();
+        if (diff <= 0) { el.textContent = 'Expired'; return; }
+        var h = Math.floor(diff / 3600000);
+        var m = Math.floor((diff % 3600000) / 60000);
+        var s = Math.floor((diff % 60000) / 1000);
+        el.textContent = h > 0 ? h + 'h ' + pad2(m) + 'm ' + pad2(s) + 's left' : (m > 0 ? m + 'm ' + pad2(s) + 's left' : s + 's left');
+      });
+    }
+    updateCountdowns();
+    setInterval(updateCountdowns, 1000);
+  }
 
   // ── Error display ─────────────────────────────────────────────────
   function showError(msg) {

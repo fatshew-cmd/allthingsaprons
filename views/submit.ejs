@@ -42,19 +42,19 @@
   <div class="flex flex-col gap-3 border border-charm-500/25 bg-charm-600/5 rounded-md px-4 py-3.5 mb-5">
     <div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-2.5 min-w-0">
-        <img src="<%= acceptingNomination.nominator.avatar || '/img/default-avatar.png' %>"
-          class="w-7 h-7 rounded-md object-cover bg-shark-800 shrink-0" alt="">
+        <img src="<%= acceptingNomination.nominator.avatar?.value || '/img/default-avatar.png' %>"
+          class="w-7 h-7 rounded-full object-cover bg-shark-800 shrink-0" alt="">
         <div class="min-w-0">
           <p class="text-sm font-semibold text-white/85 truncate">
-            <%= acceptingNomination.nominator.displayName || acceptingNomination.nominator.username.value %>
-            <span class="text-white/40 font-normal">nominated you</span>
+            <%= acceptingNomination.nominator.displayName?.value || ('@' + acceptingNomination.nominator.username?.value) %>
           </p>
+          <p class="text-xs text-white/40 truncate">@<%= acceptingNomination.nominator.username?.value %> · nominated you</p>
           <% if (acceptingNomination.message) { %>
           <p class="text-xs text-white/40 truncate">"<%= acceptingNomination.message %>"</p>
           <% } %>
         </div>
       </div>
-      <div id="nom-countdown" class="text-xs text-white/35 tabular-nums shrink-0"
+      <div id="nom-countdown" class="text-xs text-amber-300 font-medium tabular-nums shrink-0"
         data-expires="<%= acceptingNomination.expiresAt.toISOString() %>"></div>
     </div>
     <% if (acceptingNomination.entry) { %>
@@ -65,6 +65,9 @@
       <img src="<%= acceptingNomination.entry.mediaUrl %>" class="w-full max-h-52 object-contain" alt="">
       <% } %>
     </div>
+    <% if (acceptingNomination.entry.title) { %>
+    <p class="text-sm font-bold text-white/85"><%= acceptingNomination.entry.title %></p>
+    <% } %>
     <% if (acceptingNomination.entry.caption) { %>
     <p class="text-sm text-white/60"><%= acceptingNomination.entry.caption %></p>
     <% } %>
@@ -85,7 +88,7 @@
       <p class="text-xs text-white/35 flex-1">Submit your entry below to accept the nomination.</p>
       <button type="button" id="decline-nomination-btn"
         data-nomination-id="<%= acceptingNomination._id %>"
-        class="text-xs text-white/35 hover:text-red-400 transition-colors cursor-pointer border border-white/10 hover:border-red-400/30 rounded-md px-2.5 py-1.5">
+        class="h-10 flex items-center text-xs text-red-400 hover:text-red-300 transition-colors cursor-pointer border border-red-400/30 hover:border-red-400/50 rounded-md px-2.5">
         Drop nomination
       </button>
     </div>
@@ -427,19 +430,17 @@
         <label class="nomination-card flex items-center gap-3 border border-white/10 rounded-md px-3 py-2.5 cursor-pointer hover:border-white/20 transition-colors has-checked:border-charm-500/50 has-checked:bg-charm-600/5">
           <input type="radio" name="nominationId" value="<%= nom._id %>"
             class="nomination-radio w-4 h-4 accent-charm-500 shrink-0 cursor-pointer">
-          <% const nom_avatar = nom.nominatorId.avatar || '/img/default-avatar.png'; %>
-          <img src="<%= nom_avatar %>" alt="" class="w-7 h-7 rounded-md object-cover bg-shark-800 shrink-0">
+          <% const nom_avatar = nom.nominatorId.avatar?.value || '/img/default-avatar.png'; %>
+          <img src="<%= nom_avatar %>" alt="" class="w-7 h-7 rounded-full object-cover bg-shark-800 shrink-0">
           <div class="flex flex-col gap-0.5 min-w-0 flex-1">
             <span class="text-sm text-white/80 font-medium truncate">
-              <%= nom.nominatorId.displayName || nom.nominatorId.username.value %>
-              <span class="text-white/35 font-normal">nominated you</span>
+              <%= nom.nominatorId.displayName?.value || ('@' + nom.nominatorId.username?.value) %>
             </span>
+            <span class="text-xs text-white/35 truncate">@<%= nom.nominatorId.username?.value %> · nominated you</span>
             <% if (nom.message) { %>
             <span class="text-xs text-white/40 truncate">"<%= nom.message %>"</span>
             <% } %>
-            <span class="text-xs text-white/25">
-              Expires <%= new Date(nom.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %>
-            </span>
+            <span class="nom-card-countdown text-xs text-amber-300 font-medium tabular-nums" data-expires="<%= nom.expiresAt.toISOString() %>"></span>
           </div>
         </label>
         <% }); %>
@@ -557,18 +558,28 @@
 
   // ── State ────────────────────────────────────────────────────────
   // ── Nomination countdown ─────────────────────────────────────────
-  var countdownEl = document.getElementById('nom-countdown');
-  if (countdownEl) {
-    var expiresAt = new Date(countdownEl.dataset.expires);
-    function updateCountdown() {
-      var diff = expiresAt - Date.now();
-      if (diff <= 0) { countdownEl.textContent = 'Expired'; return; }
-      var h = Math.floor(diff / 3600000);
-      var m = Math.floor((diff % 3600000) / 60000);
-      countdownEl.textContent = h > 0 ? h + 'h ' + m + 'm left' : m + 'm left';
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function formatCountdown(expiresAt) {
+    var diff = expiresAt - Date.now();
+    if (diff <= 0) return 'Expired';
+    var h = Math.floor(diff / 3600000);
+    var m = Math.floor((diff % 3600000) / 60000);
+    var s = Math.floor((diff % 60000) / 1000);
+    if (h > 0) return h + 'h ' + pad2(m) + 'm ' + pad2(s) + 's left';
+    if (m > 0) return m + 'm ' + pad2(s) + 's left';
+    return s + 's left';
+  }
+
+  var countdownEls = document.querySelectorAll('#nom-countdown, .nom-card-countdown');
+  if (countdownEls.length) {
+    function updateCountdowns() {
+      countdownEls.forEach(function (el) {
+        el.textContent = formatCountdown(new Date(el.dataset.expires));
+      });
     }
-    updateCountdown();
-    setInterval(updateCountdown, 30000);
+    updateCountdowns();
+    setInterval(updateCountdowns, 1000);
   }
 
   // ── Drop nomination ──────────────────────────────────────────────

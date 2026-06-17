@@ -132,6 +132,36 @@ The core competitive mechanic. Build the HTH contest flow end to end.
 
 ---
 
+#### Contest Withdrawal & Forfeit (added June 16)
+
+**Design:**
+- **Pending** (nominee hasn't submitted their entry yet): nominee can decline/withdraw freely, no fault recorded.
+- **Active/live** (status flips to `active` the moment the nominee submits their entry): nominee dropping from this point on is a formal loss — contest closes immediately, opponent is declared winner, nominee gets a public "Withdrew" badge.
+- **Remove nominee** (nominator-only action, usable in both phases): the single mechanism for "starting over." Deletes the Contest + Nomination doc entirely rather than resetting it for reuse — consistent with the existing rule that a new entry attempt means a new contest doc, not an edit. In the pending case this is a clean, traceless deletion. In the live/forfeit case, this is also how the public "Withdrew" loss record gets scrubbed — it stays visible until the nominator chooses to delete it.
+
+**Tasks:**
+- [ ] Nominee withdrawal action while `pending`: no-fault decline, contest/nomination deleted on nominator's follow-up "remove nominee" action.
+- [ ] Nominee forfeit action while `active`: closes contest, sets opponent as `winnerEntryId`, marks nominee's side with a `withdrew: true` (or similar) flag for the "Withdrew" badge.
+- [ ] "Remove nominee" route (nominator-only): deletes the Contest + Nomination doc, covering both the no-fault pending case and the scrub-the-forfeit-record live case.
+
+---
+
+#### Contest Watch / Follower Notifications (added June 16)
+
+**Design:**
+- When a nominator starts a new contest (nominates someone), their followers (existing `Follow` model) are auto-notified via a new `Notification` type.
+- Any user landing on a contest page — follower or not — gets a "stay in the loop" button to subscribe specifically to that contest's updates. Requires a new per-contest watch model (e.g. `ContestWatch`: `contestId`, `userId`) since `Follow` is user-to-user only.
+- Watchers get notified on: nominee responds (accept/decline), forfeit, timeout/void, contest closed.
+
+**Tasks:**
+- [ ] New `Notification` types for: contest started (sent to nominator's followers), nominee responded, nominee forfeited, contest timed out/voided, contest closed (sent to watchers).
+- [ ] `ContestWatch` model + "stay in the loop" toggle on the contest page.
+- [ ] Wire notification triggers for all events above to the watcher list (nominator's followers are auto-watchers from creation; anyone else opts in via the button).
+
+> Note: the "voting closes in" countdown format (days/hours/minutes/seconds, zero-padded, fewer units as time runs out) was reviewed and confirmed correct as-is — no change needed.
+
+---
+
 ### Phase 5 — Notifications + Background Jobs (June 22–30)
 
 The system that makes everything time-sensitive work reliably.
