@@ -39,7 +39,7 @@ router.post('/display-name', async (req, res) => {
 });
 
 // POST /admin/profile/avatar
-router.post('/avatar', upload.single('avatar'), async (req, res) => {
+router.post('/avatar', upload.avatar.single('avatar'), async (req, res) => {
   try {
     if (!req.file) return res.redirect('/admin/profile?error=avatar_missing');
 

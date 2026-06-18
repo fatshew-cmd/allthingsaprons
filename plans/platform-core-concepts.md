@@ -10,6 +10,8 @@ All Things Aprons (ATA) is a media platform where registered users submit photos
 
 An entry is a photo or video submitted by a registered user to their profile. Every entry is automatically subject to ratings upon submission — this is a platform default, not opt-in, similar to how likes work on Instagram.
 
+A user can submit up to **3 entries at once** in a single submission. Each entry is its own independent platform item — they are not bundled or grouped. Each one is individually subject to ratings, contests, and tournaments on its own merits.
+
 An entry can participate in multiple contests or tournaments throughout its lifetime on the platform. Submitting to a contest or tournament does not remove the entry from ratings or other contests. An entry's participation in different systems is independent and additive.
 
 Once submitted to a contest or tournament, an entry is locked and cannot be changed.
@@ -96,10 +98,38 @@ The creator is the organizer, not a contestant. The challenge is open for any re
 
 Any registered user (not necessarily a contestant) can nominate two other users for a head-to-head. Both nominated users receive a notification. The viewer can optionally include a message describing what they want the contest to be about. Both users must independently submit an entry within 24 hours, or the contest is voided.
 
-### 3.5 Voting Constraints
+### 3.5 Voting & Attribution
 
-- A user cannot vote more than once per contest
-- A user cannot vote for their own entry
+These are two independent mechanics that run in parallel on every contest.
+
+#### Voting (determines the winner)
+
+- A user gets **1 free vote every 12 hours**. The free vote resets at the 12-hour mark and does not accumulate — if unused, it does not carry over.
+- A user can also cast a **paid vote** (spends credits) instead of using the free vote.
+- A vote can only be cast for **one entry per contest**. Voting for both entries in the same contest is not allowed.
+- A user cannot vote for their own entry.
+- **Vote switching**: while the contest is live, a user can change which entry they voted for. The original vote is removed. If it was a free vote, the free vote is returned. If it was a paid vote, the credits are refunded. The user can then re-cast on the other entry.
+- Adds to the entry's **vote count** only. Does not affect attribution.
+
+#### Attribution (determines payout and voter ranking)
+
+- Separate from voting. A user can contribute credits to **either or both entries** in the same contest — this does not conflict with the one-vote rule.
+- A user cannot attribute credits to their own entry.
+- Contribution amount is set via a **slider or input field** at the time of contributing. The UI shows the user's real-time rank among contributors for that entry as they adjust the amount, based on what others have already contributed. Credit balance is always visible for awareness.
+- **Contributions are mutable while the contest is live**: the user can increase, decrease, or fully withdraw their contribution at any time. A full withdrawal returns the credits to the user's balance. Changes are locked in when the contest closes.
+- Adds to the entry's **attribution total** and determines position in the **voter ranking list** (shown under each entry, sorted by contribution amount, highest first).
+- Free votes carry no attribution value.
+- **Cash-out minimum:** a contestant must have at least **100 credits ($20)** in attribution earnings before requesting a cash-out.
+
+**Contest UI — two parallel stats:**
+Each entry in a contest displays two independent metrics:
+1. **Vote count bar** — total votes received (free + paid), determines the winner
+2. **Attribution bar** — total credit value contributed by voters, determines payout and Apron tier
+
+A contestant can win by vote count but be outpaced on attribution by their opponent — both metrics are visible and meaningful. The voter ranking list sits under each entry's attribution bar, sorted by contributor amount highest first.
+
+**Attribution in tie-breaker chains (tournament contests only):**
+Attribution is only open during the **original contest window**. If the original contest ends in a tie and enters the replay chain, attribution locks immediately — no new contributions are accepted during any replay. Replays are vote-only. Attribution pays out (75/25) when the chain **fully resolves**, whether by a replay producing a winner or by sudden death. This prevents contestants from colluding to manufacture ties and farm multiple attribution payout windows.
 
 ### 3.6 Contest Winner
 
@@ -109,18 +139,64 @@ The entry with the most votes at the end of the voting window wins. The metric i
 
 If a standalone contest ends in a tie, the result stands as equality — no replay.
 
-If a tournament contest ends in a tie, the following chain applies:
+If a tournament contest ends in a tie, the following chain applies. Each replay halves the previous voting window:
 
-**Round 1 — Replay**
-A new contest is created between the same two entries. The voting window is **half** the original window (e.g. 72hrs → 36hrs). If this replay also ends in a tie, proceed to Round 2.
+| Round | Window |
+|-------|:------:|
+| Original contest | 72h |
+| Replay 1 | 36h |
+| Replay 2 | 18h |
+| Replay 3 | 9h |
+| Sudden Death | Organizer decides — final |
 
-**Round 2 — Ratings Challenge**
-Each entry's owner submits up to **3 new entries** specifically for this challenge. Users rate all submitted entries on the standard 1–10 scale. The rating window is **6 hours by default**, or whatever the tournament organizer configured.
+If all three replays end in a tie, the organizer picks the winner. No further voting. This decision is final and cannot be appealed.
 
-The contestant whose entries hold the **highest aggregate rating** at the close of the window wins the original contested matchup.
+### 3.7 Contest Aprons
 
-**Round 3 — Sudden Death**
-If equality persists after the Ratings Challenge, the organizer decides the winner. This decision is final.
+Aprons are trophies awarded at contest close based on margin of victory. They apply to both standalone contests and tournament contests. They are distinct from the tournament placement prizes (Section 4.5).
+
+#### Eligibility floor
+
+The winner must reach **5,000 votes** to be eligible for any Apron. If the winner has fewer than 5,000 votes, no Apron is awarded regardless of the gap.
+
+#### Tier thresholds
+
+Gap percentage is calculated as: `(winner_votes - loser_votes) / loser_votes`
+
+| Apron | Gap required | Example (loser = 5,000) |
+|-------|:-----------:|:-----------------------:|
+| Flannel | ≥ 49% | winner needs 7,450 votes |
+| Denim | ≥ 68% | winner needs 8,400 votes |
+| Velvet | ≥ 110% | winner needs 10,500 votes |
+
+**Special case:** if winner ≥ 5,000 votes and loser < 5,000, winner earns a **Flannel** automatically (loser never cleared the floor).
+
+If winner ≥ 5,000 but the gap falls below 49%, no Apron is awarded.
+
+Only the highest qualifying tier is awarded — a 110% gap earns Velvet only, not all three.
+
+#### Apron value & collection
+
+Each Apron has an internal dollar value. Aprons are not paid out individually — payouts are triggered by collecting a minimum number per tier.
+
+| Apron | Value each | Min. to cash out | Min. payout |
+|-------|:----------:|:----------------:|:-----------:|
+| Flannel | $10 | 5 | $50 |
+| Denim | $20 | 10 | $200 |
+| Velvet | $50 | 20 | $1,000 |
+
+Each tier is an independent collection track. Tiers cannot be mixed toward a payout threshold.
+
+#### Apron record
+
+- **Lifetime total**: all Aprons ever won remain permanently on the user's profile as a historical record. Cashing out does not remove them from the total count.
+- **Eligible balance**: `total won − already paid out`. This is what the platform uses to determine payout eligibility.
+
+#### Forced monthly payout
+
+The platform runs a monthly settlement. Any user whose eligible balance for a given tier meets or exceeds the minimum threshold is **automatically paid out** — no user action required. This caps the platform's accumulating liability.
+
+If a user's eligible balance is below the minimum at month end, it carries over to the next month unchanged.
 
 ---
 
@@ -219,21 +295,25 @@ Three prizes are awarded at tournament close:
 
 **Funding mechanism — credits:**
 
-- Voting is no longer free. A user spends **credits** to cast a vote. Credits are purchased with real money (via the platform's payment processor — see Section 9).
-- This is the deliberate fix for a liability problem in the earlier design: if the platform or the tournament organizer is on the hook for a fixed amount per vote, total payout exposure is unbounded — nobody can predict how many votes a contest will draw. Funding payouts from voter-purchased credits caps total exposure at exactly what voters have paid in. The platform/organizer can never owe more than was actually spent.
-- Ratings remain free and uninvolved — this credit cost applies to **voting only**.
+- Credits are the platform's internal currency, purchased with real money via the payment processor (see Section 9).
+- **Exchange rate: 1 credit = $0.20 (i.e. $1 = 5 credits).** This rate is set at platform discretion and subject to adjustment.
+- Ratings remain free. Credits are spent on **paid votes** and **attribution contributions** (see Section 3.5).
+- Funding contestant payouts from purchased credits bounds total payout exposure: the platform can never owe more than what voters have actually paid in.
 
-**Split:** a contestant receives a majority share of the credit value spent on votes cast for them; the platform retains the remainder. Eyeballed at roughly **80% contestant / 20% platform**, not finalized.
+**Credit packages:**
+
+| Pack | Credits | Notes |
+|-----:|:-------:|-------|
+| $20 | 100 | Minimum purchase |
+| $50 | 250 | — |
+| $100 | 500 | — |
+| Custom | 100–2,500 | $20 min / $500 max |
+
+**Split:** at contest close, attribution credits received by an entry are split **75% to the contestant, 25% to the platform**.
 
 **Relationship to tournament prizes (Section 4.5):** unchanged and additive. The organizer's upfront prize-fund commitment covers only the fixed 1st/2nd/3rd placement prizes (Golden/Silver/Red Apron). It does not need to cover per-vote contestant payouts — those are funded by credit spend, not by the organizer or platform.
 
-**Open questions** (tracked in Section 9):
-- Credit-to-cash exchange rate and purchasable credit package sizes
-- Exact contestant/platform split (80/20 is a placeholder)
-- Whether the old per-vote $0 exceptions (sudden death, user-organized tournament rounds) still make sense now that payout is funded by voter credit spend rather than organizer/platform funds
-- Whether a tournament organizer's own vote in their own tournament should retain any special weighting, now that all votes cost real purchased credits
-- A proposed new "Apron" trophy awarded per contest win based on total credit value received, distinct from the existing placement-based tournament Aprons. Tier names decided — **Velvet** (1st), **Denim** (2nd), **Flannel** (3rd) — but the credit-value thresholds per tier are not yet defined
-- Credit balance / credit transaction schema — not yet modeled
+**All financial system decisions are locked** (as of June 17). See Section 9 for remaining open items (CCBill ToS verification, credit schema modeling).
 
 ---
 
@@ -520,7 +600,6 @@ A viewer nomination creates 2 documents sharing the same `contestId` (one per no
   entryWindowHours: Number,      // default: 72
   cooldownHours: Number,         // default: 3
   roundWindowHours: Number,      // default: 72
-  ratingsChallengeHours: Number, // default: 6
 
   // Computed deadlines
   entryDeadline: Date,           // createdAt + entryWindowHours
@@ -578,7 +657,7 @@ Elimination check runs after every contest closes:
 
 ---
 
-### Collection: `ratings_challenges`
+### ~~Collection: `ratings_challenges`~~ _(removed — Ratings Challenge mechanic replaced by 3-replay chain, see Section 3.6)_
 
 ```js
 {
@@ -606,7 +685,7 @@ Max 3 embedded entries per `userId` enforced at application level.
 
 ---
 
-### Collection: `ratings_challenge_votes`
+### ~~Collection: `ratings_challenge_votes`~~ _(removed — see above)_
 
 ```js
 {
@@ -625,13 +704,127 @@ Application enforces: `userId` must not equal the submitting contestant's `userI
 
 ---
 
-## 9. Open Questions
+---
+
+## 9. Announcements
+
+Announcements are platform communications created by superadmins only. They are used to promote deals, upcoming contests, platform news, or to target specific user segments with relevant messaging.
+
+### 9.1 Creation
+
+A superadmin creates an announcement using a reusable template containing:
+- **Title**
+- **Description**
+- **Thumbnail / cover image**
+- **Redirect link** (optional — where the user goes on click)
+- **Audience filters** (see below)
+- **Status:** `draft` | `active` | `expired`
+- **publishedAt**, **expiresAt**
+
+### 9.2 Audience Filters
+
+Filters are applied at load time against `req.currentUser`. Combinable — a superadmin can stack multiple filters. Non-exhaustive list:
+
+- Location
+- Follower count (min / max)
+- Aprons collected (tier and/or quantity)
+- Declared sex
+- Age gate (minimum age derived from `birthdate`)
+- Sexual orientation
+- Has participated in at least one contest
+- Has participated in at least one tournament
+
+### 9.3 Delivery — Pull at Load Time
+
+Announcements are not pushed to user queues at publish time. Instead, on each page load the panel queries all active, non-expired announcements and evaluates their filters against the current user in memory. Announcements the user has already dismissed are excluded via the `announcement_dismissals` table.
+
+One announcement is shown at a time. If the user has multiple matching announcements queued, dismissing the current one surfaces the next.
+
+### 9.4 Data Model
+
+**Collection: `announcements`**
+
+```js
+{
+  _id: ObjectId,
+  createdBy: ObjectId,       // ref: users — superadmin only
+  title: String,
+  description: String,
+  thumbnailUrl: String,
+  redirectUrl: String,       // optional
+  filters: {
+    location: String,                  // optional
+    followerCountMin: Number,          // optional
+    followerCountMax: Number,          // optional
+    apronTier: String,                 // 'flannel' | 'denim' | 'velvet' — optional
+    apronCountMin: Number,             // optional
+    sex: String,                       // optional
+    ageMin: Number,                    // optional
+    orientation: String,               // optional
+    hasContestHistory: Boolean,        // optional
+    hasTournamentHistory: Boolean,     // optional
+  },
+  status: String,            // 'draft' | 'active' | 'expired'
+  publishedAt: Date,
+  expiresAt: Date,           // optional — null means no expiry
+  createdAt: Date
+}
+```
+
+**Collection: `announcement_dismissals`**
+
+```js
+{
+  _id: ObjectId,
+  announcementId: ObjectId,  // ref: announcements
+  userId: ObjectId,          // ref: users
+  dismissedAt: Date
+}
+```
+
+**Indexes:** `{ announcementId, userId }` unique on `announcement_dismissals`; `status` + `expiresAt` on `announcements`
+
+---
+
+## 10. Right Panel
+
+The right panel is a persistent sidebar visible on all platform pages (xl+ screens). It is not a feed — it is a contextual utility column. Sections are ordered by platform priority, top to bottom.
+
+### 10.1 Section Order
+
+| # | Section | Status |
+|---|---|---|
+| 1 | Ongoing Tournaments | Skeleton until July — tournaments not yet built |
+| 2 | Announcements | Pull at load time — see Section 9 |
+| 3 | People to Follow | Algorithmic suggestions |
+
+### 10.2 Ongoing Tournaments
+
+Shows active tournament cards with a cover badge and tournament title. Limited to 3–5 at a time. Links to the tournament page. Skeleton state until the tournament system is built (July scope).
+
+### 10.3 Announcements
+
+Pulls active announcements matching the current user's profile (see Section 9.3). One shown at a time. Dismissable — next queued announcement surfaces on dismiss.
+
+### 10.4 People to Follow
+
+Algorithmic suggestions based on global platform signals:
+- Follower count
+- Aprons won (tier and total count)
+- Entry submission volume combined with rating rank
+
+Shows users the current user does not already follow. Excludes the current user themselves.
+
+---
+
+## 11. Open Questions
 
 - **Payment processor:** CCBill selected as first option. Epoch does not support US-based businesses. Verify CCBill's current ToS covers the platform's content category and escrow/payout requirements before integrating. Now also the processor for credit purchases (Section 5), which pulls payment integration earlier than originally planned.
 - **Follow system:** A `follows` collection exists in the data model (follower/followee user relationships) but the feature is not yet documented. Scope, UI surface, and notification behavior TBD.
-- **Credits & contestant payouts (Section 5):** exchange rate, credit package pricing, exact contestant/platform split, whether old $0 exceptions still apply, organizer vote weighting, and the new spend-based Apron tier (names/thresholds) are all undecided.
+- **Credits & contestant payouts (Section 5):** fully locked — exchange rate (1 credit = $0.20), 75/25 split, bundle pricing ($20/$50/$100/custom up to $500), attribution locked to original contest window only, all votes equal regardless of voter role.
+- **Apron payout funding source (Section 3.7):** funded from general platform resources — primarily the 25% cut from credit attribution spend, supplemented by sponsors or available reserves as needed. The collection thresholds (5/10/20) are intentionally designed to defer large payout events, giving the platform time to accumulate revenue before significant obligations come due.
 
-## 10. Post-MVP: Open Challenges
+## 12. Post-MVP: Open Challenges
 
 An open challenge is created when the creator **does not self-nominate** — they are the organizer, not a contestant. The challenge is open for any registered user to submit an entry.
 

@@ -65,7 +65,7 @@ router.post('/auth/send-otp', async (req, res) => {
   }
 });
 
-router.post('/signup', upload.fields([{ name: 'avatar', maxCount: 1 }]), async (req, res) => {
+router.post('/signup', upload.avatar.fields([{ name: 'avatar', maxCount: 1 }]), async (req, res) => {
   const renderError = (msg) => res.render('signup', { title: 'Sign Up', error: msg, editUser: null });
 
   try {

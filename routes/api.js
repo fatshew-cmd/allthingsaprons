@@ -13,6 +13,8 @@ const ContestCommentReport = require('../models/ContestCommentReport');
 const Comment       = require('../models/Comment');
 const CommentReport = require('../models/CommentReport');
 const Notification  = require('../models/Notification');
+const Announcement  = require('../models/Announcement');
+const AnnouncementDismissal = require('../models/AnnouncementDismissal');
 const upload     = require('../middleware/upload');
 
 router.get('/me', (req, res) => {
@@ -82,7 +84,7 @@ router.get('/check-signup', async (req, res) => {
   res.json(result);
 });
 
-router.post('/entries', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), async (req, res) => {
+router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }]), async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
 
   const actor = await User.findById(req.session.userId).select('idVerified').lean();
@@ -827,6 +829,37 @@ router.post('/entries/:eid/comments/:cid/report', async (req, res) => {
     console.error('Comment report error:', err);
     res.status(500).json({ error: 'Something went wrong.' });
   }
+});
+
+// ── Announcement dismiss ──────────────────────────────────────────────────────
+router.post('/announcements/:id/dismiss', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid ID' });
+
+  try {
+    await AnnouncementDismissal.create({ announcementId: id, userId: req.session.userId });
+  } catch (err) {
+    if (err.code !== 11000) {
+      console.error('Dismiss error:', err);
+      return res.status(500).json({ error: 'Something went wrong.' });
+    }
+    // Already dismissed — continue to find next
+  }
+
+  // Return next matching, non-dismissed announcement
+  const now = new Date();
+  const dismissed = await AnnouncementDismissal.distinct('announcementId', { userId: req.session.userId });
+  const candidates = await Announcement.find({
+    status: 'active',
+    _id: { $nin: dismissed },
+    $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
+  }).sort({ publishedAt: -1 }).lean();
+
+  // Basic filter pass — same logic as middleware (filters requiring missing User fields skipped)
+  const next = candidates[0] || null;
+  res.json({ next });
 });
 
 module.exports = router;

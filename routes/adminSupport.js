@@ -4,7 +4,7 @@ const { Resend }     = require('resend');
 const User           = require('../models/User');
 const SupportThread  = require('../models/SupportThread');
 const SupportMessage = require('../models/SupportMessage');
-const { supportUpload } = require('../middleware/upload');
+const upload = require('../middleware/upload');
 
 const FROM_EMAIL   = process.env.FROM_EMAIL || 'noreply@allthingsaprons.com';
 const { TOPIC_LABELS } = SupportThread;
@@ -99,7 +99,7 @@ router.get('/thread/:threadId', async (req, res) => {
 });
 
 // POST /admin/support/thread/:threadId/reply — send reply
-router.post('/thread/:threadId/reply', supportUpload.array('support', 5), async (req, res) => {
+router.post('/thread/:threadId/reply', upload.support.array('support', 5), async (req, res) => {
   try {
     const thread = await SupportThread.findById(req.params.threadId);
     if (!thread) return res.status(404).json({ error: 'Thread not found' });

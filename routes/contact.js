@@ -4,7 +4,7 @@ const User           = require('../models/User');
 const SupportThread  = require('../models/SupportThread');
 const SupportMessage = require('../models/SupportMessage');
 const requireAuth    = require('../middleware/requireAuth');
-const { supportUpload } = require('../middleware/upload');
+const upload = require('../middleware/upload');
 
 const { TOPIC_LABELS } = SupportThread;
 
@@ -145,7 +145,7 @@ router.get('/thread/:threadId/messages', async (req, res) => {
 });
 
 // POST /contact/thread/:threadId/messages — send message
-router.post('/thread/:threadId/messages', supportUpload.array('support', 5), async (req, res) => {
+router.post('/thread/:threadId/messages', upload.support.array('support', 5), async (req, res) => {
   try {
     const thread = await SupportThread.findOne({
       _id:    req.params.threadId,

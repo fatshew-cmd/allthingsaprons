@@ -63,7 +63,7 @@ router.get('/code', async (req, res) => {
 });
 
 // POST /verify-identity — submit docs for review
-router.post('/', upload.fields([{ name: 'idSelfie', maxCount: 1 }, { name: 'idDoc', maxCount: 1 }]), async (req, res) => {
+router.post('/', upload.idDocs.fields([{ name: 'idSelfie', maxCount: 1 }, { name: 'idDoc', maxCount: 1 }]), async (req, res) => {
   const selfie = req.files?.idSelfie?.[0];
   const idDoc  = req.files?.idDoc?.[0];
   const code   = req.session.verificationCode;

@@ -42,7 +42,7 @@ Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entri
 
 ### What is not done yet
 - Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
-- Right panel trending/contests data (shows skeleton permanently)
+- Right panel redesign: rebuild `rightPanel.ejs` with defined sections (ongoing tournaments skeleton, announcements, people to follow) — see `platform-core-concepts.md` Section 11
 - Background jobs: void deadline enforcement, voting deadline + close logic, contest_closed / contest_voided notification triggers (Phase 5 scope)
 - Viewer nomination flow (any user nominates two others for a HTH with a message)
 - Phase 6 admin UI pages: tournament management, content moderation, and entries moderation are placeholder stubs only; admin dashboard, user list/detail, ID verification queue, and audit log are done
@@ -65,8 +65,8 @@ The foundation. Nothing else gets built until the data models match the design.
 - [x] Create `ContestVote` schema.
 - [x] Create `Tournament` schema (with embedded prizes).
 - [x] Create `TournamentEntry` schema — include `approvalStatus: enum('pending', 'approved', 'rejected', 'timed_out')` and `reviewedAt`.
-- [x] Create `RatingsChallenge` schema (with embedded entries).
-- [x] Create `RatingsChallengeVote` schema.
+- ~~Create `RatingsChallenge` schema~~ — removed, mechanic replaced by 3-replay tie-breaker chain
+- ~~Create `RatingsChallengeVote` schema~~ — removed
 - [x] Update `isAdmin` middleware to use `role === 'admin'` instead of `isAdmin` boolean.
 - [x] Run `seedAdmin.js` to verify the updated User schema works end to end.
 
@@ -101,13 +101,13 @@ The default engagement layer. Every user on the platform interacts with this.
 - [x] Rating flow: authenticated user submits 1–10 score. Enforce no self-rating, no duplicate rating. Update `ratingCount` and `ratingAvg` on the entry document.
 - [x] Tags: entry owner can add, edit, or remove up to 6 free-form tags on their entry at any time.
 - [x] **Fix leaderboard route:** real query implemented — top entries by `ratingAvg` with minimum 3 ratings, populated owner info, passed as `items` to the view.
-- [ ] **Wire up right panel data:** `rightPanel.ejs` references `trendingItems` and `contests` that no route ever populates — the panel shows skeleton placeholders permanently. Feed and leaderboard routes should query and pass this data.
+- [ ] **Right panel redesign:** The original `rightPanel.ejs` placeholders (`trendingItems`, `contests`) were scaffolded without a firm spec and are being replaced. Panel sections defined — see `platform-core-concepts.md` Section 11 for full spec. Top to bottom: (1) Ongoing Tournaments — skeleton until July; (2) Announcements — pulled at load time, filtered against current user, one shown at a time, dismissable; (3) People to Follow — algorithmic suggestions. `rightPanel.ejs` needs to be rebuilt to match this structure.
 - [x] Feed page: Ratings tab fully wired — `UserAffinity` model + `utils/feedScorer.js` affinity/velocity/follow scoring, entries rendered as `entryCard` with pre-locked ratings for already-rated entries.
 - [x] Comment flow: any registered user can comment on an entry. Users can delete their own comments. Entry owner can hide any comment (hidden comments move to a private "hidden comments" section, visible only to the owner). Any user can report a comment.
 - [x] Reply flow: any registered user can reply to a top-level comment (one level only).
 - [x] Comment notifications: notify entry owner when someone comments on their entry. Notify parent commenter when someone replies to their comment.
 
-**Exit criteria:** A user can upload an entry, other users can rate it 1–10, and the feed and leaderboard reflect live data. Comments work end to end. Right panel shows real trending data.
+**Exit criteria:** A user can upload an entry, other users can rate it 1–10, and the feed and leaderboard reflect live data. Comments work end to end. Right panel renders with the defined section structure (tournaments skeleton, announcements matching the current user, people to follow suggestions).
 
 > **Dev note:** `@storiesbyshews` has `idVerified: true` set manually in the DB to allow free entry submission testing during Phase 3. Before Phase 3 closes, reset this user's `idVerified` to `false` and `idVerificationStatus` to `none` (or `null`) so the account goes through the real ID verification flow.
 
@@ -162,14 +162,40 @@ The core competitive mechanic. Build the HTH contest flow end to end.
 
 ---
 
+#### Nomination Notification Redirect Fix (added June 17)
+
+**Issue:** When a nominee clicks their nomination notification, they are always sent to the entry submission page (`/submit?nomination=<id>`). But if they have already submitted their entry and the contest is now `active`, that redirect is wrong — the submission page is irrelevant and the contest is already live.
+
+**Fix:** At the point the nomination notification is clicked (or the redirect is resolved), check the nomination's current status:
+- `nomination.status === 'pending'` → redirect to `/submit?nomination=<id>` as normal
+- `nomination.status === 'accepted'` → redirect to `/contest/:contestId` instead
+
+**Tasks:**
+- [ ] Update the nomination notification click handler to check nomination status and redirect to the contest page when already accepted.
+
+---
+
+#### Fake Credits for Contribution Flow Testing (added June 17)
+
+The full credit system (CCBill integration, credit packages) is July scope. However, contribution flow on contests needs to be testable before then. Rather than integrating CCBill early, a dev convenience will be used: an admin action to manually credit a user's balance directly in the DB.
+
+**Tasks:**
+- [ ] Add an admin action (superadmin only) to manually set or top up a user's credit balance — for testing purposes only. No CCBill, no payment flow. Just a direct balance write.
+
+---
+
 ### Phase 5 — Notifications + Background Jobs (June 22–30)
 
 The system that makes everything time-sensitive work reliably.
 
+**Job scheduler decision: `agenda`** — `node-cron` only supports fixed recurring schedules and cannot schedule one-time jobs at a specific datetime. `agenda` uses MongoDB (already in use) as its backing store and natively supports both recurring sweeper jobs and dynamically scheduled one-time jobs.
+
+**Sweeper + scheduler pattern** — recurring sweeper jobs run every 15 minutes. When a sweeper finds a deadline within the next 15 minutes, it schedules a one-time targeted job to fire at exactly that deadline rather than waiting for the next sweep. This ensures no contest waits more than a few seconds past its actual deadline. If the deadline has already passed, the sweeper closes it immediately.
+
 **Tasks:**
-- [ ] Choose and install a job scheduler (`node-cron` or `agenda`).
-- [ ] Implement void deadline job: runs every 15 minutes, voids pending contests past their `voidDeadline`.
-- [ ] Implement voting deadline job: runs every 15 minutes, closes active contests past their `votingDeadline`.
+- [ ] Install and configure `agenda` with MongoDB backing store.
+- [ ] Implement void deadline sweeper (every 15 min): finds pending contests where `voidDeadline <= now` → void immediately; `voidDeadline` within 15 min → schedule one-time `void-contest` job at exact deadline. Replaces the current Mongoose post-hook bridge.
+- [ ] Implement voting deadline sweeper (every 15 min): finds active contests where `votingDeadline <= now` → close immediately (count votes, set `winnerEntryId`, status → `closed`, fire notifications); `votingDeadline` within 15 min → schedule one-time `close-contest` job at exact deadline.
 - [ ] Implement entry review timeout job (July/tournament scope): runs every 5 minutes. Finds `tournament_entries` with `approvalStatus: 'pending'` and `submittedAt < now - 30min`. For each: set `approvalStatus: 'timed_out'`, increment `tournament.missedReviews`, notify the submitting user their entry timed out. If `tournament.missedReviews >= 3`: cancel the tournament, notify all `pending_approval` users to resubmit elsewhere.
 - [ ] Gate tournament creation behind `idVerified: true` check. Since ID verification is now scoped and on-demand (not a mandatory onboarding step), a user can reach the "create tournament" action without ever having verified — this check is a real, reachable gate, not just a bypass safeguard.
 - [x] Notification model: dedicated `Notification` collection (Option A) with compound index `{userId, read, createdAt}` and 90-day TTL index. `injectNotificationCount` middleware injects unread count into all main platform views. Sidebar badge (count label + collapsed dot). Per-notification click-to-mark-read + mark-all-as-read. Triggers: new comment → entry owner, reply → parent commenter, nomination created → nominee.
@@ -358,6 +384,55 @@ The dashboard is served at `/admin` for all roles but renders entirely different
 
 ---
 
+## Financial System — Design Complete (June 17) / Implementation July
+
+The full financial system was designed on June 17 and is fully documented in `plans/platform-core-concepts.md`. Implementation remains July scope. Key decisions locked:
+
+### Credits
+- **Exchange rate:** 1 credit = $0.20 ($1 = 5 credits). Adjustable at platform discretion.
+- **Credit packages:** $20 (100cr) / $50 (250cr) / $100 (500cr) / custom $20–$500 (100–2,500cr). Minimum purchase $20.
+- **Payment processor:** CCBill (pending ToS verification).
+
+### Voting & Attribution
+- **Free vote:** 1 per 12 hours per user. Resets, does not accumulate.
+- **Paid vote:** costs credits (user-determined amount). Vote switching allowed while contest is live — free vote returned, credits refunded.
+- **One vote per contest per user** (one entry only). Cannot vote for own entry.
+- **Attribution:** separate from voting. User-determined credit spend via slider. Can contribute to both entries in a contest. Mutable while contest is live (increase, decrease, or full withdrawal). Locks at contest close.
+- **Attribution in tie-breaker chains:** attribution window is original contest only. If the original ties, attribution locks — replays are vote-only. Pays out at final chain resolution (replay win or sudden death).
+- **Attribution cash-out minimum:** 100 credits ($20).
+- **Split:** 75% to contestant, 25% to platform at contest close.
+- **All votes equal** — no special weighting for organizers or any other role.
+
+### Contestant Aprons (contest trophy system)
+Aprons are awarded at contest close based on margin of victory. Separate from tournament placement prizes (Golden/Silver/Red).
+
+**Eligibility:** winner must reach 5,000 votes. Gap % = `(winner − loser) / loser`.
+
+| Apron | Gap required | Example (loser = 5,000) | Value each | Min. to cash out | Min. payout |
+|-------|:-----------:|:-----------------------:|:----------:|:----------------:|:-----------:|
+| Flannel | ≥ 49% | 7,450 votes | $10 (50cr) | 5 | $50 |
+| Denim | ≥ 68% | 8,400 votes | $20 (100cr) | 10 | $200 |
+| Velvet | ≥ 110% | 10,500 votes | $50 (250cr) | 20 | $1,000 |
+
+Special case: winner ≥ 5,000, loser < 5,000 → automatic Flannel.
+
+- Aprons are **permanent on profile** (lifetime total always visible). Eligible balance = total won − paid out.
+- **Forced monthly auto-payout:** platform settles all eligible balances at month end. If below minimum, carries over.
+- Funded from general platform resources (primarily the 25% vote attribution cut).
+
+### Tie-breaker chain update
+Ratings Challenge removed. New chain (tournament contests only):
+
+| Round | Window |
+|-------|:------:|
+| Original | 72h |
+| Replay 1 | 36h |
+| Replay 2 | 18h |
+| Replay 3 | 9h |
+| Sudden Death | Organizer decides — final |
+
+---
+
 ## What is NOT in June
 
 These are defined but deliberately deferred:
@@ -365,9 +440,9 @@ These are defined but deliberately deferred:
 | Feature | Reason |
 |---|---|
 | Tournaments | Needs contest system solid and battle-tested first |
-| Vote wallet + earnings | Needs contest system working; adds complexity |
-| CCBill integration | No payments until tournament prize flow is ready |
-| Ratings Challenge (tie-breaker) | Part of tournament system |
+| Credit system + CCBill | Design complete (see above) — implementation deferred to July |
+| Apron payout system | Design complete (see above) — implementation deferred to July |
+| Ratings Challenge (tie-breaker) | Removed from design — replaced by 3-replay chain |
 | Open challenges (post-MVP) | Explicitly post-MVP |
 
 ---

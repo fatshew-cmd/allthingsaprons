@@ -15,7 +15,6 @@ const tournamentSchema = new mongoose.Schema({
   entryWindowHours:       { type: Number, default: 72 },
   cooldownHours:          { type: Number, default: 3 },
   roundWindowHours:       { type: Number, default: 72 },
-  ratingsChallengeHours:  { type: Number, default: 6 },
 
   entryDeadline:          { type: Date },
   roundsStartAt:          { type: Date },

@@ -10,6 +10,9 @@ const requireDomain  = require('../middleware/requireDomain');
 const logAuditEvent  = require('../utils/auditLog');
 const BannedEmail    = require('../models/BannedEmail');
 const BannedDocHash  = require('../models/BannedDocHash');
+const Announcement   = require('../models/Announcement');
+const AnnouncementDismissal = require('../models/AnnouncementDismissal');
+const upload         = require('../middleware/upload');
 
 router.get('/login', (req, res) => {
   res.render('admin/login', { title: 'Admin Login', error: null, setup: req.query.setup === '1' });
@@ -539,6 +542,140 @@ router.get('/moderation', (req, res) => {
 
 router.get('/content', (req, res) => {
   res.render('admin/content/index', { title: 'Entries', currentPage: 'content' });
+});
+
+// ── Announcements (superadmin + founder) ─────────────────────────────────────
+
+const ANNOUNCEMENT_ROLES = ['superadmin', 'founder'];
+
+router.get('/announcements', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!ANNOUNCEMENT_ROLES.includes(role)) return res.redirect('/admin');
+
+  try {
+    const announcements = await Announcement.find().sort({ createdAt: -1 }).lean();
+    res.render('admin/announcements/index', {
+      title: 'Announcements',
+      currentPage: 'announcements',
+      announcements,
+      flash: req.query.flash || null,
+    });
+  } catch (err) {
+    console.error('Announcements list error:', err);
+    res.redirect('/admin');
+  }
+});
+
+router.post('/announcements', upload.thumbnail.single('thumbnail'), async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!ANNOUNCEMENT_ROLES.includes(role)) return res.status(403).json({ error: 'Forbidden' });
+
+  const { title, description, redirectUrl, expiresAt, publish, filters } = req.body;
+  if (!title?.trim()) return res.redirect('/admin/announcements?flash=title-required');
+
+  try {
+    const thumbnailUrl = req.file ? '/uploads/announcements/' + req.file.filename : undefined;
+    const status = publish === '1' ? 'active' : 'draft';
+    await Announcement.create({
+      createdBy:   req.session.adminId,
+      title:       title.trim(),
+      description: description?.trim() || undefined,
+      thumbnailUrl,
+      redirectUrl:  redirectUrl?.trim() || undefined,
+      expiresAt:    expiresAt ? new Date(expiresAt) : undefined,
+      status,
+      publishedAt:  status === 'active' ? new Date() : undefined,
+      filters: {
+        sex:         filters?.sex?.trim()         || undefined,
+        ageMin:      filters?.ageMin              ? Number(filters.ageMin)    : undefined,
+        orientation: filters?.orientation?.trim() || undefined,
+      },
+    });
+    res.redirect('/admin/announcements?flash=created');
+  } catch (err) {
+    console.error('Create announcement error:', err);
+    res.redirect('/admin/announcements?flash=error');
+  }
+});
+
+router.get('/announcements/:id/edit', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!ANNOUNCEMENT_ROLES.includes(role)) return res.redirect('/admin');
+
+  try {
+    const ann = await Announcement.findById(req.params.id).lean();
+    if (!ann) return res.redirect('/admin/announcements');
+    res.render('admin/announcements/edit', {
+      title: 'Edit Announcement',
+      currentPage: 'announcements',
+      ann,
+      flash: req.query.flash || null,
+    });
+  } catch {
+    res.redirect('/admin/announcements');
+  }
+});
+
+router.post('/announcements/:id/edit', upload.thumbnail.single('thumbnail'), async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!ANNOUNCEMENT_ROLES.includes(role)) return res.status(403).end();
+
+  const { title, description, redirectUrl, expiresAt, removeThumbnail, filters } = req.body;
+  if (!title?.trim()) return res.redirect(`/admin/announcements/${req.params.id}/edit?flash=title-required`);
+
+  try {
+    const existing = await Announcement.findById(req.params.id);
+    if (!existing) return res.redirect('/admin/announcements');
+
+    let thumbnailUrl = existing.thumbnailUrl;
+    if (req.file) {
+      thumbnailUrl = '/uploads/announcements/' + req.file.filename;
+    } else if (removeThumbnail === '1') {
+      thumbnailUrl = undefined;
+    }
+
+    await Announcement.findByIdAndUpdate(req.params.id, {
+      title:        title.trim(),
+      description:  description?.trim() || undefined,
+      thumbnailUrl,
+      redirectUrl:  redirectUrl?.trim() || undefined,
+      expiresAt:    expiresAt ? new Date(expiresAt) : undefined,
+      filters: {
+        sex:         filters?.sex?.trim()  || undefined,
+        ageMin:      filters?.ageMin       ? Number(filters.ageMin) : undefined,
+        orientation: filters?.orientation?.trim() || undefined,
+      },
+    });
+    res.redirect('/admin/announcements?flash=updated');
+  } catch (err) {
+    console.error('Edit announcement error:', err);
+    res.redirect(`/admin/announcements/${req.params.id}/edit?flash=error`);
+  }
+});
+
+router.post('/announcements/:id/activate', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!ANNOUNCEMENT_ROLES.includes(role)) return res.status(403).end();
+
+  await Announcement.findByIdAndUpdate(req.params.id, { status: 'active', publishedAt: new Date() });
+  res.redirect('/admin/announcements');
+});
+
+router.post('/announcements/:id/expire', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!ANNOUNCEMENT_ROLES.includes(role)) return res.status(403).end();
+
+  await Announcement.findByIdAndUpdate(req.params.id, { status: 'expired' });
+  res.redirect('/admin/announcements');
+});
+
+router.post('/announcements/:id/delete', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!ANNOUNCEMENT_ROLES.includes(role)) return res.status(403).end();
+
+  await Announcement.findByIdAndDelete(req.params.id);
+  await AnnouncementDismissal.deleteMany({ announcementId: req.params.id });
+  res.redirect('/admin/announcements');
 });
 
 module.exports = router;

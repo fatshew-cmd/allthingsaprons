@@ -13,7 +13,6 @@ const ContestComment        = require('../models/ContestComment');
 const Contest               = require('../models/Contest');
 const ContestVote           = require('../models/ContestVote');
 const Nomination            = require('../models/Nomination');
-const RatingsChallengeVote  = require('../models/RatingsChallengeVote');
 const TournamentEntry       = require('../models/TournamentEntry');
 const Tournament            = require('../models/Tournament');
 const Follow                = require('../models/Follow');
@@ -367,7 +366,6 @@ router.post('/account/delete', async (req, res) => {
     await CommentReport.deleteMany({ reportedBy: userId });
     await ContestVote.deleteMany({ userId });
     await Nomination.deleteMany({ $or: [{ nominatorId: userId }, { nomineeId: userId }] });
-    await RatingsChallengeVote.deleteMany({ userId });
     await TournamentEntry.deleteMany({ userId });
     await Entry.deleteMany({ userId });
 
@@ -451,7 +449,7 @@ router.get('/submit', async (req, res) => {
   });
 });
 
-router.post('/submit', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), async (req, res) => {
+router.post('/submit', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }]), async (req, res) => {
   if (!req.currentUser.idVerified) return res.redirect('/verify-identity?reason=entry');
   const renderError = (msg) => res.render('submit', {
     title: 'Submit Entry', activePage: 'submit', currentUser: req.currentUser, error: msg,
@@ -490,7 +488,7 @@ router.post('/submit', upload.fields([{ name: 'entryMedia', maxCount: 1 }]), asy
 
 // ── Profile settings update ───────────────────────────────────────
 
-router.post('/settings/profile', upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), async (req, res) => {
+router.post('/settings/profile', upload.profile.fields([{ name: 'avatar', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), async (req, res) => {
   const { username, displayName, bio, location, url, sex, birthdate, returnTo, bannerRemove, avatarRemove, bannerPosX, bannerPosY, bannerZoom } = req.body;
   const errors = [];
   const safeReturnTo = typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')
@@ -759,7 +757,7 @@ router.get('/contest/:id', async (req, res) => {
   // const isParticipant =
   //   contest.createdBy?.toString() === myId ||
   //   contest.entries.some(e => e.userId.toString() === myId);
-  const canVote     = !myVote /* TEMP: status === 'active' disabled for testing — re-enable before launch */;
+  const canVote = !myVote /* TEMP: status === 'active' disabled for testing — re-enable before launch */;
   const isNominator = !!(myId && contest.createdBy?._id?.toString() === myId);
 
   function buildSide(ce) {

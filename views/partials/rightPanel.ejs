@@ -1,85 +1,122 @@
-﻿<aside class="hidden xl:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-white/10 overflow-y-auto">
+<aside class="hidden xl:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-white/10 overflow-y-auto">
 
-  <!-- Trending section (default state) -->
-  <div class="p-5" id="panel-trending">
-    <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-4">Trending Now</h2>
-
+  <!-- ── 1. Ongoing Tournaments (skeleton until July) ────────────────────── -->
+  <div class="p-5">
+    <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-4">Tournaments</h2>
     <div class="flex flex-col gap-3">
-      <% if (typeof trendingItems !== 'undefined' && trendingItems.length) { %>
-        <% trendingItems.forEach((item, i) => { %>
-          <div class="flex items-center gap-3">
-            <span class="text-xl font-black w-5 text-center shrink-0
-                         <%= i === 0 ? 'text-charm-400' : 'text-white/20' %>"><%= i + 1 %></span>
-            <div class="w-11 h-11 rounded-md overflow-hidden shrink-0 bg-white/5">
-              <img src="<%= item.mediaUrl %>" class="w-full h-full object-cover" alt="" loading="lazy" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold truncate"><%= item.title %></p>
-              <p class="text-xs text-white/40"><%= item.ratingScore.toFixed(1) %>★ · <%= item.ratingCount %> ratings</p>
-            </div>
+      <% for (let i = 0; i < 3; i++) { %>
+        <div class="flex items-center gap-3 animate-pulse">
+          <div class="w-10 h-10 rounded-md bg-white/5 shrink-0"></div>
+          <div class="flex-1 space-y-1.5">
+            <div class="h-3 bg-white/5 rounded-md w-3/4"></div>
+            <div class="h-2.5 bg-white/5 rounded-md w-1/2"></div>
           </div>
-        <% }) %>
-      <% } else { %>
-        <% for (let i = 0; i < 5; i++) { %>
-          <div class="flex items-center gap-3 animate-pulse">
-            <span class="text-xl font-black w-5 text-white/10 text-center shrink-0"><%= i + 1 %></span>
-            <div class="w-11 h-11 rounded-md bg-white/5 shrink-0"></div>
-            <div class="flex-1 space-y-1.5">
-              <div class="h-3 bg-white/5 rounded-md w-3/4"></div>
-              <div class="h-2.5 bg-white/5 rounded-md w-1/2"></div>
-            </div>
-          </div>
-        <% } %>
+        </div>
       <% } %>
     </div>
   </div>
 
-  <!-- Contests section -->
-  <% if (typeof contests !== 'undefined' && contests.length) { %>
-  <div class="p-5 border-t border-white/10">
-    <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-4">Contests</h2>
-    <div class="flex flex-col gap-3">
-      <% contests.forEach(comp => { %>
-        <div class="rounded-md bg-white/5 border border-white/8 p-3 hover:bg-white/8 transition-colors cursor-pointer">
-          <div class="flex items-start gap-3">
-            <div class="w-9 h-9 rounded-md bg-white/10 overflow-hidden shrink-0">
-              <img src="<%= comp.coverUrl %>" class="w-full h-full object-cover" alt="" loading="lazy" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold truncate"><%= comp.title %></p>
-              <p class="text-xs text-white/40 truncate"><%= comp.theme %></p>
-            </div>
+  <!-- ── 2. Announcements ───────────────────────────────────────────────── -->
+  <% if (typeof panelAnnouncement !== 'undefined' && panelAnnouncement) { %>
+    <div class="p-5 border-t border-white/10" id="panel-announcement">
+      <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-3">Announcement</h2>
+
+      <div class="rounded-md bg-white/5 border border-white/8 overflow-hidden">
+        <% if (panelAnnouncement.thumbnailUrl) { %>
+          <div class="w-full h-28 bg-white/5 overflow-hidden">
+            <img src="<%= panelAnnouncement.thumbnailUrl %>" class="w-full h-full object-cover" alt="" loading="lazy" />
           </div>
-          <div class="flex items-center justify-between mt-2.5">
-            <% if (comp.status === 'active') { %>
-              <span class="text-xs font-medium text-green-400"><%= comp.daysLeft %>d left</span>
-            <% } else { %>
-              <span class="text-xs font-medium text-yellow-400/80">Opens in <%= comp.daysLeft %>d</span>
-            <% } %>
-            <span class="text-xs text-white/25">by <%= comp.organizer %></span>
-          </div>
+        <% } %>
+        <div class="p-3">
+          <% if (panelAnnouncement.redirectUrl) { %>
+            <a href="<%= panelAnnouncement.redirectUrl %>" class="text-sm font-semibold text-white hover:text-charm-300 transition-colors block mb-1 leading-snug">
+              <%= panelAnnouncement.title %>
+            </a>
+          <% } else { %>
+            <p class="text-sm font-semibold text-white mb-1 leading-snug"><%= panelAnnouncement.title %></p>
+          <% } %>
+          <% if (panelAnnouncement.description) { %>
+            <p class="text-xs text-white/50 leading-relaxed line-clamp-3"><%= panelAnnouncement.description %></p>
+          <% } %>
+          <button
+            class="mt-2.5 text-xs text-white/30 hover:text-white/60 transition-colors"
+            data-dismiss-announcement="<%= panelAnnouncement._id %>"
+          >Dismiss</button>
         </div>
-      <% }) %>
+      </div>
     </div>
-  </div>
   <% } %>
 
-  <!-- Item detail panel (shown via JS when actively rating) -->
-  <div id="panel-item-detail" class="hidden p-5 border-t border-white/10">
-    <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-4">Item Stats</h2>
-    <div id="item-detail-content" class="flex flex-col gap-3">
-      <div class="flex items-center justify-between">
-        <span class="text-sm text-white/40">Community avg</span>
-        <span id="detail-score" class="text-sm font-bold text-charm-400">—</span>
-      </div>
-      <div class="h-2 bg-white/10 rounded-md overflow-hidden">
-        <div id="detail-bar" class="h-full bg-charm-500 rounded-md transition-all duration-500" style="width: 0%;"></div>
-      </div>
-      <div class="flex items-center justify-between text-xs text-white/30">
-        <span id="detail-count">0 ratings</span>
-        <span class="text-white/20">Shop this — coming soon</span>
+  <!-- ── 3. People to Follow ────────────────────────────────────────────── -->
+  <% if (typeof panelSuggestedUsers !== 'undefined' && panelSuggestedUsers.length) { %>
+    <div class="p-5 border-t border-white/10">
+      <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-4">People to Follow</h2>
+      <div class="flex flex-col gap-4">
+        <% panelSuggestedUsers.forEach(suggestion => { %>
+          <div class="flex items-center gap-3" data-suggest-row="<%= suggestion.username %>">
+            <a href="/<%= suggestion.username %>" class="shrink-0">
+              <img
+                src="<%= suggestion.avatar || '/img/default-avatar.png' %>"
+                class="w-9 h-9 rounded-full object-cover bg-white/5"
+                alt=""
+                loading="lazy"
+              />
+            </a>
+            <div class="flex-1 min-w-0">
+              <a href="/<%= suggestion.username %>" class="text-sm font-semibold text-white hover:text-charm-300 transition-colors block truncate">
+                <%= suggestion.displayName %>
+              </a>
+              <p class="text-xs text-white/40 truncate">@<%= suggestion.username %></p>
+            </div>
+            <button
+              class="text-xs font-semibold text-charm-400 hover:text-charm-300 transition-colors shrink-0 panel-follow-btn"
+              data-username="<%= suggestion.username %>"
+            >Follow</button>
+          </div>
+        <% }) %>
       </div>
     </div>
-  </div>
+  <% } %>
 
 </aside>
+
+<script>
+(function () {
+  // Announcement dismiss
+  document.querySelectorAll('[data-dismiss-announcement]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.dismissAnnouncement;
+      const section = document.getElementById('panel-announcement');
+      try {
+        const res = await fetch('/api/announcements/' + id + '/dismiss', { method: 'POST' });
+        const data = await res.json();
+        if (data.next) {
+          const card = section.querySelector('.rounded-md.bg-white\\/5');
+          // Reload the page so the middleware re-evaluates the next announcement
+          window.location.reload();
+        } else {
+          section.remove();
+        }
+      } catch {
+        section.remove();
+      }
+    });
+  });
+
+  // People to follow — inline follow
+  document.querySelectorAll('.panel-follow-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const username = btn.dataset.username;
+      try {
+        await fetch('/follow/' + username, { method: 'POST' });
+        const row = btn.closest('[data-suggest-row]');
+        btn.textContent = 'Following';
+        btn.disabled = true;
+        btn.classList.remove('text-charm-400', 'hover:text-charm-300');
+        btn.classList.add('text-white/30');
+        setTimeout(() => row?.remove(), 1200);
+      } catch { /* silent */ }
+    });
+  });
+})();
+</script>
