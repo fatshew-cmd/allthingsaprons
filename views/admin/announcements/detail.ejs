@@ -1,0 +1,189 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head><%- include('../../partials/head') %></head>
+<body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
+
+  <%- include('../../partials/adminSidebar', { currentPage: 'announcements' }) %>
+
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <main class="flex-1 overflow-y-auto p-6">
+
+      <!-- Back + actions header -->
+      <div class="flex items-center justify-between mb-6">
+        <a href="/admin/announcements" class="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors no-underline">
+          <iconify-icon icon="boxicons:arrow-back" width="14" style="display:block"></iconify-icon>
+          Announcements
+        </a>
+        <div class="flex items-center gap-2">
+          <a href="/admin/announcements/<%= ann._id %>/edit"
+            class="text-xs font-semibold px-4 h-8 rounded-md inline-flex items-center bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition-colors no-underline">
+            Edit
+          </a>
+          <% if (ann.status === 'draft') { %>
+            <form action="/admin/announcements/<%= ann._id %>/activate" method="POST">
+              <button type="submit" class="text-xs font-semibold px-4 h-8 rounded-md inline-flex items-center bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors cursor-pointer">
+                Activate
+              </button>
+            </form>
+          <% } else if (ann.status === 'active') { %>
+            <form action="/admin/announcements/<%= ann._id %>/expire" method="POST">
+              <button type="submit" class="text-xs font-semibold px-4 h-8 rounded-md inline-flex items-center bg-white/5 text-zinc-400 hover:bg-white/10 transition-colors cursor-pointer">
+                Expire
+              </button>
+            </form>
+          <% } %>
+          <form action="/admin/announcements/<%= ann._id %>/delete" method="POST" onsubmit="return confirm('Delete this announcement?')">
+            <button type="submit" class="text-xs font-semibold px-4 h-8 rounded-md inline-flex items-center bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer">
+              Delete
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="flex gap-6 items-start">
+
+        <!-- ── Left: Stats + meta ───────────────────────────────────────────── -->
+        <div class="flex-1 min-w-0 flex flex-col gap-5">
+
+          <!-- Title + status -->
+          <div class="flex items-center gap-3">
+            <h1 class="text-lg font-bold text-white m-0"><%= ann.title %></h1>
+            <%
+              const statusColor = {
+                active:  'text-green-400 bg-green-400/10',
+                draft:   'text-zinc-400 bg-zinc-700',
+                expired: 'text-red-400 bg-red-400/10',
+              }[ann.status] || 'text-zinc-400 bg-zinc-700';
+            %>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full <%= statusColor %>"><%= ann.status %></span>
+          </div>
+
+          <!-- Stats grid -->
+          <div class="grid grid-cols-4 gap-4">
+
+            <div class="bg-zinc-900 border border-white/8 rounded-md p-4">
+              <p class="text-xs text-zinc-500 mb-1">Dismissals</p>
+              <p class="text-2xl font-bold text-white m-0"><%= dismissalCount %></p>
+              <p class="text-[11px] text-zinc-600 mt-1">users dismissed this card</p>
+            </div>
+
+            <div class="bg-zinc-900 border border-white/8 rounded-md p-4 opacity-50">
+              <p class="text-xs text-zinc-500 mb-1">Impressions</p>
+              <p class="text-2xl font-bold text-zinc-600 m-0">—</p>
+              <p class="text-[11px] text-zinc-600 mt-1">tracking not yet wired</p>
+            </div>
+
+            <div class="bg-zinc-900 border border-white/8 rounded-md p-4 opacity-50">
+              <p class="text-xs text-zinc-500 mb-1">Clicks</p>
+              <p class="text-2xl font-bold text-zinc-600 m-0">—</p>
+              <p class="text-[11px] text-zinc-600 mt-1">tracking not yet wired</p>
+            </div>
+
+            <div class="bg-zinc-900 border border-white/8 rounded-md p-4 opacity-50">
+              <p class="text-xs text-zinc-500 mb-1">Dismiss rate</p>
+              <p class="text-2xl font-bold text-zinc-600 m-0">—</p>
+              <p class="text-[11px] text-zinc-600 mt-1">needs impressions data</p>
+            </div>
+
+          </div>
+
+          <!-- Meta details -->
+          <div class="bg-zinc-900 border border-white/8 rounded-md p-5 flex flex-col gap-4">
+
+            <% if (ann.description) { %>
+              <div>
+                <p class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Description</p>
+                <p class="text-sm text-zinc-300 m-0"><%= ann.description %></p>
+              </div>
+            <% } %>
+
+            <% if (ann.redirectUrl) { %>
+              <div>
+                <p class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Redirect URL</p>
+                <a href="<%= ann.redirectUrl %>" target="_blank" class="text-sm text-charm-400 hover:text-charm-300 break-all"><%= ann.redirectUrl %></a>
+              </div>
+            <% } %>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Published at</p>
+                <p class="text-sm text-zinc-300 m-0">
+                  <% if (ann.publishedAt) { %>
+                    <%= new Date(ann.publishedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) %>
+                  <% } else { %>
+                    <span class="text-zinc-600">—</span>
+                  <% } %>
+                </p>
+              </div>
+              <div>
+                <p class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Expires at</p>
+                <p class="text-sm text-zinc-300 m-0">
+                  <% if (ann.expiresAt) { %>
+                    <%= new Date(ann.expiresAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) %>
+                  <% } else { %>
+                    <span class="text-zinc-600">No expiry</span>
+                  <% } %>
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Audience Filters</p>
+              <% const f = ann.filters || {}; %>
+              <% if (!f.sex && !f.orientation && !f.ageMin) { %>
+                <p class="text-sm text-zinc-600 m-0">No filters — shown to everyone</p>
+              <% } else { %>
+                <div class="flex flex-wrap gap-2">
+                  <% if (f.sex) { %>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300">Sex: <%= f.sex %></span>
+                  <% } %>
+                  <% if (f.orientation) { %>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300">Orientation: <%= f.orientation %></span>
+                  <% } %>
+                  <% if (f.ageMin) { %>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300">Min age: <%= f.ageMin %></span>
+                  <% } %>
+                </div>
+              <% } %>
+            </div>
+
+            <div>
+              <p class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Created</p>
+              <p class="text-sm text-zinc-300 m-0">
+                <%= new Date(ann.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) %>
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── Right: Preview card ──────────────────────────────────────────── -->
+        <div class="w-72 shrink-0 sticky top-6 self-start">
+          <p class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Right panel preview</p>
+          <div class="rounded-md bg-white/5 border border-white/8 overflow-hidden">
+            <% if (ann.thumbnailUrl) { %>
+              <div class="w-full h-40 bg-white/5 overflow-hidden">
+                <img src="<%= ann.thumbnailUrl %>" class="w-full h-full object-cover" alt="">
+              </div>
+            <% } %>
+            <div class="p-3">
+              <% if (ann.redirectUrl) { %>
+                <p class="text-sm font-semibold text-white leading-snug m-0"><%= ann.title %></p>
+              <% } else { %>
+                <p class="text-sm font-semibold text-white leading-snug m-0"><%= ann.title %></p>
+              <% } %>
+              <% if (ann.description) { %>
+                <p class="text-xs text-white/50 leading-relaxed line-clamp-3 mt-1 mb-0"><%= ann.description %></p>
+              <% } %>
+            </div>
+          </div>
+          <p class="text-[11px] text-zinc-600 mt-2">This is how the card appears in the platform right panel.</p>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+</body>
+</html>

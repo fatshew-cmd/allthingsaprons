@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../../partials/head') %></head>
 <body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
@@ -6,251 +6,271 @@
   <%- include('../../partials/adminSidebar', { currentPage: 'announcements' }) %>
 
   <div class="flex-1 flex flex-col overflow-hidden">
-    <main class="flex-1 overflow-y-auto p-8">
+    <main class="flex-1 overflow-y-auto p-4">
 
-      <div class="flex items-center justify-between mb-6">
-        <div>
-          <h1 class="text-xl font-bold text-white m-0">Announcements</h1>
-          <p class="text-sm text-zinc-400 mt-0.5 mb-0">Platform-wide messages shown in the right panel. One active announcement is shown to each user at a time.</p>
+      <div class="flex gap-6 items-start">
+
+        <!-- ── Left: Announcements grid ──────────────────────────────────────── -->
+        <div class="flex-1 min-w-0">
+          <% if (!announcements.length) { %>
+            <div class="bg-zinc-900 border border-white/5 border-dashed rounded-md px-5 py-8 text-center">
+              <p class="text-sm text-zinc-500">No announcements yet.</p>
+            </div>
+          <% } else { %>
+            <div class="grid grid-cols-4 gap-3">
+              <% announcements.forEach(ann => { %>
+                <div class="bg-zinc-900 border border-white/8 rounded-md overflow-hidden flex flex-col aspect-square">
+
+                  <!-- Thumbnail (clickable → detail page) -->
+                  <a href="/admin/announcements/<%= ann._id %>" class="flex-1 block overflow-hidden bg-zinc-800 hover:opacity-90 transition-opacity">
+                    <% if (ann.thumbnailUrl) { %>
+                      <img src="<%= ann.thumbnailUrl %>" class="w-full h-full object-cover" alt="" loading="lazy">
+                    <% } else { %>
+                      <div class="w-full h-full flex items-center justify-center">
+                        <iconify-icon icon="boxicons:megaphone" width="24" style="color:#3f3f46;display:block"></iconify-icon>
+                      </div>
+                    <% } %>
+                  </a>
+
+                  <div class="p-3 flex flex-col gap-2 flex-1">
+                    <!-- Title + status -->
+                    <div class="flex items-start gap-2">
+                      <p class="text-sm font-semibold text-white flex-1 leading-snug m-0"><%= ann.title %></p>
+                      <%
+                        const statusColor = {
+                          active:  'text-green-400 bg-green-400/10',
+                          draft:   'text-zinc-400 bg-zinc-700',
+                          expired: 'text-red-400 bg-red-400/10',
+                        }[ann.status] || 'text-zinc-400 bg-zinc-700';
+                      %>
+                      <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 <%= statusColor %>"><%= ann.status %></span>
+                    </div>
+
+                    <% if (ann.description) { %>
+                      <p class="text-xs text-zinc-400 line-clamp-2 m-0"><%= ann.description %></p>
+                    <% } %>
+
+                    <p class="text-xs text-zinc-600 m-0 mt-auto pt-1">
+                      <%= new Date(ann.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
+                      <% if (ann.expiresAt) { %>· expires <%= new Date(ann.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %><% } %>
+                    </p>
+
+                    <!-- Actions -->
+                    <div class="flex items-center gap-2 pt-2 border-t border-white/5 mt-1">
+                      <a href="/admin/announcements/<%= ann._id %>/edit"
+                        class="text-xs font-semibold px-5 h-8 rounded-md inline-flex items-center bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition-colors no-underline">
+                        Edit
+                      </a>
+                      <% if (ann.status === 'draft') { %>
+                        <form action="/admin/announcements/<%= ann._id %>/activate" method="POST">
+                          <button type="submit" class="text-xs font-semibold px-5 h-8 rounded-md inline-flex items-center bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors cursor-pointer">
+                            Activate
+                          </button>
+                        </form>
+                      <% } else if (ann.status === 'active') { %>
+                        <form action="/admin/announcements/<%= ann._id %>/expire" method="POST">
+                          <button type="submit" class="text-xs font-semibold px-5 h-8 rounded-md inline-flex items-center bg-white/5 text-zinc-400 hover:bg-white/10 transition-colors cursor-pointer">
+                            Expire
+                          </button>
+                        </form>
+                      <% } %>
+                      <form action="/admin/announcements/<%= ann._id %>/delete" method="POST" onsubmit="return confirm('Delete this announcement?')" class="ml-auto">
+                        <button type="submit" class="text-xs font-semibold px-5 h-8 rounded-md inline-flex items-center bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer">
+                          Delete
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
         </div>
+
+        <!-- ── Right: Create form ─────────────────────────────────────────────── -->
+        <div class="w-105 shrink-0 sticky top-4" style="height:calc(100vh - 2rem)">
+          <div class="bg-zinc-900 border border-white/8 rounded-md p-4 h-full flex flex-col">
+            <form action="/admin/announcements" method="POST" enctype="multipart/form-data" class="flex flex-col gap-3 flex-1 min-h-0">
+
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs font-semibold text-zinc-400">Title <span class="text-red-400">*</span></label>
+                  <span id="title-count" class="text-xs text-zinc-600">0 / 50</span>
+                </div>
+                <input type="text" name="title" required maxlength="50" placeholder="Announcement title" id="new-title"
+                  class="w-full bg-zinc-800 border border-white/8 rounded-md px-3 py-1.5 h-10 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/20">
+              </div>
+
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs font-semibold text-zinc-400">Description <span class="text-red-400">*</span></label>
+                  <span id="desc-count" class="text-xs text-zinc-600">0 / 120</span>
+                </div>
+                <textarea name="description" rows="2" maxlength="120" placeholder="Short description shown below the title..." id="new-desc"
+                  class="w-full bg-zinc-800 border border-white/8 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/20 resize-none"></textarea>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-zinc-400 mb-1">Thumbnail <span class="text-red-400">*</span></label>
+                <div class="flex items-stretch gap-2">
+                  <div id="thumb-drop" class="relative flex flex-col items-center justify-center gap-1 flex-1 h-20 rounded-md border border-dashed border-white/15 bg-zinc-800 hover:border-white/25 transition-colors cursor-pointer overflow-hidden">
+                    <div id="thumb-empty" class="flex flex-col items-center gap-1 pointer-events-none">
+                      <iconify-icon icon="boxicons:image-add" width="16" style="color:rgba(255,255,255,0.2);display:block"></iconify-icon>
+                      <span class="text-[11px] text-zinc-500 text-center leading-tight">Click to upload</span>
+                    </div>
+                    <input type="file" name="thumbnail" id="thumb-input" accept="image/*" class="hidden">
+                  </div>
+                  <div id="thumb-preview-wrap" class="hidden w-28 shrink-0 relative rounded-md overflow-hidden bg-zinc-800 border border-white/8 h-20">
+                    <img id="thumb-preview" src="" alt="" class="w-full h-full object-contain pointer-events-none">
+                    <p id="thumb-filename" class="absolute bottom-0 left-0 right-0 px-2 py-0.5 text-[10px] text-white/60 bg-black/50 truncate pointer-events-none"></p>
+                    <button type="button" id="thumb-clear"
+                      class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 hover:bg-black/80 transition-colors z-10" style="display:flex;align-items:center;justify-content:center">
+                      <iconify-icon icon="boxicons:x" width="10" style="color:white;display:block"></iconify-icon>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-zinc-400 mb-1">Redirect URL <span class="text-red-400">*</span></label>
+                <input type="url" name="redirectUrl" id="new-redirectUrl" placeholder="https://..."
+                  class="w-full bg-zinc-800 border border-white/8 rounded-md px-3 py-1.5 h-10 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/20">
+              </div>
+
+              <div class="flex flex-col gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-zinc-400 mb-1">Publish at</label>
+                  <div class="flex items-center gap-1.5">
+                    <input type="datetime-local" name="publishedAt" id="new-publishedAt"
+                      class="flex-1 bg-zinc-800 border border-white/8 rounded-md px-2 py-1.5 h-10 text-xs text-white focus:outline-none focus:border-white/20">
+                    <button type="button" onclick="document.getElementById('new-publishedAt').value=''"
+                      class="text-zinc-500 hover:text-white transition-colors shrink-0" title="Clear">
+                      <iconify-icon icon="boxicons:x" width="13"></iconify-icon>
+                    </button>
+                  </div>
+                  <p class="text-[11px] text-zinc-600 mt-0.5">Blank = now.</p>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-zinc-400 mb-1">Expires at</label>
+                  <div class="flex items-center gap-1.5">
+                    <input type="datetime-local" name="expiresAt" id="new-expiresAt"
+                      class="flex-1 bg-zinc-800 border border-white/8 rounded-md px-2 py-1.5 h-10 text-xs text-white focus:outline-none focus:border-white/20">
+                    <button type="button" onclick="document.getElementById('new-expiresAt').value=''"
+                      class="text-zinc-500 hover:text-white transition-colors shrink-0" title="Clear">
+                      <iconify-icon icon="boxicons:x" width="13"></iconify-icon>
+                    </button>
+                  </div>
+                  <p class="text-[11px] text-zinc-600 mt-0.5">Blank = no expiry.</p>
+                </div>
+              </div>
+
+              <!-- Audience filters -->
+              <div class="border-t border-white/8 pt-3">
+                <p class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Audience Filters <span class="normal-case font-normal text-zinc-600">(all optional)</span></p>
+                <div class="grid grid-cols-3 gap-2">
+                  <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Sex</label>
+                    <div class="custom-dropdown relative" id="ann-sex-dropdown">
+                      <input type="hidden" name="filters[sex]" id="ann-sex">
+                      <button type="button" data-dropdown-trigger
+                        class="w-full bg-zinc-800 border border-white/8 rounded-md px-2.5 h-10 text-xs text-left flex items-center justify-between focus:outline-none transition-colors cursor-pointer">
+                        <span class="dropdown-label text-sm text-zinc-500">Any</span>
+                        <iconify-icon data-chevron icon="boxicons:chevron-down" width="16" class="text-white/30 shrink-0" style="transition:transform 0.15s ease"></iconify-icon>
+                      </button>
+                      <div class="dropdown-panel absolute z-20 w-full mt-1 bg-zinc-800 border border-white/10 rounded-md shadow-xl overflow-hidden" style="display:none">
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Any</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="male" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Male</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="female" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Female</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="other" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Other</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="prefer-not-to-say" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Prefer not to say</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Min age</label>
+                    <input type="number" name="filters[ageMin]" placeholder="e.g. 18" min="1" max="120"
+                      class="w-full bg-zinc-800 border border-white/8 rounded-md px-2.5 py-1.5 h-10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/20">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Orientation</label>
+                    <div class="custom-dropdown relative" id="ann-orientation-dropdown">
+                      <input type="hidden" name="filters[orientation]" id="ann-orientation">
+                      <button type="button" data-dropdown-trigger
+                        class="w-full bg-zinc-800 border border-white/8 rounded-md px-2.5 h-10 text-xs text-left flex items-center justify-between focus:outline-none transition-colors cursor-pointer">
+                        <span class="dropdown-label text-sm text-zinc-500">Any</span>
+                        <iconify-icon data-chevron icon="boxicons:chevron-down" width="16" class="text-white/30 shrink-0" style="transition:transform 0.15s ease"></iconify-icon>
+                      </button>
+                      <div class="dropdown-panel absolute z-20 w-full mt-1 bg-zinc-800 border border-white/10 rounded-md shadow-xl overflow-y-auto max-h-52 overflow-hidden" style="display:none">
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Any</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="straight" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Straight</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="gay" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Gay</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="lesbian" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Lesbian</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="bisexual" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Bisexual</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="pansexual" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Pansexual</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="other" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Other</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                        <button type="button" class="dropdown-option w-full flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors cursor-pointer" data-value="prefer-not-to-say" style="color:rgba(255,255,255,0.5)">
+                          <span class="opt-label">Prefer not to say</span>
+                          <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 mt-auto">
+                <button type="submit" name="publish" value="0"
+                  class="flex-1 px-3 h-10 rounded-md text-xs font-semibold bg-zinc-700 hover:bg-zinc-600 text-white transition-colors">
+                  Save as draft
+                </button>
+                <button type="submit" name="publish" value="1" id="btn-publish-now"
+                  class="flex-1 px-3 h-10 rounded-md text-xs font-semibold bg-charm-500 hover:bg-charm-400 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  Publish now
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+
       </div>
-
-      <!-- Create form -->
-      <div class="bg-zinc-900 border border-white/8 rounded-md p-6 mb-8">
-        <h2 class="text-sm font-bold text-white mb-4">New Announcement</h2>
-        <form action="/admin/announcements" method="POST" enctype="multipart/form-data" class="flex flex-col gap-4">
-
-          <div class="grid grid-cols-2 gap-4">
-            <div class="col-span-2">
-              <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Title <span class="text-red-400">*</span></label>
-              <input type="text" name="title" required placeholder="Announcement title"
-                class="w-full bg-zinc-800 border border-white/8 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/20">
-            </div>
-
-            <div class="col-span-2">
-              <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Description</label>
-              <textarea name="description" rows="3" placeholder="Short description shown below the title..."
-                class="w-full bg-zinc-800 border border-white/8 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/20 resize-none"></textarea>
-            </div>
-
-            <div class="col-span-2">
-              <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Thumbnail</label>
-              <div class="flex items-stretch gap-3">
-
-                <!-- Upload zone -->
-                <div id="thumb-drop" class="relative flex flex-col items-center justify-center gap-1.5 flex-1 h-28 rounded-md border border-dashed border-white/15 bg-zinc-800 hover:border-white/25 transition-colors cursor-pointer overflow-hidden">
-                  <div id="thumb-empty" class="flex flex-col items-center gap-1.5 pointer-events-none">
-                    <iconify-icon icon="lucide:image-plus" width="20" style="color:rgba(255,255,255,0.2);display:block"></iconify-icon>
-                    <span class="text-[11px] text-zinc-500 text-center leading-tight">Click to upload<br>JPG, PNG, WebP</span>
-                  </div>
-                  <input type="file" name="thumbnail" id="thumb-input" accept="image/*" class="hidden">
-                </div>
-
-                <!-- Preview — only visible after a file is chosen -->
-                <div id="thumb-preview-wrap" class="hidden w-36 shrink-0 relative rounded-md overflow-hidden bg-zinc-800 border border-white/8 h-28">
-                  <img id="thumb-preview" src="" alt="" class="w-full h-full object-contain pointer-events-none">
-                  <p id="thumb-filename" class="absolute bottom-0 left-0 right-0 px-2 py-1 text-[10px] text-white/60 bg-black/50 truncate pointer-events-none"></p>
-                  <button type="button" id="thumb-clear"
-                    class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 transition-colors z-10" style="display:flex;align-items:center;justify-content:center">
-                    <iconify-icon icon="lucide:x" width="11" style="color:white;display:block"></iconify-icon>
-                  </button>
-                </div>
-
-              </div>
-            </div>
-
-            <div class="col-span-2">
-              <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Redirect URL</label>
-              <input type="url" name="redirectUrl" placeholder="https://... (optional — makes title clickable)"
-                class="w-full bg-zinc-800 border border-white/8 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/20">
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Expires at</label>
-              <input type="datetime-local" name="expiresAt"
-                class="w-full bg-zinc-800 border border-white/8 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20">
-              <p class="text-xs text-zinc-500 mt-1">Leave blank for no expiry.</p>
-            </div>
-          </div>
-
-          <!-- Audience filters -->
-          <div class="border-t border-white/8 pt-4">
-            <p class="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Audience Filters <span class="normal-case font-normal text-zinc-600">(all optional — blank = show to everyone)</span></p>
-            <div class="grid grid-cols-3 gap-4">
-              <div>
-                <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Sex</label>
-                <div class="custom-dropdown relative" id="ann-sex-dropdown">
-                  <input type="hidden" name="filters[sex]" id="ann-sex">
-                  <button type="button" data-dropdown-trigger
-                    class="w-full bg-zinc-800 border border-white/8 rounded-md px-3 py-2 text-sm text-left flex items-center justify-between focus:outline-none transition-colors cursor-pointer">
-                    <span class="dropdown-label text-sm text-zinc-500">No filter</span>
-                    <iconify-icon data-chevron icon="boxicons:chevron-down" width="16" class="text-white/30 shrink-0" style="transition:transform 0.15s ease"></iconify-icon>
-                  </button>
-                  <div class="dropdown-panel absolute z-20 w-full mt-1 bg-zinc-800 border border-white/10 rounded-md shadow-xl overflow-hidden" style="display:none">
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">No filter</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="male" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Male</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="female" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Female</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="other" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Other</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="prefer-not-to-say" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Prefer not to say</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Min age</label>
-                <input type="number" name="filters[ageMin]" placeholder="e.g. 18" min="1" max="120"
-                  class="w-full bg-zinc-800 border border-white/8 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/20">
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Orientation</label>
-                <div class="custom-dropdown relative" id="ann-orientation-dropdown">
-                  <input type="hidden" name="filters[orientation]" id="ann-orientation">
-                  <button type="button" data-dropdown-trigger
-                    class="w-full bg-zinc-800 border border-white/8 rounded-md px-3 py-2 text-sm text-left flex items-center justify-between focus:outline-none transition-colors cursor-pointer">
-                    <span class="dropdown-label text-sm text-zinc-500">No filter</span>
-                    <iconify-icon data-chevron icon="boxicons:chevron-down" width="16" class="text-white/30 shrink-0" style="transition:transform 0.15s ease"></iconify-icon>
-                  </button>
-                  <div class="dropdown-panel absolute z-20 w-full mt-1 bg-zinc-800 border border-white/10 rounded-md shadow-xl overflow-y-auto max-h-52 overflow-hidden" style="display:none">
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">No filter</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="straight" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Straight</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="gay" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Gay</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="lesbian" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Lesbian</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="bisexual" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Bisexual</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="pansexual" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Pansexual</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="other" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Other</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                    <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="prefer-not-to-say" style="color:rgba(255,255,255,0.5)">
-                      <span class="opt-label">Prefer not to say</span>
-                      <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="display:none;flex-shrink:0"></iconify-icon>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-4 pt-1">
-            <button type="submit" name="publish" value="0"
-              class="px-4 py-2 rounded-md text-sm font-semibold bg-zinc-700 hover:bg-zinc-600 text-white transition-colors">
-              Save as draft
-            </button>
-            <button type="submit" name="publish" value="1"
-              class="px-4 py-2 rounded-md text-sm font-semibold bg-charm-500 hover:bg-charm-400 text-white transition-colors">
-              Publish now
-            </button>
-          </div>
-
-        </form>
-      </div>
-
-      <!-- Existing announcements -->
-      <h2 class="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">All Announcements</h2>
-
-      <% if (!announcements.length) { %>
-        <div class="bg-zinc-900 border border-white/5 border-dashed rounded-md px-5 py-8 text-center">
-          <p class="text-sm text-zinc-500">No announcements yet.</p>
-        </div>
-      <% } else { %>
-        <div class="flex flex-col gap-3">
-          <% announcements.forEach(ann => { %>
-            <div class="bg-zinc-900 border border-white/8 rounded-md px-5 py-4 flex items-start gap-4">
-
-              <% if (ann.thumbnailUrl) { %>
-                <div class="w-12 h-12 rounded-md overflow-hidden shrink-0 bg-zinc-800">
-                  <img src="<%= ann.thumbnailUrl %>" class="w-full h-full object-cover" alt="" loading="lazy">
-                </div>
-              <% } else { %>
-                <div class="w-12 h-12 rounded-md bg-zinc-800 shrink-0 flex items-center justify-center">
-                  <iconify-icon icon="lucide:megaphone" width="18" style="color:#52525b;display:block"></iconify-icon>
-                </div>
-              <% } %>
-
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-0.5">
-                  <p class="text-sm font-semibold text-white truncate m-0"><%= ann.title %></p>
-                  <%
-                    const statusColor = {
-                      active:  'text-green-400 bg-green-400/10',
-                      draft:   'text-zinc-400 bg-zinc-700',
-                      expired: 'text-red-400 bg-red-400/10',
-                    }[ann.status] || 'text-zinc-400 bg-zinc-700';
-                  %>
-                  <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 <%= statusColor %>"><%= ann.status %></span>
-                </div>
-                <% if (ann.description) { %>
-                  <p class="text-xs text-zinc-400 line-clamp-2 m-0"><%= ann.description %></p>
-                <% } %>
-                <p class="text-xs text-zinc-600 mt-1 m-0">
-                  Created <%= new Date(ann.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
-                  <% if (ann.expiresAt) { %>
-                    · Expires <%= new Date(ann.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
-                  <% } %>
-                </p>
-              </div>
-
-              <div class="flex items-center gap-2 shrink-0">
-                <a href="/admin/announcements/<%= ann._id %>/edit"
-                  class="text-xs font-semibold px-3 py-1.5 rounded-md bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition-colors no-underline">
-                  Edit
-                </a>
-                <% if (ann.status === 'draft') { %>
-                  <form action="/admin/announcements/<%= ann._id %>/activate" method="POST">
-                    <button type="submit" class="text-xs font-semibold px-3 py-1.5 rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors cursor-pointer">
-                      Activate
-                    </button>
-                  </form>
-                <% } else if (ann.status === 'active') { %>
-                  <form action="/admin/announcements/<%= ann._id %>/expire" method="POST">
-                    <button type="submit" class="text-xs font-semibold px-3 py-1.5 rounded-md bg-white/5 text-zinc-400 hover:bg-white/10 transition-colors cursor-pointer">
-                      Expire
-                    </button>
-                  </form>
-                <% } %>
-                <form action="/admin/announcements/<%= ann._id %>/delete" method="POST" onsubmit="return confirm('Delete this announcement?')">
-                  <button type="submit" class="text-xs font-semibold px-3 py-1.5 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer">
-                    Delete
-                  </button>
-                </form>
-              </div>
-
-            </div>
-          <% }) %>
-        </div>
-      <% } %>
 
     </main>
   </div>
@@ -345,6 +365,47 @@
 
   initDropdown('ann-sex-dropdown');
   initDropdown('ann-orientation-dropdown');
+
+  // ── Char counters ─────────────────────────────────────────────────────────
+  function bindCounter(inputId, counterId, max) {
+    var el = document.getElementById(inputId);
+    var counter = document.getElementById(counterId);
+    if (!el || !counter) return;
+    function update() {
+      var len = el.value.length;
+      counter.textContent = len + ' / ' + max;
+      counter.style.color = len >= max ? '#f87171' : len >= max * 0.85 ? '#fbbf24' : '';
+    }
+    el.addEventListener('input', update);
+    update();
+  }
+
+  bindCounter('new-title', 'title-count', 50);
+  bindCounter('new-desc',  'desc-count',  120);
+
+  // ── Publish now gating ────────────────────────────────────────────────────
+  var publishBtn   = document.getElementById('btn-publish-now');
+  var titleInput   = document.getElementById('new-title');
+  var descInput    = document.getElementById('new-desc');
+  var redirectInput = document.getElementById('new-redirectUrl');
+
+  function checkPublishReady() {
+    var hasTitle    = titleInput.value.trim().length > 0;
+    var hasDesc     = descInput.value.trim().length > 0;
+    var hasThumb    = thumbInput && thumbInput.files.length > 0;
+    var hasRedirect = redirectInput.value.trim().length > 0;
+    publishBtn.disabled = !(hasTitle && hasDesc && hasThumb && hasRedirect);
+  }
+
+  if (publishBtn) {
+    publishBtn.disabled = true;
+    titleInput.addEventListener('input', checkPublishReady);
+    descInput.addEventListener('input', checkPublishReady);
+    redirectInput.addEventListener('input', checkPublishReady);
+    if (thumbInput) thumbInput.addEventListener('change', checkPublishReady);
+    // re-check when thumbnail is cleared
+    if (thumbClear) thumbClear.addEventListener('click', function () { setTimeout(checkPublishReady, 0); });
+  }
 }());
 </script>
 <%- include('../../partials/toasts') %>

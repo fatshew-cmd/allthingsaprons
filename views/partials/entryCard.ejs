@@ -1,4 +1,4 @@
-<%
+﻿<%
   function _ecDate(d) {
     var now = new Date();
     var dt  = new Date(d);
@@ -27,79 +27,60 @@
 </style>
 <% } %>
 
-<div class="flex flex-col overflow-hidden border-b border-white/10<% if (!locals.mediaFull) { %> cursor-pointer<% } %>" id="ec-<%= _eid %>"<% if (!locals.mediaFull) { %> data-ec-nav="/entry/<%= _eid %>"<% } %>>
-
-  <!-- Media -->
-  <% if (locals.mediaFull) { %>
-  <div class="relative bg-shark-950 overflow-hidden">
-    <% if (entry.mediaType === 'video') { %>
-    <video src="<%= entry.mediaUrl %>" controls class="w-full max-h-[70vh] object-contain"></video>
-    <% } else { %>
-    <img src="<%= entry.mediaUrl %>" alt="" class="w-full max-h-[70vh] object-contain">
-    <% } %>
-    <% if (locals.contestInfo) { %>
-    <a href="/contest/<%= contestInfo.contestId %>" class="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide backdrop-blur-sm <%= contestInfo.status === 'active' ? 'bg-green-500/80 text-white' : 'bg-amber-500/80 text-black' %>">
-      <iconify-icon icon="boxicons:git-compare" width="11"></iconify-icon>
-      <span><%= contestInfo.status === 'active' ? 'H2H Live' : 'H2H' %></span>
-    </a>
-    <% } %>
-    <% if (entry.aiGenerated) { %>
-    <div class="absolute bottom-3 left-3 bg-violet-600 text-white text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
-    <% } %>
-  </div>
-  <% } else { %>
-  <div class="relative bg-shark-950 overflow-hidden aspect-video">
-    <% if (entry.mediaType === 'video') { %>
-    <video src="<%= entry.mediaUrl %>" class="w-full h-full object-cover" muted preload="none"></video>
-    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <iconify-icon icon="bx:play-circle" width="52" class="text-white/80 drop-shadow-lg"></iconify-icon>
-    </div>
-    <% } else { %>
-    <img src="<%= entry.mediaUrl %>" alt="" class="w-full h-full object-cover">
-    <% } %>
-    <a href="/entry/<%= _eid %>" class="absolute inset-0 z-0" aria-label="View entry"></a>
-    <% if (locals.contestInfo) { %>
-    <a href="/contest/<%= contestInfo.contestId %>" onclick="event.stopPropagation()" class="absolute top-2 left-2 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide backdrop-blur-sm <%= contestInfo.status === 'active' ? 'bg-green-500/80 text-white' : 'bg-amber-500/80 text-black' %>">
-      <iconify-icon icon="boxicons:git-compare" width="10"></iconify-icon>
-      <span><%= contestInfo.status === 'active' ? 'H2H Live' : 'H2H' %></span>
-    </a>
-    <% } %>
-    <% if (entry.aiGenerated) { %>
-    <div class="absolute bottom-2 left-2 z-10 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
-    <% } %>
-  </div>
-  <% } %>
+<div class="flex flex-col border-b border-white/10<% if (!locals.mediaFull) { %> cursor-pointer<% } %>" id="ec-<%= _eid %>"<% if (!locals.mediaFull) { %> data-ec-nav="/entry/<%= _eid %>"<% } %>>
 
   <!-- User row -->
-  <div class="px-3 pt-3 flex items-center gap-3">
-    <!-- Avatar + names -->
-    <div class="flex items-center gap-2.5 min-w-0 flex-1">
-      <a href="/<%= owner.username?.value %>" class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
-        <% if (owner.avatar?.value) { %>
-        <img src="<%= owner.avatar.value %>" alt="<%= owner.username?.value %>" class="w-full h-full object-cover">
-        <% } else { %>
-        <iconify-icon icon="bx:user" width="18" class="text-white/30"></iconify-icon>
-        <% } %>
-      </a>
-      <div class="min-w-0">
-        <a href="/<%= owner.username?.value %>" class="block text-sm font-semibold text-white truncate leading-tight hover:text-charm-300 transition-colors">
-          <%= owner.displayName?.value || ('@' + owner.username?.value) %>
+  <div class="px-3 pt-3">
+    <div class="flex items-center gap-3">
+      <!-- Left group: avatar + names + follow (all close together) -->
+      <div class="flex items-center gap-3 min-w-0 flex-1">
+        <!-- Avatar -->
+        <a href="/<%= owner.username?.value %>" class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+          <% if (owner.avatar?.value) { %>
+          <img src="<%= owner.avatar.value %>" alt="<%= owner.username?.value %>" class="w-full h-full object-cover">
+          <% } else { %>
+          <iconify-icon icon="boxicons:user" width="18" class="text-white/30"></iconify-icon>
+          <% } %>
         </a>
-        <a href="/<%= owner.username?.value %>" class="block text-xs text-white/40 truncate leading-tight mt-0.5">@<%= owner.username?.value %></a>
+        <!-- Names -->
+        <div class="min-w-0">
+          <a href="/<%= owner.username?.value %>" class="block text-sm font-semibold text-white truncate leading-tight hover:text-charm-300 transition-colors">
+            <%= owner.displayName?.value || ('@' + owner.username?.value) %>
+          </a>
+          <a href="/<%= owner.username?.value %>" class="block text-xs text-white/40 truncate leading-tight mt-0.5">@<%= owner.username?.value %></a>
+        </div>
+        <!-- Follow button immediately after names -->
+        <% if (!_isOwner && isFollowing) { %>
+        <button class="ec-follow text-xs font-semibold rounded-md px-2.5 py-1 border border-white/30 text-white/50 hover:bg-white/8 transition-colors cursor-pointer shrink-0 ml-3" data-username="<%= owner.username?.value %>" data-following="true">Following</button>
+        <% } else if (!_isOwner) { %>
+        <button class="ec-follow text-xs font-semibold rounded-md px-2.5 py-1 border border-charm-500/40 text-charm-400 hover:bg-charm-500/10 transition-colors cursor-pointer shrink-0 ml-3" data-username="<%= owner.username?.value %>" data-following="false">Follow</button>
+        <% } %>
       </div>
-    </div>
-    <!-- Follow + date/views -->
-    <div class="flex items-center gap-2.5 shrink-0">
-      <% if (!_isOwner && isFollowing) { %>
-      <button class="ec-follow text-xs font-semibold rounded-md px-2.5 py-1 border border-white/30 text-white/50 hover:bg-white/8 transition-colors cursor-pointer" data-username="<%= owner.username?.value %>" data-following="true">Following</button>
-      <% } else if (!_isOwner) { %>
-      <button class="ec-follow text-xs font-semibold rounded-md px-2.5 py-1 border border-charm-500/40 text-charm-400 hover:bg-charm-500/10 transition-colors cursor-pointer" data-username="<%= owner.username?.value %>" data-following="false">Follow</button>
+      <!-- More menu pinned to far right -->
+      <% if (!_isOwner) { %>
+      <div class="relative shrink-0">
+        <button class="ec-more-btn w-8 h-8 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition-colors cursor-pointer" onclick="ecToggleMore(this,event)">
+          <iconify-icon icon="boxicons:dots-horizontal-rounded" width="20"></iconify-icon>
+        </button>
+        <div class="ec-more-menu hidden absolute right-0 top-9 z-50 w-52 bg-shark-900 border border-white/10 rounded-md shadow-xl overflow-hidden" data-eid="<%= _eid %>">
+          <button class="ec-more-report w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white/65 hover:bg-white/8 hover:text-white transition-colors cursor-pointer text-left" data-eid="<%= _eid %>">
+            <iconify-icon icon="boxicons:flag-alt-2-filled" width="15" class="shrink-0 text-white/35"></iconify-icon>
+            <span>Report this post</span>
+          </button>
+          <button class="ec-more-block w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white/65 hover:bg-white/8 hover:text-white transition-colors cursor-pointer text-left" data-username="<%= owner.username?.value %>">
+            <iconify-icon icon="boxicons:block-filled" width="15" class="shrink-0 text-white/35"></iconify-icon>
+            <span>Block @<%= owner.username?.value %></span>
+          </button>
+          <button class="ec-more-notinterested w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white/65 hover:bg-white/8 hover:text-white transition-colors cursor-pointer text-left" data-eid="<%= _eid %>">
+            <iconify-icon icon="boxicons:sad-filled" width="15" class="shrink-0 text-white/35"></iconify-icon>
+            <span>Not interested in this post</span>
+          </button>
+        </div>
+      </div>
       <% } %>
-      <div class="text-right">
-        <span class="block text-xs text-white/40 leading-tight"><%= _ecDate(entry.createdAt) %></span>
-        <span class="block text-xs text-white/25 leading-tight mt-0.5"><%= (entry.viewCount || 0).toLocaleString() %> views</span>
-      </div>
     </div>
+    <!-- Timestamp below the full top row -->
+    <p class="text-xs text-white/35 mt-2"><%= _ecDate(entry.createdAt) %></p>
   </div>
 
   <!-- Title + Caption -->
@@ -117,14 +98,125 @@
   </div>
   <% } %>
 
+  <!-- Media -->
+  <% if (locals.mediaFull) { %>
+  <div class="relative bg-shark-950 overflow-hidden mt-3">
+    <% if (entry.mediaType === 'video') { %>
+    <video src="<%= entry.mediaUrl %>" controls class="w-full max-h-[30vh] object-contain cursor-zoom-in" id="ec-media-<%= _eid %>"></video>
+    <% } else { %>
+    <img src="<%= entry.mediaUrl %>" alt="" class="w-full max-h-[30vh] object-contain cursor-zoom-in" id="ec-media-<%= _eid %>">
+    <% } %>
+    <% if (locals.contestInfo) { %>
+    <a href="/contest/<%= contestInfo.contestId %>" class="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide backdrop-blur-sm <%= contestInfo.status === 'active' ? 'bg-green-500/80 text-white' : contestInfo.status === 'closed' ? 'bg-white/15 text-white/60' : 'bg-amber-500/80 text-black' %>">
+      <iconify-icon icon="boxicons:git-compare" width="11"></iconify-icon>
+      <span><%= contestInfo.status === 'active' ? 'H2H Live' : contestInfo.status === 'closed' ? 'H2H Ended' : 'H2H' %></span>
+    </a>
+    <% } %>
+    <% if (entry.aiGenerated) { %>
+    <div class="absolute bottom-3 left-3 bg-violet-600 text-white text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
+    <% } %>
+  </div>
+
+  <!-- Media lightbox — Instagram-style split, CTAs pinned at bottom -->
+  <div id="ec-lightbox-<%= _eid %>" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;flex-direction:column">
+    <!-- Top row: media (left) + panel (right) -->
+    <div style="flex:1;min-height:0;display:flex;flex-direction:row">
+      <!-- Left: media -->
+      <div id="ec-lightbox-left-<%= _eid %>" style="flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(0,0,0,0.96);cursor:pointer">
+        <button id="ec-lightbox-close-<%= _eid %>" onclick="event.stopPropagation()" style="position:absolute;top:14px;left:14px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.1);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;z-index:1" aria-label="Close">
+          <iconify-icon icon="boxicons:x" width="18"></iconify-icon>
+        </button>
+        <div id="ec-lightbox-media-<%= _eid %>" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:48px 24px 24px;pointer-events:none">
+          <% if (entry.mediaType === 'video') { %>
+          <video src="<%= entry.mediaUrl %>" controls style="max-width:100%;max-height:100%;object-fit:contain;pointer-events:all"></video>
+          <% } else { %>
+          <img src="<%= entry.mediaUrl %>" alt="" style="max-width:100%;max-height:100%;object-fit:contain">
+          <% } %>
+        </div>
+      </div>
+      <!-- Right: scrollable panel area -->
+      <div class="w-1/6 shrink-0 flex flex-col border-l border-white/8" style="background:#0c0c0c">
+        <div id="ec-lightbox-panel-area-<%= _eid %>" style="flex:1;overflow-y:auto;min-height:0">
+          <!-- .ec-panel elements land here on open -->
+        </div>
+      </div>
+    </div>
+    <!-- Bottom: CTAs spanning full width -->
+    <div id="ec-lightbox-ctas-dock-<%= _eid %>" style="flex-shrink:0;background:rgba(0,0,0,0.96);display:flex;justify-content:center">
+      <!-- CTAs land here on open -->
+    </div>
+  </div>
+  <script>
+  (function () {
+    var lightbox   = document.getElementById('ec-lightbox-<%= _eid %>');
+    var leftArea   = document.getElementById('ec-lightbox-left-<%= _eid %>');
+    var closeBtn   = document.getElementById('ec-lightbox-close-<%= _eid %>');
+    var panelArea  = document.getElementById('ec-lightbox-panel-area-<%= _eid %>');
+    var dock       = document.getElementById('ec-lightbox-ctas-dock-<%= _eid %>');
+    var media      = document.getElementById('ec-media-<%= _eid %>');
+    var sentinels  = [];
+    function moveIn(el, container) {
+      var s = document.createComment('ec-s');
+      el.parentNode.insertBefore(s, el);
+      container.appendChild(el);
+      sentinels.push({ el: el, s: s });
+    }
+    function open() {
+      document.querySelectorAll('.ec-panel[data-eid="<%= _eid %>"]').forEach(function (p) { moveIn(p, panelArea); });
+      var ctas = document.getElementById('ec-ctas-<%= _eid %>');
+      if (ctas) moveIn(ctas, dock);
+      lightbox.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+    function close() {
+      sentinels.slice().reverse().forEach(function (item) {
+        if (item.s.parentNode) {
+          item.s.parentNode.insertBefore(item.el, item.s);
+          item.s.parentNode.removeChild(item.s);
+        }
+      });
+      sentinels = [];
+      lightbox.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+    media.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+    leftArea.addEventListener('click', close);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && lightbox.style.display !== 'none') close(); });
+  }());
+  </script>
+  <% } else { %>
+  <div class="relative bg-shark-950 overflow-hidden mt-3">
+    <% if (entry.mediaType === 'video') { %>
+    <video src="<%= entry.mediaUrl %>" class="w-full max-h-[30vh] object-contain" muted preload="none"></video>
+    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <iconify-icon icon="boxicons:play-circle" width="52" class="text-white/80 drop-shadow-lg"></iconify-icon>
+    </div>
+    <% } else { %>
+    <img src="<%= entry.mediaUrl %>" alt="" class="w-full max-h-[30vh] object-contain">
+    <% } %>
+    <a href="/entry/<%= _eid %>" class="absolute inset-0 z-0" aria-label="View entry"></a>
+    <% if (locals.contestInfo) { %>
+    <a href="/contest/<%= contestInfo.contestId %>" onclick="event.stopPropagation()" class="absolute top-2 left-2 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide backdrop-blur-sm <%= contestInfo.status === 'active' ? 'bg-green-500/80 text-white' : contestInfo.status === 'closed' ? 'bg-white/15 text-white/60' : 'bg-amber-500/80 text-black' %>">
+      <iconify-icon icon="boxicons:git-compare" width="10"></iconify-icon>
+      <span><%= contestInfo.status === 'active' ? 'H2H Live' : contestInfo.status === 'closed' ? 'H2H Ended' : 'H2H' %></span>
+    </a>
+    <% } %>
+    <% if (entry.aiGenerated) { %>
+    <div class="absolute bottom-2 left-2 z-10 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
+    <% } %>
+  </div>
+  <% } %>
+
   <!-- Nominees -->
   <% if (locals.nominees && locals.nominees.length) { %>
   <div class="px-3 pt-3 flex flex-col gap-1.5">
-    <p class="text-xs font-semibold text-white/35 uppercase tracking-wide">Nominated</p>
+    <p class="text-xs font-semibold text-white/35 uppercase tracking-wide">Head to Head</p>
     <div class="flex flex-wrap gap-1.5">
       <% locals.nominees.forEach(function(n) {
            var isVoid    = n.status === 'void';
            var isPending = n.status === 'pending';
+           var isClosed  = n.contestStatus === 'closed';
            var showVotes = !isVoid && !isPending && n.contestStatus === 'active';
            var Tag       = isVoid ? 'span' : 'a';
       %>
@@ -134,26 +226,42 @@
           <% if (isVoid) { %>opacity-35 cursor-default pr-2.5 bg-white/5 border border-white/10
           <% } else if (isPending) { %>pr-2 bg-charm-600/10 hover:bg-charm-600/18 border border-charm-600/30 hover:border-charm-600/50 cursor-pointer
           <% } else { %>pr-2.5 bg-charm-600/10 hover:bg-charm-600/18 border border-charm-600/30 hover:border-charm-600/50 cursor-pointer<% } %>">
+        <% if (isClosed && n.isWinner) { %>
+        <iconify-icon icon="boxicons:trophy-filled" width="12" class="text-yellow-400 shrink-0"></iconify-icon>
+        <% } else if (!isVoid && !isPending && !isClosed) { %>
+        <iconify-icon icon="boxicons:bolt-filled" width="12" class="text-green-400 shrink-0"></iconify-icon>
+        <% } %>
         <% if (n.avatar) { %>
         <img src="<%= n.avatar %>" alt="" class="w-5 h-5 rounded object-cover bg-shark-800 shrink-0">
         <% } else { %>
         <span class="w-5 h-5 rounded bg-shark-700 flex items-center justify-center shrink-0">
-          <iconify-icon icon="bx:user" width="12" class="text-white/30"></iconify-icon>
+          <iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon>
         </span>
         <% } %>
         <span class="text-xs font-medium <%= isVoid ? 'text-white/40' : 'text-white/70' %>">@<%= n.username %></span>
         <% if (isVoid) { %>
         <span class="text-white/20 text-xs">|</span>
-        <span class="text-xs font-semibold text-white">Timed out</span>
+        <span class="text-xs font-semibold text-white/50"><%= ({ expired: 'No Response', declined: 'Rejected', nominee_forfeit: 'Forfeited', nominator_forfeit: 'Forfeit Win' })[n.voidReason] || 'No Response' %></span>
         <% } else if (isPending) { %>
         <span class="text-white/20 text-xs">|</span>
         <span class="text-xs font-semibold text-amber-400/70">Pending</span>
+        <% } else if (isClosed) { %>
+        <span class="text-white/20 text-xs">|</span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="text-xs leading-none">👍</span>
+          <span class="text-xs font-bold text-yellow-400"><%= n.voteCountMine %></span>
+          <span class="text-white/15 text-xs">·</span>
+          <span class="text-xs leading-none">🌶️</span>
+          <span class="text-xs font-bold text-charm-400"><%= n.contribution %></span>
+        </span>
         <% } else if (showVotes) { %>
         <span class="text-white/20 text-xs">|</span>
-        <span class="inline-flex items-center gap-1">
-          <span class="text-xs font-bold text-charm-400"><%= n.voteCountMine %></span>
-          <span class="text-white/20 text-xs">·</span>
-          <span class="text-xs font-bold text-white/35"><%= n.voteCountNominee %></span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="text-xs leading-none">👍</span>
+          <span class="text-xs font-bold text-yellow-400"><%= n.voteCountMine %></span>
+          <span class="text-white/15 text-xs">·</span>
+          <span class="text-xs leading-none">🌶️</span>
+          <span class="text-xs font-bold text-charm-400"><%= n.contribution %></span>
         </span>
         <% } else if (n.status === 'accepted') { %>
         <iconify-icon icon="boxicons:check-circle" width="12" class="text-charm-400 shrink-0"></iconify-icon>
@@ -165,30 +273,31 @@
   <% } %>
 
   <!-- CTAs -->
-  <div class="px-2 pt-3 pb-1.5 flex items-center gap-0.5">
+  <div class="px-2 pt-3 pb-1.5 flex items-center gap-0.5" id="ec-ctas-<%= _eid %>">
+    <span class="flex items-center gap-1.5 px-3 py-2 text-white/50">
+      <iconify-icon icon="boxicons:bar-chart" width="18" class="shrink-0"></iconify-icon>
+      <span class="text-sm font-medium"><%= (entry.viewCount || 0).toLocaleString() %></span>
+    </span>
     <button class="ec-tab-btn ec-rat flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-amber-300 cursor-pointer" data-eid="<%= _eid %>" data-panel="rating">
       <iconify-icon icon="boxicons:star-filled" width="14" class="text-amber-400 shrink-0"></iconify-icon>
       <span class="text-sm font-semibold text-amber-300 whitespace-nowrap"><% if (_avg) { %><%= _avg %><% } else { %>No rating yet<% } %></span>
     </button>
     <button class="ec-tab-btn flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-white/50 hover:text-white cursor-pointer" data-eid="<%= _eid %>" data-panel="comments">
-      <iconify-icon icon="bx:comment" width="16" class="shrink-0"></iconify-icon>
+      <iconify-icon icon="boxicons:message" width="16" class="shrink-0"></iconify-icon>
       <span class="text-sm font-medium"><%= entry.commentCount || 0 %></span>
     </button>
-    <button class="ec-tab-btn flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-white/50 hover:text-white cursor-pointer" data-eid="<%= _eid %>" data-panel="likes">
-      <iconify-icon icon="bx:heart" width="16" class="shrink-0"></iconify-icon>
-      <span class="text-sm font-medium"><%= entry.likeCount || 0 %></span>
-    </button>
+
     <div class="flex-1"></div>
     <% if (_isOwner && !locals.mediaFull) { %>
     <a href="/entry/<%= _eid %>/edit" class="w-9 h-9 flex items-center justify-center rounded-md text-white/35 hover:bg-white/8 hover:text-white transition-colors">
-      <iconify-icon icon="bx:pencil" width="17"></iconify-icon>
+      <iconify-icon icon="boxicons:edit-alt" width="17"></iconify-icon>
     </a>
     <% } %>
     <button class="w-9 h-9 flex items-center justify-center rounded-md text-white/35 hover:bg-white/8 hover:text-white transition-colors cursor-pointer">
-      <iconify-icon icon="bx:bookmark" width="18"></iconify-icon>
+      <iconify-icon icon="boxicons:bookmark" width="18"></iconify-icon>
     </button>
     <button class="w-9 h-9 flex items-center justify-center rounded-md text-white/35 hover:bg-white/8 hover:text-white transition-colors cursor-pointer">
-      <iconify-icon icon="bx:share-alt" width="18"></iconify-icon>
+      <iconify-icon icon="boxicons:share" width="18"></iconify-icon>
     </button>
   </div>
 
@@ -196,7 +305,7 @@
   <div class="ec-panel hidden border-t border-white/8 px-3 py-4" data-eid="<%= _eid %>" data-panel="rating"<% if (locals.userRating) { %> data-user-rating="<%= locals.userRating %>"<% } %>>
     <% if (_isOwner) { %>
     <div class="flex flex-col items-center gap-2 text-center py-2">
-      <iconify-icon icon="bx:lock" width="22" class="text-white/15"></iconify-icon>
+      <iconify-icon icon="boxicons:lock" width="22" class="text-white/15"></iconify-icon>
       <p class="text-xs text-white/30">You can't rate your own entry</p>
     </div>
     <% } else { %>
@@ -231,7 +340,7 @@
         <% if (locals.currentUser && locals.currentUser.avatar) { %>
         <img src="<%= locals.currentUser.avatar %>" class="w-full h-full object-cover">
         <% } else { %>
-        <iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon>
+        <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
         <% } %>
       </a>
       <div class="flex-1 flex flex-col gap-1.5">
@@ -262,7 +371,7 @@
       <div class="flex gap-2.5">
         <a href="/<%= cUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
           <% if (cUser.avatar?.value) { %><img src="<%= cUser.avatar.value %>" class="w-full h-full object-cover">
-          <% } else { %><iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon><% } %>
+          <% } else { %><iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon><% } %>
         </a>
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline gap-1.5 flex-wrap">
@@ -311,7 +420,7 @@
               <div class="flex gap-2">
                 <a href="/<%= rUser.username?.value %>" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
                   <% if (rUser.avatar?.value) { %><img src="<%= rUser.avatar.value %>" class="w-full h-full object-cover">
-                  <% } else { %><iconify-icon icon="bx:user" width="12" class="text-white/30"></iconify-icon><% } %>
+                  <% } else { %><iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon><% } %>
                 </a>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-baseline gap-1.5 flex-wrap">
@@ -361,7 +470,7 @@
         <div class="flex gap-2.5">
           <a href="/<%= hcUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
             <% if (hcUser.avatar?.value) { %><img src="<%= hcUser.avatar.value %>" class="w-full h-full object-cover">
-            <% } else { %><iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon><% } %>
+            <% } else { %><iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon><% } %>
           </a>
           <div class="flex-1 min-w-0">
             <div class="flex items-baseline gap-1.5 flex-wrap">
@@ -383,26 +492,12 @@
 
   <% } else { %>
   <div class="flex flex-col items-center gap-2 text-center px-3 py-6">
-    <iconify-icon icon="bx:comment-dots" width="28" class="text-white/15"></iconify-icon>
+    <iconify-icon icon="boxicons:message-circle-dots" width="28" class="text-white/15"></iconify-icon>
     <p class="text-xs text-white/30">No comments yet</p>
   </div>
   <% } %>
   </div>
 
-  <!-- Likes panel -->
-  <div class="ec-panel hidden border-t border-white/8 px-3 py-6" data-eid="<%= _eid %>" data-panel="likes">
-    <% if (_isOwner) { %>
-    <div class="flex flex-col items-center gap-2 text-center">
-      <iconify-icon icon="bx:lock" width="22" class="text-white/15"></iconify-icon>
-      <p class="text-xs text-white/30">You can't like your own entry</p>
-    </div>
-    <% } else { %>
-    <div class="flex flex-col items-center gap-2 text-center">
-      <iconify-icon icon="bx:heart" width="28" class="text-white/15"></iconify-icon>
-      <p class="text-xs text-white/30">No likes yet</p>
-    </div>
-    <% } %>
-  </div>
 
 </div>
 
@@ -456,12 +551,20 @@
 
   function getCard(eid) { return document.getElementById('ec-' + eid); }
 
+  window.ecToggleMore = function (btn, e) {
+    e.stopPropagation();
+    e.preventDefault();
+    var menu = btn.nextElementSibling;
+    if (!menu) return;
+    var isHidden = menu.classList.contains('hidden');
+    document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
+    if (isHidden) menu.classList.remove('hidden');
+  };
+
   function setTab(eid, panel) {
-    var card = getCard(eid);
-    if (!card) return;
-    var panels  = card.querySelectorAll('.ec-panel');
-    var tabBtns = card.querySelectorAll('.ec-tab-btn');
-    var target  = card.querySelector('.ec-panel[data-panel="' + panel + '"]');
+    var panels  = document.querySelectorAll('.ec-panel[data-eid="' + eid + '"]');
+    var tabBtns = document.querySelectorAll('.ec-tab-btn[data-eid="' + eid + '"]');
+    var target  = document.querySelector('.ec-panel[data-eid="' + eid + '"][data-panel="' + panel + '"]');
     var isOpen  = target && !target.classList.contains('hidden');
 
     panels.forEach(function (p) { p.classList.add('hidden'); });
@@ -469,7 +572,7 @@
 
     if (!isOpen && target) {
       target.classList.remove('hidden');
-      var btn = card.querySelector('.ec-tab-btn[data-panel="' + panel + '"]');
+      var btn = document.querySelector('.ec-tab-btn[data-eid="' + eid + '"][data-panel="' + panel + '"]');
       if (btn) btn.classList.add('ec-on');
     }
   }
@@ -477,32 +580,26 @@
   var _pendingToasts = {};
 
   function lockRatingPanel(eid, confirmedScore) {
-    var card = getCard(eid);
-    if (!card) return;
-    card.querySelectorAll('.ec-rating-tile').forEach(function (t) {
+    document.querySelectorAll('.ec-rating-tile[data-eid="' + eid + '"]').forEach(function (t) {
       if (parseInt(t.dataset.score, 10) !== confirmedScore) {
         t.classList.add('ec-locked');
       }
     });
-    var lbl = card.querySelector('.ec-rlabel');
+    var lbl = document.querySelector('.ec-rlabel[data-eid="' + eid + '"]');
     if (lbl) lbl.textContent = LABELS[confirmedScore] || '';
   }
 
   function selectTile(eid, score) {
-    var card = getCard(eid);
-    if (!card) return;
-    card.querySelectorAll('.ec-rating-tile').forEach(function (t) { t.classList.remove('ec-sel'); });
-    var tile = card.querySelector('.ec-rating-tile[data-score="' + score + '"]');
+    document.querySelectorAll('.ec-rating-tile[data-eid="' + eid + '"]').forEach(function (t) { t.classList.remove('ec-sel'); });
+    var tile = document.querySelector('.ec-rating-tile[data-eid="' + eid + '"][data-score="' + score + '"]');
     if (tile) tile.classList.add('ec-sel');
-    var lbl = card.querySelector('.ec-rlabel');
+    var lbl = document.querySelector('.ec-rlabel[data-eid="' + eid + '"]');
     if (lbl) lbl.textContent = LABELS[score] || '';
   }
 
   function clearTileSelection(eid) {
-    var card = getCard(eid);
-    if (!card) return;
-    card.querySelectorAll('.ec-rating-tile').forEach(function (t) { t.classList.remove('ec-sel'); });
-    var lbl = card.querySelector('.ec-rlabel');
+    document.querySelectorAll('.ec-rating-tile[data-eid="' + eid + '"]').forEach(function (t) { t.classList.remove('ec-sel'); });
+    var lbl = document.querySelector('.ec-rlabel[data-eid="' + eid + '"]');
     if (lbl) lbl.textContent = '';
   }
 
@@ -516,17 +613,41 @@
     .then(function (data) {
       if (data.error) { window.showToast(data.error, 'error'); return; }
       lockRatingPanel(eid, score);
-      var card = getCard(eid);
-      if (card) {
-        var avgSpan = card.querySelector('.ec-tab-btn.ec-rat span');
-        if (avgSpan) avgSpan.textContent = parseFloat(data.ratingAvg).toFixed(1);
-      }
+      var avgSpan = document.querySelector('.ec-tab-btn.ec-rat[data-eid="' + eid + '"] span');
+      if (avgSpan) avgSpan.textContent = parseFloat(data.ratingAvg).toFixed(1);
       window.showToast('Rating submitted.', 'success');
     })
     .catch(function () { window.showToast('Something went wrong.', 'error'); });
   }
 
   document.addEventListener('click', function (e) {
+    // Close all more menus when clicking outside
+    if (!e.target.closest('.ec-more-btn') && !e.target.closest('.ec-more-menu')) {
+      document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
+    }
+
+    var reportBtn = e.target.closest('.ec-more-report');
+    if (reportBtn) {
+      document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
+      if (window.showToast) window.showToast('Report submitted.', 'success');
+      return;
+    }
+
+    var blockBtn = e.target.closest('.ec-more-block');
+    if (blockBtn) {
+      document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
+      if (window.showToast) window.showToast('User blocked.', 'success');
+      return;
+    }
+
+    var notIntBtn = e.target.closest('.ec-more-notinterested');
+    if (notIntBtn) {
+      document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
+      var card = notIntBtn.closest('[data-ec-nav], [id^="ec-"]');
+      if (card) card.remove();
+      return;
+    }
+
     var navCard = e.target.closest('[data-ec-nav]');
     if (navCard && !e.target.closest('button') && !e.target.closest('a')) {
       window.location.href = navCard.dataset.ecNav;
@@ -557,7 +678,15 @@
     }
 
     var btn = e.target.closest('.ec-tab-btn');
-    if (btn) { setTab(btn.dataset.eid, btn.dataset.panel); return; }
+    if (btn) {
+      var card = getCard(btn.dataset.eid);
+      if (btn.dataset.panel === 'comments' && card && card.dataset.ecNav) {
+        window.location.href = '/entry/' + btn.dataset.eid;
+        return;
+      }
+      setTab(btn.dataset.eid, btn.dataset.panel);
+      return;
+    }
 
     var tile = e.target.closest('.ec-rating-tile');
     if (tile) {
@@ -626,10 +755,8 @@
     var tile = e.target.closest('.ec-rating-tile');
     if (!tile) return;
     var eid  = tile.dataset.eid;
-    var card = getCard(eid);
-    if (!card) return;
-    var sel = card.querySelector('.ec-rating-tile.ec-sel');
-    var lbl = card.querySelector('.ec-rlabel');
+    var sel  = document.querySelector('.ec-rating-tile.ec-sel[data-eid="' + eid + '"]');
+    var lbl  = document.querySelector('.ec-rlabel[data-eid="' + eid + '"]');
     if (lbl) lbl.textContent = sel ? (LABELS[parseInt(sel.dataset.score, 10)] || '') : '';
   });
 
@@ -674,7 +801,7 @@
     var dt  = new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     var av  = c.user.avatar
       ? '<img src="' + ecEsc(c.user.avatar) + '" class="w-full h-full object-cover">'
-      : '<iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon>';
+      : '<iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>';
     var act = '<button type="button" class="ec-edit-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Edit</button>'
       + '<button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="' + c._id + '" data-eid="' + eid + '">Delete</button>';
     return '<div class="ec-citem px-3 py-3 border-t border-white/6" data-cid="' + c._id + '">'
@@ -713,7 +840,7 @@
     var dt = new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     var av = c.user.avatar
       ? '<img src="' + ecEsc(c.user.avatar) + '" class="w-full h-full object-cover">'
-      : '<iconify-icon icon="bx:user" width="12" class="text-white/30"></iconify-icon>';
+      : '<iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon>';
     return '<div class="ec-citem" data-cid="' + c._id + '">'
       + '<div class="flex gap-2">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'

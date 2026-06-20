@@ -1,4 +1,4 @@
-<%- include('partials/appStart', { title: 'Submit Entry', activePage: 'submit' }) %>
+﻿<%- include('partials/appStart', { title: 'Submit Entry', activePage: 'submit' }) %>
 
 <div class="max-w-2xl mx-auto px-3 py-3 pb-24 md:pb-3">
 
@@ -163,7 +163,7 @@
         <img id="preview-img" src="" alt="" class="w-full max-h-80 object-contain">
         <button type="button" id="change-image-btn"
           class="absolute top-2 right-2 bg-shark-950/80 hover:bg-shark-800 rounded-md px-2 py-1 text-xs text-white/60 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer">
-          <iconify-icon icon="boxicons:pencil" width="11"></iconify-icon>Change
+          <iconify-icon icon="boxicons:edit-alt" width="11"></iconify-icon>Change
         </button>
       </div>
 
@@ -172,7 +172,7 @@
         <video id="preview-vid" class="w-full max-h-80 object-contain" controls playsinline></video>
         <button type="button" id="change-video-btn"
           class="absolute top-2 right-2 bg-shark-950/80 hover:bg-shark-800 rounded-md px-2 py-1 text-xs text-white/60 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer">
-          <iconify-icon icon="boxicons:pencil" width="11"></iconify-icon>Change
+          <iconify-icon icon="boxicons:edit-alt" width="11"></iconify-icon>Change
         </button>
         <div id="trim-badge" class="hidden absolute top-2 left-2 bg-shark-950/80 rounded-md px-2 py-1 text-xs text-charm-400 items-center gap-1">
           <iconify-icon icon="boxicons:cut" width="11"></iconify-icon>Trimmed
@@ -192,7 +192,7 @@
           <span id="trim-current-time" class="absolute bottom-2 left-11 h-8 flex items-center text-xs text-white/55 tabular-nums pointer-events-none">0:00.0</span>
           <button type="button" id="change-trim-btn"
             class="absolute top-2 right-2 bg-shark-950/80 hover:bg-shark-800 rounded-md px-2 py-1 text-xs text-white/60 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer">
-            <iconify-icon icon="boxicons:pencil" width="11"></iconify-icon>Change
+            <iconify-icon icon="boxicons:edit-alt" width="11"></iconify-icon>Change
           </button>
         </div>
 
@@ -1917,7 +1917,7 @@
           submitBtn.textContent = 'Submit Entry';
         }
       } catch (err) {
-        setError(err.message || 'Something went wrong. Please try again.');
+        if (window.showToast) window.showToast(err.message || 'Something went wrong. Please try again.', 'error');
         submitBtn.disabled    = false;
         submitBtn.textContent = 'Submit Entry';
       }
@@ -1985,12 +1985,13 @@
       var r    = await fetch('/api/entries', { method: 'POST', body: fd });
       var data = await r.json();
       if (!r.ok || data.error) throw new Error(data.error || 'Upload failed');
-      return { entryId: data.entryId, contestId: data.contestId || null };
+      return { entryId: data.entryId, contestId: data.contestId || null, eligibilityError: data.eligibilityError || null };
     }
 
     try {
       var firstId;
       var firstContestId;
+      var eligibilityError;
       if (trimCards.length > 0) {
         var results = await Promise.all(trimCards.map(function (tc, i) {
           return postEntry(
@@ -1999,17 +2000,25 @@
             i === 0 ? selectedNomId : ''
           );
         }));
-        firstId        = results[0].entryId;
-        firstContestId = results[0].contestId;
+        firstId          = results[0].entryId;
+        firstContestId   = results[0].contestId;
+        eligibilityError = results[0].eligibilityError;
       } else {
         var res = await postEntry(rawFile, document.getElementById('caption').value, tags.slice(), selectedNomId);
-        firstId        = res.entryId;
-        firstContestId = res.contestId;
+        firstId          = res.entryId;
+        firstContestId   = res.contestId;
+        eligibilityError = res.eligibilityError;
       }
-      window.location.href = firstContestId ? '/contest/' + firstContestId : '/entry/' + firstId;
+      var dest = firstContestId ? '/contest/' + firstContestId : '/entry/' + firstId;
+      if (eligibilityError && window.showToast) {
+        window.showToast(eligibilityError, 'error');
+        setTimeout(function () { window.location.href = dest; }, 3000);
+      } else {
+        window.location.href = dest;
+      }
     } catch (err) {
       console.error('Submit error:', err);
-      setError(err.message || 'Something went wrong. Please try again.');
+      if (window.showToast) window.showToast(err.message || 'Something went wrong. Please try again.', 'error');
       submitBtn.disabled    = false;
       submitBtn.textContent = 'Submit Entry';
     }

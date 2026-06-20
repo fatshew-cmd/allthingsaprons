@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head><%- include('partials/head') %></head>
 <body class="flex flex-col bg-shark-950 text-white overflow-hidden" style="height:100vh">
@@ -96,7 +96,7 @@
 
           <div class="flex justify-center">
             <div class="flex items-center gap-2 bg-shark-900 border border-white/8 rounded-md px-3 py-2 text-xs text-white/35">
-              <iconify-icon icon="lucide:lock" width="11" class="shrink-0"></iconify-icon>
+              <iconify-icon icon="boxicons:lock-alt" width="11" class="shrink-0"></iconify-icon>
               This conversation is private and visible only to you and our support team.
             </div>
           </div>
@@ -349,7 +349,7 @@
           var remove = document.createElement('button');
           remove.type = 'button';
           remove.className = 'absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-shark-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer';
-          remove.innerHTML = '<iconify-icon icon="lucide:x" width="9"></iconify-icon>';
+          remove.innerHTML = '<iconify-icon icon="boxicons:x" width="9"></iconify-icon>';
           remove.addEventListener('click', function () {
             var idx = selectedFiles.indexOf(file);
             if (idx > -1) selectedFiles.splice(idx, 1);

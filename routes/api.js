@@ -15,7 +15,8 @@ const CommentReport = require('../models/CommentReport');
 const Notification  = require('../models/Notification');
 const Announcement  = require('../models/Announcement');
 const AnnouncementDismissal = require('../models/AnnouncementDismissal');
-const upload     = require('../middleware/upload');
+const upload                  = require('../middleware/upload');
+const checkContestEligibility = require('../utils/contestEligibility');
 
 router.get('/me', (req, res) => {
   res.json({ authenticated: !!req.session.userId });
@@ -87,8 +88,11 @@ router.get('/check-signup', async (req, res) => {
 router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }]), async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
 
-  const actor = await User.findById(req.session.userId).select('idVerified').lean();
-  if (!actor || !actor.idVerified) return res.status(403).json({ error: 'identity_required' });
+  // TEMP: bypass idVerified for test accounts — remove before launch
+  const TEST_BYPASS_USERNAMES = ['celuiqui', 'storiesbyshews'];
+  const actor = await User.findById(req.session.userId).select('idVerified username').lean();
+  const isBypassUser = actor && TEST_BYPASS_USERNAMES.includes(actor.username?.value);
+  if (!actor || (!actor.idVerified && !isBypassUser)) return res.status(403).json({ error: 'identity_required' });
 
   const file = req.files?.entryMedia?.[0];
   if (!file) return res.status(400).json({ error: 'No file uploaded' });
@@ -142,6 +146,12 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
     }
   }
 
+  let contestEligibilityError = null;
+  if (nominationId || challengeUsernames.length) {
+    const eligibility = await checkContestEligibility(req.session.userId);
+    if (!eligibility.eligible) contestEligibilityError = eligibility.reason;
+  }
+
   try {
     const entry = await Entry.create({
       userId:          req.session.userId,
@@ -156,6 +166,10 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
       aiGenerated:     req.body.aiGenerated === 'true',
     });
 
+    if (contestEligibilityError) {
+      return res.json({ entryId: entry._id, contestId: null, eligibilityError: contestEligibilityError });
+    }
+
     let contestId = null;
 
     if (pendingNom) {
@@ -168,6 +182,10 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
           status: 'active',
           votingDeadline: new Date(Date.now() + winHours * 60 * 60 * 1000),
         }),
+        Notification.updateOne(
+          { userId: req.session.userId, type: 'nomination_received', 'payload.contestId': pendingNom.contestId },
+          { $set: { 'payload.url': '/contest/' + pendingNom.contestId } }
+        ),
       ]);
       contestId = pendingNom.contestId;
     }
@@ -231,8 +249,11 @@ router.post('/nominations/:id/accept', async (req, res) => {
   if (!nom)                                                                  return res.status(404).json({ error: 'Nomination not found.' });
   if (nom.nomineeId.toString() !== req.session.userId.toString())            return res.status(403).json({ error: 'Not your nomination.' });
   if (nom.status !== 'pending')                                              return res.status(409).json({ error: 'Nomination already resolved.' });
+  if (nom.expiresAt < new Date())                                            return res.status(410).json({ error: 'This nomination has expired.' });
   if (!entry)                                                                return res.status(404).json({ error: 'Entry not found.' });
   if (entry.userId.toString() !== req.session.userId.toString())            return res.status(403).json({ error: 'Not your entry.' });
+  const eligibility = await checkContestEligibility(req.session.userId);
+  if (!eligibility.eligible) return res.status(403).json({ error: eligibility.reason });
   const nomContest = await Contest.findById(nom.contestId).select('windowHours').lean();
   const winHours   = nomContest?.windowHours || 72;
   await Promise.all([
@@ -242,6 +263,10 @@ router.post('/nominations/:id/accept', async (req, res) => {
       status:         'active',
       votingDeadline: new Date(Date.now() + winHours * 60 * 60 * 1000),
     }),
+    Notification.updateOne(
+      { userId: req.session.userId, type: 'nomination_received', 'payload.contestId': nom.contestId },
+      { $set: { 'payload.url': '/contest/' + nom.contestId } }
+    ),
   ]);
   res.json({ ok: true, contestId: nom.contestId });
 });
@@ -253,7 +278,11 @@ router.post('/nominations/:id/decline', async (req, res) => {
   if (!nom)                                                         return res.status(404).json({ error: 'Nomination not found.' });
   if (nom.nomineeId.toString() !== req.session.userId.toString())  return res.status(403).json({ error: 'Not your nomination.' });
   if (nom.status !== 'pending')                                     return res.status(409).json({ error: 'Nomination already resolved.' });
-  await Nomination.findByIdAndUpdate(req.params.id, { status: 'void' });
+  if (nom.expiresAt < new Date())                                   return res.status(410).json({ error: 'This nomination has expired.' });
+  await Promise.all([
+    Nomination.findByIdAndUpdate(req.params.id, { status: 'void' }),
+    Contest.findByIdAndUpdate(nom.contestId, { $set: { status: 'void', voidReason: 'declined' } }),
+  ]);
   res.json({ ok: true });
 });
 
@@ -270,6 +299,8 @@ router.post('/contests/challenge', async (req, res) => {
   if (entry.userId.toString() !== req.session.userId.toString())            return res.status(403).json({ error: 'Not your entry.' });
   if (!nominee)                                                              return res.status(404).json({ error: 'User not found.' });
   if (nominee._id.toString() === req.session.userId.toString())             return res.status(400).json({ error: 'You cannot challenge yourself.' });
+  const eligibility = await checkContestEligibility(req.session.userId);
+  if (!eligibility.eligible) return res.status(400).json({ error: eligibility.reason });
   const vis         = ['public', 'private'].includes(visibility) ? visibility : 'public';
   const hide        = hideEntry === 'true';
   const expiry      = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -457,7 +488,7 @@ router.delete('/contests/:id', async (req, res) => {
   if (contest.createdBy.toString() !== req.session.userId.toString()) return res.status(403).json({ error: 'Not your contest.' });
   if (contest.status !== 'pending') return res.status(409).json({ error: 'Contest can only be voided while pending.' });
   await Promise.all([
-    Contest.findByIdAndUpdate(req.params.id, { $set: { status: 'void' } }),
+    Contest.findByIdAndUpdate(req.params.id, { $set: { status: 'void', voidReason: 'canceled' } }),
     Nomination.findOneAndUpdate({ contestId: req.params.id, status: 'pending' }, { $set: { status: 'void' } }),
   ]);
   res.json({ ok: true });
@@ -472,6 +503,37 @@ router.delete('/contests/:id/vote', async (req, res) => {
   const result = await ContestVote.deleteOne({ contestId: req.params.id, userId: req.session.userId });
   if (result.deletedCount === 0) return res.status(404).json({ error: 'No vote to remove.' });
   res.json({ ok: true });
+});
+
+router.post('/contests/:id/forfeit', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ID.' });
+
+  const contest = await Contest.findById(req.params.id).lean().catch(() => null);
+  if (!contest)                    return res.status(404).json({ error: 'Contest not found.' });
+  if (contest.status !== 'active') return res.status(409).json({ error: 'Contest is not active.' });
+
+  const uid         = req.session.userId.toString();
+  const isNominator = contest.createdBy.toString() === uid;
+  const nomineeEntry = contest.entries.find(e => e.userId.toString() !== contest.createdBy.toString());
+  const isNominee   = nomineeEntry && nomineeEntry.userId.toString() === uid;
+
+  if (!isNominator && !isNominee) return res.status(403).json({ error: 'You are not a participant in this contest.' });
+
+  let winnerEntryId, voidReason;
+  if (isNominee) {
+    // Nominee forfeits — nominator wins, keeps their accumulated votes
+    const nominatorEntry = contest.entries.find(e => e.userId.toString() === contest.createdBy.toString());
+    winnerEntryId = nominatorEntry.entryId;
+    voidReason    = 'nominee_forfeit';
+  } else {
+    // Nominator forfeits — nominee wins, gets their accumulated votes
+    winnerEntryId = nomineeEntry.entryId;
+    voidReason    = 'nominator_forfeit';
+  }
+
+  await Contest.findByIdAndUpdate(req.params.id, { $set: { status: 'void', voidReason, winnerEntryId } });
+  res.json({ ok: true, voidReason });
 });
 
 // ── Contest comments ──────────────────────────────────────────────

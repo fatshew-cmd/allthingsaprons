@@ -1,8 +1,12 @@
 # June Action Plan
 
-## Current State (June 15)
+## Current State (June 20)
 
-Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, and private contests — is substantially done. Void deadline state is now normalized at read time via Mongoose post-hooks (a bridge until Phase 5 background jobs land); UI correctly shows "Timed out" / "No response" states across entryCard, edit-entry, and the contest page. Entry comments and replies are now fully implemented — post, edit, delete, hide (owner), report, denormalized `commentCount`, and the hidden comments section visible to the entry owner only. The notification system is now live: dedicated `Notification` collection (Option A), `injectNotificationCount` middleware injecting unread badge counts into all main platform views, per-notification click-to-mark-read, mark-all-as-read, sidebar badge (count label + collapsed dot), and triggers wired for new comments, replies, and nominations. What remains is right panel data, viewer nominations, background jobs (including contest_closed / contest_voided notification triggers), and the remaining Phase 6 admin UI pages.
+Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, private contests, and withdrawal/forfeit — is now substantially complete. Void deadline state is normalized at read time via Mongoose post-hooks (bridge until Phase 5 background jobs land); UI correctly shows "Timed out" / "No response" states across entryCard, edit-entry, and the contest page. Entry comments and replies are fully implemented. The notification system is live. The right panel is fully built. Nomination notification redirect is fixed.
+
+A **contest eligibility gate** is now wired: before a user can create a contest or accept a nomination, `utils/contestEligibility.js` checks their entries against configurable thresholds (`minEntries`, `minRatingCount`, `minWeightedAvg`) stored in the `PlatformSettings` collection. The admin **Platform Settings page** (`/admin/settings`) lets the founder adjust these thresholds live. The **announcement detail/stats page** is implemented — shows dismissal count, placeholder rows for impressions/clicks (tracking not yet wired), a right-panel card preview, and activate/expire/delete actions.
+
+What remains: contest watch + follower notifications, viewer nominations, background jobs (Phase 5), fake credits admin action, and the remaining Phase 6 admin UI pages.
 
 ### What is done
 | Asset | Status |
@@ -39,13 +43,23 @@ Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entri
 | Void deadline — read-time normalization | Mongoose post-hooks on `Contest.find` / `findOne` flip `status` to `void` at read time when `voidDeadline` has passed; UI shows "Timed out" / "No response" across entryCard, edit-entry, and contest page — fully working (background job promotion deferred to Phase 5) |
 | Entry comments + replies | Full CRUD on entry-level comments: post, edit, delete (own or entry owner), hide/unhide (entry owner only, moves to private section), report. One level of replies. `commentCount` denormalized on Entry and kept in sync. Comments panel in `entryCard` auto-opens on the entry page; feed cards keep the empty stub. — fully working |
 | Notification system | Dedicated `Notification` collection with compound index `{userId, read, createdAt}` and 90-day TTL. `injectNotificationCount` middleware on all main platform routes. `GET /notifications` paginated list, `POST /notifications/:id/read`, `POST /notifications/read-all`. Sidebar badge (count label on expanded, dot on collapsed). Triggers: comment on entry → entry owner notified; reply → parent commenter notified; nomination created → nominee notified. `contest_closed` / `contest_voided` triggers deferred to Phase 5 background jobs. |
+| Contest eligibility gate | `utils/contestEligibility.js` — checks minEntries (5), minRatingCount (250), minWeightedAvg (7.4) before a user can create a contest or accept a nomination. Thresholds read from `PlatformSettings` collection. `TEST_BYPASS_USERNAMES` bypasses check for local dev accounts — remove before launch. |
+| Admin Platform Settings page | `GET /admin/settings` + `views/admin/settings.ejs` — founder-only page to configure contest eligibility thresholds live. Backed by `PlatformSettings` MongoDB collection. |
+| Announcement detail/stats page | `GET /admin/announcements/:id` + `views/admin/announcements/detail.ejs` — dismissal count (live), impressions/clicks/dismiss-rate placeholders (tracking not yet wired), right-panel card preview, activate/expire/delete actions. |
+| Contest withdrawal & forfeit | Nominee decline (pending): `POST /nominations/:id/decline`. Nominator cancel (pending only): `DELETE /contests/:id` (`voidReason: 'canceled'`). Active forfeit by either party: `POST /contests/:id/forfeit` (`voidReason: 'nominee_forfeit'` or `'nominator_forfeit'`, sets `winnerEntryId`). Contest page shows "wins by forfeit" banner and forfeit modal. Nominator cannot delete a forfeited (void) contest record — that scrub path remains open. |
+| Contest vote window options | `windowHours` on contest creation now accepts 24 / 48 / 72 / 168 hours (was hardcoded 72). |
 
 ### What is not done yet
 - Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
-- Right panel redesign: rebuild `rightPanel.ejs` with defined sections (ongoing tournaments skeleton, announcements, people to follow) — see `platform-core-concepts.md` Section 11
+- Contest watch + follower notifications (`ContestWatch` model, "stay in the loop" button, triggers for all contest events)
 - Background jobs: void deadline enforcement, voting deadline + close logic, contest_closed / contest_voided notification triggers (Phase 5 scope)
 - Viewer nomination flow (any user nominates two others for a HTH with a message)
-- Phase 6 admin UI pages: tournament management, content moderation, and entries moderation are placeholder stubs only; admin dashboard, user list/detail, ID verification queue, and audit log are done
+- Fake credits admin action (superadmin balance write for contribution flow testing)
+- `Retag` model is scaffolded (`models/Retag.js`) but not yet wired into any route or UI
+- Forfeit scrub path: nominator cannot currently delete a `void` contest record (the `DELETE /contests/:id` route rejects non-pending contests) — the design's "scrub forfeit record" case is not yet implemented
+- Announcement impressions + click tracking: `AnnouncementDismissal` count is live; impressions and clicks need dedicated log entries or counter fields before the stats page shows real data
+- REVERT BEFORE LAUNCH: re-enable participant vote guard and `status === 'active'` checks in `routes/api.js` and `routes/pages.js`; remove `TEST_BYPASS_USERNAMES` from `utils/contestEligibility.js`
+- Phase 6 admin UI pages: tournament management, content moderation, and entries moderation are placeholder stubs only; admin dashboard, user list/detail, ID verification queue, audit log, platform settings, and announcement detail are done
 
 ---
 
@@ -101,7 +115,7 @@ The default engagement layer. Every user on the platform interacts with this.
 - [x] Rating flow: authenticated user submits 1–10 score. Enforce no self-rating, no duplicate rating. Update `ratingCount` and `ratingAvg` on the entry document.
 - [x] Tags: entry owner can add, edit, or remove up to 6 free-form tags on their entry at any time.
 - [x] **Fix leaderboard route:** real query implemented — top entries by `ratingAvg` with minimum 3 ratings, populated owner info, passed as `items` to the view.
-- [ ] **Right panel redesign:** The original `rightPanel.ejs` placeholders (`trendingItems`, `contests`) were scaffolded without a firm spec and are being replaced. Panel sections defined — see `platform-core-concepts.md` Section 11 for full spec. Top to bottom: (1) Ongoing Tournaments — skeleton until July; (2) Announcements — pulled at load time, filtered against current user, one shown at a time, dismissable; (3) People to Follow — algorithmic suggestions. `rightPanel.ejs` needs to be rebuilt to match this structure.
+- [x] **Right panel redesign:** Rebuilt `rightPanel.ejs` with all three sections: (1) Ongoing Tournaments skeleton; (2) Announcements carousel — dismissable, user-filtered, auto-advances every 6s, dot navigation; (3) People to Follow — follower-count ranked suggestions with inline follow buttons. `injectRightPanelData` middleware handles all data fetching.
 - [x] Feed page: Ratings tab fully wired — `UserAffinity` model + `utils/feedScorer.js` affinity/velocity/follow scoring, entries rendered as `entryCard` with pre-locked ratings for already-rated entries.
 - [x] Comment flow: any registered user can comment on an entry. Users can delete their own comments. Entry owner can hide any comment (hidden comments move to a private "hidden comments" section, visible only to the owner). Any user can report a comment.
 - [x] Reply flow: any registered user can reply to a top-level comment (one level only).
@@ -140,9 +154,9 @@ The core competitive mechanic. Build the HTH contest flow end to end.
 - **Remove nominee** (nominator-only action, usable in both phases): the single mechanism for "starting over." Deletes the Contest + Nomination doc entirely rather than resetting it for reuse — consistent with the existing rule that a new entry attempt means a new contest doc, not an edit. In the pending case this is a clean, traceless deletion. In the live/forfeit case, this is also how the public "Withdrew" loss record gets scrubbed — it stays visible until the nominator chooses to delete it.
 
 **Tasks:**
-- [ ] Nominee withdrawal action while `pending`: no-fault decline, contest/nomination deleted on nominator's follow-up "remove nominee" action.
-- [ ] Nominee forfeit action while `active`: closes contest, sets opponent as `winnerEntryId`, marks nominee's side with a `withdrew: true` (or similar) flag for the "Withdrew" badge.
-- [ ] "Remove nominee" route (nominator-only): deletes the Contest + Nomination doc, covering both the no-fault pending case and the scrub-the-forfeit-record live case.
+- [x] Nominee withdrawal action while `pending`: `POST /nominations/:id/decline` voids nomination + contest (`voidReason: 'declined'`). Nominator cancels via `DELETE /contests/:id` (`voidReason: 'canceled'`, pending only).
+- [x] Nominee forfeit action while `active`: `POST /contests/:id/forfeit` — both nominator and nominee can forfeit; sets `voidReason` and `winnerEntryId`. Contest page shows "wins by forfeit" banner and forfeit modal with consequence summary.
+- [~] "Remove nominee" route (nominator-only): pending-case cancel is done via `DELETE /contests/:id`. The scrub-forfeit-record case (deleting a void contest from a forfeited live contest) is not yet implemented — `DELETE /contests/:id` rejects when status is not `pending`.
 
 ---
 
@@ -171,7 +185,7 @@ The core competitive mechanic. Build the HTH contest flow end to end.
 - `nomination.status === 'accepted'` → redirect to `/contest/:contestId` instead
 
 **Tasks:**
-- [ ] Update the nomination notification click handler to check nomination status and redirect to the contest page when already accepted.
+- [x] Update the nomination notification click handler to check nomination status and redirect to the contest page when already accepted. Implemented as a `Notification.updateOne` patch fired at acceptance time on both acceptance paths (existing entry and new entry submission). Pre-existing stale notifications for already-accepted nominations will need a one-time DB fix before launch.
 
 ---
 
@@ -373,6 +387,8 @@ The dashboard is served at `/admin` for all roles but renders entirely different
 - [x] **User management — detail:** profile info, uploaded entries, contest/tournament history, ID verification status and documents, wallet balance; admin actions (role assignment using 2-tier-ahead rule, account suspension)
 - [x] **ID verification queue:** list of users with `idVerificationStatus: 'pending'`; review view showing selfie and government ID side by side; approve / reject action (approval sets `idVerified: true`, user can now submit an entry)
 - [x] **Admin audit log:** append-only `admin_audit_logs` collection, `ATA-YYYYMMDD-XXXXXXXX` ticket refs, actor ID + role, action slug, affected entity, target user, `remarks`, and `metadata` payload. Global log view at `/admin/audit-log` visible to supervisor+; filterable by action, target user, and ticket ref. `utils/auditLog.js` helper used throughout.
+- [x] **Platform Settings page:** `GET /admin/settings` + `POST /admin/settings/contest-eligibility` — founder-only. Configures contest eligibility thresholds (minEntries, minRatingCount, minWeightedAvg). Persisted in `PlatformSettings` collection (key: `'global'`).
+- [x] **Announcement detail/stats page:** `GET /admin/announcements/:id` — dismissal count (live from `AnnouncementDismissal`), impressions/clicks/dismiss-rate placeholders (tracking not yet wired), right-panel card preview, activate/expire/delete actions.
 - [ ] **Tournament management — list:** all tournaments with status filter; entry point for creating a platform-funded tournament
 - [ ] **Tournament management — create:** form to create a platform-funded tournament (name, description, participant cap, time config, prize amounts); starts directly at `open` status
 - [ ] **Tournament management — detail:** participant list, matchup grid, missed reviews counter, prize config; admin override actions
@@ -381,6 +397,20 @@ The dashboard is served at `/admin` for all roles but renders entirely different
 - [ ] **Entries moderation:** browse all entries with search and filter; entry detail with moderation actions (hide, remove)
 
 **Exit criteria:** Admin can manage users, process ID verification queue, create and review tournaments, and action reported comments — all from a dedicated admin-only UI.
+
+---
+
+#### Announcements — Stats Page (added June 18, implemented June 20)
+
+The detail/stats page at `GET /admin/announcements/:id` is now live. Dismissal count is real data. The remaining metrics are placeholders until tracking is wired.
+
+**Still needed to show real stats:**
+- **Impressions** — requires a server-side counter increment on each `injectRightPanelData` call or a separate log entry per unique user render
+- **Clicks / Conversions** — requires routing announcement clicks through `/api/announcements/:id/click` before forwarding to the redirect URL
+- **Dismiss rate** — derivable once impressions are tracked
+- **Reach by filter segment** — breakdown of impressions by sex / orientation / age group if filters are set
+
+The page shows "tracking not yet wired" placeholders for these metrics until they are implemented.
 
 ---
 

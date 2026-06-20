@@ -3,6 +3,8 @@ const Announcement = require('../models/Announcement');
 const AnnouncementDismissal = require('../models/AnnouncementDismissal');
 const Follow = require('../models/Follow');
 const User = require('../models/User');
+const Nomination = require('../models/Nomination');
+const Entry = require('../models/Entry');
 
 function announcementMatchesUser(ann, user) {
   const f = ann.filters;
@@ -19,16 +21,59 @@ function announcementMatchesUser(ann, user) {
 }
 
 module.exports = async function injectRightPanelData(req, res, next) {
-  res.locals.panelAnnouncement = null;
+  res.locals.panelAnnouncements = [];
   res.locals.panelSuggestedUsers = [];
+  res.locals.panelPendingNominations = [];
 
   if (!req.session?.userId) return next();
 
   const currentUserId = new mongoose.Types.ObjectId(req.session.userId);
+  const now = new Date();
+
+  try {
+    // ── Pending Nominations ───────────────────────────────────────────────────
+    const nominations = await Nomination.find({
+      nomineeId: currentUserId,
+      status: 'pending',
+      expiresAt: { $gt: now },
+    })
+      .populate('nominatorId', 'username displayName avatar')
+      .populate('contestId', 'entries')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Collect nominator entry IDs so we can fetch media in one query
+    const nominatorEntryMeta = nominations.map(n => {
+      const match = n.contestId?.entries?.find(
+        e => e.userId.toString() === n.nominatorId?._id?.toString()
+      );
+      return { nomId: n._id, entryId: match?.entryId || null, hidden: match?.hidden || false };
+    });
+
+    const entryIds = nominatorEntryMeta.map(m => m.entryId).filter(Boolean);
+    const entries  = entryIds.length
+      ? await Entry.find({ _id: { $in: entryIds } }).select('mediaUrl mediaType').lean()
+      : [];
+    const entryMap = Object.fromEntries(entries.map(e => [e._id.toString(), e]));
+
+    res.locals.panelPendingNominations = nominations.map((n, i) => {
+      const meta  = nominatorEntryMeta[i];
+      const media = !meta.hidden && meta.entryId ? entryMap[meta.entryId.toString()] : null;
+      return {
+        _id:       n._id,
+        message:   n.message || null,
+        expiresAt: n.expiresAt,
+        nominator: {
+          username:    n.nominatorId?.username?.value    || '',
+          displayName: n.nominatorId?.displayName?.value || n.nominatorId?.username?.value || '',
+        },
+        entry: media ? { mediaUrl: media.mediaUrl, mediaType: media.mediaType } : null,
+      };
+    });
+  } catch { /* non-fatal */ }
 
   try {
     // ── Announcement ─────────────────────────────────────────────────────────
-    const now = new Date();
     const dismissed = await AnnouncementDismissal.distinct('announcementId', { userId: currentUserId });
     const candidates = await Announcement.find({
       status: 'active',
@@ -37,12 +82,7 @@ module.exports = async function injectRightPanelData(req, res, next) {
     }).sort({ publishedAt: -1 }).lean();
 
     const user = req.currentUser;
-    for (const ann of candidates) {
-      if (announcementMatchesUser(ann, user)) {
-        res.locals.panelAnnouncement = ann;
-        break;
-      }
-    }
+    res.locals.panelAnnouncements = candidates.filter(ann => announcementMatchesUser(ann, user));
   } catch { /* non-fatal */ }
 
   try {

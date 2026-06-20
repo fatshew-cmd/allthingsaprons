@@ -1,4 +1,4 @@
-<%- include('partials/appStart', { title: title, activePage: activePage }) %>
+﻿<%- include('partials/appStart', { title: title, activePage: activePage }) %>
 
 <div class="flex flex-col pb-20 md:pb-0">
 
@@ -18,7 +18,7 @@
     <div class="h-20 px-5 bg-shark-950 flex items-center justify-end">
       <% if (isOwn) { %>
       <button type="button" id="profile-edit-open" class="inline-flex items-center gap-2 px-4 py-2 border border-white/35 rounded-md text-sm font-semibold text-white hover:bg-white/8 transition-colors cursor-pointer">
-        <iconify-icon icon="boxicons:pencil" width="14"></iconify-icon>
+        <iconify-icon icon="boxicons:edit-alt" width="14"></iconify-icon>
         Edit profile
       </button>
       <% } else { %>
@@ -155,7 +155,7 @@
 
     <% if (overallRank) { %>
     <div class="flex flex-col items-center">
-      <span class="text-xl font-bold leading-tight"><%= overallRank %><span class="text-sm text-white/30 font-normal"> /10</span></span>
+      <span class="text-xl font-bold leading-tight"><%= overallRank %></span>
       <span class="text-xs text-white/40 mt-0.5">Avg Rating</span>
     </div>
     <% } %>
@@ -193,7 +193,7 @@
     <div class="flex items-center justify-between mb-3">
       <p class="text-sm font-semibold text-white m-0">People you might like</p>
       <button type="button" id="similar-dismiss" class="text-white/30 hover:text-white/60 transition-colors cursor-pointer">
-        <iconify-icon icon="bx:x" width="18"></iconify-icon>
+        <iconify-icon icon="boxicons:x" width="18"></iconify-icon>
       </button>
     </div>
     <div id="similar-list" class="flex gap-4"></div>
@@ -262,7 +262,10 @@
     <%
       const myEntry  = contest.entries.find(function(e) { return e.userId && e.userId.toString() === profileUser._id.toString(); });
       const oppEntry = contest.entries.find(function(e) { return !e.userId || e.userId.toString() !== profileUser._id.toString(); });
-      const statusLabel = { pending: 'Pending', active: 'Active', void: 'Void', closed: 'Closed' }[contest.status] || contest.status;
+      const voidLabelMap = { expired: 'No Response', declined: 'Rejected', canceled: 'Canceled', nominee_forfeit: 'Forfeited', nominator_forfeit: 'Forfeit Win' };
+      const statusLabel = contest.status === 'void'
+        ? (voidLabelMap[contest.voidReason] || 'No Response')
+        : ({ pending: 'Pending', active: 'Active', closed: 'Closed' }[contest.status] || contest.status);
       const statusClass = {
         pending: 'bg-amber-500/15 text-amber-400',
         active:  'bg-green-500/15 text-green-400',
@@ -283,7 +286,7 @@
           <img src="<%= myEntry.entryId.mediaUrl %>" alt="" class="w-full h-full object-cover">
           <% } else { %>
           <div class="w-full h-full flex items-center justify-center text-white/15">
-            <iconify-icon icon="bx:image" width="28"></iconify-icon>
+            <iconify-icon icon="boxicons:image" width="28"></iconify-icon>
           </div>
           <% } %>
           <% if (iWon) { %>
@@ -303,12 +306,12 @@
           <img src="<%= oppEntry.entryId.mediaUrl %>" alt="" class="w-full h-full object-cover">
           <% } else if (contest.status === 'pending') { %>
           <div class="w-full h-full flex flex-col items-center justify-center text-white/15 gap-1.5">
-            <iconify-icon icon="bx:user-plus" width="24"></iconify-icon>
+            <iconify-icon icon="boxicons:user-plus" width="24"></iconify-icon>
             <span class="text-xs text-white/20">Awaiting</span>
           </div>
           <% } else { %>
           <div class="w-full h-full flex items-center justify-center text-white/15">
-            <iconify-icon icon="bx:image" width="28"></iconify-icon>
+            <iconify-icon icon="boxicons:image" width="28"></iconify-icon>
           </div>
           <% } %>
           <% if (iLost) { %>
@@ -373,7 +376,7 @@
         <img src="<%= te.entryId.mediaUrl %>" alt="" class="w-full h-full object-cover">
         <% } else { %>
         <div class="w-full h-full flex items-center justify-center text-white/15">
-          <iconify-icon icon="bx:image" width="20"></iconify-icon>
+          <iconify-icon icon="boxicons:image" width="20"></iconify-icon>
         </div>
         <% } %>
       </div>
@@ -430,7 +433,7 @@
 
       <div class="sticky top-0 z-10 flex items-center justify-between bg-shark-950/95 backdrop-blur-sm border-b border-white/10 px-4 py-3">
         <button type="button" id="profile-edit-close" class="inline-flex w-8 h-8 items-center justify-center rounded-md text-white/75 hover:bg-white/10 hover:text-white transition-colors cursor-pointer">
-          <iconify-icon icon="bx:x" width="22"></iconify-icon>
+          <iconify-icon icon="boxicons:x" width="22"></iconify-icon>
         </button>
         <h2 class="text-xl font-bold">Edit profile</h2>
         <button type="submit" class="inline-flex items-center justify-center rounded-md bg-charm-600 hover:bg-charm-500 px-4 py-1.5 text-sm font-bold text-white transition-colors cursor-pointer">
@@ -446,7 +449,7 @@
               draggable="false" />
             <div id="profile-edit-banner-empty"
               class="w-full h-full flex items-center justify-center text-white/25 <%= profileUser.banner?.value ? 'hidden' : '' %>">
-              <iconify-icon icon="bx:image-add" width="30"></iconify-icon>
+              <iconify-icon icon="boxicons:image-add" width="30"></iconify-icon>
             </div>
             <!-- Ghost frame: inset-x-0 top-8 bottom-8 = 192-64=128px mobile / 224-64=160px sm — exact profile banner height -->
             <div id="profile-edit-banner-frame"
@@ -461,12 +464,12 @@
               class="absolute bottom-10 right-3 flex items-center gap-1 <%= profileUser.banner?.value ? '' : 'hidden' %>">
               <button type="button" id="profile-edit-banner-zoom-out"
                 class="w-7 h-7 flex items-center justify-center rounded-md bg-black/60 text-white/70 hover:bg-black/80 transition-colors cursor-pointer">
-                <iconify-icon icon="bx:minus" width="14"></iconify-icon>
+                <iconify-icon icon="boxicons:minus" width="14"></iconify-icon>
               </button>
               <span id="profile-edit-banner-zoom-label" class="text-xs text-white/60 tabular-nums w-7 text-center">1×</span>
               <button type="button" id="profile-edit-banner-zoom-in"
                 class="w-7 h-7 flex items-center justify-center rounded-md bg-black/60 text-white/70 hover:bg-black/80 transition-colors cursor-pointer">
-                <iconify-icon icon="bx:plus" width="14"></iconify-icon>
+                <iconify-icon icon="boxicons:plus" width="14"></iconify-icon>
               </button>
             </div>
           </div>
@@ -991,7 +994,7 @@
     var mediaHtml = entry.mediaType === 'video'
       ? '<video src="' + mediaSrc + '" class="w-full h-full object-cover" muted preload="none"></video>' +
         '<div class="absolute inset-0 flex items-center justify-center">' +
-          '<iconify-icon icon="bx:play-circle" width="30" class="text-white/80 drop-shadow-md"></iconify-icon>' +
+          '<iconify-icon icon="boxicons:play-circle" width="30" class="text-white/80 drop-shadow-md"></iconify-icon>' +
         '</div>'
       : '<img src="' + mediaSrc + '" alt="" class="w-full h-full object-cover">';
 

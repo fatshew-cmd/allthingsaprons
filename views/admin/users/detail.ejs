@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../../partials/head') %></head>
 <body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
@@ -12,7 +12,7 @@
       <div class="max-w-3xl flex flex-col gap-6">
 
         <a href="/admin/users" class="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors no-underline -mb-2">
-          <iconify-icon icon="lucide:chevron-left" width="14" style="display:block"></iconify-icon>
+          <iconify-icon icon="boxicons:chevron-left" width="14" style="display:block"></iconify-icon>
           All users
         </a>
 
@@ -33,7 +33,7 @@
               <img src="<%= user.avatar.value %>" alt="" class="w-16 h-16 rounded-md object-cover border-2 border-zinc-900 bg-zinc-800">
               <% } else { %>
               <div class="w-16 h-16 rounded-md bg-zinc-800 border-2 border-zinc-900 flex items-center justify-center">
-                <iconify-icon icon="lucide:user" width="22" style="color:#52525b;display:block"></iconify-icon>
+                <iconify-icon icon="boxicons:user" width="22" style="color:#52525b;display:block"></iconify-icon>
               </div>
               <% } %>
             </div>
@@ -55,7 +55,7 @@
                 <% } %>
                 <% if (user.idVerified) { %>
                 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/25">
-                  <iconify-icon icon="lucide:shield-check" width="11" style="display:block"></iconify-icon>ID Verified
+                  <iconify-icon icon="boxicons:shield-check" width="11" style="display:block"></iconify-icon>ID Verified
                 </span>
                 <% } %>
               </div>

@@ -11,7 +11,7 @@
     <%
       const navLinks = [
         { href: '/feed',          label: 'Feed',          page: 'feed',          icon: 'boxicons:home',              iconActive: 'boxicons:home-filled' },
-        { href: '/search',        label: 'Search',        page: 'search',        icon: 'boxicons:search',            iconActive: 'boxicons:search' },
+        { href: '/search',        label: 'Explore',       page: 'search',        icon: 'boxicons:search',            iconActive: 'boxicons:search' },
         { href: '/leaderboard',   label: 'Leaderboard',   page: 'leaderboard',   icon: 'boxicons:trending-up',       iconActive: 'boxicons:trending-up' },
         { href: '/contests',      label: 'Contests',      page: 'contests',      icon: 'boxicons:trophy',            iconActive: 'boxicons:trophy-filled' },
         { href: '#',              label: 'Marketplace',   page: 'marketplace',   icon: 'boxicons:shopping-bag',      iconActive: 'boxicons:shopping-bag-filled', future: true },
@@ -26,12 +26,14 @@
          class="flex items-center gap-4 px-3 py-2 rounded-md transition-colors
                 <%= activePage === link.page ? 'text-charm-400' : 'text-white/50 hover:text-white hover:bg-white/5' %>
                 <%= link.future ? 'opacity-40 pointer-events-none cursor-not-allowed' : 'cursor-pointer' %>">
-        <div class="relative shrink-0">
+        <div class="relative shrink-0 flex items-center justify-center w-6 h-6">
           <% if (activePage === link.page) { %>
             <span class="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-charm-400"></span>
           <% } %>
-          <iconify-icon icon="<%= activePage === link.page ? link.iconActive : link.icon %>" width="24" height="24"></iconify-icon>
+          <iconify-icon icon="<%= activePage === link.page ? link.iconActive : link.icon %>" width="24" height="24" style="display:block"></iconify-icon>
           <% if (link.page === 'notifications' && typeof unreadNotifications !== 'undefined' && unreadNotifications > 0) { %>
+            <span class="xl:hidden absolute -top-1 -right-1 w-2 h-2 rounded-full bg-charm-400 block"></span>
+          <% } else if (link.page === 'contests' && typeof panelPendingNominations !== 'undefined' && panelPendingNominations.length > 0) { %>
             <span class="xl:hidden absolute -top-1 -right-1 w-2 h-2 rounded-full bg-charm-400 block"></span>
           <% } %>
         </div>
@@ -40,6 +42,8 @@
           <span class="hidden xl:inline text-xs text-white/25 ml-auto">Soon</span>
         <% } else if (link.page === 'notifications' && typeof unreadNotifications !== 'undefined' && unreadNotifications > 0) { %>
           <span id="notif-badge" class="hidden xl:inline text-xs bg-charm-600 text-white font-bold px-1.5 py-0.5 rounded-md ml-auto leading-none"><%= unreadNotifications > 99 ? '99+' : unreadNotifications %></span>
+        <% } else if (link.page === 'contests' && typeof panelPendingNominations !== 'undefined' && panelPendingNominations.length > 0) { %>
+          <span class="hidden xl:inline text-xs bg-charm-600 text-white font-bold px-1.5 py-0.5 rounded-md ml-auto leading-none"><%= panelPendingNominations.length %></span>
         <% } %>
       </a>
     <% }) %>

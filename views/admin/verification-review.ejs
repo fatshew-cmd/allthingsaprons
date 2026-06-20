@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
 <body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
@@ -15,7 +15,7 @@
         <div class="flex items-center gap-3">
           <a href="/admin/verification"
             class="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors no-underline shrink-0">
-            <iconify-icon icon="lucide:arrow-left" width="14" style="display:block"></iconify-icon>
+            <iconify-icon icon="boxicons:arrow-back" width="14" style="display:block"></iconify-icon>
             Back
           </a>
           <div class="w-px h-4 bg-white/10 shrink-0"></div>
@@ -23,7 +23,7 @@
           <img src="<%= user.avatar.value %>" class="w-7 h-7 rounded-md object-cover shrink-0 bg-zinc-800">
           <% } else { %>
           <div class="w-7 h-7 rounded-md bg-zinc-800 flex items-center justify-center shrink-0">
-            <iconify-icon icon="lucide:user" width="13" style="color:#52525b;display:block"></iconify-icon>
+            <iconify-icon icon="boxicons:user" width="13" style="color:#52525b;display:block"></iconify-icon>
           </div>
           <% } %>
           <p class="text-sm font-semibold text-white m-0">@<%= user.username?.value %></p>
@@ -31,7 +31,7 @@
           <% if (submittedAtFormatted) { %>
           <div class="w-px h-4 bg-white/10 shrink-0"></div>
           <div class="flex items-center gap-1.5 text-xs text-zinc-400">
-            <iconify-icon icon="lucide:clock" width="12" style="display:block"></iconify-icon>
+            <iconify-icon icon="boxicons:time" width="12" style="display:block"></iconify-icon>
             Submitted <span class="text-zinc-300 font-medium ml-1"><%= submittedAtFormatted %></span>
           </div>
           <% } %>
@@ -40,7 +40,7 @@
         <!-- Escalation alert -->
         <% if (typeof isEscalated !== 'undefined' && isEscalated) { %>
         <div class="flex items-start gap-3 px-4 py-3.5 rounded-md bg-amber-500/10 border border-amber-500/25">
-          <iconify-icon icon="lucide:alert-triangle" width="15" style="color:#f59e0b;display:block;flex-shrink:0;margin-top:1px"></iconify-icon>
+          <iconify-icon icon="boxicons:error" width="15" style="color:#f59e0b;display:block;flex-shrink:0;margin-top:1px"></iconify-icon>
           <div>
             <p class="text-sm font-semibold text-amber-300 m-0">Escalated case</p>
             <p class="text-xs text-amber-400/70 m-0 mt-0.5">This account has reached 4 failed verification attempts and has been escalated for senior review. This is attempt <strong class="text-amber-300"><%= typeof attemptNumber !== 'undefined' ? attemptNumber : '—' %></strong> of 5. A rejection here will permanently ban the account.</p>
@@ -51,7 +51,7 @@
         <!-- Document hash conflict alert -->
         <% if (typeof docHashConflict !== 'undefined' && docHashConflict) { %>
         <div class="flex items-start gap-3 px-4 py-3.5 rounded-md bg-red-500/10 border border-red-500/25">
-          <iconify-icon icon="lucide:copy-x" width="15" style="color:#f87171;display:block;flex-shrink:0;margin-top:1px"></iconify-icon>
+          <iconify-icon icon="boxicons:copy" width="15" style="color:#f87171;display:block;flex-shrink:0;margin-top:1px"></iconify-icon>
           <div>
             <p class="text-sm font-semibold text-red-300 m-0">Document already on file for another account</p>
             <p class="text-xs text-red-400/70 m-0 mt-0.5">
@@ -73,7 +73,7 @@
 
           <div class="bg-zinc-900 rounded-md border border-white/8 overflow-hidden">
             <div class="px-4 py-3 border-b border-white/8 flex items-center gap-2">
-              <iconify-icon icon="lucide:camera" width="13" style="color:#a78bfa;display:block"></iconify-icon>
+              <iconify-icon icon="boxicons:camera" width="13" style="color:#a78bfa;display:block"></iconify-icon>
               <p class="text-xs font-semibold text-zinc-400 m-0 uppercase tracking-wide">Verification Selfie</p>
             </div>
             <div class="p-3 bg-zinc-950/40">
@@ -83,7 +83,7 @@
                   class="w-full rounded-md object-contain max-h-80 bg-zinc-900" style="pointer-events:none">
                 <div class="absolute inset-0 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(0,0,0,0.45)">
                   <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white" style="background:rgba(255,255,255,0.15)">
-                    <iconify-icon icon="lucide:maximize-2" width="13" style="display:block"></iconify-icon>
+                    <iconify-icon icon="boxicons:expand-alt" width="13" style="display:block"></iconify-icon>
                     Open viewer
                   </div>
                 </div>
@@ -96,7 +96,7 @@
 
           <div class="bg-zinc-900 rounded-md border border-white/8 overflow-hidden">
             <div class="px-4 py-3 border-b border-white/8 flex items-center gap-2">
-              <iconify-icon icon="lucide:id-card" width="13" style="color:#a78bfa;display:block"></iconify-icon>
+              <iconify-icon icon="boxicons:id-card" width="13" style="color:#a78bfa;display:block"></iconify-icon>
               <p class="text-xs font-semibold text-zinc-400 m-0 uppercase tracking-wide">Government-Issued ID</p>
             </div>
             <div class="p-3 bg-zinc-950/40">
@@ -106,7 +106,7 @@
                   class="w-full rounded-md object-contain max-h-80 bg-zinc-900" style="pointer-events:none">
                 <div class="absolute inset-0 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style="background:rgba(0,0,0,0.45)">
                   <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white" style="background:rgba(255,255,255,0.15)">
-                    <iconify-icon icon="lucide:maximize-2" width="13" style="display:block"></iconify-icon>
+                    <iconify-icon icon="boxicons:expand-alt" width="13" style="display:block"></iconify-icon>
                     Open viewer
                   </div>
                 </div>
@@ -163,7 +163,7 @@
         <div class="bg-zinc-900 rounded-md border border-white/8 overflow-hidden">
 
           <div class="px-6 py-4 border-b border-white/8 flex items-center gap-2.5">
-            <iconify-icon icon="lucide:clipboard-check" width="15" style="color:#a78bfa;display:block"></iconify-icon>
+            <iconify-icon icon="boxicons:clipboard" width="15" style="color:#a78bfa;display:block"></iconify-icon>
             <div>
               <p class="text-sm font-bold text-white m-0">Review Checklist</p>
               <p class="text-sm text-zinc-400 m-0">All items must be confirmed before you can approve this submission.</p>
@@ -236,17 +236,17 @@
                 </div>
 
                 <div id="dob-age-error" class="items-center gap-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/25" style="display:none">
-                  <iconify-icon icon="lucide:x-circle" width="13" style="color:#f87171;display:block;flex-shrink:0"></iconify-icon>
+                  <iconify-icon icon="boxicons:x-circle" width="13" style="color:#f87171;display:block;flex-shrink:0"></iconify-icon>
                   <p class="text-xs text-red-400 m-0">DOB on ID card does not meet the 19 years + 1 day minimum age requirement.</p>
                 </div>
 
                 <div id="dob-mismatch-warning" class="items-center gap-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/25" style="display:none">
-                  <iconify-icon icon="lucide:x-circle" width="13" style="color:#f87171;display:block;flex-shrink:0"></iconify-icon>
+                  <iconify-icon icon="boxicons:x-circle" width="13" style="color:#f87171;display:block;flex-shrink:0"></iconify-icon>
                   <p class="text-xs text-red-400 m-0">Declared DOB does not match the DOB on the ID card.</p>
                 </div>
 
                 <div class="flex items-center gap-2 px-3 py-2 rounded-md bg-white/5 border border-white/10">
-                  <iconify-icon icon="lucide:calendar-check-2" width="13" style="color:#a78bfa;display:block;flex-shrink:0"></iconify-icon>
+                  <iconify-icon icon="boxicons:calendar-check" width="13" style="color:#a78bfa;display:block;flex-shrink:0"></iconify-icon>
                   <p class="text-xs text-zinc-400 m-0">To qualify, the user must have been born <strong class="text-zinc-300">on or before <%= ageCutoffFormatted %></strong>.</p>
                 </div>
               </div>
@@ -287,7 +287,7 @@
 
             <button type="button" id="reject-btn"
               class="flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer" style="background:transparent">
-              <iconify-icon icon="lucide:x-circle" width="14" style="display:block"></iconify-icon>
+              <iconify-icon icon="boxicons:x-circle" width="14" style="display:block"></iconify-icon>
               Reject Submission
             </button>
 
@@ -297,7 +297,7 @@
               <input type="hidden" name="dobOnCard"   id="approve-dob-card-input">
               <button type="submit" id="approve-btn" disabled
                 class="flex items-center gap-2 px-6 py-2.5 rounded-md text-sm font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
-                <iconify-icon icon="lucide:shield-check" width="14" style="display:block"></iconify-icon>
+                <iconify-icon icon="boxicons:shield-check" width="14" style="display:block"></iconify-icon>
                 Approve &amp; Grant Access
               </button>
             </form>
@@ -320,7 +320,7 @@
     <div class="px-6 py-4 border-b border-white/8 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-md bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-          <iconify-icon icon="lucide:x-circle" width="17" style="color:#f87171;display:block"></iconify-icon>
+          <iconify-icon icon="boxicons:x-circle" width="17" style="color:#f87171;display:block"></iconify-icon>
         </div>
         <div>
           <p class="text-sm font-bold text-white m-0">Reject Submission</p>
@@ -329,7 +329,7 @@
       </div>
       <button type="button" id="reject-modal-close"
         class="w-7 h-7 flex items-center justify-center rounded-md text-zinc-500 hover:text-white hover:bg-white/8 transition-colors cursor-pointer" style="border:none;background:transparent">
-        <iconify-icon icon="lucide:x" width="15" style="display:block"></iconify-icon>
+        <iconify-icon icon="boxicons:x" width="15" style="display:block"></iconify-icon>
       </button>
     </div>
 
@@ -385,7 +385,7 @@
           </button>
           <button type="submit" id="reject-confirm-btn" disabled
             class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold bg-red-600 text-white hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer" style="border:none">
-            <iconify-icon icon="lucide:x-circle" width="14" style="display:block"></iconify-icon>
+            <iconify-icon icon="boxicons:x-circle" width="14" style="display:block"></iconify-icon>
             Confirm Rejection
           </button>
         </div>
@@ -408,16 +408,16 @@
     <!-- Header bar -->
     <div class="shrink-0 flex items-center justify-between" style="pointer-events:auto">
       <p class="m-0 text-sm font-semibold text-white flex items-center gap-2">
-        <iconify-icon icon="lucide:scan-search" width="15" style="color:#a78bfa;display:block"></iconify-icon>
+        <iconify-icon icon="boxicons:search-alt" width="15" style="color:#a78bfa;display:block"></iconify-icon>
         Document Viewer
       </p>
       <div class="flex items-center gap-3 text-xs text-zinc-400">
         <span class="hidden sm:flex items-center gap-1.5">
-          <iconify-icon icon="lucide:mouse-pointer-2" width="12" style="display:block"></iconify-icon>
+          <iconify-icon icon="boxicons:mouse" width="12" style="display:block"></iconify-icon>
           Scroll to zoom · Drag to pan
         </span>
         <button id="modal-close-btn" class="vbtn flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold rounded-md" style="background:rgba(255,255,255,0.12);border:none;cursor:pointer">
-          <iconify-icon icon="lucide:x" width="13" style="display:block"></iconify-icon>
+          <iconify-icon icon="boxicons:x" width="13" style="display:block"></iconify-icon>
           Close
         </button>
       </div>
@@ -430,14 +430,14 @@
       <div class="flex-1 flex flex-col rounded-md overflow-hidden border" style="background:#09090b;border-color:rgba(255,255,255,0.1)">
         <div class="shrink-0 px-4 py-2.5 flex items-center justify-between border-b" style="background:#18181b;border-color:rgba(255,255,255,0.08)">
           <div class="flex items-center gap-2">
-            <iconify-icon icon="lucide:camera" width="13" style="color:#a78bfa;display:block"></iconify-icon>
+            <iconify-icon icon="boxicons:camera" width="13" style="color:#a78bfa;display:block"></iconify-icon>
             <p class="m-0 text-xs font-bold text-zinc-300 uppercase tracking-wide">Verification Selfie</p>
           </div>
           <div class="flex items-center gap-0.5">
-            <button class="vbtn viewer-btn zoom-out" data-key="selfie" title="Zoom out"><iconify-icon icon="lucide:zoom-out" width="13" style="display:block"></iconify-icon></button>
+            <button class="vbtn viewer-btn zoom-out" data-key="selfie" title="Zoom out"><iconify-icon icon="boxicons:zoom-out" width="13" style="display:block"></iconify-icon></button>
             <span id="selfie-zoom-lbl" class="text-xs text-zinc-400 w-10 text-center tabular-nums">100%</span>
-            <button class="vbtn viewer-btn zoom-in"  data-key="selfie" title="Zoom in"><iconify-icon icon="lucide:zoom-in"  width="13" style="display:block"></iconify-icon></button>
-            <button class="vbtn viewer-btn zoom-reset ml-1" data-key="selfie" title="Reset view"><iconify-icon icon="lucide:maximize-2" width="13" style="display:block"></iconify-icon></button>
+            <button class="vbtn viewer-btn zoom-in"  data-key="selfie" title="Zoom in"><iconify-icon icon="boxicons:zoom-in"  width="13" style="display:block"></iconify-icon></button>
+            <button class="vbtn viewer-btn zoom-reset ml-1" data-key="selfie" title="Reset view"><iconify-icon icon="boxicons:expand-alt" width="13" style="display:block"></iconify-icon></button>
           </div>
         </div>
         <div class="flex-1 relative overflow-hidden viewer-vp" id="selfie-vp" style="cursor:grab">
@@ -453,14 +453,14 @@
       <div class="flex-1 flex flex-col rounded-md overflow-hidden border" style="background:#09090b;border-color:rgba(255,255,255,0.1)">
         <div class="shrink-0 px-4 py-2.5 flex items-center justify-between border-b" style="background:#18181b;border-color:rgba(255,255,255,0.08)">
           <div class="flex items-center gap-2">
-            <iconify-icon icon="lucide:id-card" width="13" style="color:#a78bfa;display:block"></iconify-icon>
+            <iconify-icon icon="boxicons:id-card" width="13" style="color:#a78bfa;display:block"></iconify-icon>
             <p class="m-0 text-xs font-bold text-zinc-300 uppercase tracking-wide">Government-Issued ID</p>
           </div>
           <div class="flex items-center gap-0.5">
-            <button class="vbtn viewer-btn zoom-out" data-key="iddoc" title="Zoom out"><iconify-icon icon="lucide:zoom-out" width="13" style="display:block"></iconify-icon></button>
+            <button class="vbtn viewer-btn zoom-out" data-key="iddoc" title="Zoom out"><iconify-icon icon="boxicons:zoom-out" width="13" style="display:block"></iconify-icon></button>
             <span id="iddoc-zoom-lbl" class="text-xs text-zinc-400 w-10 text-center tabular-nums">100%</span>
-            <button class="vbtn viewer-btn zoom-in"  data-key="iddoc" title="Zoom in"><iconify-icon icon="lucide:zoom-in"  width="13" style="display:block"></iconify-icon></button>
-            <button class="vbtn viewer-btn zoom-reset ml-1" data-key="iddoc" title="Reset view"><iconify-icon icon="lucide:maximize-2" width="13" style="display:block"></iconify-icon></button>
+            <button class="vbtn viewer-btn zoom-in"  data-key="iddoc" title="Zoom in"><iconify-icon icon="boxicons:zoom-in"  width="13" style="display:block"></iconify-icon></button>
+            <button class="vbtn viewer-btn zoom-reset ml-1" data-key="iddoc" title="Reset view"><iconify-icon icon="boxicons:expand-alt" width="13" style="display:block"></iconify-icon></button>
           </div>
         </div>
         <div class="flex-1 relative overflow-hidden viewer-vp" id="iddoc-vp" style="cursor:grab">

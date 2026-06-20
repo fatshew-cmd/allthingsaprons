@@ -1,4 +1,4 @@
-<%- include('partials/appStart', { title: 'Feed', activePage: 'feed' }) %>
+﻿<%- include('partials/appStart', { title: 'Feed', activePage: 'feed' }) %>
 
 <div class="flex flex-col pb-20 md:pb-0">
 
@@ -21,11 +21,13 @@
           currentUserId: currentUser._id.toString(),
           isFollowing:   false,
           userRating:    fe.userRating,
+          nominees:      nomineesMap[fe._id.toString()] || [],
+          contestInfo:   contestInfoMap[fe._id.toString()] || null,
         }) %>
       <% }) %>
     <% } else { %>
     <div class="flex flex-col items-center justify-center py-20 gap-3 text-center">
-      <iconify-icon icon="bx:photo-album" width="40" class="text-white/15"></iconify-icon>
+      <iconify-icon icon="boxicons:photo-album" width="40" class="text-white/15"></iconify-icon>
       <p class="text-sm text-white/30">No entries to rate yet.</p>
     </div>
     <% } %>
@@ -42,7 +44,7 @@
   <!-- Tournaments tab -->
   <div id="feed-tournaments" class="hidden">
     <div class="flex flex-col items-center justify-center py-20 gap-3 text-center">
-      <iconify-icon icon="bx:trophy" width="40" class="text-white/15"></iconify-icon>
+      <iconify-icon icon="boxicons:trophy" width="40" class="text-white/15"></iconify-icon>
       <p class="text-sm text-white/30">No tournaments yet.</p>
     </div>
   </div>

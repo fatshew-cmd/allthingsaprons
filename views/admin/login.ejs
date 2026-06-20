@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
 <body class="min-h-screen flex items-center justify-center p-4 bg-zinc-950" style="font-family:'Sofia Sans',sans-serif">
@@ -8,7 +8,7 @@
     <!-- Logo -->
     <div class="flex items-center justify-center gap-3 mb-8">
       <div class="w-10 h-10 rounded-md bg-amber-500 flex items-center justify-center shrink-0">
-        <iconify-icon icon="lucide:chef-hat" width="18" style="color:#1c1917;display:block"></iconify-icon>
+        <iconify-icon icon="boxicons:crown" width="18" style="color:#1c1917;display:block"></iconify-icon>
       </div>
       <div>
         <p class="text-white font-bold text-base leading-tight m-0">ATA Admin</p>
@@ -24,14 +24,14 @@
 
       <% if (typeof setup !== 'undefined' && setup) { %>
       <div class="mb-5 px-4 py-3 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2.5">
-        <iconify-icon icon="lucide:check-circle" width="15" style="color:#34d399;flex-shrink:0;display:block"></iconify-icon>
+        <iconify-icon icon="boxicons:check-circle" width="15" style="color:#34d399;flex-shrink:0;display:block"></iconify-icon>
         <p class="text-emerald-400 text-sm m-0">Account set up successfully. You can now sign in.</p>
       </div>
       <% } %>
 
       <% if (error) { %>
       <div class="mb-5 px-4 py-3 rounded-md bg-red-500/10 border border-red-500/20 flex items-center gap-2.5">
-        <iconify-icon icon="lucide:alert-circle" width="15" style="color:#f87171;flex-shrink:0;display:block"></iconify-icon>
+        <iconify-icon icon="boxicons:error-circle" width="15" style="color:#f87171;flex-shrink:0;display:block"></iconify-icon>
         <p class="text-red-400 text-sm m-0"><%= error %></p>
       </div>
       <% } %>

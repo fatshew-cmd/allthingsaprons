@@ -1,4 +1,4 @@
-<%- include('partials/appStart', { title: title, activePage: 'notifications' }) %>
+﻿<%- include('partials/appStart', { title: title, activePage: 'notifications' }) %>
 
 <%
 function fmtNotifTime(d) {
@@ -40,7 +40,7 @@ function notifText(n) {
 
 function notifIcon(type) {
   switch (type) {
-    case 'comment':           return 'boxicons:comment';
+    case 'comment':           return 'boxicons:message';
     case 'reply':             return 'boxicons:reply';
     case 'nomination_received':
     case 'viewer_nomination': return 'boxicons:trophy';

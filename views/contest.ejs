@@ -1,12 +1,12 @@
-<%- include('partials/appStart', { title: title, activePage: '' }) %>
+﻿<%- include('partials/appStart', { title: title, activePage: '' }) %>
 
 <%
   var statusCls = {
     pending: 'bg-amber-500/15 text-amber-400',
     active:  'bg-green-500/15 text-green-400',
     void:    'bg-white/10 text-white/40',
-    closed:  'bg-white/10 text-white/50',
-  }[contest.status] || 'bg-white/10 text-white/40';
+    closed:  'bg-red-500/15 text-red-400',
+  }[effectiveStatus] || 'bg-white/10 text-white/40';
 
   var winnerSide = null;
   if (left && left.isWinner) winnerSide = left;
@@ -18,26 +18,33 @@
   <!-- Header -->
   <div class="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-shark-950/95 backdrop-blur-sm border-b border-white/10">
     <button onclick="history.back()" class="w-8 h-8 flex items-center justify-center rounded-md text-white/50 hover:bg-white/8 hover:text-white transition-colors cursor-pointer shrink-0">
-      <iconify-icon icon="bx:chevron-left" width="22"></iconify-icon>
+      <iconify-icon icon="boxicons:chevron-left" width="22"></iconify-icon>
     </button>
     <span class="font-bold text-base flex-1">H2H Contest</span>
     <span class="text-xs font-semibold px-2 py-0.5 rounded-md <%= statusCls %>"><%= statusLabel %></span>
   </div>
 
   <!-- Status banners -->
-  <% if (contest.status === 'active' && contest.votingDeadline) { %>
+  <% if (effectiveStatus === 'active' && contest.votingDeadline) { %>
   <div class="px-4 py-2.5 border-b border-white/10 flex items-center gap-2">
-    <iconify-icon icon="bx:time-five" width="15" class="text-charm-400 shrink-0"></iconify-icon>
-    <span class="text-sm text-white/50">Voting closes <span id="contest-deadline" data-ts="<%= new Date(contest.votingDeadline).getTime() %>" class="text-white font-medium">...</span></span>
+    <iconify-icon icon="boxicons:time-five" width="15" class="text-charm-400 shrink-0"></iconify-icon>
+    <span class="text-sm text-white/50 flex-1">Voting closes <span id="contest-deadline" data-ts="<%= new Date(contest.votingDeadline).getTime() %>" class="text-white font-medium">...</span></span>
+    <% if (locals.isNominator || locals.isNominee) { %>
+    <button id="cv-forfeit-btn" type="button" data-contest-id="<%= contest._id %>"
+      class="shrink-0 text-xs font-medium text-white/50 hover:text-red-400 transition-colors cursor-pointer"
+      title="Drop out of contest">
+      Drop Out Contest
+    </button>
+    <% } %>
   </div>
   <% } %>
 
   <% if (contest.status === 'pending' && contest.voidDeadline) { %>
   <div class="px-4 py-2.5 border-b border-white/10 flex items-center gap-2">
-    <iconify-icon icon="bx:time-five" width="15" class="text-amber-400 shrink-0"></iconify-icon>
+    <iconify-icon icon="boxicons:time-five" width="15" class="text-amber-400 shrink-0"></iconify-icon>
     <span class="text-sm text-white/50 flex-1">Nomination expires <span id="contest-void-deadline" data-ts="<%= new Date(contest.voidDeadline).getTime() %>" class="text-amber-300 font-medium">...</span></span>
     <button id="cv-share-btn" type="button" class="shrink-0 flex items-center gap-1 text-xs font-medium text-white/50 hover:text-white/80 transition-colors cursor-pointer">
-      <iconify-icon icon="bx:share-alt" width="14"></iconify-icon>
+      <iconify-icon icon="boxicons:share" width="14"></iconify-icon>
       Share
     </button>
     <% if (locals.isNominator) { %>
@@ -50,19 +57,28 @@
   </div>
   <% } %>
 
-  <% if (winnerSide && contest.status === 'closed') { %>
+  <% if (winnerSide && (contest.status === 'closed' || (contest.status === 'void' && (contest.voidReason === 'nominee_forfeit' || contest.voidReason === 'nominator_forfeit')))) { %>
   <div class="px-4 py-3 border-b border-charm-500/30 bg-charm-500/8 flex items-center gap-2.5">
     <iconify-icon icon="boxicons:trophy" width="17" class="text-charm-400 shrink-0"></iconify-icon>
     <span class="text-sm font-semibold text-white">
-      <%= winnerSide.user?.displayName?.value || ('@' + winnerSide.user?.username?.value) %> wins this contest
+      <%= winnerSide.user?.displayName?.value || ('@' + winnerSide.user?.username?.value) %> wins this contest<% if (contest.status === 'void') { %> by forfeit<% } %>
     </span>
   </div>
   <% } %>
 
   <% if (contest.status === 'void') { %>
+  <%
+    var voidBannerText = {
+      expired:          'The nomination expired without a response.',
+      declined:         'The nominee declined this contest.',
+      canceled:         'This contest was canceled by the creator.',
+      nominee_forfeit:  (right?.user?.displayName?.value || (right?.user?.username?.value ? '@' + right.user.username.value : 'The nominee')) + ' forfeited this contest.',
+      nominator_forfeit: (left?.user?.displayName?.value  || (left?.user?.username?.value  ? '@' + left.user.username.value  : 'The creator')) + ' forfeited this contest.',
+    }[contest.voidReason] || 'This contest was voided.';
+  %>
   <div class="px-4 py-3 border-b border-white/10 flex items-center gap-2.5">
-    <iconify-icon icon="bx:x-circle" width="15" class="text-white/30 shrink-0"></iconify-icon>
-    <span class="text-sm text-white/40">This contest was voided — the nomination expired without a response.</span>
+    <iconify-icon icon="boxicons:x-circle" width="15" class="text-white/30 shrink-0"></iconify-icon>
+    <span class="text-sm text-white/40"><%- voidBannerText %></span>
   </div>
   <% } %>
 
@@ -77,34 +93,47 @@
         <a href="<%= ls && ls.entryId ? '/entry/' + ls.entryId : '#' %>" class="block relative aspect-square rounded-md overflow-hidden bg-shark-900 <%= (!ls || !showLeftEntry) ? 'pointer-events-none' : '' %>">
           <% if (ls && showLeftEntry) { %>
             <% if (ls.entry.mediaType === 'video') { %>
-            <video src="<%= ls.entry.mediaUrl %>" class="w-full h-full object-cover" muted preload="none"></video>
+            <video src="<%= ls.entry.mediaUrl %>" class="w-full h-full object-cover rounded-md" muted preload="none"></video>
             <div class="absolute inset-0 flex items-center justify-center">
-              <iconify-icon icon="bx:play-circle" width="40" class="text-white/80"></iconify-icon>
+              <iconify-icon icon="boxicons:play-circle" width="40" class="text-white/80"></iconify-icon>
             </div>
             <% } else { %>
-            <img src="<%= ls.entry.mediaUrl %>" alt="" class="w-full h-full object-cover">
+            <img src="<%= ls.entry.mediaUrl %>" alt="" class="w-full h-full object-cover rounded-md">
             <% } %>
           <% } else if (ls && ls.hidden && contest.status === 'pending') { %>
           <div class="w-full h-full flex flex-col items-center justify-center text-white/15 gap-1.5">
-            <iconify-icon icon="bx:lock" width="28"></iconify-icon>
+            <iconify-icon icon="boxicons:lock" width="28"></iconify-icon>
             <span class="text-xs text-white/20">Hidden until accepted</span>
           </div>
           <% } else { %>
           <div class="w-full h-full flex items-center justify-center text-white/15">
-            <iconify-icon icon="bx:image" width="28"></iconify-icon>
+            <iconify-icon icon="boxicons:image" width="28"></iconify-icon>
           </div>
           <% } %>
           <% if (ls && ls.isWinner) { %>
-          <div class="absolute inset-0 ring-2 ring-inset ring-charm-500 pointer-events-none"></div>
-          <div class="absolute top-2 left-2 bg-charm-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md">Winner</div>
+          <div class="absolute inset-0 ring-[3px] ring-inset ring-yellow-400 rounded-md pointer-events-none"></div>
+          <% } %>
+          <% var _lsTopContrib = locals.topContributionEntryId && ls && ls.entryId && ls.entryId === locals.topContributionEntryId.toString(); %>
+          <% if ((ls && ls.isWinner) || _lsTopContrib) { %>
+          <div class="absolute top-2 right-2 flex flex-col items-center gap-1.5 pointer-events-none">
+            <% if (ls && ls.isWinner) { %>
+            <div class="w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center shadow-md">
+              <iconify-icon icon="boxicons:thumb-up-filled" width="14" class="text-black"></iconify-icon>
+            </div>
+            <% } %>
+            <% if (_lsTopContrib) { %>
+            <div class="w-7 h-7 rounded-full bg-charm-600 flex items-center justify-center shadow-md">
+              <iconify-icon icon="boxicons:dollar-circle-stars-filled" width="14" class="text-white"></iconify-icon>
+            </div>
+            <% } %>
+          </div>
+          <% } else if (ls && ls.iVotedFor) { %>
+          <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-charm-500 flex items-center justify-center shadow-md">
+            <iconify-icon icon="boxicons:check" width="14" class="text-white"></iconify-icon>
+          </div>
           <% } %>
           <% if (ls && ls.entry && ls.entry.aiGenerated) { %>
           <div class="absolute bottom-2 left-2 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
-          <% } %>
-          <% if (ls && ls.iVotedFor) { %>
-          <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-charm-500 flex items-center justify-center shadow-md">
-            <iconify-icon icon="bx:check" width="14" class="text-white"></iconify-icon>
-          </div>
           <% } %>
         </a>
 
@@ -115,7 +144,7 @@
             <% if (ls.user.avatar?.value) { %>
             <img src="<%= ls.user.avatar.value %>" class="w-full h-full object-cover">
             <% } else { %>
-            <iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon>
+            <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
             <% } %>
           </a>
           <div class="flex flex-col min-w-0 flex-1">
@@ -150,8 +179,9 @@
         <% if (ls && ls.entryId) { %>
         <div class="flex items-center gap-1">
           <% if (!ls.isMine && showLeftEntry) { %>
-          <a href="/submit?challenge=<%= ls.entryId %>" class="flex items-center justify-center h-10 aspect-square rounded-md text-white/30 hover:text-charm-400 transition-colors shrink-0">
+          <a href="/submit?challenge=<%= ls.entryId %>" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white/30 hover:text-charm-400 transition-colors shrink-0">
             <iconify-icon icon="boxicons:git-compare" width="20"></iconify-icon>
+            <span class="text-sm font-semibold">0</span>
           </a>
           <% } %>
           <div data-cv-action="<%= ls.entryId %>">
@@ -167,6 +197,13 @@
               <iconify-icon icon="boxicons:thumb-up-filled" width="16"></iconify-icon>
               <span><%= ls.voteCount %></span>
             </button>
+            <% } else { %>
+            <div class="cursor-not-allowed">
+              <button disabled class="flex items-center gap-2 h-8 px-2 text-white/20 font-semibold text-sm pointer-events-none">
+                <iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon>
+                <span><%= ls.voteCount %></span>
+              </button>
+            </div>
             <% } %>
           </div>
         </div>
@@ -188,30 +225,43 @@
         <a href="<%= rs && rs.entryId ? '/entry/' + rs.entryId : '#' %>" class="block relative aspect-square rounded-md overflow-hidden bg-shark-900 <%= !rs ? 'pointer-events-none' : '' %>">
           <% if (rs && showRightEntry) { %>
             <% if (rs.entry.mediaType === 'video') { %>
-            <video src="<%= rs.entry.mediaUrl %>" class="w-full h-full object-cover" muted preload="none"></video>
+            <video src="<%= rs.entry.mediaUrl %>" class="w-full h-full object-cover rounded-md" muted preload="none"></video>
             <div class="absolute inset-0 flex items-center justify-center">
-              <iconify-icon icon="bx:play-circle" width="40" class="text-white/80"></iconify-icon>
+              <iconify-icon icon="boxicons:play-circle" width="40" class="text-white/80"></iconify-icon>
             </div>
             <% } else { %>
-            <img src="<%= rs.entry.mediaUrl %>" alt="" class="w-full h-full object-cover">
+            <img src="<%= rs.entry.mediaUrl %>" alt="" class="w-full h-full object-cover rounded-md">
             <% } %>
           <% } else { %>
           <div class="w-full h-full flex flex-col items-center justify-center text-white/15 gap-1.5">
-            <iconify-icon icon="bx:user-plus" width="28"></iconify-icon>
+            <iconify-icon icon="boxicons:user-plus" width="28"></iconify-icon>
             <span class="text-xs text-white/20">Awaiting entry</span>
           </div>
           <% } %>
           <% if (rs && rs.isWinner) { %>
-          <div class="absolute inset-0 ring-2 ring-inset ring-charm-500 pointer-events-none"></div>
-          <div class="absolute top-2 left-2 bg-charm-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md">Winner</div>
+          <div class="absolute inset-0 ring-[3px] ring-inset ring-yellow-400 rounded-md pointer-events-none"></div>
+          <% } %>
+          <% var _rsTopContrib = locals.topContributionEntryId && rs && rs.entryId && rs.entryId === locals.topContributionEntryId.toString(); %>
+          <% if ((rs && rs.isWinner) || _rsTopContrib) { %>
+          <div class="absolute top-2 right-2 flex flex-col items-center gap-1.5 pointer-events-none">
+            <% if (rs && rs.isWinner) { %>
+            <div class="w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center shadow-md">
+              <iconify-icon icon="boxicons:thumb-up-filled" width="14" class="text-black"></iconify-icon>
+            </div>
+            <% } %>
+            <% if (_rsTopContrib) { %>
+            <div class="w-7 h-7 rounded-full bg-charm-600 flex items-center justify-center shadow-md">
+              <iconify-icon icon="boxicons:dollar-circle-stars-filled" width="14" class="text-white"></iconify-icon>
+            </div>
+            <% } %>
+          </div>
+          <% } else if (rs && rs.iVotedFor) { %>
+          <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-charm-500 flex items-center justify-center shadow-md">
+            <iconify-icon icon="boxicons:check" width="14" class="text-white"></iconify-icon>
+          </div>
           <% } %>
           <% if (rs && rs.entry && rs.entry.aiGenerated) { %>
           <div class="absolute bottom-2 left-2 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide pointer-events-none">AI Generated</div>
-          <% } %>
-          <% if (rs && rs.iVotedFor) { %>
-          <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-charm-500 flex items-center justify-center shadow-md">
-            <iconify-icon icon="bx:check" width="14" class="text-white"></iconify-icon>
-          </div>
           <% } %>
         </a>
 
@@ -226,7 +276,7 @@
             <% if (displayUser.avatar?.value) { %>
             <img src="<%= displayUser.avatar.value %>" class="w-full h-full object-cover">
             <% } else { %>
-            <iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon>
+            <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
             <% } %>
           </a>
           <div class="flex flex-col min-w-0 flex-1">
@@ -271,8 +321,9 @@
         <% if (rs && rs.entryId) { %>
         <div class="flex items-center gap-1">
           <% if (!rs.isMine && showRightEntry) { %>
-          <a href="/submit?challenge=<%= rs.entryId %>" class="flex items-center justify-center h-10 aspect-square rounded-md text-white/30 hover:text-charm-400 transition-colors shrink-0">
+          <a href="/submit?challenge=<%= rs.entryId %>" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white/30 hover:text-charm-400 transition-colors shrink-0">
             <iconify-icon icon="boxicons:git-compare" width="20"></iconify-icon>
+            <span class="text-sm font-semibold">0</span>
           </a>
           <% } %>
           <div data-cv-action="<%= rs.entryId %>">
@@ -286,6 +337,11 @@
             <% } else if (rs.iVotedFor) { %>
             <button class="contest-unvote-btn flex items-center gap-2 h-8 px-2 text-amber-300 hover:text-white/50 transition-colors cursor-pointer font-semibold text-sm" data-contest-id="<%= contest._id %>">
               <iconify-icon icon="boxicons:thumb-up-filled" width="16"></iconify-icon>
+              <span><%= rs.voteCount %></span>
+            </button>
+            <% } else { %>
+            <button disabled class="flex items-center gap-2 h-8 px-2 text-white/20 font-semibold text-sm cursor-not-allowed">
+              <iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon>
               <span><%= rs.voteCount %></span>
             </button>
             <% } %>
@@ -346,7 +402,7 @@
           <% if (currentUser.avatar) { %>
           <img src="<%= currentUser.avatar %>" class="w-full h-full object-cover">
           <% } else { %>
-          <iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon>
+          <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
           <% } %>
         </a>
         <div class="flex-1 flex flex-col gap-1.5">
@@ -378,7 +434,7 @@
           <% if (cUser.avatar?.value) { %>
           <img src="<%= cUser.avatar.value %>" class="w-full h-full object-cover">
           <% } else { %>
-          <iconify-icon icon="bx:user" width="14" class="text-white/30"></iconify-icon>
+          <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
           <% } %>
         </a>
         <div class="flex-1 min-w-0">
@@ -432,7 +488,7 @@
                   <% if (rUser.avatar?.value) { %>
                   <img src="<%= rUser.avatar.value %>" class="w-full h-full object-cover">
                   <% } else { %>
-                  <iconify-icon icon="bx:user" width="12" class="text-white/30"></iconify-icon>
+                  <iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon>
                   <% } %>
                 </a>
                 <div class="flex-1 min-w-0">
@@ -489,9 +545,9 @@
         var rcRight = rc.entries[1] || null;
         var rcLUser = rcLeft  ? relatedUserMap[rcLeft.userId.toString()]  : null;
         var rcRUser = rcRight ? relatedUserMap[rcRight.userId.toString()] : null;
-        var rcSt    = rc.status;
+        var rcSt    = (rc.status === 'active' && rc.votingDeadline && new Date(rc.votingDeadline) < new Date()) ? 'closed' : rc.status;
         var rcStCls = rcSt === 'active' ? 'bg-green-500/15 text-green-400' : rcSt === 'pending' ? 'bg-amber-500/15 text-amber-400' : 'bg-white/8 text-white/40';
-        var rcStLbl = rcSt === 'active' ? 'Live' : rcSt === 'pending' ? 'Pending' : 'Closed';
+        var rcStLbl = rcSt === 'active' ? 'Live' : rcSt === 'pending' ? 'Pending' : 'Contest has ended';
       %>
       <a href="/contest/<%= rc._id %>" class="flex items-center gap-3 px-2 py-3 border-t border-white/6 hover:bg-white/4 transition-colors">
         <!-- Thumbnails -->
@@ -504,7 +560,7 @@
             <img src="<%= rcLeft.entryId.mediaUrl %>" class="w-full h-full object-cover" alt="">
             <% } %>
             <% } else { %>
-            <div class="w-full h-full flex items-center justify-center"><iconify-icon icon="bx:image" width="16" class="text-white/15"></iconify-icon></div>
+            <div class="w-full h-full flex items-center justify-center"><iconify-icon icon="boxicons:image" width="16" class="text-white/15"></iconify-icon></div>
             <% } %>
           </div>
           <span class="text-[10px] font-black text-white/20 tracking-widest px-0.5">VS</span>
@@ -516,7 +572,7 @@
             <img src="<%= rcRight.entryId.mediaUrl %>" class="w-full h-full object-cover" alt="">
             <% } %>
             <% } else { %>
-            <div class="w-full h-full flex items-center justify-center"><iconify-icon icon="bx:user-plus" width="16" class="text-white/15"></iconify-icon></div>
+            <div class="w-full h-full flex items-center justify-center"><iconify-icon icon="boxicons:user-plus" width="16" class="text-white/15"></iconify-icon></div>
             <% } %>
           </div>
         </div>
@@ -541,6 +597,72 @@
   <div id="cc-mention-dd" class="hidden fixed z-50 w-56 bg-shark-900 border border-white/12 rounded-md shadow-xl overflow-hidden"></div>
 
 </div>
+
+<% if (locals.isNominator || locals.isNominee) { %>
+<!-- Drop Out Confirmation Modal -->
+<div id="dropout-modal" class="fixed inset-0 z-50 items-center justify-center p-4 hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="dropout-modal-backdrop"></div>
+  <div class="relative w-full max-w-sm bg-shark-900 border border-white/10 rounded-md shadow-2xl">
+    <div class="p-6">
+
+      <div class="flex items-start gap-3 mb-5">
+        <div class="w-10 h-10 rounded-md bg-red-500/15 flex items-center justify-center shrink-0 mt-0.5">
+          <iconify-icon icon="boxicons:error" width="22" class="text-red-400"></iconify-icon>
+        </div>
+        <div>
+          <p class="font-bold text-white text-base leading-snug">Drop Out of Contest?</p>
+          <p class="text-sm text-white/45 mt-1">This action is permanent and cannot be undone.</p>
+        </div>
+      </div>
+
+      <div class="mb-6 flex flex-col gap-2.5">
+        <p class="text-xs font-semibold text-white/35 uppercase tracking-wide">What happens</p>
+        <ul class="flex flex-col gap-2">
+          <li class="flex items-start gap-2.5">
+            <iconify-icon icon="boxicons:x" width="16" class="text-red-400 shrink-0 mt-0.5"></iconify-icon>
+            <span class="text-sm text-white/70">The contest ends immediately</span>
+          </li>
+          <% if (locals.isNominee) { %>
+          <li class="flex items-start gap-2.5">
+            <iconify-icon icon="boxicons:x" width="16" class="text-red-400 shrink-0 mt-0.5"></iconify-icon>
+            <span class="text-sm text-white/70">You forfeit all votes you've accumulated — you walk away with nothing</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <iconify-icon icon="boxicons:x" width="16" class="text-red-400 shrink-0 mt-0.5"></iconify-icon>
+            <span class="text-sm text-white/70"><%= left?.user?.displayName?.value || (left?.user?.username?.value ? '@' + left.user.username.value : 'Your opponent') %> wins this contest by forfeit</span>
+          </li>
+          <% } else { %>
+          <li class="flex items-start gap-2.5">
+            <iconify-icon icon="boxicons:x" width="16" class="text-red-400 shrink-0 mt-0.5"></iconify-icon>
+            <span class="text-sm text-white/70">Your opponent wins this contest by forfeit</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <iconify-icon icon="boxicons:x" width="16" class="text-red-400 shrink-0 mt-0.5"></iconify-icon>
+            <span class="text-sm text-white/70">They keep all their accumulated votes — you lose yours</span>
+          </li>
+          <% } %>
+          <li class="flex items-start gap-2.5">
+            <iconify-icon icon="boxicons:x" width="16" class="text-red-400 shrink-0 mt-0.5"></iconify-icon>
+            <span class="text-sm text-white/70">Your contest record will show <strong class="text-white/60">Forfeited</strong></span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="flex gap-3">
+        <button type="button" id="dropout-cancel-btn"
+          class="flex-1 py-2.5 rounded-md border border-white/10 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors cursor-pointer">
+          Cancel
+        </button>
+        <button type="button" id="dropout-confirm-btn" data-contest-id="<%= contest._id %>"
+          class="flex-1 py-2.5 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-500 transition-colors cursor-pointer">
+          Yes, Drop Out
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+<% } %>
 
 <style>
   @keyframes _cv-burst {
@@ -766,6 +888,53 @@
     });
   }
 
+  (function () {
+    var forfeitBtn   = document.getElementById('cv-forfeit-btn');
+    var modal        = document.getElementById('dropout-modal');
+    var cancelBtn    = document.getElementById('dropout-cancel-btn');
+    var confirmBtn   = document.getElementById('dropout-confirm-btn');
+    var backdrop     = document.getElementById('dropout-modal-backdrop');
+
+    if (!forfeitBtn || !modal) return;
+
+    function openModal() {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+    function closeModal() {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    forfeitBtn.addEventListener('click', openModal);
+    cancelBtn.addEventListener('click', closeModal);
+    backdrop.addEventListener('click', closeModal);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+
+    confirmBtn.addEventListener('click', function () {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Dropping out…';
+      fetch('/api/contests/' + confirmBtn.dataset.contestId + '/forfeit', { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.error) {
+            if (window.showToast) window.showToast(data.error, 'error');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Yes, Drop Out';
+            closeModal();
+            return;
+          }
+          window.location.reload();
+        })
+        .catch(function () {
+          if (window.showToast) window.showToast('Something went wrong.', 'error');
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Yes, Drop Out';
+          closeModal();
+        });
+    });
+  }());
+
   var shareBtn = document.getElementById('cv-share-btn');
   if (shareBtn) {
     shareBtn.addEventListener('click', function () {
@@ -811,7 +980,7 @@
     <% if (locals.currentUser && currentUser.avatar) { %>
     return '<a href="/<%= currentUser.username %>" class="shrink-0 ' + sz + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><img src="<%= currentUser.avatar %>" class="w-full h-full object-cover"></a>';
     <% } else if (locals.currentUser) { %>
-    return '<a href="/<%= currentUser.username %>" class="shrink-0 ' + sz + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><iconify-icon icon="bx:user" width="' + ic + '" class="text-white/30"></iconify-icon></a>';
+    return '<a href="/<%= currentUser.username %>" class="shrink-0 ' + sz + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><iconify-icon icon="boxicons:user" width="' + ic + '" class="text-white/30"></iconify-icon></a>';
     <% } else { %>
     return '';
     <% } %>
@@ -825,7 +994,7 @@
     var iconSz    = isReply ? '12' : '14';
     var avatarHtml = c.user.avatar
       ? '<a href="/' + c.user.username + '" class="shrink-0 ' + avatarCls + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><img src="' + c.user.avatar + '" class="w-full h-full object-cover"></a>'
-      : '<a href="/' + c.user.username + '" class="shrink-0 ' + avatarCls + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><iconify-icon icon="bx:user" width="' + iconSz + '" class="text-white/30"></iconify-icon></a>';
+      : '<a href="/' + c.user.username + '" class="shrink-0 ' + avatarCls + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><iconify-icon icon="boxicons:user" width="' + iconSz + '" class="text-white/30"></iconify-icon></a>';
     var gap = isReply ? 'gap-2' : 'gap-2.5';
     var replyBlock = !isReply
       ? '<div class="cc-replies hidden mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="' + c._id + '"></div>'
@@ -920,7 +1089,7 @@
       item.className = 'flex items-center gap-2.5 px-3 py-2 hover:bg-white/6 cursor-pointer transition-colors';
       item.innerHTML = (u.avatar
         ? '<img src="' + u.avatar + '" class="w-6 h-6 rounded-full object-cover shrink-0">'
-        : '<div class="w-6 h-6 rounded-full bg-shark-800 border border-white/10 shrink-0 flex items-center justify-center"><iconify-icon icon="bx:user" width="12" class="text-white/30"></iconify-icon></div>')
+        : '<div class="w-6 h-6 rounded-full bg-shark-800 border border-white/10 shrink-0 flex items-center justify-center"><iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon></div>')
         + '<div class="flex flex-col min-w-0">'
         + '<span class="text-xs font-semibold text-white/80 truncate">' + escHtml(u.displayName || u.username) + '</span>'
         + '<span class="text-xs text-white/35 truncate">@' + escHtml(u.username) + '</span>'

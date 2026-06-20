@@ -2,19 +2,42 @@
 
 <div class="flex flex-col pb-20 md:pb-0">
 
-  <!-- Header -->
-  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="font-black text-xl tracking-tight">Contests</h1>
-        <p class="text-sm text-white/40 mt-0.5">Compete, vote, and win</p>
+  <!-- Pending Nominations -->
+  <% if (typeof panelPendingNominations !== 'undefined' && panelPendingNominations.length) { %>
+  <section class="px-5 pt-5 pb-4 border-b border-white/8">
+    <div class="overflow-x-auto">
+      <div class="grid grid-cols-2 gap-2" style="min-width:480px">
+        <% panelPendingNominations.forEach(nom => { %>
+          <a href="/submit?nomination=<%= nom._id %>"
+            class="flex items-center gap-3 bg-white/5 border border-white/8 hover:border-charm-500/30 hover:bg-charm-600/5 rounded-md px-3 py-3 transition-colors group no-underline">
+            <div class="w-14 h-14 rounded-md overflow-hidden bg-shark-900 shrink-0 flex items-center justify-center">
+              <% if (nom.entry) { %>
+                <% if (nom.entry.mediaType === 'video') { %>
+                  <video src="<%= nom.entry.mediaUrl %>" class="w-full h-full object-cover" muted preload="none"></video>
+                <% } else { %>
+                  <img src="<%= nom.entry.mediaUrl %>" class="w-full h-full object-cover" alt="" loading="lazy">
+                <% } %>
+              <% } else { %>
+                <iconify-icon icon="boxicons:hide" width="18" style="color:rgba(255,255,255,0.2);display:block"></iconify-icon>
+              <% } %>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-white/85 truncate group-hover:text-white transition-colors m-0">
+                <%= nom.nominator.displayName %> <span class="font-normal text-white/35">· @<%= nom.nominator.username %></span>
+              </p>
+              <p class="text-xs text-white/40 m-0">challenged you to a head-to-head</p>
+              <% if (nom.message) { %>
+                <p class="text-xs text-white/30 truncate m-0">"<%= nom.message %>"</p>
+              <% } %>
+              <p class="nom-countdown text-xs text-amber-300 font-medium tabular-nums m-0"
+                data-expires="<%= nom.expiresAt.toISOString() %>"></p>
+            </div>
+          </a>
+        <% }) %>
       </div>
-      <a href="/contests/new" class="flex items-center gap-2 bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors cursor-pointer">
-        <iconify-icon icon="boxicons:plus" width="16" height="16"></iconify-icon>
-        <span>Launch</span>
-      </a>
     </div>
-  </header>
+  </section>
+  <% } %>
 
   <!-- Active Contests -->
   <% const active = contests.filter(c => c.status === 'active'); %>
@@ -85,5 +108,28 @@
   <% } %>
 
 </div>
+
+<% if (typeof panelPendingNominations !== 'undefined' && panelPendingNominations.length) { %>
+<script>
+(function () {
+  var els = document.querySelectorAll('.nom-countdown');
+  if (!els.length) return;
+  function fmt(expiresAt) {
+    var diff = expiresAt - Date.now();
+    if (diff <= 0) return 'Expired';
+    var h = Math.floor(diff / 3600000);
+    var m = Math.floor((diff % 3600000) / 60000);
+    var s = Math.floor((diff % 60000) / 1000);
+    var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    if (h > 0) return h + 'h ' + p(m) + 'm left to reply';
+    if (m > 0) return m + 'm ' + p(s) + 's left to reply';
+    return s + 's left to reply';
+  }
+  function tick() { els.forEach(function (el) { el.textContent = fmt(new Date(el.dataset.expires)); }); }
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+<% } %>
 
 <%- include('partials/appEnd') %>

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head><%- include('partials/head') %></head>
 <body class="min-h-screen bg-shark-950 text-white flex flex-col items-center justify-center px-4 py-16">
@@ -16,7 +16,7 @@
     <!-- Success state -->
     <div class="bg-shark-900 border border-white/10 rounded-md px-6 py-8 text-center">
       <div class="w-12 h-12 rounded-md bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center mx-auto mb-4">
-        <iconify-icon icon="lucide:check" width="20" class="text-emerald-400"></iconify-icon>
+        <iconify-icon icon="boxicons:check" width="20" class="text-emerald-400"></iconify-icon>
       </div>
       <h2 class="text-base font-semibold text-white mb-2">Application received</h2>
       <p class="text-sm text-white/45 leading-relaxed">Thanks for applying. We've sent a confirmation to your email and will be in touch if your profile is a good fit.</p>
@@ -31,7 +31,7 @@
 
       <% if (error) { %>
       <div class="mb-5 flex items-center gap-2.5 bg-red-500/10 border border-red-500/20 rounded-md px-3.5 py-2.5 text-sm text-red-400">
-        <iconify-icon icon="lucide:alert-circle" width="14" class="shrink-0"></iconify-icon>
+        <iconify-icon icon="boxicons:error-circle" width="14" class="shrink-0"></iconify-icon>
         <%= error %>
       </div>
       <% } %>

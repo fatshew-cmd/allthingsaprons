@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../../partials/head') %></head>
 <body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
@@ -10,7 +10,7 @@
 
       <!-- Back -->
       <a href="/admin/applications" class="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors no-underline mb-6">
-        <iconify-icon icon="lucide:arrow-left" width="13"></iconify-icon>
+        <iconify-icon icon="boxicons:arrow-back" width="13"></iconify-icon>
         All applications
       </a>
 
@@ -47,7 +47,7 @@
 
       <% if (error) { %>
       <div class="mb-5 flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-md px-4 py-3 text-sm text-red-400">
-        <iconify-icon icon="lucide:alert-circle" width="14" class="shrink-0"></iconify-icon>
+        <iconify-icon icon="boxicons:error-circle" width="14" class="shrink-0"></iconify-icon>
         <%= error %>
       </div>
       <% } %>
@@ -57,7 +57,7 @@
 
         <% if (application.linkedin) { %>
         <div class="px-5 py-3.5 flex items-center gap-3">
-          <iconify-icon icon="lucide:linkedin" width="14" class="text-zinc-500 shrink-0"></iconify-icon>
+          <iconify-icon icon="boxicons:linkedin" width="14" class="text-zinc-500 shrink-0"></iconify-icon>
           <a href="<%= application.linkedin %>" target="_blank" rel="noopener"
             class="text-sm text-blue-400 hover:text-blue-300 transition-colors truncate no-underline">
             <%= application.linkedin %>
@@ -157,7 +157,7 @@
 
       <% if (application.status === 'hired') { %>
       <div class="flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-4 py-3 text-sm text-emerald-400">
-        <iconify-icon icon="lucide:check-circle" width="15" class="shrink-0"></iconify-icon>
+        <iconify-icon icon="boxicons:check-circle" width="15" class="shrink-0"></iconify-icon>
         An account has been created for this applicant.
       </div>
       <% } %>

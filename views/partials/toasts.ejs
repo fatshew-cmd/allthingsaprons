@@ -1,4 +1,4 @@
-<div id="toast-container"
+﻿<div id="toast-container"
   class="fixed bottom-20 md:bottom-5 right-4 md:right-5 z-9999 flex flex-col gap-2 pointer-events-none"
   aria-live="polite"></div>
 
@@ -44,7 +44,7 @@
     inner += '<span class="flex-1">' + message + '</span>';
     if (!opts.noClose && !hasActions) inner +=
       '<button type="button" class="shrink-0 ml-1 opacity-40 hover:opacity-80 transition-opacity cursor-pointer">' +
-        '<iconify-icon icon="bx:x" width="16"></iconify-icon>' +
+        '<iconify-icon icon="boxicons:x" width="16"></iconify-icon>' +
       '</button>';
     header.innerHTML = inner;
     if (!opts.noClose) header.querySelector('button').addEventListener('click', function () { dismiss(el); });

@@ -12,6 +12,7 @@ const BannedEmail    = require('../models/BannedEmail');
 const BannedDocHash  = require('../models/BannedDocHash');
 const Announcement   = require('../models/Announcement');
 const AnnouncementDismissal = require('../models/AnnouncementDismissal');
+const PlatformSettings = require('../models/PlatformSettings');
 const upload         = require('../middleware/upload');
 
 router.get('/login', (req, res) => {
@@ -553,7 +554,11 @@ router.get('/announcements', async (req, res) => {
   if (!ANNOUNCEMENT_ROLES.includes(role)) return res.redirect('/admin');
 
   try {
+    const now = new Date();
     const announcements = await Announcement.find().sort({ createdAt: -1 }).lean();
+    for (const a of announcements) {
+      if (a.status === 'active' && a.expiresAt && a.expiresAt < now) a.status = 'expired';
+    }
     res.render('admin/announcements/index', {
       title: 'Announcements',
       currentPage: 'announcements',
@@ -570,7 +575,7 @@ router.post('/announcements', upload.thumbnail.single('thumbnail'), async (req, 
   const role = req.session.roleOverride || req.session.adminRole;
   if (!ANNOUNCEMENT_ROLES.includes(role)) return res.status(403).json({ error: 'Forbidden' });
 
-  const { title, description, redirectUrl, expiresAt, publish, filters } = req.body;
+  const { title, description, redirectUrl, publishedAt, expiresAt, publish, filters } = req.body;
   if (!title?.trim()) return res.redirect('/admin/announcements?flash=title-required');
 
   try {
@@ -582,9 +587,9 @@ router.post('/announcements', upload.thumbnail.single('thumbnail'), async (req, 
       description: description?.trim() || undefined,
       thumbnailUrl,
       redirectUrl:  redirectUrl?.trim() || undefined,
+      publishedAt:  publishedAt ? new Date(publishedAt) : (status === 'active' ? new Date() : undefined),
       expiresAt:    expiresAt ? new Date(expiresAt) : undefined,
       status,
-      publishedAt:  status === 'active' ? new Date() : undefined,
       filters: {
         sex:         filters?.sex?.trim()         || undefined,
         ageMin:      filters?.ageMin              ? Number(filters.ageMin)    : undefined,
@@ -595,6 +600,29 @@ router.post('/announcements', upload.thumbnail.single('thumbnail'), async (req, 
   } catch (err) {
     console.error('Create announcement error:', err);
     res.redirect('/admin/announcements?flash=error');
+  }
+});
+
+router.get('/announcements/:id', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!ANNOUNCEMENT_ROLES.includes(role)) return res.redirect('/admin');
+
+  try {
+    const ann = await Announcement.findById(req.params.id).lean();
+    if (!ann) return res.redirect('/admin/announcements');
+
+    if (ann.status === 'active' && ann.expiresAt && ann.expiresAt < new Date()) ann.status = 'expired';
+
+    const dismissalCount = await AnnouncementDismissal.countDocuments({ announcementId: req.params.id });
+
+    res.render('admin/announcements/detail', {
+      title: ann.title,
+      currentPage: 'announcements',
+      ann,
+      dismissalCount,
+    });
+  } catch {
+    res.redirect('/admin/announcements');
   }
 });
 
@@ -620,7 +648,7 @@ router.post('/announcements/:id/edit', upload.thumbnail.single('thumbnail'), asy
   const role = req.session.roleOverride || req.session.adminRole;
   if (!ANNOUNCEMENT_ROLES.includes(role)) return res.status(403).end();
 
-  const { title, description, redirectUrl, expiresAt, removeThumbnail, filters } = req.body;
+  const { title, description, redirectUrl, publishedAt, expiresAt, removeThumbnail, filters } = req.body;
   if (!title?.trim()) return res.redirect(`/admin/announcements/${req.params.id}/edit?flash=title-required`);
 
   try {
@@ -639,7 +667,8 @@ router.post('/announcements/:id/edit', upload.thumbnail.single('thumbnail'), asy
       description:  description?.trim() || undefined,
       thumbnailUrl,
       redirectUrl:  redirectUrl?.trim() || undefined,
-      expiresAt:    expiresAt ? new Date(expiresAt) : undefined,
+      publishedAt:  publishedAt ? new Date(publishedAt) : null,
+      expiresAt:    expiresAt ? new Date(expiresAt) : null,
       filters: {
         sex:         filters?.sex?.trim()  || undefined,
         ageMin:      filters?.ageMin       ? Number(filters.ageMin) : undefined,
@@ -676,6 +705,36 @@ router.post('/announcements/:id/delete', async (req, res) => {
   await Announcement.findByIdAndDelete(req.params.id);
   await AnnouncementDismissal.deleteMany({ announcementId: req.params.id });
   res.redirect('/admin/announcements');
+});
+
+// ── Platform Settings (superadmin + founder) ──────────────────────────────────
+
+const SETTINGS_ROLES = ['superadmin', 'founder'];
+
+router.get('/settings', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!SETTINGS_ROLES.includes(role)) return res.redirect('/admin');
+  const settings = await PlatformSettings.findOne({ key: 'global' }).lean();
+  res.render('admin/settings', {
+    title:       'Platform Settings',
+    currentPage: 'settings',
+    settings,
+    flash:       req.query.flash || null,
+  });
+});
+
+router.post('/settings/contest-eligibility', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!SETTINGS_ROLES.includes(role)) return res.status(403).end();
+  const minEntries     = Math.max(1, parseInt(req.body.minEntries, 10) || 5);
+  const minRatingCount = Math.max(1, parseInt(req.body.minRatingCount, 10) || 250);
+  const minWeightedAvg = Math.min(10, Math.max(1, parseFloat(req.body.minWeightedAvg) || 7.4));
+  await PlatformSettings.findOneAndUpdate(
+    { key: 'global' },
+    { $set: { 'contestEligibility.minEntries': minEntries, 'contestEligibility.minRatingCount': minRatingCount, 'contestEligibility.minWeightedAvg': minWeightedAvg } },
+    { upsert: true }
+  );
+  res.redirect('/admin/settings?flash=saved');
 });
 
 module.exports = router;

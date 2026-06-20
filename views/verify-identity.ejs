@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head><%- include('partials/head') %></head>
 <body class="min-h-screen bg-shark-950 text-white">
@@ -23,7 +23,7 @@
     <!-- Blocked state -->
     <div class="flex flex-col items-center gap-4 py-10 text-center">
       <div class="w-14 h-14 rounded-md bg-red-400/10 border border-red-400/20 flex items-center justify-center">
-        <iconify-icon icon="bx:lock" width="28" class="text-red-400"></iconify-icon>
+        <iconify-icon icon="boxicons:lock" width="28" class="text-red-400"></iconify-icon>
       </div>
       <div>
         <p class="text-base font-semibold text-white">Verification temporarily blocked</p>
@@ -61,14 +61,14 @@
       <ul class="flex flex-col gap-1.5 m-0 p-0 list-none">
         <% rejectionReasons.forEach(function(reason) { %>
         <li class="flex items-center gap-2 text-xs text-white/65">
-          <iconify-icon icon="lucide:x-circle" width="13" class="text-red-400 shrink-0"></iconify-icon>
+          <iconify-icon icon="boxicons:x-circle" width="13" class="text-red-400 shrink-0"></iconify-icon>
           <%= reason %>
         </li>
         <% }); %>
       </ul>
       <% if (claimNumber) { %>
       <div class="pt-3 border-t border-red-400/15 flex items-start gap-2 text-xs text-white/40 leading-relaxed">
-        <iconify-icon icon="lucide:message-circle" width="13" class="text-white/30 shrink-0 mt-0.5"></iconify-icon>
+        <iconify-icon icon="boxicons:message-rounded" width="13" class="text-white/30 shrink-0 mt-0.5"></iconify-icon>
         <span>If you believe we made a mistake, please <a href="/contact" class="text-charm-400 hover:text-charm-300 underline underline-offset-2 transition-colors">contact us</a> and include your claim number: <span class="font-mono font-bold tracking-wider text-white/65"><%= claimNumber %></span></span>
       </div>
       <% } %>
@@ -150,7 +150,7 @@
               <img id="selfie-img" src="" alt="" class="w-full max-h-64 object-contain">
               <button type="button" id="selfie-change-btn"
                 class="absolute top-2 right-2 bg-shark-950/80 hover:bg-shark-800 rounded-md px-2 py-1 text-xs text-white/60 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer">
-                <iconify-icon icon="boxicons:pencil" width="11"></iconify-icon>Change
+                <iconify-icon icon="boxicons:edit-alt" width="11"></iconify-icon>Change
               </button>
             </div>
             <input type="file" id="selfie-input" name="idSelfie" accept="image/*" class="hidden">
@@ -201,7 +201,7 @@
             <img id="doc-img" src="" alt="" class="w-full max-h-64 object-contain">
             <button type="button" id="doc-change-btn"
               class="absolute top-2 right-2 bg-shark-950/80 hover:bg-shark-800 rounded-md px-2 py-1 text-xs text-white/60 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer">
-              <iconify-icon icon="boxicons:pencil" width="11"></iconify-icon>Change
+              <iconify-icon icon="boxicons:edit-alt" width="11"></iconify-icon>Change
             </button>
           </div>
           <input type="file" id="doc-input" name="idDoc" accept="image/*" class="hidden">

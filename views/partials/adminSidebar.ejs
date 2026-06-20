@@ -1,4 +1,4 @@
-<%
+﻿<%
 const _cp   = typeof currentPage !== 'undefined' ? currentPage : '';
 const _role = typeof adminRole !== 'undefined' ? adminRole : '';
 const _perms = typeof adminPermissions !== 'undefined' ? adminPermissions : [];
@@ -38,7 +38,7 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
   <!-- Logo -->
   <a href="/admin" class="flex items-center gap-3 px-5 py-5.5 shrink-0 no-underline">
     <div class="w-8 h-8 rounded-md bg-charm-500 flex items-center justify-center shrink-0">
-      <iconify-icon icon="lucide:chef-hat" width="15" style="color:#1c1917;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:crown" width="15" style="color:#1c1917;display:block"></iconify-icon>
     </div>
     <div>
       <p class="text-white text-[13px] font-bold leading-tight m-0">ATA Admin</p>
@@ -63,7 +63,7 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <span class="px-3 py-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Overview</span>
 
     <a href="/admin" class="<%= lnk('dashboard') %>">
-      <iconify-icon icon="lucide:layout-dashboard" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:grid-alt" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Dashboard
     </a>
 
@@ -72,13 +72,13 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Users</span>
 
     <a href="/admin/users" class="<%= lnk('users') %>">
-      <iconify-icon icon="lucide:users" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:group" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       User Management
     </a>
 
     <% if (_isSupervisor && _hasContent) { %>
     <a href="/admin/verification" class="<%= lnk('verification') %>">
-      <iconify-icon icon="lucide:shield-check" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:shield-check" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       <span class="flex-1">ID Verification</span>
       <% if (typeof sidebarCounts !== 'undefined' && sidebarCounts.pendingVerifications > 0) { %>
       <span class="text-xs font-bold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none"><%= sidebarCounts.pendingVerifications %></span>
@@ -92,7 +92,7 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Content</span>
 
     <a href="/admin/content" class="<%= lnk('content') %>">
-      <iconify-icon icon="lucide:image" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:image" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       All Entries
     </a>
     <% } %>
@@ -102,7 +102,7 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Moderation</span>
 
     <a href="/admin/moderation" class="<%= lnk('moderation') %>">
-      <iconify-icon icon="lucide:flag" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:flag" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Reported Comments
     </a>
     <% } %>
@@ -112,7 +112,7 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Support</span>
 
     <a href="/admin/support" class="<%= lnk('support') %>">
-      <iconify-icon icon="lucide:message-square" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:message-square" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       <span class="flex-1">Messages</span>
       <% if (typeof sidebarCounts !== 'undefined' && sidebarCounts.unreadMessages > 0) { %>
       <span class="text-xs font-bold px-1.5 py-0.5 rounded-full bg-charm-500 text-white leading-none"><%= sidebarCounts.unreadMessages %></span>
@@ -125,13 +125,13 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Tournaments</span>
 
     <a href="/admin/tournaments" class="<%= lnk('tournaments') %>">
-      <iconify-icon icon="lucide:trophy" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:trophy" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       All Tournaments
     </a>
 
     <% if (_isSuperadmin) { %>
     <a href="/admin/tournaments/review" class="<%= lnk('tournament-review') %>">
-      <iconify-icon icon="lucide:clipboard-check" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:clipboard" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Review Queue
     </a>
     <% } %>
@@ -142,8 +142,13 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Platform</span>
 
     <a href="/admin/announcements" class="<%= lnk('announcements') %>">
-      <iconify-icon icon="lucide:megaphone" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:megaphone" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Announcements
+    </a>
+
+    <a href="/admin/settings" class="<%= lnk('settings') %>">
+      <iconify-icon icon="boxicons:cog" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      Settings
     </a>
     <% } %>
 
@@ -152,7 +157,7 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Accountability</span>
 
     <a href="/admin/audit-log" class="<%= lnk('audit-log') %>">
-      <iconify-icon icon="lucide:scroll-text" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:list-ul" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Audit Log
     </a>
     <% } %>
@@ -162,12 +167,12 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <span class="px-3 pt-4 pb-1 text-xs font-bold text-zinc-500 uppercase tracking-widest">Team</span>
 
     <a href="/admin/admins" class="<%= lnk('admins') %>">
-      <iconify-icon icon="lucide:shield" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:shield" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Admin Accounts
     </a>
 
     <a href="/admin/applications" class="<%= lnk('applications') %>">
-      <iconify-icon icon="lucide:file-text" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+      <iconify-icon icon="boxicons:file" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       Applications
     </a>
     <% } %>
@@ -185,7 +190,7 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
         <% if (_avatar) { %>
         <img src="<%= _avatar %>" alt="" class="w-full h-full object-cover">
         <% } else { %>
-        <iconify-icon icon="lucide:user" width="14" style="color:rgba(255,255,255,0.4);display:block"></iconify-icon>
+        <iconify-icon icon="boxicons:user" width="14" style="color:rgba(255,255,255,0.4);display:block"></iconify-icon>
         <% } %>
       </div>
       <div class="flex-1 min-w-0">
@@ -200,9 +205,9 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
 
       <!-- Trigger -->
       <button type="button" id="viewas-btn" class="<%= _viewasBtn %>">
-        <iconify-icon icon="lucide:eye" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+        <iconify-icon icon="boxicons:eye" width="14" style="flex-shrink:0;display:block"></iconify-icon>
         <span class="flex-1 text-left truncate text-sm"><% if (_isImpersonating) { %><%= _impersonateLabel %><% } else { %>View as...<% } %></span>
-        <iconify-icon icon="lucide:chevrons-up-down" width="12" style="flex-shrink:0;display:block;opacity:0.5"></iconify-icon>
+        <iconify-icon icon="boxicons:expand-alt" width="12" style="flex-shrink:0;display:block;opacity:0.5"></iconify-icon>
       </button>
 
       <!-- Floating panel (positioned by JS) -->
@@ -213,7 +218,7 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
         <div class="px-1.5 pt-1 pb-1">
           <form action="/admin/impersonate/exit" method="POST">
             <button type="submit" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-xs font-medium text-amber-400 hover:text-amber-200 hover:bg-amber-500/10 transition-colors cursor-pointer text-left">
-              <iconify-icon icon="lucide:x" width="12" style="flex-shrink:0;display:block"></iconify-icon>
+              <iconify-icon icon="boxicons:x" width="12" style="flex-shrink:0;display:block"></iconify-icon>
               Exit impersonation
             </button>
           </form>
@@ -255,7 +260,7 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
     <!-- Sign out -->
     <form action="/admin/logout" method="POST">
       <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer">
-        <iconify-icon icon="lucide:log-out" width="14" style="flex-shrink:0;display:block"></iconify-icon>
+        <iconify-icon icon="boxicons:log-out" width="14" style="flex-shrink:0;display:block"></iconify-icon>
         Sign out
       </button>
     </form>

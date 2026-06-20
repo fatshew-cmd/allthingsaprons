@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
 <body class="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center px-4 py-16" style="font-family:'Sofia Sans',sans-serif">
@@ -8,7 +8,7 @@
     <!-- Logo -->
     <div class="mb-8 text-center">
       <div class="w-10 h-10 rounded-md bg-amber-500 flex items-center justify-center mx-auto mb-3">
-        <iconify-icon icon="lucide:chef-hat" width="18" style="color:#1c1917;display:block"></iconify-icon>
+        <iconify-icon icon="boxicons:crown" width="18" style="color:#1c1917;display:block"></iconify-icon>
       </div>
       <p class="text-white font-bold text-[15px]">ATA Admin</p>
       <p class="text-zinc-500 text-xs mt-0.5">Set up your account</p>
@@ -21,7 +21,7 @@
       <!-- Invalid / expired state -->
       <div class="text-center">
         <div class="w-10 h-10 rounded-md bg-red-500/15 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
-          <iconify-icon icon="lucide:x" width="16" class="text-red-400"></iconify-icon>
+          <iconify-icon icon="boxicons:x" width="16" class="text-red-400"></iconify-icon>
         </div>
         <p class="text-sm font-semibold text-white mb-1">Invite link unavailable</p>
         <p class="text-xs text-zinc-500 leading-relaxed"><%= error || 'This invite link is invalid or has expired.' %></p>
@@ -35,7 +35,7 @@
 
       <% if (error) { %>
       <div class="mb-4 flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2.5 text-xs text-red-400">
-        <iconify-icon icon="lucide:alert-circle" width="13" class="shrink-0"></iconify-icon>
+        <iconify-icon icon="boxicons:error-circle" width="13" class="shrink-0"></iconify-icon>
         <%= error %>
       </div>
       <% } %>
