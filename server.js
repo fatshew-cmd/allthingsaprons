@@ -51,7 +51,24 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/allthingsa
 
 mongoose
   .connect(MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
+  .then(async () => {
+    console.log('MongoDB connected');
+    const agenda                  = require('./jobs/agenda');
+    const { registerContestJobs } = require('./jobs/contestJobs');
+    const { startSweeper }        = require('./jobs/sweeper');
+    registerContestJobs(agenda);
+    await agenda.start();
+    await startSweeper(agenda);
+    console.log('Background jobs started');
+
+    async function gracefulShutdown(signal) {
+      console.log(`${signal} received — stopping background jobs`);
+      await agenda.stop();
+      process.exit(0);
+    }
+    process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.once('SIGINT',  () => gracefulShutdown('SIGINT'));
+  })
   .catch((err) => console.warn('MongoDB unavailable — running without DB:', err.message));
 
 app.listen(PORT, () => {

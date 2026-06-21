@@ -1,10 +1,16 @@
 # June Action Plan
 
-## Current State (June 20)
+## Current State (June 21)
 
 Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, private contests, and withdrawal/forfeit — is now substantially complete. Void deadline state is normalized at read time via Mongoose post-hooks (bridge until Phase 5 background jobs land); UI correctly shows "Timed out" / "No response" states across entryCard, edit-entry, and the contest page. Entry comments and replies are fully implemented. The notification system is live. The right panel is fully built. Nomination notification redirect is fixed.
 
 A **contest eligibility gate** is now wired: before a user can create a contest or accept a nomination, `utils/contestEligibility.js` checks their entries against configurable thresholds (`minEntries`, `minRatingCount`, `minWeightedAvg`) stored in the `PlatformSettings` collection. The admin **Platform Settings page** (`/admin/settings`) lets the founder adjust these thresholds live. The **announcement detail/stats page** is implemented — shows dismissal count, placeholder rows for impressions/clicks (tracking not yet wired), a right-panel card preview, and activate/expire/delete actions.
+
+The **entryCard HTH contest badges** now have full visual differentiation across all contest states: pending (amber), accepted/waiting-to-go-live (charm), active/live (green), won (yellow), lost (muted/dimmed), void (greyed with reason label). Won/lost dim vote count values accordingly. The old `contestInfo` overlay badge on card media was removed — state is conveyed entirely through the badges section below the media.
+
+The **`/contests` page** is now fully wired. The route queries active public contests (and contests the current user is a participant in), builds contestant rows with per-viewer follow state, and passes live data to the view. The view was redesigned: card layout with picture-in-picture media thumbnails, contestant rows with inline follow/following toggle buttons, live countdown timers, and "vs" dividers. Pending nominations panel remains functional as before.
+
+Two **correctness bugs fixed**: (1) the feed and entry page contest badge data was broken when the current user was the *nominee* rather than the nominator — the query filtered to `nominatorId: ownerId` and skipped the case where the user received the nomination. Both pages now populate both `nominatorId` and `nomineeId` and derive the opponent dynamically. (2) Profile page `receivedNominations` query now includes `void` status so forfeited/voided contests still appear in contest history.
 
 What remains: contest watch + follower notifications, viewer nominations, background jobs (Phase 5), fake credits admin action, and the remaining Phase 6 admin UI pages.
 
@@ -48,12 +54,15 @@ What remains: contest watch + follower notifications, viewer nominations, backgr
 | Announcement detail/stats page | `GET /admin/announcements/:id` + `views/admin/announcements/detail.ejs` — dismissal count (live), impressions/clicks/dismiss-rate placeholders (tracking not yet wired), right-panel card preview, activate/expire/delete actions. |
 | Contest withdrawal & forfeit | Nominee decline (pending): `POST /nominations/:id/decline`. Nominator cancel (pending only): `DELETE /contests/:id` (`voidReason: 'canceled'`). Active forfeit by either party: `POST /contests/:id/forfeit` (`voidReason: 'nominee_forfeit'` or `'nominator_forfeit'`, sets `winnerEntryId`). Contest page shows "wins by forfeit" banner and forfeit modal. Nominator cannot delete a forfeited (void) contest record — that scrub path remains open. |
 | Contest vote window options | `windowHours` on contest creation now accepts 24 / 48 / 72 / 168 hours (was hardcoded 72). |
+| entryCard HTH contest badges | Full visual state differentiation: pending (amber), accepted/waiting (charm), active/live (green), won (yellow highlight + dimmed opponent), lost (muted/dimmed), void (greyed with reason label). Username and vote/attribution scores dim on lost contests. |
+| `/contests` page | `GET /contests` + `views/contests.ejs` — fully wired. Route queries active public contests (+ contests the user is in), builds contestant rows with per-viewer follow state, and passes live data. View: card layout with picture-in-picture media thumbnails, contestant rows with inline follow toggle buttons, live countdown timers, "vs" dividers. Pending nominations panel functional. |
 
 ### What is not done yet
 - Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
 - Contest watch + follower notifications (`ContestWatch` model, "stay in the loop" button, triggers for all contest events)
 - Background jobs: void deadline enforcement, voting deadline + close logic, contest_closed / contest_voided notification triggers (Phase 5 scope)
 - Viewer nomination flow (any user nominates two others for a HTH with a message)
+- Take On feature: `allowTakeOns` toggle on Entry, Take On button on entryCard, `/submit?takeOn=` flow (designed June 21 — see Phase 4 sub-section)
 - Fake credits admin action (superadmin balance write for contribution flow testing)
 - `Retag` model is scaffolded (`models/Retag.js`) but not yet wired into any route or UI
 - Forfeit scrub path: nominator cannot currently delete a `void` contest record (the `DELETE /contests/:id` route rejects non-pending contests) — the design's "scrub forfeit record" case is not yet implemented
@@ -173,6 +182,26 @@ The core competitive mechanic. Build the HTH contest flow end to end.
 - [ ] Wire notification triggers for all events above to the watcher list (nominator's followers are auto-watchers from creation; anyone else opts in via the button).
 
 > Note: the "voting closes in" countdown format (days/hours/minutes/seconds, zero-padded, fewer units as time runs out) was reviewed and confirmed correct as-is — no change needed.
+
+---
+
+#### Take On (designed June 21)
+
+**Design:**
+- `allowTakeOns: Boolean` (default `false`) added to the `Entry` schema.
+- The "Allow Take Ons" toggle appears on the entry edit page only once the entry has contest history — either the owner sent a nomination with it or accepted one using it. No contest history → toggle stays hidden.
+- Default is **off** when the toggle first appears. Owner can flip it at any time. Setting persists after contests close or void.
+- The Take On button (replacing the placeholder retweet icon on entryCard) is shown on entry cards and the entry page when `allowTakeOns: true` and the viewer is eligible (idVerified + eligibility thresholds) and is not the entry owner.
+- Clicking Take On → redirects to `/submit?takeOn=<entryId>`. The submit page pre-populates the opponent from the `takeOn` param.
+- Submitting creates a pending contest + nomination sent to the target entry's owner. Standard 24h void deadline applies. Owner accepts or declines — if accepted, contest goes live.
+- Cannot Take On your own entry.
+
+**Tasks:**
+- [ ] Add `allowTakeOns: Boolean` (default `false`) to `Entry` schema
+- [ ] Add "Allow Take Ons" toggle to entry edit page — visible only when entry has been part of any contest
+- [ ] `PATCH /api/entries/:id/allow-take-ons` endpoint — toggle on/off, owner only
+- [ ] Replace placeholder retweet icon on entryCard with Take On button — shown when `allowTakeOns: true` and viewer is eligible non-owner
+- [ ] Wire `/submit?takeOn=<entryId>` flow: validate target entry exists + `allowTakeOns: true`, pre-populate opponent on the submit page, create contest + nomination on submission
 
 ---
 

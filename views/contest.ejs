@@ -185,7 +185,7 @@
           </a>
           <% } %>
           <div data-cv-action="<%= ls.entryId %>">
-            <% if (canVote) { %>
+            <% if (canVote && !ls.isMine) { %>
             <button class="contest-vote-btn flex items-center gap-2 h-8 px-2 text-amber-400 hover:text-amber-300 transition-colors cursor-pointer font-semibold text-sm"
               data-contest-id="<%= contest._id %>"
               data-entry-id="<%= ls.entryId %>">
@@ -327,7 +327,7 @@
           </a>
           <% } %>
           <div data-cv-action="<%= rs.entryId %>">
-            <% if (canVote) { %>
+            <% if (canVote && !rs.isMine) { %>
             <button class="contest-vote-btn flex items-center gap-2 h-8 px-2 text-amber-400 hover:text-amber-300 transition-colors cursor-pointer font-semibold text-sm"
               data-contest-id="<%= contest._id %>"
               data-entry-id="<%= rs.entryId %>">

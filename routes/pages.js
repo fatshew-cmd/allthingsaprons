@@ -81,58 +81,62 @@ router.get('/feed', async (req, res) => {
 
   const feedIds = feedEntries.map(e => e._id);
   const feedContests = feedIds.length
-    ? await Contest.find({ 'entries.entryId': { $in: feedIds }, status: { $ne: 'void' } })
-        .select('entries status votingDeadline winnerEntryId').lean()
+    ? await Contest.find({ 'entries.entryId': { $in: feedIds } })
+        .select('entries status votingDeadline winnerEntryId voidReason').lean()
     : [];
 
   const feedContestIds = feedContests.map(c => c._id);
   const feedNominations = feedContestIds.length
     ? await Nomination.find({ contestId: { $in: feedContestIds } })
-        .populate('nomineeId', 'username avatar').lean()
+        .populate('nomineeId', 'username avatar')
+        .populate('nominatorId', 'username avatar')
+        .lean()
     : [];
 
   const feedIdSet = new Set(feedIds.map(id => id.toString()));
-  const contestInfoMap = {};
-  const contestToFeedEntry = {};
-  for (const c of feedContests) {
-    for (const e of c.entries) {
-      const eid = e.entryId?.toString();
-      if (eid && feedIdSet.has(eid)) {
-        contestToFeedEntry[c._id.toString()] = eid;
-        if (!contestInfoMap[eid]) {
-          const effSt = (c.status === 'active' && c.votingDeadline && c.votingDeadline < new Date())
-            ? 'closed' : c.status;
-          contestInfoMap[eid] = { contestId: c._id.toString(), status: effSt };
-        }
-        break;
-      }
-    }
-  }
 
-  const feedContestMap = {};
-  for (const c of feedContests) feedContestMap[c._id.toString()] = c;
-
-  const nomineesMap = {};
+  const nominationsByContest = {};
   for (const n of feedNominations) {
     const cid = n.contestId.toString();
-    const eid = contestToFeedEntry[cid];
-    if (!eid) continue;
-    if (!nomineesMap[eid]) nomineesMap[eid] = [];
-    const contest = feedContestMap[cid];
-    const effSt   = (contest?.status === 'active' && contest?.votingDeadline && contest.votingDeadline < new Date())
-      ? 'closed' : contest?.status;
-    nomineesMap[eid].push({
-      contestId:        cid,
-      username:         n.nomineeId?.username?.value,
-      avatar:           n.nomineeId?.avatar?.value || null,
-      status:           effSt === 'void' ? 'void' : n.status,
-      contestStatus:    effSt,
-      voteCountMine:    0,
-      voteCountNominee: 0,
-      contribution:     0,
-      isWinner:         !!(contest?.winnerEntryId && contest.winnerEntryId.toString() === eid),
-      voidReason:       n.voidReason || null,
-    });
+    if (!nominationsByContest[cid]) nominationsByContest[cid] = [];
+    nominationsByContest[cid].push(n);
+  }
+
+  const contestInfoMap = {};
+  const nomineesMap = {};
+  for (const c of feedContests) {
+    const cid   = c._id.toString();
+    const effSt = (c.status === 'active' && c.votingDeadline && c.votingDeadline < new Date())
+      ? 'closed' : c.status;
+    const nominations = nominationsByContest[cid] || [];
+
+    for (const ce of c.entries) {
+      const eid = ce.entryId?.toString();
+      if (!eid || !feedIdSet.has(eid)) continue;
+
+      if (!contestInfoMap[eid]) {
+        contestInfoMap[eid] = { contestId: cid, status: effSt };
+      }
+
+      for (const n of nominations) {
+        const isNominator = n.nominatorId?._id?.toString() === ce.userId?.toString();
+        const opponent    = isNominator ? n.nomineeId : n.nominatorId;
+        if (!opponent?.username?.value) continue;
+        if (!nomineesMap[eid]) nomineesMap[eid] = [];
+        nomineesMap[eid].push({
+          contestId:        cid,
+          username:         opponent.username?.value,
+          avatar:           opponent.avatar?.value || null,
+          status:           effSt === 'void' ? 'void' : n.status,
+          contestStatus:    effSt,
+          voteCountMine:    0,
+          voteCountNominee: 0,
+          contribution:     0,
+          isWinner:         !!(c.winnerEntryId && c.winnerEntryId.toString() === eid),
+          voidReason:       n.voidReason || null,
+        });
+      }
+    }
   }
 
   res.render('feed', {
@@ -176,12 +180,101 @@ router.get('/search', (req, res) => {
   });
 });
 
-router.get('/contests', (req, res) => {
+router.get('/contests', async (req, res) => {
+  const currentUserId = req.currentUser._id;
+  const now = new Date();
+
+  const [rawNominations, rawContests] = await Promise.all([
+    Nomination.find({ nomineeId: currentUserId, status: 'pending' })
+      .populate('nominatorId', 'username displayName')
+      .populate({
+        path: 'contestId',
+        populate: { path: 'entries.entryId', select: 'mediaType mediaUrl', model: 'Entry' },
+      })
+      .sort({ expiresAt: 1 })
+      .lean(),
+
+    Contest.find({
+      tournamentId: null,
+      $or: [
+        { visibility: 'public' },
+        { 'entries.userId': currentUserId },
+      ],
+      status: 'active',
+      votingDeadline: { $gt: now },
+    })
+      .populate('entries.entryId', 'title mediaType mediaUrl')
+      .populate('entries.userId', 'username displayName avatar')
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
+
+  // Build a set of user IDs the current user already follows
+  const allContestantIds = [];
+  for (const c of rawContests) {
+    for (const e of (c.entries || [])) {
+      if (e.userId?._id) allContestantIds.push(e.userId._id);
+    }
+  }
+  const followDocs = allContestantIds.length
+    ? await Follow.find({ followerId: currentUserId, followingId: { $in: allContestantIds } }).select('followingId').lean()
+    : [];
+  const followingSet = new Set(followDocs.map(f => f.followingId.toString()));
+
+  const panelPendingNominations = rawNominations
+    .filter(nom => nom.expiresAt > now)
+    .map(nom => {
+      const firstEntry = nom.contestId?.entries?.[0];
+      return {
+        _id:      nom._id,
+        entry:    firstEntry?.entryId || null,
+        nominator: {
+          displayName: nom.nominatorId?.displayName?.value || nom.nominatorId?.username?.value || 'Unknown',
+          username:    nom.nominatorId?.username?.value || '',
+        },
+        message:   nom.message,
+        expiresAt: nom.expiresAt,
+      };
+    });
+
+  const contests = rawContests.map(c => {
+      const deadline     = c.status === 'active' ? c.votingDeadline : c.voidDeadline;
+      const msLeft       = deadline ? new Date(deadline) - now : 0;
+      const daysLeft     = msLeft > 0 ? Math.ceil(msLeft / 86400000) : 0;
+      const title        = c.entries?.[0]?.entryId?.title || c.entries?.[1]?.entryId?.title || 'H2H Contest';
+      const covers       = (c.entries || []).slice(0, 2).map(e => ({
+        mediaUrl:  e.entryId?.mediaUrl  || '',
+        mediaType: e.entryId?.mediaType || 'photo',
+      }));
+      const contestants  = (c.entries || []).map(e => {
+        const uid = e.userId?._id?.toString();
+        return {
+          userId:      uid || '',
+          username:    e.userId?.username?.value || '',
+          avatar:      e.userId?.avatar?.value || '',
+          displayName: e.userId?.displayName?.value || ('@' + (e.userId?.username?.value || '')),
+          isFollowing: uid ? followingSet.has(uid) : false,
+          isSelf:      uid === currentUserId.toString(),
+        };
+      });
+
+      return {
+        _id:             c._id,
+        status:          c.status === 'pending' ? 'upcoming' : 'active',
+        covers,
+        title,
+        contestants,
+        votingDeadline:  c.votingDeadline || null,
+        visibility:      c.visibility,
+      };
+    });
+
   res.render('contests', {
     title:      'Contests',
     activePage: 'contests',
     currentUser: req.currentUser,
-    contests: [],
+    panelPendingNominations,
+    contests,
   });
 });
 
@@ -200,32 +293,28 @@ router.get('/entry/:id', async (req, res) => {
   if (!entry) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
   const ownerId = entry.userId._id;
   const isOwn = ownerId.toString() === req.session.userId;
-  const [followDoc, activeContest, entryContests] = await Promise.all([
+  const [followDoc, activeContest, entryContests, myRating] = await Promise.all([
     (!isOwn && req.session.userId)
       ? Follow.findOne({ followerId: req.session.userId, followingId: ownerId }).lean()
       : Promise.resolve(null),
     Contest.findOne({ 'entries.entryId': entry._id, status: { $in: ['pending', 'active'] } })
       .select('_id status voidDeadline votingDeadline').lean().catch(() => null),
     Contest.find({ 'entries.entryId': entry._id }).select('_id status entries voidDeadline votingDeadline winnerEntryId').lean(),
+    (!isOwn && req.session.userId)
+      ? Rating.findOne({ entryId: entry._id, userId: req.session.userId }).select('score').lean()
+      : Promise.resolve(null),
   ]);
 
   const nominations = entryContests.length
     ? await Nomination.find({
-        contestId:   { $in: entryContests.map(c => c._id) },
-        nominatorId: ownerId,
-        status:      { $in: ['pending', 'accepted', 'void'] },
+        contestId: { $in: entryContests.map(c => c._id) },
+        status:    { $in: ['pending', 'accepted', 'void'] },
       })
       .populate('nomineeId', 'username displayName avatar')
+      .populate('nominatorId', 'username displayName avatar')
       .sort({ createdAt: -1 })
       .lean()
     : [];
-
-  // Accepted nominations come first (most recent wins via sort -createdAt), so an accepted
-  // nomination for a nominee supersedes any older void nomination for the same person.
-  nominations.sort((a, b) => {
-    const rank = s => s === 'accepted' ? 0 : s === 'pending' ? 1 : 2;
-    return rank(a.status) - rank(b.status);
-  });
 
   const entryContestById = {};
   for (const c of entryContests) entryContestById[c._id.toString()] = c;
@@ -246,15 +335,18 @@ router.get('/entry/:id', async (req, res) => {
 
   const myEid    = entry._id.toString();
   const nominees = [];
-  const seenNominees = new Set();
+  const seenContests = new Set();
   for (const n of nominations) {
-    const uname = n.nomineeId.username?.value;
-    if (!uname || seenNominees.has(uname)) continue;
-    const cid      = n.contestId.toString();
-    const contest  = entryContestById[cid];
-    const voidRsn  = contest?.voidReason || null;
+    const cid = n.contestId.toString();
+    if (seenContests.has(cid)) continue;
+    seenContests.add(cid);
+    const contest = entryContestById[cid];
+    const voidRsn = contest?.voidReason || null;
     if (voidRsn === 'canceled') continue;
-    seenNominees.add(uname);
+    const isNominator = n.nominatorId?._id?.toString() === ownerId.toString();
+    const opponent    = isNominator ? n.nomineeId : n.nominatorId;
+    const uname       = opponent?.username?.value;
+    if (!uname) continue;
     const cvotes  = entryVoteMap[cid] || {};
     const oppEid  = contest?.entries?.find(e => e.entryId?.toString() !== myEid)?.entryId?.toString();
     const rawStatus = contest?.status || null;
@@ -263,12 +355,12 @@ router.get('/entry/:id', async (req, res) => {
     nominees.push({
       contestId:        cid,
       username:         uname,
-      displayName:      n.nomineeId.displayName?.value || uname,
-      avatar:           n.nomineeId.avatar?.value || null,
+      displayName:      opponent.displayName?.value || uname,
+      avatar:           opponent.avatar?.value || null,
       status:           effContestStatus === 'void' ? 'void' : n.status,
       voidReason:       voidRsn,
       contestStatus:    effContestStatus,
-      voteCountMine:     cvotes[myEid]  || 0,
+      voteCountMine:    cvotes[myEid]  || 0,
       voteCountNominee: oppEid ? (cvotes[oppEid] || 0) : 0,
       contribution:     0,
       isWinner:         !!(contest?.winnerEntryId && contest.winnerEntryId.toString() === myEid),
@@ -311,6 +403,7 @@ router.get('/entry/:id', async (req, res) => {
     entry,
     isFollowing:    !!followDoc,
     currentUserId:  req.session.userId || null,
+    userRating:     myRating?.score || null,
     contestInfo: (() => {
       if (!activeContest) return null;
       const effSt = (activeContest.status === 'active' && activeContest.votingDeadline && activeContest.votingDeadline < new Date())
@@ -837,11 +930,7 @@ router.get('/contest/:id', async (req, res) => {
     ? 'closed'
     : contest.status;
 
-  // TEMP: participant check disabled for testing — re-enable before launch
-  // const isParticipant =
-  //   contest.createdBy?.toString() === myId ||
-  //   contest.entries.some(e => e.userId.toString() === myId);
-  const canVote = effectiveStatus === 'active' && !myVote /* TEMP: participant vote guard also disabled for testing — re-enable before launch */;
+  const canVote = effectiveStatus === 'active' && !myVote;
   const isNominator = !!(myId && contest.createdBy?._id?.toString() === myId);
   const isNominee   = !!(myId && resCE && resCE.userId.toString() === myId);
 
@@ -1030,7 +1119,7 @@ router.get('/:username', async (req, res) => {
   // Nominations where this user is the NOMINEE and submitted an entry — shows nominator's info
   const receivedNominations = await Nomination.find({
     nomineeId:      user._id,
-    status:         'accepted',
+    status:         { $in: ['accepted', 'void'] },
     nomineeEntryId: { $ne: null },
   }).populate('nominatorId', 'username displayName avatar').lean().catch(() => []);
 

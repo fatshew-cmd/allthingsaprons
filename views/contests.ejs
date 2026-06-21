@@ -46,26 +46,67 @@
     <h2 class="text-xs font-bold text-white/40 uppercase tracking-wider mb-4">Live Now</h2>
     <div class="grid grid-cols-2 gap-4">
       <% active.forEach(comp => { %>
-        <div class="flex flex-col rounded-md bg-white/5 border border-white/10 overflow-hidden hover:bg-white/8 transition-colors cursor-pointer">
-          <div class="w-full aspect-video bg-white/10 shrink-0 relative">
-            <img src="<%= comp.coverUrl %>" class="w-full h-full object-cover" alt="<%= comp.title %>" loading="lazy" />
+        <a href="/contest/<%= comp._id %>" class="flex flex-col rounded-md bg-white/5 border border-white/10 overflow-hidden hover:bg-white/8 transition-colors no-underline">
+          <div class="w-full aspect-square bg-shark-900 shrink-0 relative overflow-hidden">
+            <% var main = comp.covers[0], pip = comp.covers[1]; %>
+            <% if (main && main.mediaUrl) { %>
+              <% if (main.mediaType === 'video') { %>
+                <video src="<%= main.mediaUrl %>" class="absolute inset-0 w-full h-full object-cover" muted preload="none"></video>
+              <% } else { %>
+                <img src="<%= main.mediaUrl %>" class="absolute inset-0 w-full h-full object-cover" alt="" loading="lazy" />
+              <% } %>
+            <% } %>
+            <% if (pip && pip.mediaUrl) { %>
+              <div class="absolute bottom-2 right-2 w-1/3 aspect-square rounded-md overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.6)]">
+                <% if (pip.mediaType === 'video') { %>
+                  <video src="<%= pip.mediaUrl %>" class="w-full h-full object-cover" muted preload="none"></video>
+                <% } else { %>
+                  <img src="<%= pip.mediaUrl %>" class="w-full h-full object-cover" alt="" loading="lazy" />
+                <% } %>
+              </div>
+            <% } %>
             <span class="absolute top-2 right-2 text-[9px] font-semibold uppercase tracking-wide text-green-400 bg-green-400/15 backdrop-blur-sm px-1.5 py-0.5 rounded-md">Live</span>
             <% if (comp.visibility === 'private') { %>
               <span class="absolute top-2 left-2 text-[9px] font-semibold uppercase tracking-wide text-white/60 bg-white/10 backdrop-blur-sm px-1.5 py-0.5 rounded-md">Private</span>
             <% } %>
           </div>
-          <div class="flex flex-col flex-1 p-4">
-            <p class="text-base font-bold leading-tight mb-0.5"><%= comp.title %></p>
-            <p class="text-xs text-white/40 mb-0.5"><%= comp.theme %></p>
-            <p class="text-xs text-white/25 mb-3">by <%= comp.organizer %></p>
-            <p class="text-xs text-white/50 leading-relaxed mb-4 line-clamp-2"><%= comp.description %></p>
-            <div class="flex items-center justify-between text-xs text-white/40 mb-4">
-              <span class="text-green-400 font-medium"><%= comp.daysLeft %>d left</span>
-              <span><%= comp.submissionCount %> entries</span>
+          <div class="p-4 flex flex-col gap-3">
+            <p class="text-base font-bold leading-tight m-0"><%= comp.title %></p>
+            <div class="flex flex-col gap-1">
+              <% comp.contestants.forEach(function(ct, i) { %>
+                <% if (i > 0) { %>
+                  <div class="flex items-center gap-1.5 text-white/20">
+                    <div class="flex-1 h-px bg-white/8"></div>
+                    <span class="text-[9px] font-bold uppercase tracking-widest">vs</span>
+                    <div class="flex-1 h-px bg-white/8"></div>
+                  </div>
+                <% } %>
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 shrink-0 flex items-center justify-center">
+                    <% if (ct.avatar) { %>
+                      <img src="<%= ct.avatar %>" class="w-full h-full object-cover" alt="">
+                    <% } else { %>
+                      <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+                    <% } %>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-semibold text-white/85 truncate m-0"><%= ct.displayName %></p>
+                    <p class="text-[10px] text-white/35 truncate m-0">@<%= ct.username %></p>
+                  </div>
+                  <% if (!ct.isSelf) { %>
+                    <button type="button" class="follow-btn shrink-0 text-charm-400 cursor-pointer p-1"
+                      data-username="<%= ct.username %>" data-following="<%= ct.isFollowing ? '1' : '0' %>"
+                      title="<%= ct.isFollowing ? 'Following' : 'Follow' %>"
+                      onclick="event.preventDefault(); event.stopPropagation(); handleContestFollow(this)">
+                      <iconify-icon icon="<%= ct.isFollowing ? 'boxicons:user-check-filled' : 'boxicons:user-plus' %>" width="20"></iconify-icon>
+                    </button>
+                  <% } %>
+                </div>
+              <% }) %>
             </div>
-            <button class="w-full py-2.5 rounded-md bg-charm-500/15 text-charm-400 text-sm font-semibold hover:bg-charm-500/25 transition-colors mt-auto cursor-pointer">Enter</button>
+            <span class="card-deadline text-xs text-green-400 font-medium" data-ts="<%= comp.votingDeadline ? new Date(comp.votingDeadline).getTime() : '' %>">...</span>
           </div>
-        </div>
+        </a>
       <% }) %>
     </div>
   </section>
@@ -78,20 +119,57 @@
     <h2 class="text-xs font-bold text-white/40 uppercase tracking-wider mb-4 mt-4">Coming Up</h2>
     <div class="flex flex-col gap-3">
       <% upcoming.forEach(comp => { %>
-        <div class="flex items-center gap-4 p-3 rounded-md bg-white/5 border border-white/10 hover:bg-white/8 transition-colors cursor-pointer">
-          <div class="w-14 h-14 rounded-md overflow-hidden shrink-0 bg-white/10">
-            <img src="<%= comp.coverUrl %>" class="w-full h-full object-cover" alt="" loading="lazy" />
+        <a href="/contest/<%= comp._id %>" class="flex items-center gap-4 p-3 rounded-md bg-white/5 border border-white/10 hover:bg-white/8 transition-colors no-underline">
+          <div class="w-14 h-14 rounded-md overflow-hidden shrink-0 bg-shark-900 relative">
+            <% var main = comp.covers[0], pip = comp.covers[1]; %>
+            <% if (main && main.mediaUrl) { %>
+              <% if (main.mediaType === 'video') { %>
+                <video src="<%= main.mediaUrl %>" class="absolute inset-0 w-full h-full object-cover" muted preload="none"></video>
+              <% } else { %>
+                <img src="<%= main.mediaUrl %>" class="absolute inset-0 w-full h-full object-cover" alt="" loading="lazy" />
+              <% } %>
+            <% } %>
+            <% if (pip && pip.mediaUrl) { %>
+              <div class="absolute bottom-1 right-1 w-5 h-5 rounded overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.7)]">
+                <% if (pip.mediaType === 'video') { %>
+                  <video src="<%= pip.mediaUrl %>" class="w-full h-full object-cover" muted preload="none"></video>
+                <% } else { %>
+                  <img src="<%= pip.mediaUrl %>" class="w-full h-full object-cover" alt="" loading="lazy" />
+                <% } %>
+              </div>
+            <% } %>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-bold truncate"><%= comp.title %></p>
-            <p class="text-xs text-white/40 truncate"><%= comp.theme %></p>
-            <p class="text-xs text-white/25">by <%= comp.organizer %></p>
+            <p class="text-base font-bold truncate m-0"><%= comp.title %></p>
+            <div class="flex flex-col gap-1.5 mt-2">
+              <% comp.contestants.forEach(function(ct, i) { %>
+                <% if (i > 0) { %><span class="text-white/20 text-[9px] font-bold uppercase tracking-widest">vs</span><% } %>
+                <div class="flex items-center gap-1.5">
+                  <div class="w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 shrink-0 flex items-center justify-center">
+                    <% if (ct.avatar) { %>
+                      <img src="<%= ct.avatar %>" class="w-full h-full object-cover" alt="">
+                    <% } else { %>
+                      <iconify-icon icon="boxicons:user" width="11" class="text-white/30"></iconify-icon>
+                    <% } %>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-semibold text-white/85 truncate m-0"><%= ct.displayName %></p>
+                    <p class="text-[10px] text-white/35 m-0">@<%= ct.username %></p>
+                  </div>
+                  <% if (!ct.isSelf) { %>
+                    <button type="button" class="follow-btn shrink-0 text-charm-400 cursor-pointer p-1"
+                      data-username="<%= ct.username %>" data-following="<%= ct.isFollowing ? '1' : '0' %>"
+                      title="<%= ct.isFollowing ? 'Following' : 'Follow' %>"
+                      onclick="event.preventDefault(); event.stopPropagation(); handleContestFollow(this)">
+                      <iconify-icon icon="<%= ct.isFollowing ? 'boxicons:user-check-filled' : 'boxicons:user-plus' %>" width="18"></iconify-icon>
+                    </button>
+                  <% } %>
+                </div>
+              <% }) %>
+            </div>
           </div>
-          <div class="text-right shrink-0">
-            <p class="text-xs font-medium text-yellow-400/80">In <%= comp.daysLeft %>d</p>
-            <button class="mt-1 text-[11px] text-white/30 bg-white/5 px-2 py-1 rounded-md cursor-pointer">Notify me</button>
-          </div>
-        </div>
+          <p class="text-xs font-medium text-yellow-400/80 shrink-0 m-0">In <%= comp.daysLeft %>d</p>
+        </a>
       <% }) %>
     </div>
   </section>
@@ -131,5 +209,38 @@
 })();
 </script>
 <% } %>
+
+<script>
+(function () {
+  function updateDeadline(el) {
+    var ts = parseInt(el.dataset.ts, 10);
+    if (!ts) { el.textContent = ''; return; }
+    var diff = ts - Date.now();
+    if (diff <= 0) { el.textContent = 'ended'; return; }
+    var d = Math.floor(diff / 86400000);
+    var h = Math.floor((diff % 86400000) / 3600000);
+    var m = Math.floor((diff % 3600000) / 60000);
+    el.textContent = d + 'd ' + h + 'h ' + m + 'm left';
+  }
+  var els = document.querySelectorAll('.card-deadline');
+  els.forEach(updateDeadline);
+  setInterval(function () { els.forEach(updateDeadline); }, 1000);
+})();
+
+function handleContestFollow(btn) {
+  var username   = btn.dataset.username;
+  var following  = btn.dataset.following === '1';
+  var url        = following ? '/unfollow/' + username : '/follow/' + username;
+  fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var nowFollowing = data.following;
+      btn.dataset.following = nowFollowing ? '1' : '0';
+      btn.title = nowFollowing ? 'Following' : 'Follow';
+      var icon = btn.querySelector('iconify-icon');
+      if (icon) icon.setAttribute('icon', nowFollowing ? 'boxicons:user-check-filled' : 'boxicons:user-plus');
+    });
+}
+</script>
 
 <%- include('partials/appEnd') %>

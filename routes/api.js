@@ -457,11 +457,10 @@ router.post('/contests/:id/vote', async (req, res) => {
   const ce = contest.entries.find(e => e.entryId.toString() === entryId);
   if (!ce) return res.status(400).json({ error: 'Entry not in this contest.' });
 
-  // TEMP: participant check disabled for testing — re-enable before launch
-  // const isParticipant =
-  //   contest.createdBy.toString() === req.session.userId.toString() ||
-  //   contest.entries.some(e => e.userId.toString() === req.session.userId.toString());
-  // if (isParticipant) return res.status(403).json({ error: "Contest participants can't vote." });
+  const isOwnEntry = contest.entries.some(
+    e => e.userId.toString() === req.session.userId.toString() && e.entryId.toString() === entryId
+  );
+  if (isOwnEntry) return res.status(403).json({ error: "You can't vote for your own entry." });
 
   try {
     await ContestVote.create({ contestId: contest._id, entryId, userId: req.session.userId });

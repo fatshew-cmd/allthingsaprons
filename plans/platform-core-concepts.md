@@ -20,6 +20,22 @@ Once submitted to a contest or tournament, an entry is locked and cannot be chan
 
 An entry owner can add up to six free-form text tags to their entry. Tags can be added, edited, or removed at any time — even after the entry is locked in a contest or tournament.
 
+### 1.2 Take Ons
+
+Any eligible user can initiate a **Take On** — a direct challenge targeting a specific existing entry for a H2H contest, rather than targeting a user as in the standard challenge flow.
+
+**Visibility rule:** The Take On button is only shown on entries that have demonstrated contest intent — entries where the owner has either sent a nomination or accepted one. Entries with no contest history do not show the button at all.
+
+**Owner toggle (`allowTakeOns`):** The entry owner controls whether their entry can be taken on. The toggle (`Allow Take Ons`) appears on the entry edit page as soon as the entry meets the visibility rule above. Default is **off** when the toggle first appears. The owner can flip it on or off at any time. The setting persists regardless of whether the entry's contests are currently active, closed, or voided — once the toggle has appeared, it stays.
+
+**Eligibility to initiate:** same gate as a standard challenge — `idVerified: true` plus the contest eligibility thresholds (minEntries, minRatingCount, minWeightedAvg). A user cannot Take On their own entry.
+
+**Flow:**
+1. User clicks Take On on an entry → redirected to `/submit` with the target entry pre-selected as the opponent
+2. User submits their own entry → creates a pending contest + nomination sent to the original entry owner
+3. Entry owner accepts or declines within 24h (standard void deadline applies)
+4. Accepted → contest goes live. Declined or ignored → contest voids.
+
 ---
 
 ## 2. Ratings
@@ -93,6 +109,9 @@ The nominated opponent has 24 hours to respond. Submitting an entry counts as ac
 
 **Creator does not self-nominate (open challenge — post-MVP):**
 The creator is the organizer, not a contestant. The challenge is open for any registered user to accept. See Section 9.
+
+**Creator initiates a Take On (see Section 1.2):**
+The creator targets a specific existing entry (not just a user). The target entry must have `allowTakeOns: true`. The creator selects their own entry on the submission page. A pending contest is created and a nomination is sent to the targeted entry's owner. Standard 24h void deadline and acceptance rules apply.
 
 ### 3.4 Viewer Nominations
 
@@ -441,6 +460,7 @@ These apply across the entire platform, regardless of system:
   tags: [String],        // max 6 — owner-only, editable at any time
   ratingCount: Number,   // default: 0 — denormalized, updated on each new rating
   ratingAvg: Number,     // default: 0 — denormalized, updated on each new rating
+  allowTakeOns: Boolean, // default: false — toggle visible only once entry has contest history; persists after contests close
   createdAt: Date
 }
 ```
