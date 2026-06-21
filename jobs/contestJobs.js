@@ -1,13 +1,14 @@
-const Contest      = require('../models/Contest');
-const ContestVote  = require('../models/ContestVote');
-const Nomination   = require('../models/Nomination');
-const Notification = require('../models/Notification');
-const User         = require('../models/User');
+const Contest        = require('../models/Contest');
+const ContestVote    = require('../models/ContestVote');
+const Nomination     = require('../models/Nomination');
+const Notification   = require('../models/Notification');
+const User           = require('../models/User');
+const notifyWatchers = require('../utils/notifyWatchers');
 
 async function voidExpiredContest(contestId) {
   const contest = await Contest.findOneAndUpdate(
     { _id: contestId, status: 'pending' },
-    { $set: { status: 'void', voidReason: 'expired' } },
+    { $set: { status: 'void', voidReason: 'expired', lastActivityAt: new Date() } },
   ).lean();
 
   if (!contest) return; // Already resolved
@@ -17,11 +18,13 @@ async function voidExpiredContest(contestId) {
     { $set: { status: 'void' } },
   );
 
+  const voidedPayload = { contestId: contest._id, url: '/contest/' + contest._id };
   Notification.create({
     userId:  contest.createdBy,
     type:    'contest_voided',
-    payload: { contestId: contest._id, url: '/contest/' + contest._id },
+    payload: { ...voidedPayload, isParticipant: true },
   }).catch(() => {});
+  notifyWatchers(contest._id, 'contest_voided', voidedPayload, [contest.createdBy]);
 }
 
 async function closeContest(contestId) {
@@ -47,7 +50,7 @@ async function closeContest(contestId) {
   // If two close_contest jobs race, only the first findOneAndUpdate call matches status: 'active'.
   const contest = await Contest.findOneAndUpdate(
     { _id: contestId, status: 'active' },
-    { $set: { status: 'closed', winnerEntryId } },
+    { $set: { status: 'closed', winnerEntryId, lastActivityAt: new Date() } },
   ).lean();
   if (!contest) return; // Another job already closed it
 
@@ -70,11 +73,16 @@ async function closeContest(contestId) {
     return {
       userId:  e.userId,
       type:    'contest_closed',
-      payload: { contestId: contest._id, winnerEntryId, won, opponentUsername, url: '/contest/' + contest._id },
+      payload: { contestId: contest._id, winnerEntryId, won, opponentUsername, url: '/contest/' + contest._id, isParticipant: true },
     };
   });
 
   Notification.insertMany(notifications).catch(() => {});
+  notifyWatchers(contest._id, 'contest_closed', {
+    contestId:     contest._id,
+    winnerEntryId: winnerEntryId || null,
+    url:           '/contest/' + contest._id,
+  }, userIds);
 }
 
 function registerContestJobs(agenda) {

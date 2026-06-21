@@ -30,6 +30,72 @@
   </div>
   <% } %>
 
+  <% if (locals.takeOnContest) { %>
+  <% var _toc = locals.takeOnContest; %>
+  <div class="flex flex-col gap-3 border border-charm-500/25 bg-charm-600/5 rounded-md px-4 py-3.5 mb-5">
+    <div class="flex items-center gap-2.5">
+      <iconify-icon icon="boxicons:git-compare" width="14" class="text-charm-400 shrink-0"></iconify-icon>
+      <span class="text-xs font-bold text-charm-400 uppercase tracking-wide">Your Take-On</span>
+      <% if (_toc.voidDeadline) { %>
+      <span class="ml-auto text-xs text-amber-300 font-medium tabular-nums" id="takeon-submit-countdown" data-expires="<%= new Date(_toc.voidDeadline).toISOString() %>"></span>
+      <% } %>
+    </div>
+    <p class="text-sm text-white/70">
+      Submit your entry below to go head-to-head against
+      <strong class="text-white/90"><%= _toc.opponent.displayName?.value || ('@' + _toc.opponent.username?.value) %></strong>.
+    </p>
+    <% if (_toc.opponentEntry) { %>
+    <div class="flex items-center gap-3 border border-white/8 rounded-md p-2.5">
+      <a href="/entry/<%= _toc.opponentEntry._id %>" class="shrink-0 w-14 h-14 rounded overflow-hidden bg-shark-900 block">
+        <% if (_toc.opponentEntry.mediaType === 'video') { %>
+        <video src="<%= _toc.opponentEntry.mediaUrl %>" class="w-full h-full object-cover" muted preload="none"></video>
+        <% } else { %>
+        <img src="<%= _toc.opponentEntry.mediaUrl %>" class="w-full h-full object-cover" alt="">
+        <% } %>
+      </a>
+      <div class="min-w-0 flex-1">
+        <% if (_toc.opponentEntry.title) { %><p class="text-sm font-semibold text-white/85 truncate"><%= _toc.opponentEntry.title %></p><% } %>
+        <p class="text-xs text-white/35">by @<%= _toc.opponent.username?.value %></p>
+      </div>
+    </div>
+    <% } %>
+    <input type="hidden" id="take-on-contest-id" value="<%= _toc.contestId %>">
+  </div>
+  <% } %>
+
+  <% if (locals.takeOnTargetEntry) { %>
+  <% var _tot = locals.takeOnTargetEntry; var _totOwner = _tot.userId; %>
+  <div id="takeon-badge" class="flex items-center gap-3 border border-amber-500/25 bg-amber-500/5 rounded-md p-3 mb-5">
+    <a href="/entry/<%= _tot._id %>" class="shrink-0 w-16 h-16 rounded-md overflow-hidden bg-shark-900 block">
+      <% if (_tot.mediaType === 'video') { %>
+      <video src="<%= _tot.mediaUrl %>" class="w-full h-full object-cover" muted preload="none"></video>
+      <% } else { %>
+      <img src="<%= _tot.mediaUrl %>" class="w-full h-full object-cover" alt="">
+      <% } %>
+    </a>
+    <div class="flex flex-col gap-0.5 min-w-0 flex-1">
+      <div class="flex items-center gap-1.5 mb-0.5">
+        <iconify-icon icon="boxicons:git-compare" width="11" class="text-amber-400 shrink-0"></iconify-icon>
+        <span class="text-[10px] font-bold text-amber-400 uppercase tracking-wide">Taking On</span>
+      </div>
+      <% if (_tot.title) { %><p class="text-sm font-semibold text-white truncate"><%= _tot.title %></p><% } %>
+      <% if (_tot.caption) { %><p class="text-xs text-white/45 truncate"><%= _tot.caption %></p><% } %>
+      <% if (_totOwner) { %><p class="text-xs text-white/30 mt-0.5">by @<%= _totOwner.username && _totOwner.username.value ? _totOwner.username.value : '?' %></p><% } %>
+    </div>
+    <button type="button" id="takeon-badge-dismiss"
+      class="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition-colors cursor-pointer">
+      <iconify-icon icon="boxicons:x" width="16"></iconify-icon>
+    </button>
+  </div>
+  <script>
+  document.getElementById('takeon-badge-dismiss').addEventListener('click', function () {
+    document.getElementById('takeon-badge').remove();
+    var inp = document.querySelector('input[name="takeOnTargetId"]');
+    if (inp) inp.remove();
+  });
+  </script>
+  <% } %>
+
   <% if (error) { %>
   <div class="flex items-center gap-2 text-sm text-red-400 bg-red-400/8 border border-red-400/20 rounded-md px-3 py-2.5 mb-4">
     <iconify-icon icon="boxicons:error-circle" width="15" class="shrink-0"></iconify-icon>
@@ -97,6 +163,9 @@
 
   <form action="/submit" method="POST" enctype="multipart/form-data" id="submit-form" novalidate>
     <input type="hidden" id="accepting-nomination-id" value="<%= acceptingNomination ? acceptingNomination._id : '' %>">
+    <% if (locals.takeOnTargetEntry) { %>
+    <input type="hidden" name="takeOnTargetId" value="<%= locals.takeOnTargetEntry._id %>">
+    <% } %>
 
     <!-- ── Source tabs ────────────────────────────────────────────── -->
     <div class="flex items-center gap-1 bg-shark-900 border border-white/10 rounded-md p-1 mb-3 self-start w-fit">
@@ -512,6 +581,20 @@
             class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform"></span>
         </button>
         <input type="hidden" name="aiGenerated" id="ai-generated-input" value="false">
+      </div>
+
+      <!-- Allow take-ons -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">Allow take-ons</span>
+          <span class="text-xs text-white/35">Let others challenge this entry head-to-head</span>
+        </div>
+        <button type="button" id="allow-takeons-toggle" data-on="true"
+          class="relative w-14 h-7 rounded-full transition-colors cursor-pointer bg-charm-600 shrink-0">
+          <span id="allow-takeons-thumb"
+            class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform translate-x-7"></span>
+        </button>
+        <input type="hidden" name="allowTakeOns" id="allow-takeons-input" value="true">
       </div>
     </div>
 
@@ -1841,10 +1924,11 @@
     });
   }
 
-  makeToggle('comments-toggle',  'comments-thumb',    'comments-input');
-  makeToggle('mature-toggle',       'mature-thumb',         'mature-input');
-  makeToggle('ai-generated-toggle', 'ai-generated-thumb',   'ai-generated-input');
-  makeToggle('hide-entry-toggle',   'hide-entry-thumb',     'hide-entry-input');
+  makeToggle('comments-toggle',      'comments-thumb',       'comments-input');
+  makeToggle('mature-toggle',        'mature-thumb',         'mature-input');
+  makeToggle('ai-generated-toggle',  'ai-generated-thumb',   'ai-generated-input');
+  makeToggle('allow-takeons-toggle', 'allow-takeons-thumb',  'allow-takeons-input');
+  makeToggle('hide-entry-toggle',    'hide-entry-thumb',     'hide-entry-input');
 
   // ── Nominations ──────────────────────────────────────────────────
 
@@ -1868,8 +1952,9 @@
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
 
-    var acceptingNomId = document.getElementById('accepting-nomination-id')?.value || '';
-    var isExistingMode = !!selectedExistingId;
+    var acceptingNomId  = document.getElementById('accepting-nomination-id')?.value || '';
+    var takeOnTargetId  = document.querySelector('input[name="takeOnTargetId"]')?.value || '';
+    var isExistingMode  = !!selectedExistingId;
 
     // ── Mode A: existing entry ───────────────────────────────────
     if (isExistingMode) {
@@ -1911,6 +1996,15 @@
             lastCId = d2.contestId;
           }
           window.location.href = lastCId ? '/contest/' + lastCId : '/entry/' + selectedExistingId;
+        } else if (takeOnTargetId) {
+          var rto = await fetch('/api/entries/' + takeOnTargetId + '/take-on', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ challengerEntryId: selectedExistingId }),
+          });
+          var dto = await rto.json();
+          if (!rto.ok) throw new Error(dto.error || 'Failed');
+          window.location.href = '/contest/' + dto.contestId;
         } else {
           setError('Select a challenge or nomination to use an existing entry.');
           submitBtn.disabled    = false;
@@ -1944,9 +2038,10 @@
     }
 
     var visibility      = visInput ? visInput.value : 'public';
-    var commentsEnabled = document.getElementById('comments-input')?.value    || 'true';
-    var matureContent   = document.getElementById('mature-input')?.value     || 'false';
-    var aiGenerated     = document.getElementById('ai-generated-input')?.value || 'false';
+    var commentsEnabled = document.getElementById('comments-input')?.value       || 'true';
+    var matureContent   = document.getElementById('mature-input')?.value         || 'false';
+    var aiGenerated     = document.getElementById('ai-generated-input')?.value   || 'false';
+    var allowTakeOns    = document.getElementById('allow-takeons-input')?.value  || 'true';
     var hasChallenge    = challengeToggle?.dataset.on === 'true' && selectedNominees.length > 0;
     var challengeVis    = cvisInput?.value || 'public';
     var hideEntry       = document.getElementById('hide-entry-input')?.value || 'false';
@@ -1962,6 +2057,8 @@
       return;
     }
 
+    var _takeOnTargetIdB = document.querySelector('input[name="takeOnTargetId"]')?.value || '';
+
     async function postEntry(file, caption, entryTags, nomId) {
       var fd = new FormData();
       fd.append('entryMedia', file);
@@ -1972,6 +2069,7 @@
       fd.append('commentsEnabled', commentsEnabled);
       fd.append('matureContent',   matureContent);
       fd.append('aiGenerated',     aiGenerated);
+      fd.append('allowTakeOns',    allowTakeOns);
       if (nomId) fd.append('nominationId', nomId);
       if (hasChallenge) {
         selectedNominees.forEach(function (o) { fd.append('challengeUsername', o.username); });
@@ -2009,6 +2107,17 @@
         firstContestId   = res.contestId;
         eligibilityError = res.eligibilityError;
       }
+      if (_takeOnTargetIdB && firstId) {
+        var rto2 = await fetch('/api/entries/' + _takeOnTargetIdB + '/take-on', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ challengerEntryId: firstId }),
+        });
+        var dto2 = await rto2.json();
+        if (!rto2.ok) throw new Error(dto2.error || 'Take-on failed');
+        window.location.href = '/contest/' + dto2.contestId;
+        return;
+      }
       var dest = firstContestId ? '/contest/' + firstContestId : '/entry/' + firstId;
       if (eligibilityError && window.showToast) {
         window.showToast(eligibilityError, 'error');
@@ -2025,6 +2134,24 @@
   });
 
   syncSubmitBtn();
+
+  // Take-on void deadline countdown
+  var tocCountdown = document.getElementById('takeon-submit-countdown');
+  if (tocCountdown) {
+    function pad2toc(n) { return n < 10 ? '0' + n : '' + n; }
+    function tickToc() {
+      var diff = new Date(tocCountdown.dataset.expires) - Date.now();
+      if (diff <= 0) { tocCountdown.textContent = 'Expired'; return; }
+      var h = Math.floor(diff / 3600000);
+      var m = Math.floor((diff % 3600000) / 60000);
+      var s = Math.floor((diff % 60000) / 1000);
+      tocCountdown.textContent = h > 0
+        ? h + 'h ' + pad2toc(m) + 'm ' + pad2toc(s) + 's'
+        : (m > 0 ? m + 'm ' + pad2toc(s) + 's' : s + 's');
+    }
+    tickToc();
+    setInterval(tickToc, 1000);
+  }
 }());
 </script>
 

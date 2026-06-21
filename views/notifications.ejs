@@ -25,14 +25,31 @@ function notifText(n) {
       return '<strong>' + (p.actorUsername || 'Someone') + '</strong> replied to your comment';
     case 'nomination_received':
       return '<strong>' + (p.actorUsername || 'Someone') + '</strong> challenged you to a head-to-head';
+    case 'contest_started':
+      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> started a new head-to-head contest';
+    case 'nominee_accepted':
+      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> accepted a challenge — the contest is live';
+    case 'nominee_declined':
+      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> declined the challenge';
+    case 'contest_forfeited':
+      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> forfeited the contest';
     case 'contest_closed':
-      return p.won
-        ? 'You won your contest against <strong>' + (p.opponentUsername || 'your opponent') + '</strong>'
-        : 'Your contest against <strong>' + (p.opponentUsername || 'your opponent') + '</strong> ended';
+      if (p.isParticipant) {
+        return p.won
+          ? 'You won your contest against <strong>' + (p.opponentUsername || 'your opponent') + '</strong>'
+          : 'Your contest against <strong>' + (p.opponentUsername || 'your opponent') + '</strong> ended';
+      }
+      return 'A contest you\'re watching has ended';
     case 'contest_voided':
-      return 'Your contest was voided — the opponent didn\'t respond in time';
+      return p.isParticipant
+        ? 'Your contest was voided — the opponent didn\'t respond in time'
+        : 'A contest you\'re watching was voided';
     case 'viewer_nomination':
       return '<strong>' + (p.actorUsername || 'Someone') + '</strong> nominated you for a head-to-head';
+    case 'take_on_received':
+      return '<strong>@' + (p.actorUsername || 'Someone') + '</strong> requested a take-on';
+    case 'take_on_accepted':
+      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> accepted your take-on — the contest is live';
     default:
       return 'New notification';
   }
@@ -40,13 +57,19 @@ function notifText(n) {
 
 function notifIcon(type) {
   switch (type) {
-    case 'comment':           return 'boxicons:message';
-    case 'reply':             return 'boxicons:reply';
+    case 'comment':             return 'boxicons:message';
+    case 'reply':               return 'boxicons:reply';
     case 'nomination_received':
-    case 'viewer_nomination': return 'boxicons:trophy';
-    case 'contest_closed':    return 'boxicons:check-circle';
-    case 'contest_voided':    return 'boxicons:x-circle';
-    default:                  return 'boxicons:bell';
+    case 'viewer_nomination':
+    case 'contest_started':     return 'boxicons:trophy';
+    case 'take_on_received':
+    case 'take_on_accepted':    return 'boxicons:git-compare';
+    case 'nominee_accepted':    return 'boxicons:check-circle';
+    case 'nominee_declined':    return 'boxicons:x-circle';
+    case 'contest_forfeited':   return 'boxicons:error-circle';
+    case 'contest_closed':      return 'boxicons:check-circle';
+    case 'contest_voided':      return 'boxicons:x-circle';
+    default:                    return 'boxicons:bell';
   }
 }
 %>
@@ -75,30 +98,89 @@ function notifIcon(type) {
 
   <ul id="notif-list" class="divide-y divide-white/5">
     <% notifications.forEach(function(n) { %>
-    <li data-id="<%= n._id %>" data-url="<%= (n.payload && n.payload.url) ? n.payload.url : '/notifications' %>"
-        class="notif-item flex items-start gap-3 px-5 py-4 cursor-pointer transition-colors hover:bg-white/4 <%= n.read ? '' : 'bg-white/3' %>">
+    <% var p = n.payload || {}; %>
+    <% var isTakeOnReceived = n.type === 'take_on_received' && p.nominationId; %>
+    <li data-id="<%= n._id %>" data-url="<%= p.url || '/notifications' %>"
+        class="notif-item px-5 py-4 cursor-pointer transition-colors hover:bg-white/4 <%= n.read ? '' : 'bg-white/3' %> <%= isTakeOnReceived ? 'flex flex-col gap-3' : 'flex items-start gap-3' %>">
 
-      <!-- Actor avatar or icon -->
+      <% if (isTakeOnReceived) { %>
+
+      <!-- Take-on received: header row -->
+      <div class="flex items-start gap-3">
+        <div class="shrink-0 mt-0.5">
+          <% if (p.actorAvatar) { %>
+          <img src="<%= p.actorAvatar %>" alt="" class="w-9 h-9 rounded-full object-cover">
+          <% } else { %>
+          <div class="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
+            <iconify-icon icon="boxicons:git-compare" width="18" class="text-charm-400"></iconify-icon>
+          </div>
+          <% } %>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-white/80 leading-snug"><%- notifText(n) %></p>
+          <p class="text-xs text-white/25 mt-1"><%= fmtNotifTime(n.createdAt) %></p>
+        </div>
+        <div class="shrink-0 mt-2">
+          <% if (!n.read) { %><span class="unread-dot w-2 h-2 rounded-full bg-charm-400 block"></span><% } else { %><span class="w-2 h-2 block"></span><% } %>
+        </div>
+      </div>
+
+      <!-- Entry thumbnails -->
+      <div class="flex items-center gap-2">
+        <div class="flex-1 aspect-square rounded-md overflow-hidden bg-shark-900">
+          <% if (p.challengerEntryUrl) { %>
+            <% if (p.challengerEntryType === 'video') { %>
+            <video src="<%= p.challengerEntryUrl %>" class="w-full h-full object-cover pointer-events-none" muted preload="none"></video>
+            <% } else { %>
+            <img src="<%= p.challengerEntryUrl %>" alt="" class="w-full h-full object-cover">
+            <% } %>
+          <% } %>
+        </div>
+        <span class="text-[10px] font-black text-white/20 tracking-widest shrink-0">VS</span>
+        <div class="flex-1 aspect-square rounded-md overflow-hidden bg-shark-900">
+          <% if (p.nomineeEntryUrl) { %>
+            <% if (p.nomineeEntryType === 'video') { %>
+            <video src="<%= p.nomineeEntryUrl %>" class="w-full h-full object-cover pointer-events-none" muted preload="none"></video>
+            <% } else { %>
+            <img src="<%= p.nomineeEntryUrl %>" alt="" class="w-full h-full object-cover">
+            <% } %>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Accept / Decline buttons -->
+      <div class="flex gap-2">
+        <button type="button"
+          class="notif-takeon-accept flex-1 bg-charm-600 hover:bg-charm-500 text-white font-bold rounded-md py-2 text-sm transition-colors cursor-pointer"
+          data-nom-id="<%= p.nominationId %>" data-contest-id="<%= p.contestId %>">
+          Accept
+        </button>
+        <button type="button"
+          class="notif-takeon-decline flex-1 border border-white/15 text-white/50 hover:border-white/30 hover:text-white/70 font-semibold rounded-md py-2 text-sm transition-colors cursor-pointer"
+          data-nom-id="<%= p.nominationId %>" data-contest-id="<%= p.contestId %>">
+          Decline
+        </button>
+      </div>
+
+      <% } else { %>
+
+      <!-- Standard notification -->
       <div class="shrink-0 mt-0.5">
-        <% if (n.payload && n.payload.actorAvatar) { %>
-        <img src="<%= n.payload.actorAvatar %>" alt="" class="w-9 h-9 rounded-full object-cover">
+        <% if (p.actorAvatar) { %>
+        <img src="<%= p.actorAvatar %>" alt="" class="w-9 h-9 rounded-full object-cover">
         <% } else { %>
         <div class="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
           <iconify-icon icon="<%= notifIcon(n.type) %>" width="18" class="text-charm-400"></iconify-icon>
         </div>
         <% } %>
       </div>
-
-      <!-- Text + timestamp -->
       <div class="flex-1 min-w-0">
         <p class="text-sm text-white/80 leading-snug"><%- notifText(n) %></p>
-        <% if (n.payload && n.payload.preview) { %>
-        <p class="text-xs text-white/35 mt-1 truncate">"<%= n.payload.preview %>"</p>
+        <% if (p.preview) { %>
+        <p class="text-xs text-white/35 mt-1 truncate">"<%= p.preview %>"</p>
         <% } %>
         <p class="text-xs text-white/25 mt-1"><%= fmtNotifTime(n.createdAt) %></p>
       </div>
-
-      <!-- Unread dot -->
       <div class="shrink-0 mt-2">
         <% if (!n.read) { %>
         <span class="unread-dot w-2 h-2 rounded-full bg-charm-400 block"></span>
@@ -106,6 +188,8 @@ function notifIcon(type) {
         <span class="w-2 h-2 block"></span>
         <% } %>
       </div>
+
+      <% } %>
     </li>
     <% }) %>
   </ul>
@@ -147,6 +231,32 @@ function notifIcon(type) {
         }
       }
       window.location.href = url;
+    });
+  });
+
+  // ── Take-on Accept / Decline ────────────────────────────────────
+  document.querySelectorAll('.notif-takeon-accept, .notif-takeon-decline').forEach(function (btn) {
+    btn.addEventListener('click', async function (e) {
+      e.stopPropagation();
+      var nomId     = btn.dataset.nomId;
+      var contestId = btn.dataset.contestId;
+      var isAccept  = btn.classList.contains('notif-takeon-accept');
+      var sibling   = btn.closest('.flex').querySelector(isAccept ? '.notif-takeon-decline' : '.notif-takeon-accept');
+      btn.disabled = true;
+      if (sibling) sibling.disabled = true;
+      btn.textContent = isAccept ? 'Accepting…' : 'Declining…';
+      try {
+        var endpoint = isAccept ? '/api/nominations/' + nomId + '/take-on-accept' : '/api/nominations/' + nomId + '/decline';
+        var r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Failed');
+        window.location.href = '/contest/' + contestId;
+      } catch (err) {
+        btn.disabled = false;
+        if (sibling) sibling.disabled = false;
+        btn.textContent = isAccept ? 'Accept' : 'Decline';
+        if (window.showToast) window.showToast(err.message || 'Something went wrong.', 'error');
+      }
     });
   });
 

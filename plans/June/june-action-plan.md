@@ -12,7 +12,11 @@ The **`/contests` page** is now fully wired. The route queries active public con
 
 Two **correctness bugs fixed**: (1) the feed and entry page contest badge data was broken when the current user was the *nominee* rather than the nominator — the query filtered to `nominatorId: ownerId` and skipped the case where the user received the nomination. Both pages now populate both `nominatorId` and `nomineeId` and derive the opponent dynamically. (2) Profile page `receivedNominations` query now includes `void` status so forfeited/voided contests still appear in contest history.
 
-What remains: contest watch + follower notifications, viewer nominations, background jobs (Phase 5), fake credits admin action, and the remaining Phase 6 admin UI pages.
+The **Take On feature** is now fully implemented. Initiator clicks Take On on any entry card → redirected to `/submit?takeOnTargetId=<entryId>` → submits their entry → contest created pending + `take_on_received` notification sent to the targeted entry's owner → owner accepts or declines from `/take-on/:id`. Accept moves the contest to `active`; decline voids. `allowTakeOns` toggle is on the entry edit page (default on). `takeOnCount` is denormalized on Entry. The `Nomination` model was extended with `type`, `nomineeEntryId`, and `challengerEntryId` fields to support this flow alongside standard nominations. Notification types `take_on_received` and `take_on_accepted` are wired throughout.
+
+**Phase 5 background jobs are done.** `agenda` is installed and wired. The void deadline sweeper + `void_expired_contest` one-time jobs replace the old Mongoose post-hook bridge (post-hooks removed). The voting deadline sweeper + `close_contest` one-time jobs count votes, set `winnerEntryId`, status → `closed`, and fire `contest_closed` notifications to both participants. Both sweepers run on startup to catch any deadlines missed while the server was down.
+
+What remains: viewer nominations, fake credits admin action, and the remaining Phase 6 admin UI pages.
 
 ### What is done
 | Asset | Status |
@@ -56,13 +60,12 @@ What remains: contest watch + follower notifications, viewer nominations, backgr
 | Contest vote window options | `windowHours` on contest creation now accepts 24 / 48 / 72 / 168 hours (was hardcoded 72). |
 | entryCard HTH contest badges | Full visual state differentiation: pending (amber), accepted/waiting (charm), active/live (green), won (yellow highlight + dimmed opponent), lost (muted/dimmed), void (greyed with reason label). Username and vote/attribution scores dim on lost contests. |
 | `/contests` page | `GET /contests` + `views/contests.ejs` — fully wired. Route queries active public contests (+ contests the user is in), builds contestant rows with per-viewer follow state, and passes live data. View: card layout with picture-in-picture media thumbnails, contestant rows with inline follow toggle buttons, live countdown timers, "vs" dividers. Pending nominations panel functional. |
+| Take On | `allowTakeOns: Boolean` (default `true`) + `takeOnCount: Number` on Entry. `Nomination` extended with `type` (`standard` / `take_on`), `nomineeEntryId`, `challengerEntryId`. Notification types `take_on_received` / `take_on_accepted`. Take On button on entryCard → `/submit?takeOnTargetId=<entryId>`. Submit page flow creates pending contest + nomination, fires `take_on_received`. Dedicated accept/decline page at `/take-on/:id` (`views/take-on.ejs`). `POST /nominations/:id/take-on-accept` moves contest to active. `PATCH /entries/:id/allow-take-ons` endpoint. "Allow Take Ons" toggle on edit-entry page. |
+| Contest Watch + Follower Notifications | `ContestWatch` model (`contestId`, `userId`, unique index on both). `utils/notifyWatchers.js` inserts `Notification` docs for all watchers, with an `excludeUserIds` set. Bell toggle ("Stay in the loop") on contest page with `POST /api/contests/:id/watch` (toggle on/off, returns `{ watching: bool }`). `isWatching` injected by the contest page route. Watched contests shown in the `/contests` page. Watcher notifications fire on: nominee accepted, nominee declined, contest forfeited (via route), contest voided and contest closed (both via background jobs). Follower notification type `contest_started` fires to all of the nominator's followers on new contest creation. All new notification types render in `views/notifications.ejs`: `contest_started`, `nominee_accepted`, `nominee_declined`, `contest_forfeited`. |
 
 ### What is not done yet
 - Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
-- Contest watch + follower notifications (`ContestWatch` model, "stay in the loop" button, triggers for all contest events)
-- Background jobs: void deadline enforcement, voting deadline + close logic, contest_closed / contest_voided notification triggers (Phase 5 scope)
 - Viewer nomination flow (any user nominates two others for a HTH with a message)
-- Take On feature: `allowTakeOns` toggle on Entry, Take On button on entryCard, `/submit?takeOn=` flow (designed June 21 — see Phase 4 sub-section)
 - Fake credits admin action (superadmin balance write for contribution flow testing)
 - `Retag` model is scaffolded (`models/Retag.js`) but not yet wired into any route or UI
 - Forfeit scrub path: nominator cannot currently delete a `void` contest record (the `DELETE /contests/:id` route rejects non-pending contests) — the design's "scrub forfeit record" case is not yet implemented
@@ -177,31 +180,40 @@ The core competitive mechanic. Build the HTH contest flow end to end.
 - Watchers get notified on: nominee responds (accept/decline), forfeit, timeout/void, contest closed.
 
 **Tasks:**
-- [ ] New `Notification` types for: contest started (sent to nominator's followers), nominee responded, nominee forfeited, contest timed out/voided, contest closed (sent to watchers).
-- [ ] `ContestWatch` model + "stay in the loop" toggle on the contest page.
-- [ ] Wire notification triggers for all events above to the watcher list (nominator's followers are auto-watchers from creation; anyone else opts in via the button).
+- [x] New `Notification` types for: contest started (sent to nominator's followers), nominee responded, nominee forfeited, contest timed out/voided, contest closed (sent to watchers).
+- [x] `ContestWatch` model + "stay in the loop" toggle on the contest page.
+- [x] Wire notification triggers for all events above to the watcher list (nominator's followers are auto-watchers from creation; anyone else opts in via the button).
 
 > Note: the "voting closes in" countdown format (days/hours/minutes/seconds, zero-padded, fewer units as time runs out) was reviewed and confirmed correct as-is — no change needed.
 
 ---
 
-#### Take On (designed June 21)
+#### Take On (designed June 21, implemented June 21)
 
-**Design:**
-- `allowTakeOns: Boolean` (default `false`) added to the `Entry` schema.
-- The "Allow Take Ons" toggle appears on the entry edit page only once the entry has contest history — either the owner sent a nomination with it or accepted one using it. No contest history → toggle stays hidden.
-- Default is **off** when the toggle first appears. Owner can flip it at any time. Setting persists after contests close or void.
-- The Take On button (replacing the placeholder retweet icon on entryCard) is shown on entry cards and the entry page when `allowTakeOns: true` and the viewer is eligible (idVerified + eligibility thresholds) and is not the entry owner.
-- Clicking Take On → redirects to `/submit?takeOn=<entryId>`. The submit page pre-populates the opponent from the `takeOn` param.
-- Submitting creates a pending contest + nomination sent to the target entry's owner. Standard 24h void deadline applies. Owner accepts or declines — if accepted, contest goes live.
-- Cannot Take On your own entry.
+**Design (as implemented — differs from original draft):**
+- `allowTakeOns: Boolean` (default `true`) + `takeOnCount: Number` added to the `Entry` schema.
+- The "Allow Take Ons" toggle appears on the entry edit page for all entries. Default is **on**. Owner can disable it at any time.
+- Take On button shown on entry cards, positioned right of the rating button. Visible when `allowTakeOns: true` and viewer is eligible non-owner.
+- `Nomination` model extended: `type` enum (`standard` | `take_on`), `nomineeEntryId` (the challenged entry), `challengerEntryId` (the initiator's entry).
+- **Flow (initiator submits first):**
+  1. User A clicks Take On on User B's entry → redirected to `/submit?takeOnTargetId=<entryId>`.
+  2. User A submits their own entry → contest created `pending` with User A's entry pre-loaded + nomination created (type: `take_on`, nomineeEntryId: User B's entry, challengerEntryId: User A's new entry) → `take_on_received` notification sent to User B. 24h void deadline starts.
+  3. User B clicks notification → `/take-on/:nomId` — sees the take-on request with their entry shown → accepts or declines.
+     - Accept → `POST /nominations/:id/take-on-accept` → User B's entry pushed into contest, status → `active`. `take_on_accepted` notification fires to User A.
+     - Decline → contest voids.
+- Cannot Take On your own entry. `POST /api/entries/:id/take-on` API also available for initiating a take-on with an existing entry directly.
 
 **Tasks:**
-- [ ] Add `allowTakeOns: Boolean` (default `false`) to `Entry` schema
-- [ ] Add "Allow Take Ons" toggle to entry edit page — visible only when entry has been part of any contest
-- [ ] `PATCH /api/entries/:id/allow-take-ons` endpoint — toggle on/off, owner only
-- [ ] Replace placeholder retweet icon on entryCard with Take On button — shown when `allowTakeOns: true` and viewer is eligible non-owner
-- [ ] Wire `/submit?takeOn=<entryId>` flow: validate target entry exists + `allowTakeOns: true`, pre-populate opponent on the submit page, create contest + nomination on submission
+- [x] Add `allowTakeOns: Boolean` (default `true`) + `takeOnCount: Number` to `Entry` schema and model
+- [x] Add `type`, `nomineeEntryId`, `challengerEntryId` to `Nomination` schema
+- [x] Add "Allow Take Ons" toggle to entry edit page — on by default, owner can disable
+- [x] `PATCH /api/entries/:id/allow-take-ons` endpoint — toggle on/off, owner only
+- [x] Add `take_on_received` and `take_on_accepted` to `Notification` type enum
+- [x] Replace placeholder retweet icon on entryCard with Take On button — positioned right of the rating button; shown when `allowTakeOns: true` and viewer is eligible non-owner
+- [x] `POST /api/entries/:id/take-on` — creates pending contest with initiator's existing entry, fires `take_on_received` notification to entry owner
+- [x] Wire `/submit?takeOnTargetId=<entryId>` — initiator submits new entry, creates pending contest + nomination, fires `take_on_received`
+- [x] `GET /take-on/:id` + `views/take-on.ejs` — entry owner accept/decline page with countdown timer
+- [x] `POST /nominations/:id/take-on-accept` — pushes target entry into contest, sets active, fires `take_on_accepted` to initiator
 
 ---
 
@@ -236,13 +248,13 @@ The system that makes everything time-sensitive work reliably.
 **Sweeper + scheduler pattern** — recurring sweeper jobs run every 15 minutes. When a sweeper finds a deadline within the next 15 minutes, it schedules a one-time targeted job to fire at exactly that deadline rather than waiting for the next sweep. This ensures no contest waits more than a few seconds past its actual deadline. If the deadline has already passed, the sweeper closes it immediately.
 
 **Tasks:**
-- [ ] Install and configure `agenda` with MongoDB backing store.
-- [ ] Implement void deadline sweeper (every 15 min): finds pending contests where `voidDeadline <= now` → void immediately; `voidDeadline` within 15 min → schedule one-time `void-contest` job at exact deadline. Replaces the current Mongoose post-hook bridge.
-- [ ] Implement voting deadline sweeper (every 15 min): finds active contests where `votingDeadline <= now` → close immediately (count votes, set `winnerEntryId`, status → `closed`, fire notifications); `votingDeadline` within 15 min → schedule one-time `close-contest` job at exact deadline.
+- [x] Install and configure `agenda` with MongoDB backing store (`jobs/agenda.js` — reuses existing mongoose connection).
+- [x] Implement void deadline sweeper (every 15 min): finds pending contests where `voidDeadline <= now` → void immediately; `voidDeadline` within 15 min → schedule one-time `void_expired_contest` job at exact deadline. Replaces the Mongoose post-hook bridge (post-hooks removed from `Contest.js`).
+- [x] Implement voting deadline sweeper (every 15 min): finds active contests where `votingDeadline <= now` → close immediately (count votes, set `winnerEntryId`, status → `closed`, fire `contest_closed` notifications); `votingDeadline` within 15 min → schedule one-time `close_contest` job at exact deadline. Both sweepers run on startup to catch missed deadlines.
 - [ ] Implement entry review timeout job (July/tournament scope): runs every 5 minutes. Finds `tournament_entries` with `approvalStatus: 'pending'` and `submittedAt < now - 30min`. For each: set `approvalStatus: 'timed_out'`, increment `tournament.missedReviews`, notify the submitting user their entry timed out. If `tournament.missedReviews >= 3`: cancel the tournament, notify all `pending_approval` users to resubmit elsewhere.
 - [ ] Gate tournament creation behind `idVerified: true` check. Since ID verification is now scoped and on-demand (not a mandatory onboarding step), a user can reach the "create tournament" action without ever having verified — this check is a real, reachable gate, not just a bypass safeguard.
 - [x] Notification model: dedicated `Notification` collection (Option A) with compound index `{userId, read, createdAt}` and 90-day TTL index. `injectNotificationCount` middleware injects unread count into all main platform views. Sidebar badge (count label + collapsed dot). Per-notification click-to-mark-read + mark-all-as-read. Triggers: new comment → entry owner, reply → parent commenter, nomination created → nominee.
-- [x] Notifications page: paginated list at `/notifications` — actor avatar, notification text, relative timestamp, unread highlight. `contest_closed` / `contest_voided` rows render correctly when triggers fire (wired in Phase 5 background jobs).
+- [x] Notifications page: paginated list at `/notifications` — actor avatar, notification text, relative timestamp, unread highlight. `contest_closed` / `contest_voided` rows render correctly (triggers now live from background jobs).
 - [x] Messages page: direct messaging between users — `Conversation` + `DirectMessage` models, `routes/messages.js`, two-panel view (`/messages` list + `/messages/:username` thread). Polled every 5s. Message button on profile opens or creates a conversation.
 - [ ] Viewer nomination flow: any registered user can nominate two other users for a HTH, with an optional message. Both nominees receive a notification.
 

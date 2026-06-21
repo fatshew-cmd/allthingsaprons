@@ -259,6 +259,20 @@
         </button>
         <input type="hidden" name="aiGenerated" id="ai-generated-input" value="<%= entry.aiGenerated ? 'true' : 'false' %>">
       </div>
+
+      <!-- Allow Take Ons -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm text-white/80">Allow Take Ons</span>
+          <span class="text-xs text-white/35">Let others challenge this entry</span>
+        </div>
+        <button type="button" id="allow-take-ons-toggle"
+          data-on="<%= entry.allowTakeOns !== false ? 'true' : 'false' %>"
+          class="relative w-14 h-7 rounded-full transition-colors cursor-pointer <%= entry.allowTakeOns !== false ? 'bg-charm-600' : 'bg-shark-700' %> shrink-0">
+          <span id="allow-take-ons-thumb"
+            class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%= entry.allowTakeOns !== false ? 'translate-x-7' : '' %>"></span>
+        </button>
+      </div>
     </div>
 
     <button type="submit" id="save-btn"
@@ -757,6 +771,29 @@
   makeToggle('mature-toggle',       'mature-thumb',         'mature-input');
   makeToggle('ai-generated-toggle', 'ai-generated-thumb',   'ai-generated-input');
   makeToggle('hide-entry-toggle',   'hide-entry-thumb',     'hide-entry-input');
+
+  // Allow Take Ons — dedicated API call, no form save needed
+  var allowTakeOnsBtn   = document.getElementById('allow-take-ons-toggle');
+  var allowTakeOnsThumb = document.getElementById('allow-take-ons-thumb');
+  if (allowTakeOnsBtn) {
+    allowTakeOnsBtn.addEventListener('click', function () {
+      var on = allowTakeOnsBtn.dataset.on !== 'true';
+      allowTakeOnsBtn.dataset.on = on ? 'true' : 'false';
+      allowTakeOnsBtn.classList.toggle('bg-charm-600', on);
+      allowTakeOnsBtn.classList.toggle('bg-shark-700', !on);
+      allowTakeOnsThumb.classList.toggle('translate-x-7', on);
+      fetch('/api/entries/' + ENTRY_ID + '/allow-take-ons', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ allow: on }),
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error && window.showToast) window.showToast(data.error, 'error');
+      })
+      .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); });
+    });
+  }
 
   // ── Force fresh load when restored from bfcache ──────────────────
   window.addEventListener('pageshow', function (e) {

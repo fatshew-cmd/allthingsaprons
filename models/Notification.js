@@ -4,7 +4,7 @@ const notificationSchema = new mongoose.Schema({
   userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   type:      {
     type: String,
-    enum: ['comment', 'reply', 'nomination_received', 'contest_closed', 'contest_voided', 'viewer_nomination'],
+    enum: ['comment', 'reply', 'nomination_received', 'contest_started', 'contest_closed', 'contest_voided', 'contest_forfeited', 'nominee_accepted', 'nominee_declined', 'viewer_nomination', 'take_on_received', 'take_on_accepted'],
     required: true,
   },
   read:      { type: Boolean, default: false },

@@ -14,6 +14,8 @@ const entrySchema = new mongoose.Schema({
   commentsEnabled: { type: Boolean, default: true },
   matureContent:   { type: Boolean, default: false },
   aiGenerated:     { type: Boolean, default: false },
+  allowTakeOns:    { type: Boolean, default: true },
+  takeOnCount:     { type: Number, default: 0 },
 }, { timestamps: true });
 
 entrySchema.index({ userId: 1 });

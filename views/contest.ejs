@@ -21,6 +21,17 @@
       <iconify-icon icon="boxicons:chevron-left" width="22"></iconify-icon>
     </button>
     <span class="font-bold text-base flex-1">H2H Contest</span>
+    <% var _isParticipant = locals.isNominator || locals.isNominee ||
+      (locals.currentUser && (contest.entries || []).some(function(e) { return String(e.userId) === String(locals.currentUser._id); })); %>
+    <% if (!_isParticipant) { %>
+    <button id="cv-watch-btn" type="button"
+      data-contest-id="<%= contest._id %>"
+      data-watching="<%= locals.isWatching ? 'true' : 'false' %>"
+      title="<%= locals.isWatching ? 'Stop watching' : 'Stay in the loop' %>"
+      class="w-8 h-8 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0 <%= locals.isWatching ? 'text-charm-400 hover:text-white/50' : 'text-white/30 hover:text-white/60' %>">
+      <iconify-icon icon="<%= locals.isWatching ? 'boxicons:bell-ring-filled' : 'boxicons:bell' %>" width="18"></iconify-icon>
+    </button>
+    <% } %>
     <span class="text-xs font-semibold px-2 py-0.5 rounded-md <%= statusCls %>"><%= statusLabel %></span>
   </div>
 
@@ -79,6 +90,27 @@
   <div class="px-4 py-3 border-b border-white/10 flex items-center gap-2.5">
     <iconify-icon icon="boxicons:x-circle" width="15" class="text-white/30 shrink-0"></iconify-icon>
     <span class="text-sm text-white/40"><%- voidBannerText %></span>
+  </div>
+  <% } %>
+
+  <% if (locals.pendingTakeOnNomId && contest.status === 'pending') { %>
+  <!-- Take-on Accept/Decline banner (nominee only) -->
+  <div class="px-4 py-4 border-b border-white/10">
+    <p class="text-sm text-white/60 mb-3"><strong class="text-white"><%= left?.user?.displayName?.value || (left?.user?.username?.value ? '@' + left.user.username.value : 'Someone') %></strong> wants to go head-to-head with you. Accept to start the contest, or decline to pass.</p>
+    <div id="takeon-error" class="hidden items-center gap-2 text-sm text-red-400 bg-red-400/8 border border-red-400/20 rounded-md px-3 py-2.5 mb-3">
+      <iconify-icon icon="boxicons:error-circle" width="15" class="shrink-0"></iconify-icon>
+      <span id="takeon-error-text"></span>
+    </div>
+    <div class="flex gap-3">
+      <button id="cv-takeon-accept-btn" data-nom-id="<%= locals.pendingTakeOnNomId %>"
+        class="flex-1 bg-charm-600 hover:bg-charm-500 text-white font-bold rounded-md py-2.5 text-sm transition-colors cursor-pointer">
+        Accept
+      </button>
+      <button id="cv-takeon-decline-btn" data-nom-id="<%= locals.pendingTakeOnNomId %>"
+        class="flex-1 border border-white/15 text-white/50 hover:border-white/30 hover:text-white/70 font-semibold rounded-md py-2.5 text-sm transition-colors cursor-pointer">
+        Decline
+      </button>
+    </div>
   </div>
   <% } %>
 
@@ -220,9 +252,10 @@
 
       <!-- ── Right side (nominee) ── -->
       <% var rs = right; var showRightEntry = rs && rs.entry; %>
+      <% var _ne = locals.nomineeEntry; %>
       <div class="flex flex-col gap-2.5">
 
-        <a href="<%= rs && rs.entryId ? '/entry/' + rs.entryId : '#' %>" class="block relative aspect-square rounded-md overflow-hidden bg-shark-900 <%= !rs ? 'pointer-events-none' : '' %>">
+        <a href="<%= rs && rs.entryId ? '/entry/' + rs.entryId : (_ne ? '/entry/' + _ne._id : '#') %>" class="block relative aspect-square rounded-md overflow-hidden bg-shark-900 <%= (!rs && !_ne) ? 'pointer-events-none' : '' %>">
           <% if (rs && showRightEntry) { %>
             <% if (rs.entry.mediaType === 'video') { %>
             <video src="<%= rs.entry.mediaUrl %>" class="w-full h-full object-cover rounded-md" muted preload="none"></video>
@@ -231,6 +264,15 @@
             </div>
             <% } else { %>
             <img src="<%= rs.entry.mediaUrl %>" alt="" class="w-full h-full object-cover rounded-md">
+            <% } %>
+          <% } else if (_ne) { %>
+            <% if (_ne.mediaType === 'video') { %>
+            <video src="<%= _ne.mediaUrl %>" class="w-full h-full object-cover rounded-md" muted preload="none"></video>
+            <div class="absolute inset-0 flex items-center justify-center">
+              <iconify-icon icon="boxicons:play-circle" width="40" class="text-white/80"></iconify-icon>
+            </div>
+            <% } else { %>
+            <img src="<%= _ne.mediaUrl %>" alt="" class="w-full h-full object-cover rounded-md">
             <% } %>
           <% } else { %>
           <div class="w-full h-full flex flex-col items-center justify-center text-white/15 gap-1.5">
@@ -303,20 +345,30 @@
         <% } %>
 
         <div class="flex flex-col gap-1 mt-1">
-          <% if (isPending) { %>
-          <p class="text-sm text-white/25 leading-snug">Hasn't accepted yet</p>
-          <% } else if (rs && rs.entry && rs.entry.title) { %>
+          <% if (isPending && _ne && _ne.title) { %>
+          <p class="text-sm font-semibold text-white leading-snug"><%= _ne.title %></p>
+          <% } else if (!isPending && rs && rs.entry && rs.entry.title) { %>
           <p class="text-sm font-semibold text-white leading-snug"><%= rs.entry.title %></p>
           <% } %>
-          <% if (rs && rs.entry && rs.entry.caption) { %>
+          <% if (isPending && _ne && _ne.caption) { %>
+          <p class="text-xs text-white/45 line-clamp-2 leading-relaxed"><%= _ne.caption %></p>
+          <% } else if (rs && rs.entry && rs.entry.caption) { %>
           <p class="text-xs text-white/45 line-clamp-2 leading-relaxed"><%= rs.entry.caption %></p>
           <% } %>
-          <% if (rs && rs.entry && rs.entry.tags && rs.entry.tags.length) { %>
+          <% if (isPending && _ne && _ne.tags && _ne.tags.length) { %>
+          <div class="flex flex-wrap gap-x-2 gap-y-0.5">
+            <% _ne.tags.forEach(function(t) { %><span class="text-xs text-charm-400/70">#<%= t %></span><% }); %>
+          </div>
+          <% } else if (rs && rs.entry && rs.entry.tags && rs.entry.tags.length) { %>
           <div class="flex flex-wrap gap-x-2 gap-y-0.5">
             <% rs.entry.tags.forEach(function(t) { %><span class="text-xs text-charm-400/70">#<%= t %></span><% }); %>
           </div>
           <% } %>
         </div>
+
+        <% if (isPending) { %>
+        <div class="w-fit border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-semibold px-2.5 py-1 rounded-md">Has yet to accept take-on</div>
+        <% } %>
 
         <% if (rs && rs.entryId) { %>
         <div class="flex items-center gap-1">
@@ -935,6 +987,54 @@
     });
   }());
 
+  (function () {
+    var acceptBtn  = document.getElementById('cv-takeon-accept-btn');
+    var declineBtn = document.getElementById('cv-takeon-decline-btn');
+    var errorEl    = document.getElementById('takeon-error');
+    var errorText  = document.getElementById('takeon-error-text');
+
+    function showTakeonError(msg) {
+      if (!errorEl || !errorText) return;
+      errorText.textContent = msg;
+      errorEl.classList.remove('hidden');
+      errorEl.style.display = 'flex';
+    }
+
+    if (acceptBtn) {
+      acceptBtn.addEventListener('click', function () {
+        var nomId = acceptBtn.dataset.nomId;
+        acceptBtn.disabled = declineBtn.disabled = true;
+        acceptBtn.textContent = 'Accepting…';
+        fetch('/api/nominations/' + nomId + '/take-on-accept', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.error) { showTakeonError(data.error); acceptBtn.disabled = declineBtn.disabled = false; acceptBtn.textContent = 'Accept'; return; }
+          window.location.reload();
+        })
+        .catch(function () { showTakeonError('Something went wrong.'); acceptBtn.disabled = declineBtn.disabled = false; acceptBtn.textContent = 'Accept'; });
+      });
+    }
+
+    if (declineBtn) {
+      declineBtn.addEventListener('click', function () {
+        var nomId = declineBtn.dataset.nomId;
+        acceptBtn.disabled = declineBtn.disabled = true;
+        declineBtn.textContent = 'Declining…';
+        fetch('/api/nominations/' + nomId + '/decline', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.error) { showTakeonError(data.error); acceptBtn.disabled = declineBtn.disabled = false; declineBtn.textContent = 'Decline'; return; }
+          window.location.href = '/notifications';
+        })
+        .catch(function () { showTakeonError('Something went wrong.'); acceptBtn.disabled = declineBtn.disabled = false; declineBtn.textContent = 'Decline'; });
+      });
+    }
+  }());
+
   var shareBtn = document.getElementById('cv-share-btn');
   if (shareBtn) {
     shareBtn.addEventListener('click', function () {
@@ -949,6 +1049,28 @@
           if (window.showToast) window.showToast('Could not copy link', 'error');
         });
       }
+    });
+  }
+
+  // ── Watch toggle ─────────────────────────────────────────────────
+
+  var watchBtn = document.getElementById('cv-watch-btn');
+  if (watchBtn) {
+    watchBtn.addEventListener('click', function () {
+      watchBtn.disabled = true;
+      fetch('/api/contests/' + watchBtn.dataset.contestId + '/watch', { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var watching = data.watching;
+          watchBtn.dataset.watching = watching ? 'true' : 'false';
+          watchBtn.title = watching ? 'Stop watching' : 'Stay in the loop';
+          watchBtn.className = 'w-8 h-8 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0 ' +
+            (watching ? 'text-charm-400 hover:text-white/50' : 'text-white/30 hover:text-white/60');
+          watchBtn.querySelector('iconify-icon').setAttribute('icon', watching ? 'boxicons:bell-ring-filled' : 'boxicons:bell');
+          if (window.showToast) window.showToast(watching ? "You're now watching this contest" : 'Stopped watching', 'success');
+        })
+        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
+        .finally(function () { watchBtn.disabled = false; });
     });
   }
 

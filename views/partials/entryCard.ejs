@@ -235,7 +235,7 @@
         <%# Trailing content %>
         <% if (isVoid) { %>
         <span class="text-white/20 text-xs">|</span>
-        <span class="text-xs font-semibold text-white/40"><%= ({ expired: 'No Response', declined: 'Rejected', nominee_forfeit: 'Forfeited', nominator_forfeit: 'Forfeit Win' })[n.voidReason] || 'No Response' %></span>
+        <span class="text-xs font-semibold text-white/40"><%= ({ expired: 'No Response', declined: 'Denied', nominee_forfeit: 'Forfeited', nominator_forfeit: 'Forfeit Win' })[n.voidReason] || 'No Response' %></span>
         <% } else if (isPending) { %>
         <span class="text-amber-500/30 text-xs">|</span>
         <span class="text-xs font-semibold text-amber-400">Pending</span>
@@ -268,6 +268,12 @@
       <iconify-icon icon="boxicons:star-filled" width="14" class="text-amber-400 shrink-0"></iconify-icon>
       <span class="text-sm font-semibold text-amber-300 whitespace-nowrap"><% if (_avg) { %><%= _avg %><% } else { %>No rating yet<% } %></span>
     </button>
+    <% if (!_isOwner && entry.allowTakeOns !== false) { %>
+    <button class="ec-take-on flex items-center gap-1.5 px-3 py-2 rounded-md text-white/35 hover:text-charm-400 transition-colors cursor-pointer" data-eid="<%= _eid %>" title="Take On">
+      <iconify-icon icon="boxicons:git-compare" width="17" class="shrink-0"></iconify-icon>
+      <span class="text-sm font-medium"><%= entry.takeOnCount || 0 %></span>
+    </button>
+    <% } %>
     <button class="ec-tab-btn flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-white/50 hover:text-white cursor-pointer" data-eid="<%= _eid %>" data-panel="comments">
       <iconify-icon icon="boxicons:message" width="16" class="shrink-0"></iconify-icon>
       <span class="text-sm font-medium"><%= entry.commentCount || 0 %></span>
@@ -660,6 +666,12 @@
       })
       .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
       .finally(function () { followBtn.disabled = false; });
+      return;
+    }
+
+    var takeOnBtn = e.target.closest('.ec-take-on');
+    if (takeOnBtn) {
+      window.location.href = '/submit?takeOnTargetId=' + takeOnBtn.dataset.eid;
       return;
     }
 

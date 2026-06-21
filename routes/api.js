@@ -17,6 +17,8 @@ const Announcement  = require('../models/Announcement');
 const AnnouncementDismissal = require('../models/AnnouncementDismissal');
 const upload                  = require('../middleware/upload');
 const checkContestEligibility = require('../utils/contestEligibility');
+const ContestWatch            = require('../models/ContestWatch');
+const notifyWatchers          = require('../utils/notifyWatchers');
 
 router.get('/me', (req, res) => {
   res.json({ authenticated: !!req.session.userId });
@@ -90,7 +92,7 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
 
   // TEMP: bypass idVerified for test accounts — remove before launch
   const TEST_BYPASS_USERNAMES = ['celuiqui', 'storiesbyshews'];
-  const actor = await User.findById(req.session.userId).select('idVerified username').lean();
+  const actor = await User.findById(req.session.userId).select('idVerified username avatar').lean();
   const isBypassUser = actor && TEST_BYPASS_USERNAMES.includes(actor.username?.value);
   if (!actor || (!actor.idVerified && !isBypassUser)) return res.status(403).json({ error: 'identity_required' });
 
@@ -118,8 +120,9 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
     : [];
   const challengeUsernames = [...new Set(rawUsernames.map(u => u.trim().toLowerCase().replace(/^@/, '')).filter(Boolean))];
 
-  let pendingNom  = null;
-  let nominees    = [];
+  let pendingNom      = null;
+  let pendingTakeOn   = null;
+  let nominees        = [];
 
   if (nominationId) {
     if (!mongoose.isValidObjectId(nominationId)) return res.status(400).json({ error: 'Invalid nomination.' });
@@ -127,6 +130,14 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
     if (!pendingNom)                                                       return res.status(404).json({ error: 'Nomination not found.' });
     if (pendingNom.nomineeId.toString() !== req.session.userId.toString()) return res.status(403).json({ error: 'This nomination is not for you.' });
     if (pendingNom.status !== 'pending')                                   return res.status(409).json({ error: 'This nomination has already been resolved.' });
+  }
+
+  const takeOnContestId = req.body.takeOnContestId?.trim() || null;
+  if (takeOnContestId) {
+    if (!mongoose.isValidObjectId(takeOnContestId)) return res.status(400).json({ error: 'Invalid take-on contest.' });
+    const toc = await Contest.findOne({ _id: takeOnContestId, createdBy: req.session.userId, status: 'pending' }).select('_id windowHours').lean();
+    const tocNom = toc ? await Nomination.findOne({ contestId: toc._id, nominatorId: req.session.userId, type: 'take_on', status: 'accepted' }).lean() : null;
+    if (toc && tocNom) pendingTakeOn = { contest: toc, nomination: tocNom };
   }
 
   let designatedVoters = [];
@@ -164,6 +175,7 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
       commentsEnabled: req.body.commentsEnabled !== 'false',
       matureContent:   req.body.matureContent === 'true',
       aiGenerated:     req.body.aiGenerated === 'true',
+      allowTakeOns:    req.body.allowTakeOns !== 'false',
     });
 
     if (contestEligibilityError) {
@@ -181,6 +193,7 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
           $push:  { entries: { entryId: entry._id, userId: req.session.userId, submittedAt: new Date() } },
           status: 'active',
           votingDeadline: new Date(Date.now() + winHours * 60 * 60 * 1000),
+          lastActivityAt: new Date(),
         }),
         Notification.updateOne(
           { userId: req.session.userId, type: 'nomination_received', 'payload.contestId': pendingNom.contestId },
@@ -188,6 +201,35 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
         ),
       ]);
       contestId = pendingNom.contestId;
+      const nomAcceptPayload = {
+        actorUsername: actor?.username?.value || 'Someone',
+        actorAvatar:   actor?.avatar?.value   || null,
+        contestId:     pendingNom.contestId,
+        url:           '/contest/' + pendingNom.contestId,
+      };
+      Notification.create({
+        userId:  pendingNom.nominatorId,
+        type:    'nominee_accepted',
+        payload: nomAcceptPayload,
+      }).catch(() => {});
+      notifyWatchers(pendingNom.contestId, 'nominee_accepted', nomAcceptPayload, [req.session.userId, pendingNom.nominatorId]);
+    }
+
+    if (pendingTakeOn) {
+      const winHours = pendingTakeOn.contest.windowHours || 72;
+      await Contest.findByIdAndUpdate(pendingTakeOn.contest._id, {
+        $push:          { entries: { entryId: entry._id, userId: req.session.userId, submittedAt: new Date() } },
+        status:         'active',
+        votingDeadline: new Date(Date.now() + winHours * 60 * 60 * 1000),
+        lastActivityAt: new Date(),
+      });
+      contestId = pendingTakeOn.contest._id;
+      notifyWatchers(pendingTakeOn.contest._id, 'nominee_accepted', {
+        actorUsername: actor?.username?.value || 'Someone',
+        actorAvatar:   actor?.avatar?.value   || null,
+        contestId:     pendingTakeOn.contest._id,
+        url:           '/contest/' + pendingTakeOn.contest._id,
+      }, [req.session.userId, pendingTakeOn.contest.createdBy]);
     }
 
     if (nominees.length) {
@@ -256,18 +298,32 @@ router.post('/nominations/:id/accept', async (req, res) => {
   if (!eligibility.eligible) return res.status(403).json({ error: eligibility.reason });
   const nomContest = await Contest.findById(nom.contestId).select('windowHours').lean();
   const winHours   = nomContest?.windowHours || 72;
-  await Promise.all([
+  const [,,, nominee] = await Promise.all([
     Nomination.findByIdAndUpdate(req.params.id, { status: 'accepted', nomineeEntryId: entryId }),
     Contest.findByIdAndUpdate(nom.contestId, {
       $push:          { entries: { entryId, userId: req.session.userId, submittedAt: new Date() } },
       status:         'active',
       votingDeadline: new Date(Date.now() + winHours * 60 * 60 * 1000),
+      lastActivityAt: new Date(),
     }),
     Notification.updateOne(
       { userId: req.session.userId, type: 'nomination_received', 'payload.contestId': nom.contestId },
       { $set: { 'payload.url': '/contest/' + nom.contestId } }
     ),
+    User.findById(req.session.userId).select('username avatar').lean(),
   ]);
+  const acceptPayload = {
+    actorUsername: nominee?.username?.value || 'Someone',
+    actorAvatar:   nominee?.avatar?.value   || null,
+    contestId:     nom.contestId,
+    url:           '/contest/' + nom.contestId,
+  };
+  Notification.create({
+    userId:  nom.nominatorId,
+    type:    'nominee_accepted',
+    payload: acceptPayload,
+  }).catch(() => {});
+  notifyWatchers(nom.contestId, 'nominee_accepted', acceptPayload, [req.session.userId, nom.nominatorId]);
   res.json({ ok: true, contestId: nom.contestId });
 });
 
@@ -279,10 +335,17 @@ router.post('/nominations/:id/decline', async (req, res) => {
   if (nom.nomineeId.toString() !== req.session.userId.toString())  return res.status(403).json({ error: 'Not your nomination.' });
   if (nom.status !== 'pending')                                     return res.status(409).json({ error: 'Nomination already resolved.' });
   if (nom.expiresAt < new Date())                                   return res.status(410).json({ error: 'This nomination has expired.' });
-  await Promise.all([
+  const [,, decliner] = await Promise.all([
     Nomination.findByIdAndUpdate(req.params.id, { status: 'void' }),
-    Contest.findByIdAndUpdate(nom.contestId, { $set: { status: 'void', voidReason: 'declined' } }),
+    Contest.findByIdAndUpdate(nom.contestId, { $set: { status: 'void', voidReason: 'declined', lastActivityAt: new Date() } }),
+    User.findById(req.session.userId).select('username avatar').lean(),
   ]);
+  notifyWatchers(nom.contestId, 'nominee_declined', {
+    actorUsername: decliner?.username?.value || 'Someone',
+    actorAvatar:   decliner?.avatar?.value   || null,
+    contestId:     nom.contestId,
+    url:           '/contest/' + nom.contestId,
+  }, [req.session.userId]);
   res.json({ ok: true });
 });
 
@@ -340,6 +403,27 @@ router.post('/contests/challenge', async (req, res) => {
       url:           '/submit?nomination=' + nomination._id,
     },
   }).catch(() => {});
+
+  Follow.find({ followingId: req.session.userId }).select('followerId').lean()
+    .then(follows => {
+      if (!follows.length) return;
+      const excludeStrs = new Set([nominee._id.toString(), req.session.userId.toString()]);
+      const docs = follows
+        .filter(f => !excludeStrs.has(f.followerId.toString()))
+        .map(f => ({
+          userId:  f.followerId,
+          type:    'contest_started',
+          payload: {
+            actorUsername: nominator?.username?.value || 'Someone',
+            actorAvatar:   nominator?.avatar?.value || null,
+            contestId:     contest._id,
+            url:           '/contest/' + contest._id,
+          },
+          read: false,
+        }));
+      if (docs.length) return Notification.insertMany(docs, { ordered: false });
+    })
+    .catch(() => {});
 
   res.json({ ok: true, contestId: contest._id });
 });
@@ -464,6 +548,7 @@ router.post('/contests/:id/vote', async (req, res) => {
 
   try {
     await ContestVote.create({ contestId: contest._id, entryId, userId: req.session.userId });
+    Contest.updateOne({ _id: contest._id }, { $set: { lastActivityAt: new Date() } }).catch(() => {});
     const agg = await ContestVote.aggregate([
       { $match: { contestId: contest._id } },
       { $group: { _id: '$entryId', count: { $sum: 1 } } },
@@ -531,8 +616,167 @@ router.post('/contests/:id/forfeit', async (req, res) => {
     voidReason    = 'nominator_forfeit';
   }
 
-  await Contest.findByIdAndUpdate(req.params.id, { $set: { status: 'void', voidReason, winnerEntryId } });
+  const [, forfeiter] = await Promise.all([
+    Contest.findByIdAndUpdate(req.params.id, { $set: { status: 'void', voidReason, winnerEntryId, lastActivityAt: new Date() } }),
+    User.findById(req.session.userId).select('username avatar').lean(),
+  ]);
+  notifyWatchers(req.params.id, 'contest_forfeited', {
+    actorUsername: forfeiter?.username?.value || 'Someone',
+    actorAvatar:   forfeiter?.avatar?.value   || null,
+    contestId:     req.params.id,
+    voidReason,
+    url:           '/contest/' + req.params.id,
+  }, [req.session.userId]);
   res.json({ ok: true, voidReason });
+});
+
+// ── Take On ───────────────────────────────────────────────────────
+
+
+router.patch('/entries/:id/allow-take-ons', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Entry not found.' });
+  const entry = await Entry.findById(req.params.id).select('userId').lean().catch(() => null);
+  if (!entry) return res.status(404).json({ error: 'Entry not found.' });
+  if (entry.userId.toString() !== req.session.userId) return res.status(403).json({ error: 'Not your entry.' });
+  const allow = req.body.allow === true || req.body.allow === 'true';
+  await Entry.findByIdAndUpdate(req.params.id, { allowTakeOns: allow });
+  res.json({ ok: true, allowTakeOns: allow });
+});
+
+router.post('/entries/:id/take-on', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Entry not found.' });
+
+  const { challengerEntryId } = req.body;
+  if (!challengerEntryId || !mongoose.isValidObjectId(challengerEntryId)) {
+    return res.status(400).json({ error: 'Select an entry to challenge with.' });
+  }
+  if (challengerEntryId === req.params.id) {
+    return res.status(400).json({ error: 'You cannot challenge an entry with itself.' });
+  }
+
+  const [targetEntry, challengerEntry, actor] = await Promise.all([
+    Entry.findById(req.params.id).select('userId allowTakeOns mediaUrl mediaType').lean().catch(() => null),
+    Entry.findById(challengerEntryId).select('userId mediaUrl mediaType').lean().catch(() => null),
+    User.findById(req.session.userId).select('username avatar idVerified').lean(),
+  ]);
+
+  if (!targetEntry)    return res.status(404).json({ error: 'Entry not found.' });
+  if (!challengerEntry) return res.status(404).json({ error: 'Challenger entry not found.' });
+  if (!actor)          return res.status(401).json({ error: 'Not authenticated.' });
+  if (targetEntry.userId.toString() === req.session.userId) return res.status(400).json({ error: 'You cannot take on your own entry.' });
+  if (challengerEntry.userId.toString() !== req.session.userId) return res.status(403).json({ error: 'Not your entry.' });
+  if (targetEntry.allowTakeOns === false) return res.status(403).json({ error: 'This entry is not accepting take-ons.' });
+  if (!actor.idVerified) return res.status(403).json({ error: 'identity_required' });
+
+  const eligibility = await checkContestEligibility(req.session.userId);
+  if (!eligibility.eligible) return res.status(403).json({ error: eligibility.reason });
+
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const [contest] = await Promise.all([
+    Contest.create({
+      createdBy:    req.session.userId,
+      visibility:   'public',
+      status:       'pending',
+      voidDeadline: expiry,
+      windowHours:  72,
+      entries:      [{ entryId: challengerEntry._id, userId: req.session.userId, submittedAt: new Date() }],
+    }),
+    Entry.findByIdAndUpdate(targetEntry._id, { $inc: { takeOnCount: 1 } }),
+  ]);
+
+  const nomination = await Nomination.create({
+    contestId:         contest._id,
+    nominatorId:       req.session.userId,
+    nomineeId:         targetEntry.userId,
+    expiresAt:         expiry,
+    status:            'pending',
+    type:              'take_on',
+    challengerEntryId: challengerEntry._id,
+    nomineeEntryId:    targetEntry._id,
+  });
+
+  Notification.create({
+    userId:  targetEntry.userId,
+    type:    'take_on_received',
+    payload: {
+      actorUsername:       actor.username?.value || 'Someone',
+      actorAvatar:         actor.avatar?.value || null,
+      contestId:           contest._id,
+      nominationId:        nomination._id,
+      entryId:             targetEntry._id,
+      challengerEntryId:   challengerEntry._id,
+      challengerEntryUrl:  challengerEntry.mediaUrl,
+      challengerEntryType: challengerEntry.mediaType,
+      nomineeEntryUrl:     targetEntry.mediaUrl,
+      nomineeEntryType:    targetEntry.mediaType,
+      url:                 '/contest/' + contest._id,
+    },
+  }).catch(() => {});
+
+  res.json({ ok: true, contestId: contest._id, nominationId: nomination._id });
+});
+
+router.post('/nominations/:id/take-on-accept', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ID.' });
+
+  const nom = await Nomination.findById(req.params.id).lean();
+  if (!nom)                                                        return res.status(404).json({ error: 'Nomination not found.' });
+  if (nom.type !== 'take_on')                                      return res.status(400).json({ error: 'Not a take-on nomination.' });
+  if (nom.nomineeId.toString() !== req.session.userId.toString()) return res.status(403).json({ error: 'Not your take-on.' });
+  if (nom.status !== 'pending')                                    return res.status(409).json({ error: 'Nomination already resolved.' });
+  if (nom.expiresAt < new Date())                                  return res.status(410).json({ error: 'This take-on has expired.' });
+  if (!nom.nomineeEntryId)                                         return res.status(400).json({ error: 'No target entry on this nomination.' });
+
+  const acceptor = await User.findById(req.session.userId).select('username avatar').lean();
+  const votingDeadline = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+  await Promise.all([
+    Nomination.findByIdAndUpdate(req.params.id, { status: 'accepted' }),
+    Contest.findByIdAndUpdate(nom.contestId, {
+      $push:  { entries: { entryId: nom.nomineeEntryId, userId: req.session.userId, submittedAt: new Date() } },
+      status: 'active',
+      votingDeadline,
+      lastActivityAt: new Date(),
+    }),
+  ]);
+
+  Notification.create({
+    userId:  nom.nominatorId,
+    type:    'take_on_accepted',
+    payload: {
+      actorUsername: acceptor?.username?.value || 'Someone',
+      actorAvatar:   acceptor?.avatar?.value || null,
+      contestId:     nom.contestId,
+      url:           '/contest/' + nom.contestId,
+    },
+  }).catch(() => {});
+  notifyWatchers(nom.contestId, 'nominee_accepted', {
+    actorUsername: acceptor?.username?.value || 'Someone',
+    actorAvatar:   acceptor?.avatar?.value   || null,
+    contestId:     nom.contestId,
+    url:           '/contest/' + nom.contestId,
+  }, [req.session.userId, nom.nominatorId]);
+
+  res.json({ ok: true, contestId: nom.contestId });
+});
+
+// ── Contest watch ─────────────────────────────────────────────────
+
+router.post('/contests/:id/watch', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ID.' });
+
+  const existing = await ContestWatch.findOne({ contestId: req.params.id, userId: req.session.userId });
+  if (existing) {
+    await existing.deleteOne();
+    return res.json({ watching: false });
+  }
+
+  await ContestWatch.create({ contestId: req.params.id, userId: req.session.userId });
+  res.json({ watching: true });
 });
 
 // ── Contest comments ──────────────────────────────────────────────

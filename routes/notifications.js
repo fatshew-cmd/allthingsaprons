@@ -4,6 +4,8 @@ const mongoose     = require('mongoose');
 const requireAuth  = require('../middleware/requireAuth');
 const requireApproved = require('../middleware/requireApproved');
 const Notification = require('../models/Notification');
+const Nomination   = require('../models/Nomination');
+const Entry        = require('../models/Entry');
 
 router.use(requireAuth);
 router.use(requireApproved);
@@ -21,6 +23,32 @@ router.get('/', async (req, res) => {
       .lean(),
     Notification.countDocuments({ userId: req.session.userId }),
   ]);
+
+  // Enrich take_on_received notifications that predate the media URL payload fields
+  const stale = notifications.filter(n => n.type === 'take_on_received' && n.payload?.nominationId && !n.payload.challengerEntryUrl);
+  if (stale.length) {
+    const nomIds = stale.map(n => n.payload.nominationId).filter(Boolean);
+    const noms   = await Nomination.find({ _id: { $in: nomIds } })
+      .select('_id challengerEntryId nomineeEntryId').lean().catch(() => []);
+    const nomMap = {};
+    noms.forEach(nom => { nomMap[nom._id.toString()] = nom; });
+
+    const entryIds = noms.flatMap(nom => [nom.challengerEntryId, nom.nomineeEntryId]).filter(Boolean);
+    const entries  = entryIds.length
+      ? await Entry.find({ _id: { $in: entryIds } }).select('_id mediaUrl mediaType').lean().catch(() => [])
+      : [];
+    const entryMap = {};
+    entries.forEach(e => { entryMap[e._id.toString()] = e; });
+
+    for (const n of stale) {
+      const nom = nomMap[n.payload.nominationId?.toString()];
+      if (!nom) continue;
+      const ce = nom.challengerEntryId ? entryMap[nom.challengerEntryId.toString()] : null;
+      const ne = nom.nomineeEntryId    ? entryMap[nom.nomineeEntryId.toString()]    : null;
+      if (ce) { n.payload.challengerEntryUrl  = ce.mediaUrl;  n.payload.challengerEntryType = ce.mediaType; }
+      if (ne) { n.payload.nomineeEntryUrl     = ne.mediaUrl;  n.payload.nomineeEntryType    = ne.mediaType; }
+    }
+  }
 
   res.render('notifications', {
     title: 'Notifications',

@@ -2,6 +2,96 @@
 
 <div class="flex flex-col pb-20 md:pb-0">
 
+  <!-- Watching -->
+  <% if (typeof watchedContests !== 'undefined' && watchedContests.length) { %>
+  <section class="pt-5 pb-1 border-b border-white/8">
+    <div class="flex items-center gap-2 px-5 mb-3">
+      <iconify-icon icon="boxicons:bell-ring-filled" width="13" class="text-charm-400"></iconify-icon>
+      <h2 class="text-xs font-bold text-white/40 uppercase tracking-wider m-0">Watching</h2>
+    </div>
+    <div class="flex gap-3 overflow-x-auto px-5 pb-4" style="scrollbar-width:none">
+      <% watchedContests.forEach(function(comp) {
+        var isActive  = comp.status === 'active';
+        var isPending = comp.status === 'upcoming';
+        var stCls = isActive  ? 'bg-green-500/20 text-green-400'
+                  : isPending ? 'bg-amber-500/20 text-amber-400'
+                  : 'bg-white/8 text-white/35';
+        var stLbl = isActive  ? 'Live'
+                  : isPending ? 'Pending'
+                  : comp.status === 'closed' ? 'Ended' : 'Void';
+        var lc = comp.covers[0] || null;
+        var rc = comp.covers[1] || null;
+        var ct1 = comp.contestants[0] || null;
+        var ct2 = comp.contestants[1] || null;
+      %>
+      <a href="/contest/<%= comp._id %>"
+        class="shrink-0 w-64 rounded-md overflow-hidden relative no-underline flex flex-col"
+        style="height:200px">
+
+        <!-- Split entry images -->
+        <div class="absolute inset-0 flex">
+          <div class="flex-1 relative overflow-hidden bg-shark-800">
+            <% if (lc && lc.mediaUrl) { %>
+              <% if (lc.mediaType === 'video') { %>
+                <video src="<%= lc.mediaUrl %>" class="absolute inset-0 w-full h-full object-cover" muted preload="none"></video>
+              <% } else { %>
+                <img src="<%= lc.mediaUrl %>" class="absolute inset-0 w-full h-full object-cover" alt="" loading="lazy">
+              <% } %>
+            <% } else { %>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <iconify-icon icon="boxicons:image" width="18" class="text-white/10"></iconify-icon>
+              </div>
+            <% } %>
+            <div class="absolute inset-0" style="background:linear-gradient(to right, rgba(0,0,0,0.1), rgba(0,0,0,0.55))"></div>
+          </div>
+          <div class="flex-1 relative overflow-hidden bg-shark-900">
+            <% if (rc && rc.mediaUrl) { %>
+              <% if (rc.mediaType === 'video') { %>
+                <video src="<%= rc.mediaUrl %>" class="absolute inset-0 w-full h-full object-cover" muted preload="none"></video>
+              <% } else { %>
+                <img src="<%= rc.mediaUrl %>" class="absolute inset-0 w-full h-full object-cover" alt="" loading="lazy">
+              <% } %>
+            <% } else { %>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <iconify-icon icon="boxicons:user-plus" width="18" class="text-white/10"></iconify-icon>
+              </div>
+            <% } %>
+            <div class="absolute inset-0" style="background:linear-gradient(to left, rgba(0,0,0,0.1), rgba(0,0,0,0.55))"></div>
+          </div>
+        </div>
+
+        <!-- VS pill -->
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div class="rounded-full flex items-center justify-center shadow-lg" style="width:26px;height:26px;background:rgba(0,0,0,0.72);backdrop-filter:blur(4px)">
+            <span style="font-size:7px;font-weight:900;letter-spacing:0.1em;color:rgba(255,255,255,0.7)">VS</span>
+          </div>
+        </div>
+
+        <!-- Top bar: status badge -->
+        <div class="absolute top-0 left-0 right-0 flex items-center justify-end px-2 pt-2">
+          <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-md <%= stCls %>"><%= stLbl %></span>
+        </div>
+
+        <!-- Bottom info -->
+        <div class="absolute bottom-0 left-0 right-0 px-2.5 pb-2.5 pt-8" style="background:linear-gradient(to top, rgba(0,0,0,0.88) 60%, transparent)">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <% if (ct1 && ct1.avatar) { %>
+              <img src="<%= ct1.avatar %>" class="w-4 h-4 rounded-full object-cover border border-white/20 shrink-0" alt="">
+            <% } %>
+            <p class="text-[11px] font-semibold text-white truncate m-0 leading-none"><%= ct1 ? ct1.displayName : '—' %></p>
+            <span class="text-[9px] font-bold text-white/25 shrink-0 mx-0.5">vs</span>
+            <% if (ct2 && ct2.avatar) { %>
+              <img src="<%= ct2.avatar %>" class="w-4 h-4 rounded-full object-cover border border-white/20 shrink-0 opacity-70" alt="">
+            <% } %>
+            <p class="text-[11px] text-white/60 truncate m-0 leading-none"><%= ct2 ? ct2.displayName : 'Awaiting' %></p>
+          </div>
+        </div>
+      </a>
+      <% }) %>
+    </div>
+  </section>
+  <% } %>
+
   <!-- Pending Nominations -->
   <% if (typeof panelPendingNominations !== 'undefined' && panelPendingNominations.length) { %>
   <section class="px-5 pt-5 pb-4 border-b border-white/8">

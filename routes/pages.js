@@ -13,9 +13,11 @@ const ContestComment        = require('../models/ContestComment');
 const Contest               = require('../models/Contest');
 const ContestVote           = require('../models/ContestVote');
 const Nomination            = require('../models/Nomination');
+const Notification          = require('../models/Notification');
 const TournamentEntry       = require('../models/TournamentEntry');
 const Tournament            = require('../models/Tournament');
 const Follow                = require('../models/Follow');
+const ContestWatch          = require('../models/ContestWatch');
 const UserAffinity          = require('../models/UserAffinity');
 const { computeEffectiveAffinity, buildFeedPage } = require('../utils/feedScorer');
 const requireAuth   = require('../middleware/requireAuth');
@@ -184,7 +186,7 @@ router.get('/contests', async (req, res) => {
   const currentUserId = req.currentUser._id;
   const now = new Date();
 
-  const [rawNominations, rawContests] = await Promise.all([
+  const [rawNominations, rawContests, watchDocs] = await Promise.all([
     Nomination.find({ nomineeId: currentUserId, status: 'pending' })
       .populate('nominatorId', 'username displayName')
       .populate({
@@ -207,11 +209,23 @@ router.get('/contests', async (req, res) => {
       .populate('entries.userId', 'username displayName avatar')
       .sort({ createdAt: -1 })
       .lean(),
+
+    ContestWatch.find({ userId: currentUserId }).select('contestId').lean(),
   ]);
 
-  // Build a set of user IDs the current user already follows
+  const watchedContestIds = watchDocs.map(w => w.contestId);
+
+  const rawWatched = watchedContestIds.length
+    ? await Contest.find({ _id: { $in: watchedContestIds } })
+        .populate('entries.entryId', 'title mediaType mediaUrl')
+        .populate('entries.userId', 'username displayName avatar')
+        .sort({ lastActivityAt: -1 })
+        .lean()
+    : [];
+
+  // Build follow set across all contestant IDs from both sections
   const allContestantIds = [];
-  for (const c of rawContests) {
+  for (const c of [...rawContests, ...rawWatched]) {
     for (const e of (c.entries || [])) {
       if (e.userId?._id) allContestantIds.push(e.userId._id);
     }
@@ -237,37 +251,36 @@ router.get('/contests', async (req, res) => {
       };
     });
 
-  const contests = rawContests.map(c => {
-      const deadline     = c.status === 'active' ? c.votingDeadline : c.voidDeadline;
-      const msLeft       = deadline ? new Date(deadline) - now : 0;
-      const daysLeft     = msLeft > 0 ? Math.ceil(msLeft / 86400000) : 0;
-      const title        = c.entries?.[0]?.entryId?.title || c.entries?.[1]?.entryId?.title || 'H2H Contest';
-      const covers       = (c.entries || []).slice(0, 2).map(e => ({
-        mediaUrl:  e.entryId?.mediaUrl  || '',
-        mediaType: e.entryId?.mediaType || 'photo',
-      }));
-      const contestants  = (c.entries || []).map(e => {
-        const uid = e.userId?._id?.toString();
-        return {
-          userId:      uid || '',
-          username:    e.userId?.username?.value || '',
-          avatar:      e.userId?.avatar?.value || '',
-          displayName: e.userId?.displayName?.value || ('@' + (e.userId?.username?.value || '')),
-          isFollowing: uid ? followingSet.has(uid) : false,
-          isSelf:      uid === currentUserId.toString(),
-        };
-      });
-
+  function buildContestShape(c, statusOverride) {
+    const title       = c.entries?.[0]?.entryId?.title || c.entries?.[1]?.entryId?.title || 'H2H Contest';
+    const covers      = (c.entries || []).slice(0, 2).map(e => ({
+      mediaUrl:  e.entryId?.mediaUrl  || '',
+      mediaType: e.entryId?.mediaType || 'photo',
+    }));
+    const contestants = (c.entries || []).map(e => {
+      const uid = e.userId?._id?.toString();
       return {
-        _id:             c._id,
-        status:          c.status === 'pending' ? 'upcoming' : 'active',
-        covers,
-        title,
-        contestants,
-        votingDeadline:  c.votingDeadline || null,
-        visibility:      c.visibility,
+        userId:      uid || '',
+        username:    e.userId?.username?.value || '',
+        avatar:      e.userId?.avatar?.value || '',
+        displayName: e.userId?.displayName?.value || ('@' + (e.userId?.username?.value || '')),
+        isFollowing: uid ? followingSet.has(uid) : false,
+        isSelf:      uid === currentUserId.toString(),
       };
     });
+    return {
+      _id:            c._id,
+      status:         statusOverride || (c.status === 'pending' ? 'upcoming' : c.status),
+      covers,
+      title,
+      contestants,
+      votingDeadline: c.votingDeadline || null,
+      visibility:     c.visibility,
+    };
+  }
+
+  const contests        = rawContests.map(c => buildContestShape(c, c.status === 'pending' ? 'upcoming' : 'active'));
+  const watchedContests = rawWatched.map(c => buildContestShape(c));
 
   res.render('contests', {
     title:      'Contests',
@@ -275,6 +288,7 @@ router.get('/contests', async (req, res) => {
     currentUser: req.currentUser,
     panelPendingNominations,
     contests,
+    watchedContests,
   });
 });
 
@@ -293,17 +307,32 @@ router.get('/entry/:id', async (req, res) => {
   if (!entry) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
   const ownerId = entry.userId._id;
   const isOwn = ownerId.toString() === req.session.userId;
-  const [followDoc, activeContest, entryContests, myRating] = await Promise.all([
+  const [followDoc, activeContest, rawEntryContests, myRating, takeOnNomContestIds] = await Promise.all([
     (!isOwn && req.session.userId)
       ? Follow.findOne({ followerId: req.session.userId, followingId: ownerId }).lean()
       : Promise.resolve(null),
     Contest.findOne({ 'entries.entryId': entry._id, status: { $in: ['pending', 'active'] } })
       .select('_id status voidDeadline votingDeadline').lean().catch(() => null),
-    Contest.find({ 'entries.entryId': entry._id }).select('_id status entries voidDeadline votingDeadline winnerEntryId').lean(),
+    Contest.find({ 'entries.entryId': entry._id }).select('_id status entries voidDeadline votingDeadline winnerEntryId voidReason').lean(),
     (!isOwn && req.session.userId)
       ? Rating.findOne({ entryId: entry._id, userId: req.session.userId }).select('score').lean()
       : Promise.resolve(null),
+    // Take-on contests where this entry is the nominee but not yet in contest.entries
+    Nomination.find({ nomineeEntryId: entry._id, type: 'take_on' }).select('contestId').lean().catch(() => []),
   ]);
+
+  const existingContestIds = new Set(rawEntryContests.map(c => c._id.toString()));
+  const missingContestIds  = takeOnNomContestIds
+    .map(n => n.contestId).filter(id => id && !existingContestIds.has(id.toString()));
+  const extraContests = missingContestIds.length
+    ? await Contest.find({ _id: { $in: missingContestIds } })
+        .select('_id status entries voidDeadline votingDeadline winnerEntryId voidReason').lean().catch(() => [])
+    : [];
+  const entryContests = [...rawEntryContests, ...extraContests];
+
+  // Resolve activeContest blind spot: pending take-ons where entry is the nominee
+  const resolvedActiveContest = activeContest
+    || (missingContestIds.length ? (extraContests.find(c => c.status === 'pending' || c.status === 'active') || null) : null);
 
   const nominations = entryContests.length
     ? await Nomination.find({
@@ -367,6 +396,9 @@ router.get('/entry/:id', async (req, res) => {
     });
   }
 
+  const chipRank = s => s === 'active' ? 0 : s === 'pending' ? 1 : s === 'closed' ? 2 : 3;
+  nominees.sort((a, b) => chipRank(a.contestStatus) - chipRank(b.contestStatus));
+
   const [topLevelComments, hiddenComments] = await Promise.all([
     Comment.find({ entryId: entry._id, parentId: null, hidden: false })
       .populate('userId', 'username displayName avatar')
@@ -405,11 +437,11 @@ router.get('/entry/:id', async (req, res) => {
     currentUserId:  req.session.userId || null,
     userRating:     myRating?.score || null,
     contestInfo: (() => {
-      if (!activeContest) return null;
-      const effSt = (activeContest.status === 'active' && activeContest.votingDeadline && activeContest.votingDeadline < new Date())
-        ? 'closed' : activeContest.status;
+      if (!resolvedActiveContest) return null;
+      const effSt = (resolvedActiveContest.status === 'active' && resolvedActiveContest.votingDeadline && resolvedActiveContest.votingDeadline < new Date())
+        ? 'closed' : resolvedActiveContest.status;
       if (effSt === 'void' || effSt === 'closed') return null;
-      return { contestId: activeContest._id.toString(), status: effSt };
+      return { contestId: resolvedActiveContest._id.toString(), status: effSt };
     })(),
     nominees,
     comments,
@@ -558,6 +590,19 @@ router.post('/account/delete', async (req, res) => {
   }
 });
 
+// ── Take On ───────────────────────────────────────────────────────
+
+router.get('/take-on/:id', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  }
+  const nom = await Nomination.findById(req.params.id).select('contestId type').lean().catch(() => null);
+  if (!nom || nom.type !== 'take_on' || !nom.contestId) {
+    return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  }
+  return res.redirect('/contest/' + nom.contestId);
+});
+
 // ── Submit Entry ──────────────────────────────────────────────────
 
 router.get('/submit', async (req, res) => {
@@ -608,6 +653,41 @@ router.get('/submit', async (req, res) => {
       .catch(() => null);
   }
 
+  let takeOnContest = null;
+  if (req.query.takeOn && mongoose.isValidObjectId(req.query.takeOn)) {
+    const toc = await Contest.findById(req.query.takeOn)
+      .populate('entries.entryId', 'mediaUrl mediaType title caption tags')
+      .lean()
+      .catch(() => null);
+    const tocNom = toc ? await Nomination.findOne({
+      contestId:   toc._id,
+      nominatorId: req.session.userId,
+      type:        'take_on',
+      status:      'accepted',
+    }).populate('nomineeId', 'username displayName avatar').lean().catch(() => null) : null;
+    if (toc && tocNom && toc.status === 'pending') {
+      const opponentEntry = toc.entries?.[0]?.entryId || null;
+      takeOnContest = {
+        contestId:     toc._id,
+        opponent:      tocNom.nomineeId,
+        opponentEntry,
+        voidDeadline:  toc.voidDeadline,
+      };
+    }
+  }
+
+  let takeOnTargetEntry = null;
+  if (req.query.takeOnTargetId && mongoose.isValidObjectId(req.query.takeOnTargetId)) {
+    const tote = await Entry.findById(req.query.takeOnTargetId)
+      .populate('userId', 'username displayName avatar')
+      .select('mediaUrl mediaType title caption userId allowTakeOns')
+      .lean()
+      .catch(() => null);
+    if (tote && tote.allowTakeOns !== false && tote.userId._id.toString() !== req.session.userId) {
+      takeOnTargetEntry = tote;
+    }
+  }
+
   res.render('submit', {
     title:      'Submit Entry',
     activePage: 'submit',
@@ -619,6 +699,8 @@ router.get('/submit', async (req, res) => {
     userEntries,
     acceptingNomination,
     challengeEntry,
+    takeOnContest,
+    takeOnTargetEntry,
   });
 });
 
@@ -626,7 +708,7 @@ router.post('/submit', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }]
   if (!req.currentUser.idVerified) return res.redirect('/verify-identity?reason=entry');
   const renderError = (msg) => res.render('submit', {
     title: 'Submit Entry', activePage: 'submit', currentUser: req.currentUser, error: msg,
-    pendingNominations: [], userEntries: [], acceptingNomination: null, challengeEntry: null,
+    pendingNominations: [], userEntries: [], acceptingNomination: null, challengeEntry: null, takeOnContest: null,
   });
 
   const file = req.files?.entryMedia?.[0];
@@ -641,6 +723,8 @@ router.post('/submit', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }]
     tags = raw.map(t => t.trim().toLowerCase()).filter(Boolean).slice(0, 6);
   }
 
+  const takeOnContestId = req.body.takeOnContestId?.trim() || null;
+
   try {
     const caption = req.body.caption?.trim() || undefined;
     if (caption && caption.replace(/\s/g, '').length > 140) return renderError('Description cannot exceed 140 characters (spaces not counted).');
@@ -652,6 +736,48 @@ router.post('/submit', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }]
       caption,
       tags,
     });
+
+    const takeOnTargetId = req.body.takeOnTargetId?.trim() || null;
+    if (takeOnTargetId && mongoose.isValidObjectId(takeOnTargetId)) {
+      const targetEntry = await Entry.findById(takeOnTargetId).select('userId allowTakeOns').lean().catch(() => null);
+      const actor = await User.findById(req.session.userId).select('username avatar').lean();
+      if (targetEntry && targetEntry.allowTakeOns && targetEntry.userId.toString() !== req.session.userId) {
+        const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const contest = await Contest.create({
+          createdBy:    req.session.userId,
+          visibility:   'public',
+          status:       'pending',
+          voidDeadline: expiry,
+          windowHours:  72,
+          entries:      [{ entryId: entry._id, userId: req.session.userId, submittedAt: new Date() }],
+        });
+        const nomination = await Nomination.create({
+          contestId:         contest._id,
+          nominatorId:       req.session.userId,
+          nomineeId:         targetEntry.userId,
+          expiresAt:         expiry,
+          status:            'pending',
+          type:              'take_on',
+          challengerEntryId: entry._id,
+          nomineeEntryId:    targetEntry._id,
+        });
+        await Entry.findByIdAndUpdate(targetEntry._id, { $inc: { takeOnCount: 1 } });
+        Notification.create({
+          userId:  targetEntry.userId,
+          type:    'take_on_received',
+          payload: {
+            actorUsername: actor?.username?.value || 'Someone',
+            actorAvatar:   actor?.avatar?.value || null,
+            contestId:     contest._id,
+            nominationId:  nomination._id,
+            entryId:       targetEntry._id,
+            url:           '/contest/' + contest._id,
+          },
+        }).catch(() => {});
+        return res.redirect(`/contest/${contest._id}`);
+      }
+    }
+
     res.redirect(`/entry/${entry._id}`);
   } catch (err) {
     console.error('Entry submit error:', err);
@@ -957,11 +1083,20 @@ router.get('/contest/:id', async (req, res) => {
   const right = resCE ? buildSide(resCE) : null;
 
   let nomineeUser = null;
+  let nomineeEntry = null;
+  let pendingTakeOnNomId = null;
   if (!right && contest.status === 'pending') {
     const nom = await Nomination.findOne({ contestId: contest._id, status: 'pending' })
-      .select('nomineeId').lean().catch(() => null);
+      .select('nomineeId nominatorId type _id nomineeEntryId').lean().catch(() => null);
     if (nom) {
       nomineeUser = await User.findById(nom.nomineeId).select('username displayName avatar').lean().catch(() => null);
+      if (nom.type === 'take_on' && myId && nom.nomineeId.toString() === myId) {
+        pendingTakeOnNomId = nom._id.toString();
+      }
+      if (nom.type === 'take_on' && nom.nomineeEntryId) {
+        nomineeEntry = await Entry.findById(nom.nomineeEntryId)
+          .select('mediaUrl mediaType title caption tags aiGenerated').lean().catch(() => null);
+      }
     }
   }
 
@@ -980,7 +1115,11 @@ router.get('/contest/:id', async (req, res) => {
     }
   }
 
-  const voidLabelMap = { expired: 'No Response', declined: 'Rejected', canceled: 'Canceled', nominee_forfeit: 'Forfeited', nominator_forfeit: 'Forfeit Win' };
+  const isWatching = req.session.userId
+    ? !!(await ContestWatch.exists({ contestId: contest._id, userId: req.session.userId }))
+    : false;
+
+  const voidLabelMap = { expired: 'No Response', declined: 'Denied', canceled: 'Canceled', nominee_forfeit: 'Forfeited', nominator_forfeit: 'Forfeit Win' };
   const statusLabel = effectiveStatus === 'void'
     ? (voidLabelMap[contest.voidReason] || 'No Response')
     : ({ pending: 'Pending', active: 'Live', closed: 'Contest has ended' }[effectiveStatus] || effectiveStatus);
@@ -1039,11 +1178,14 @@ router.get('/contest/:id', async (req, res) => {
     left,
     right,
     nomineeUser,
+    nomineeEntry,
     followingIds,
     myVote,
     canVote,
     isNominator,
     isNominee,
+    isWatching,
+    pendingTakeOnNomId,
     totalVotes,
     showVotes:   !!(myVote || effectiveStatus === 'closed'),
     effectiveStatus,
@@ -1143,17 +1285,17 @@ router.get('/:username', async (req, res) => {
   }
 
   const nomineesMap = {};
-  const seenNomineesPerEntry = {};
+  const seenContestsPerEntry = {};
   for (const n of profileNominations) {
     const eid = contestToEntryId[n.contestId.toString()];
     if (!eid) continue;
-    const uname = n.nomineeId.username?.value;
+    const uname = n.nomineeId?.username?.value;
     if (!uname) continue;
-    if (!seenNomineesPerEntry[eid]) seenNomineesPerEntry[eid] = new Set();
-    if (seenNomineesPerEntry[eid].has(uname)) continue;
-    seenNomineesPerEntry[eid].add(uname);
+    const cid = n.contestId.toString();
+    if (!seenContestsPerEntry[eid]) seenContestsPerEntry[eid] = new Set();
+    if (seenContestsPerEntry[eid].has(cid)) continue;
+    seenContestsPerEntry[eid].add(cid);
     if (!nomineesMap[eid]) nomineesMap[eid] = [];
-    const cid      = n.contestId.toString();
     const pContest = profileContestById[cid];
     const rawSt    = pContest?.status || null;
     const effSt    = (rawSt === 'active' && pContest?.votingDeadline && pContest.votingDeadline < new Date())
@@ -1178,11 +1320,11 @@ router.get('/:username', async (req, res) => {
     const eid   = n.nomineeEntryId?.toString();
     const uname = n.nominatorId?.username?.value;
     if (!eid || !uname) continue;
-    if (!seenNomineesPerEntry[eid]) seenNomineesPerEntry[eid] = new Set();
-    if (seenNomineesPerEntry[eid].has(uname)) continue;
-    seenNomineesPerEntry[eid].add(uname);
+    const cid = n.contestId.toString();
+    if (!seenContestsPerEntry[eid]) seenContestsPerEntry[eid] = new Set();
+    if (seenContestsPerEntry[eid].has(cid)) continue;
+    seenContestsPerEntry[eid].add(cid);
     if (!nomineesMap[eid]) nomineesMap[eid] = [];
-    const cid      = n.contestId.toString();
     const pContest = profileContestById[cid];
     const rawSt    = pContest?.status || null;
     const effSt    = (rawSt === 'active' && pContest?.votingDeadline && pContest.votingDeadline < new Date())
@@ -1200,6 +1342,11 @@ router.get('/:username', async (req, res) => {
       contribution:     0,
       isWinner:         !!(pContest?.winnerEntryId && pContest.winnerEntryId.toString() === eid),
     });
+  }
+
+  const chipRankProfile = s => s === 'active' ? 0 : s === 'pending' ? 1 : s === 'closed' ? 2 : 3;
+  for (const eid of Object.keys(nomineesMap)) {
+    nomineesMap[eid].sort((a, b) => chipRankProfile(a.contestStatus) - chipRankProfile(b.contestStatus));
   }
 
   const ratedEntries = entries.filter(e => e.ratingCount > 0);

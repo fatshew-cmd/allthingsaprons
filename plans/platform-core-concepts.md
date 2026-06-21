@@ -24,9 +24,9 @@ An entry owner can add up to six free-form text tags to their entry. Tags can be
 
 Any eligible user can initiate a **Take On** — a direct challenge targeting a specific existing entry for a H2H contest, rather than targeting a user as in the standard challenge flow.
 
-**Visibility rule:** The Take On button is only shown on entries that have demonstrated contest intent — entries where the owner has either sent a nomination or accepted one. Entries with no contest history do not show the button at all.
+**Visibility:** The Take On button appears on every entry card (on the owner's profile) and on the full entry page, positioned immediately to the right of the rating button. It is shown by default on all entries — there is no contest history requirement.
 
-**Owner toggle (`allowTakeOns`):** The entry owner controls whether their entry can be taken on. The toggle (`Allow Take Ons`) appears on the entry edit page as soon as the entry meets the visibility rule above. Default is **off** when the toggle first appears. The owner can flip it on or off at any time. The setting persists regardless of whether the entry's contests are currently active, closed, or voided — once the toggle has appeared, it stays.
+**Owner toggle (`allowTakeOns`):** The entry owner controls whether their entry can be taken on via a toggle on the entry edit page. Default is **on** for all entries. The owner can disable it at any time. The setting persists indefinitely.
 
 **Eligibility to initiate:** same gate as a standard challenge — `idVerified: true` plus the contest eligibility thresholds (minEntries, minRatingCount, minWeightedAvg). A user cannot Take On their own entry.
 
@@ -460,7 +460,9 @@ These apply across the entire platform, regardless of system:
   tags: [String],        // max 6 — owner-only, editable at any time
   ratingCount: Number,   // default: 0 — denormalized, updated on each new rating
   ratingAvg: Number,     // default: 0 — denormalized, updated on each new rating
-  allowTakeOns: Boolean, // default: false — toggle visible only once entry has contest history; persists after contests close
+  commentCount: Number,  // default: 0 — denormalized, kept in sync with comment CRUD
+  allowTakeOns: Boolean, // default: true — owner can disable via entry edit page at any time
+  takeOnCount: Number,   // default: 0 — incremented each time a take-on is initiated against this entry
   createdAt: Date
 }
 ```
@@ -588,19 +590,22 @@ Application enforces: voter's `userId` must not equal the voted entry's `userId`
 ```js
 {
   _id: ObjectId,
-  contestId: ObjectId,     // ref: contests
-  nominatorId: ObjectId,   // ref: users — who nominated
-  nomineeId: ObjectId,     // ref: users — who was nominated
-  message: String,         // optional — viewer-added context
-  expiresAt: Date,         // createdAt + 24h
-  status: String,          // 'pending' | 'accepted' | 'void'
+  contestId: ObjectId,       // ref: contests
+  nominatorId: ObjectId,     // ref: users — who nominated
+  nomineeId: ObjectId,       // ref: users — who was nominated
+  message: String,           // optional — viewer-added context
+  expiresAt: Date,           // createdAt + 24h
+  status: String,            // 'pending' | 'accepted' | 'void'
+  type: String,              // 'standard' | 'take_on' — default 'standard'
+  nomineeEntryId: ObjectId,  // ref: entries — the entry being challenged (take_on only)
+  challengerEntryId: ObjectId, // ref: entries — the initiator's entry (take_on only)
   createdAt: Date
 }
 ```
 
 **Indexes:** `contestId`, `nomineeId`, `expiresAt`
 
-A viewer nomination creates 2 documents sharing the same `contestId` (one per nominee). A creator challenge creates 1 document (opponent only).
+A viewer nomination creates 2 documents sharing the same `contestId` (one per nominee). A creator challenge creates 1 document (opponent only). A take-on creates 1 document with `type: 'take_on'`, `nomineeEntryId` (the targeted entry), and `challengerEntryId` (initiator's entry).
 
 ---
 

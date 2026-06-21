@@ -18,13 +18,15 @@ const contestSchema = new mongoose.Schema({
   votingDeadline:  { type: Date },
   winnerEntryId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Entry', default: null },
   voidReason:      { type: String, enum: ['expired', 'declined', 'canceled', 'nominee_forfeit', 'nominator_forfeit'], default: null },
-  entries:         [contestEntrySchema],
+  entries:          [contestEntrySchema],
   designatedVoters: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  lastActivityAt:   { type: Date, default: Date.now },
 }, { timestamps: true });
 
 contestSchema.index({ tournamentId: 1 });
 contestSchema.index({ status: 1 });
 contestSchema.index({ voidDeadline: 1 });
 contestSchema.index({ votingDeadline: 1 });
+contestSchema.index({ lastActivityAt: -1 });
 
 module.exports = mongoose.model('Contest', contestSchema);
