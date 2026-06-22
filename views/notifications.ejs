@@ -28,7 +28,9 @@ function notifText(n) {
     case 'contest_started':
       return '<strong>' + (p.actorUsername || 'Someone') + '</strong> started a new head-to-head contest';
     case 'nominee_accepted':
-      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> accepted a challenge — the contest is live';
+      return p.contestIsLive
+        ? '<strong>' + (p.actorUsername || 'Someone') + '</strong> accepted — the contest is now live'
+        : '<strong>' + (p.actorUsername || 'Someone') + '</strong> submitted their entry — waiting on the other nominee';
     case 'nominee_declined':
       return '<strong>' + (p.actorUsername || 'Someone') + '</strong> declined the challenge';
     case 'contest_forfeited':
@@ -44,12 +46,35 @@ function notifText(n) {
       return p.isParticipant
         ? 'Your contest was voided — the opponent didn\'t respond in time'
         : 'A contest you\'re watching was voided';
-    case 'viewer_nomination':
-      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> nominated you for a head-to-head';
+    case 'viewer_nomination': {
+      var vnActor    = (p.actorDisplayName || p.actorUsername || 'Someone')
+                     + (p.actorHandle ? ' — <span class="font-normal text-white/50">@' + p.actorHandle + '</span>' : '');
+      var vnOpponent = p.opponentHandle
+        ? ' against <strong>' + (p.opponentDisplayName || p.opponentHandle) + ' — <span class="font-normal text-white/50">@' + p.opponentHandle + '</span></strong>'
+        : '';
+      return '<strong>' + vnActor + '</strong> nominated you for a head-to-head' + vnOpponent;
+    }
     case 'take_on_received':
       return '<strong>@' + (p.actorUsername || 'Someone') + '</strong> requested a take-on';
     case 'take_on_accepted':
       return '<strong>' + (p.actorUsername || 'Someone') + '</strong> accepted your take-on — the contest is live';
+    case 'payout_reminder': {
+      var prAmt = p.amountCHL ? p.amountCHL.toLocaleString() : '0';
+      return '<strong>' + prAmt + ' 🌶️</strong> auto-payout fires in 5 days — tap to hold until the 15th';
+    }
+    case 'payout_processed': {
+      var ppAmt  = p.amountCHL ? p.amountCHL.toLocaleString() : '0';
+      var ppType = p.paidBy === 'makeup_15d' ? 'makeup payout' : 'auto-payout';
+      return '<strong>' + ppAmt + ' 🌶️</strong> ' + ppType + ' has been processed';
+    }
+    case 'contest_payout_available': {
+      var cpaAmt = p.amountCHL ? p.amountCHL.toLocaleString() : '0';
+      return 'Your contest earned <strong>' + cpaAmt + ' 🌶️</strong> — ready to cash out in your wallet';
+    }
+    case 'cashout_success': {
+      var csAmt = p.amountCHL ? p.amountCHL.toLocaleString() : '0';
+      return '<strong>' + csAmt + ' 🌶️</strong> moved to your spendable balance';
+    }
     default:
       return 'New notification';
   }
@@ -68,8 +93,12 @@ function notifIcon(type) {
     case 'nominee_declined':    return 'boxicons:x-circle';
     case 'contest_forfeited':   return 'boxicons:error-circle';
     case 'contest_closed':      return 'boxicons:check-circle';
-    case 'contest_voided':      return 'boxicons:x-circle';
-    default:                    return 'boxicons:bell';
+    case 'contest_voided':           return 'boxicons:x-circle';
+    case 'payout_reminder':          return 'boxicons:time';
+    case 'payout_processed':         return 'boxicons:money';
+    case 'contest_payout_available': return 'boxicons:wallet';
+    case 'cashout_success':          return 'boxicons:check-circle';
+    default:                         return 'boxicons:bell';
   }
 }
 %>

@@ -19,6 +19,10 @@ const Tournament            = require('../models/Tournament');
 const Follow                = require('../models/Follow');
 const ContestWatch          = require('../models/ContestWatch');
 const UserAffinity          = require('../models/UserAffinity');
+const WalletTransaction     = require('../models/WalletTransaction');
+const ContestPayout         = require('../models/ContestPayout');
+const MonthlySnapshot       = require('../models/MonthlySnapshot');
+const ContestContribution   = require('../models/ContestContribution');
 const { computeEffectiveAffinity, buildFeedPage } = require('../utils/feedScorer');
 const requireAuth   = require('../middleware/requireAuth');
 const requireApproved = require('../middleware/requireApproved');
@@ -139,6 +143,11 @@ router.get('/feed', async (req, res) => {
         });
       }
     }
+  }
+
+  const chipRankFeed = s => s === 'active' ? 0 : s === 'pending' ? 1 : s === 'closed' ? 2 : 3;
+  for (const eid of Object.keys(nomineesMap)) {
+    nomineesMap[eid].sort((a, b) => chipRankFeed(a.contestStatus) - chipRankFeed(b.contestStatus));
   }
 
   res.render('feed', {
@@ -525,16 +534,54 @@ router.get('/profile', (req, res) => res.redirect(`/${req.currentUser.username}`
 // ── Settings ──────────────────────────────────────────────────────
 
 router.get('/settings', async (req, res) => {
-  const user = await User.findById(req.session.userId).select(
-    'username displayName bio avatar banner location url sex birthdate email'
+  const userId = req.session.userId;
+  const user = await User.findById(userId).select(
+    'username displayName bio avatar banner location url sex birthdate email nominationSettings wallet'
   );
+
+  const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+  const today        = new Date().getDate();
+
+  const [pendingPayouts, monthlySnapshot, recentTransactions] = await Promise.all([
+    ContestPayout.find({ userId, status: 'pending' })
+      .populate('contestId', 'entries createdAt')
+      .populate('entryId', 'mediaUrl mediaType caption')
+      .sort({ createdAt: -1 })
+      .lean(),
+    MonthlySnapshot.findOne({ userId, month: currentMonth }).lean(),
+    WalletTransaction.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean(),
+  ]);
+
+  const successParam = req.query.success || req.query.saved || null;
+  const successMsg = successParam === 'topup'   ? 'Your chillies have been added to your wallet.'
+                   : successParam === 'cashout'  ? 'Chillies successfully moved to your spendable balance.'
+                   : successParam               ? 'Settings saved.'
+                   : null;
+
+  const errorParam = req.query.error || null;
+  const errorMsg = errorParam === 'minimum' ? 'Minimum 100 chillies required to cash out.'
+                 : errorParam === 'notfound' ? 'Payout not found or already claimed.'
+                 : null;
+
   res.render('settings', {
     title:      'Settings',
     activePage: 'settings',
     currentUser: req.currentUser,
     user,
-    success: req.query.saved || null,
-    error:   null,
+    nominationSettings: user?.nominationSettings || { allow: true, whoCanNominate: 'everyone' },
+    wallet: {
+      balanceCHL:       user?.wallet?.balanceCHL || 0,
+      pendingPayouts,
+      monthlySnapshot,
+      recentTransactions,
+      showHoldBtn:      today >= 25 && today <= 29 && monthlySnapshot?.status === 'pending',
+    },
+    activeSection: req.query.section || null,
+    success: successMsg,
+    error:   errorMsg,
   });
 });
 
@@ -626,21 +673,44 @@ router.get('/submit', async (req, res) => {
   if (req.query.nomination) {
     const nom = pendingNominations.find(n => n._id.toString() === req.query.nomination);
     if (nom) {
-      const contest = await Contest.findById(nom.contestId)
-        .populate('entries.entryId', 'mediaUrl mediaType title caption tags')
-        .lean();
-      const challEntry = contest?.entries.find(
-        e => e.userId.toString() === nom.nominatorId._id.toString()
-      );
-      acceptingNomination = {
-        _id:       nom._id,
-        nominator: nom.nominatorId,
-        entry:     challEntry?.hidden ? null : (challEntry?.entryId || null),
-        hidden:    challEntry?.hidden || false,
-        expiresAt: nom.expiresAt,
-        message:   nom.message || null,
-        contestId: nom.contestId,
-      };
+      if (nom.type === 'viewer_nomination') {
+        const [sibling, preSelectedEntry] = await Promise.all([
+          Nomination.findOne({ contestId: nom.contestId, _id: { $ne: nom._id } })
+            .populate('nomineeId', 'username displayName avatar')
+            .lean(),
+          nom.preSelectedEntryId
+            ? Entry.findById(nom.preSelectedEntryId).select('mediaUrl mediaType caption title').lean()
+            : Promise.resolve(null),
+        ]);
+        acceptingNomination = {
+          _id:                nom._id,
+          nominator:          nom.nominatorId,
+          opponent:           sibling?.nomineeId || null,
+          entry:              null,
+          expiresAt:          nom.expiresAt,
+          message:            nom.message || null,
+          contestId:          nom.contestId,
+          isViewerNomination: true,
+          preSelectedEntry:   preSelectedEntry || null,
+          isLocked:           !!preSelectedEntry,
+        };
+      } else {
+        const contest = await Contest.findById(nom.contestId)
+          .populate('entries.entryId', 'mediaUrl mediaType title caption tags')
+          .lean();
+        const challEntry = contest?.entries.find(
+          e => e.userId.toString() === nom.nominatorId._id.toString()
+        );
+        acceptingNomination = {
+          _id:       nom._id,
+          nominator: nom.nominatorId,
+          entry:     challEntry?.hidden ? null : (challEntry?.entryId || null),
+          hidden:    challEntry?.hidden || false,
+          expiresAt: nom.expiresAt,
+          message:   nom.message || null,
+          contestId: nom.contestId,
+        };
+      }
     }
   }
 
@@ -761,7 +831,6 @@ router.post('/submit', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }]
           challengerEntryId: entry._id,
           nomineeEntryId:    targetEntry._id,
         });
-        await Entry.findByIdAndUpdate(targetEntry._id, { $inc: { takeOnCount: 1 } });
         Notification.create({
           userId:  targetEntry.userId,
           type:    'take_on_received',
@@ -1017,6 +1086,23 @@ router.post('/settings/profile', upload.profile.fields([{ name: 'avatar', maxCou
   res.redirect('/settings?saved=1');
 });
 
+// ── Privacy settings update ───────────────────────────────────────
+
+router.post('/settings/privacy', async (req, res) => {
+  const allow          = req.body.nominationAllow !== 'false';
+  const validWho       = ['everyone', 'followers_only', 'followees_only', 'mutual_follow'];
+  const whoCanNominate = validWho.includes(req.body.whoCanNominate)
+    ? req.body.whoCanNominate
+    : 'everyone';
+  await User.findByIdAndUpdate(req.session.userId, {
+    $set: {
+      'nominationSettings.allow':          allow,
+      'nominationSettings.whoCanNominate': whoCanNominate,
+    },
+  });
+  res.redirect('/settings?saved=1');
+});
+
 // ── Contest page ──────────────────────────────────────────────────
 
 router.get('/contest/:id', async (req, res) => {
@@ -1170,6 +1256,35 @@ router.get('/contest/:id', async (req, res) => {
   const relatedUserMap = {};
   relatedUserDocs.forEach(u => { relatedUserMap[u._id.toString()] = u; });
 
+  // Contribution data
+  const contestEntryIds = contest.entries.map(e => e.entryId?._id || e.entryId).filter(Boolean);
+  const [contributionAgg, myContributions, viewerUser] = await Promise.all([
+    ContestContribution.aggregate([
+      { $match: { contestId: contest._id, status: { $ne: 'withdrawn' } } },
+      { $group: { _id: '$entryId', totalCHL: { $sum: '$amountCHL' } } },
+    ]),
+    req.session.userId
+      ? ContestContribution.find({ contestId: contest._id, contributorId: req.session.userId, status: { $ne: 'withdrawn' } })
+          .select('entryId amountCHL status').lean().catch(() => [])
+      : Promise.resolve([]),
+    req.session.userId
+      ? User.findById(req.session.userId).select('wallet').lean().catch(() => null)
+      : Promise.resolve(null),
+  ]);
+
+  const grossByEntry = {};
+  for (const r of contributionAgg) { grossByEntry[r._id.toString()] = r.totalCHL; }
+
+  const myContribMap = {};
+  for (const c of myContributions) { myContribMap[c.entryId.toString()] = c; }
+
+  const topContributionEntryId = contestEntryIds.length
+    ? contestEntryIds.reduce((best, eid) => {
+        const id = eid.toString();
+        return (grossByEntry[id] || 0) > (grossByEntry[best?.toString()] || 0) ? eid : best;
+      }, null)
+    : null;
+
   res.render('contest', {
     title:      'H2H Contest',
     activePage: '',
@@ -1190,7 +1305,11 @@ router.get('/contest/:id', async (req, res) => {
     showVotes:   !!(myVote || effectiveStatus === 'closed'),
     effectiveStatus,
     statusLabel,
-    topContributionEntryId: null,
+    topContributionEntryId,
+    grossByEntry,
+    myContribMap,
+    viewerBalanceCHL: viewerUser?.wallet?.balanceCHL || 0,
+    canContribute:    effectiveStatus === 'active',
     comments,
     relatedContests,
     relatedUserMap,
@@ -1201,7 +1320,7 @@ router.get('/contest/:id', async (req, res) => {
 
 router.get('/:username', async (req, res) => {
   const user = await User.findOne({ 'username.value': req.params.username.toLowerCase() })
-    .select('username displayName bio avatar banner location sex birthdate url createdAt');
+    .select('username displayName bio avatar banner location sex birthdate url createdAt nominationSettings wallet');
 
   if (!user) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
 
@@ -1223,6 +1342,13 @@ router.get('/:username', async (req, res) => {
   ]);
 
   const isFollowing = !!followDoc;
+
+  const contestStatusPriority = { active: 0, pending: 1, closed: 2, void: 3 };
+  userContests.sort((a, b) => {
+    const pa = contestStatusPriority[a.status] ?? 3;
+    const pb = contestStatusPriority[b.status] ?? 3;
+    return pa !== pb ? pa - pb : new Date(b.createdAt) - new Date(a.createdAt);
+  });
 
   const contestMap = {};
   for (const c of userContests) {
@@ -1358,6 +1484,25 @@ router.get('/:username', async (req, res) => {
     ? `${user.displayName.value} - @${user.username.value} on AllThingsAprons.com`
     : `@${user.username.value} on AllThingsAprons.com`;
 
+  let canNominate = false;
+  if (!isOwn && req.session.userId) {
+    const ns  = user.nominationSettings;
+    const who = ns?.whoCanNominate || 'everyone';
+    if (ns?.allow !== false) {
+      if (who === 'everyone') {
+        canNominate = true;
+      } else if (who === 'followers_only') {
+        canNominate = isFollowing;
+      } else if (who === 'followees_only') {
+        const rev = await Follow.exists({ followerId: user._id, followingId: req.session.userId });
+        canNominate = !!rev;
+      } else if (who === 'mutual_follow') {
+        const rev = await Follow.exists({ followerId: user._id, followingId: req.session.userId });
+        canNominate = isFollowing && !!rev;
+      }
+    }
+  }
+
   res.render('profile', {
     title,
     activePage: isOwn ? 'profile' : '',
@@ -1373,6 +1518,7 @@ router.get('/:username', async (req, res) => {
     overallRank,
     isOwn,
     isFollowing,
+    canNominate,
     userContests,
     userTournamentEntries,
     contestMap,

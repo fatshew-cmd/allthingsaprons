@@ -16,6 +16,13 @@
     </div>
     <% } %>
 
+    <% if (success) { %>
+    <div id="settings-success-banner" class="flex items-center gap-2 text-sm text-green-400 bg-green-400/8 border border-green-400/20 rounded-md px-3 py-2.5 mb-6">
+      <iconify-icon icon="boxicons:check-circle" width="15" class="shrink-0"></iconify-icon>
+      <%= success %>
+    </div>
+    <% } %>
+
     <!-- Profile section -->
     <section class="mb-8">
       <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-4">Profile</h2>
@@ -93,6 +100,45 @@
       </div>
     </section>
 
+    <!-- Privacy section -->
+    <section class="mb-8">
+      <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-4">Privacy</h2>
+      <form action="/settings/privacy" method="POST" class="flex flex-col gap-5">
+
+        <div class="bg-shark-900 border border-white/8 rounded-md overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3.5 border-b border-white/5">
+            <div>
+              <p class="text-sm font-medium">Allow viewer nominations</p>
+              <p class="text-xs text-white/40 mt-0.5">Let others nominate you for a head-to-head contest</p>
+            </div>
+            <select id="nomination-allow-select" name="nominationAllow"
+              class="bg-shark-800 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
+              <option value="true"  <%= nominationSettings.allow !== false ? 'selected' : '' %>>On</option>
+              <option value="false" <%= nominationSettings.allow === false  ? 'selected' : '' %>>Off</option>
+            </select>
+          </div>
+          <div id="who-can-nominate-row" class="px-4 py-3.5 <%= nominationSettings.allow === false ? 'hidden' : '' %>">
+            <label class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2 block">Who can nominate me</label>
+            <select name="whoCanNominate"
+              class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
+              <option value="everyone"       <%= nominationSettings.whoCanNominate === 'everyone'       ? 'selected' : '' %>>Everyone</option>
+              <option value="followers_only" <%= nominationSettings.whoCanNominate === 'followers_only' ? 'selected' : '' %>>My followers only</option>
+              <option value="followees_only" <%= nominationSettings.whoCanNominate === 'followees_only' ? 'selected' : '' %>>People I follow only</option>
+              <option value="mutual_follow"  <%= nominationSettings.whoCanNominate === 'mutual_follow'  ? 'selected' : '' %>>Mutual follows only</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <button type="submit"
+            class="px-6 py-2.5 bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold rounded-md transition-colors cursor-pointer">
+            Save privacy settings
+          </button>
+        </div>
+
+      </form>
+    </section>
+
     <!-- Session -->
     <section class="mb-8">
       <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-4">Session</h2>
@@ -102,6 +148,141 @@
           Sign Out
         </button>
       </form>
+    </section>
+
+    <!-- Wallet -->
+    <section id="section-wallet" class="mb-8">
+      <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-4">Wallet</h2>
+
+      <!-- Balance card -->
+      <div class="bg-shark-900 border border-white/10 rounded-md mb-4">
+        <div class="px-4 py-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-white/40 mb-0.5">Spendable balance</p>
+            <div class="flex items-center gap-2">
+              <iconify-icon icon="noto:hot-pepper" width="18"></iconify-icon>
+              <span class="text-2xl font-black text-white"><%= wallet.balanceCHL.toLocaleString() %></span>
+              <span class="text-sm text-white/40">chilli<%= wallet.balanceCHL !== 1 ? 'es' : '' %></span>
+            </div>
+            <p class="text-xs text-white/25 mt-1">≈ $<%= (wallet.balanceCHL * 0.20).toFixed(2) %> USD</p>
+          </div>
+          <a href="/wallet/topup"
+            class="flex items-center gap-1.5 px-3 py-2 bg-charm-600 hover:bg-charm-500 text-white text-xs font-semibold rounded-md transition-colors">
+            <iconify-icon icon="boxicons:plus" width="13"></iconify-icon>
+            Top Up
+          </a>
+        </div>
+
+        <% if (wallet.monthlySnapshot && wallet.monthlySnapshot.status === 'pending' && wallet.monthlySnapshot.balanceCHL > 0) { %>
+        <div class="px-4 py-3 border-t border-white/8 flex items-center justify-between gap-3">
+          <p class="text-xs text-white/40">
+            <iconify-icon icon="boxicons:time" width="13" class="inline mr-1"></iconify-icon>
+            <span class="text-white/60"><%= wallet.monthlySnapshot.balanceCHL.toLocaleString() %> chillies</span>
+            scheduled for auto-payout on the 30th
+          </p>
+          <% if (wallet.showHoldBtn) { %>
+          <form action="/wallet/hold-payout" method="POST">
+            <button type="submit"
+              class="shrink-0 text-xs text-white/50 hover:text-white/80 border border-white/15 hover:border-white/30 px-2.5 py-1.5 rounded transition-colors cursor-pointer">
+              Hold until 15th
+            </button>
+          </form>
+          <% } %>
+        </div>
+        <% } %>
+
+        <% if (wallet.monthlySnapshot && wallet.monthlySnapshot.status === 'held') { %>
+        <div class="px-4 py-3 border-t border-white/8">
+          <p class="text-xs text-amber-400/70">
+            <iconify-icon icon="boxicons:info-circle" width="13" class="inline mr-1"></iconify-icon>
+            Payout held — <span class="font-semibold"><%= wallet.monthlySnapshot.balanceCHL.toLocaleString() %> chillies</span> will be paid out on the 15th. No further holds.
+          </p>
+        </div>
+        <% } %>
+      </div>
+
+      <!-- Pending earnings -->
+      <% if (wallet.pendingPayouts.length > 0) { %>
+      <div class="bg-shark-900 border border-white/10 rounded-md mb-4">
+        <div class="px-4 py-3 border-b border-white/8">
+          <p class="text-xs font-semibold text-white/40 uppercase tracking-wider">Pending Earnings</p>
+        </div>
+        <% wallet.pendingPayouts.forEach(function(payout) { %>
+        <div class="px-4 py-3.5 border-b border-white/5 last:border-0 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <iconify-icon icon="noto:hot-pepper" width="13"></iconify-icon>
+              <span class="text-sm font-semibold text-white"><%= payout.netPayoutCHL.toLocaleString() %> chillies</span>
+              <span class="text-xs text-white/30">(gross <%= payout.grossContributionsCHL.toLocaleString() %>)</span>
+            </div>
+            <a href="/contest/<%= payout.contestId._id %>" class="text-xs text-white/40 hover:text-charm-400 transition-colors truncate">
+              View contest →
+            </a>
+          </div>
+          <% if (payout.netPayoutCHL >= 100) { %>
+          <form action="/wallet/cashout/<%= payout._id %>" method="POST">
+            <button type="submit"
+              class="shrink-0 px-3 py-1.5 bg-charm-600 hover:bg-charm-500 text-white text-xs font-semibold rounded-md transition-colors cursor-pointer">
+              Cash Out
+            </button>
+          </form>
+          <% } else { %>
+          <span class="shrink-0 text-xs text-white/25 border border-white/10 px-3 py-1.5 rounded-md"
+            title="Minimum 100 chillies to cash out">
+            Below minimum
+          </span>
+          <% } %>
+        </div>
+        <% }) %>
+      </div>
+      <% } %>
+
+      <!-- Transaction history -->
+      <% if (wallet.recentTransactions.length > 0) { %>
+      <div class="bg-shark-900 border border-white/10 rounded-md">
+        <div class="px-4 py-3 border-b border-white/8">
+          <p class="text-xs font-semibold text-white/40 uppercase tracking-wider">Transaction History</p>
+        </div>
+        <% wallet.recentTransactions.forEach(function(tx) { %>
+        <%
+          var txLabels = {
+            top_up:                  'Top Up',
+            contribution:            'Contribution',
+            contribution_adjustment: 'Contribution adjusted',
+            contribution_withdrawal: 'Contribution withdrawn',
+            contest_payout_settled:  'Contest payout',
+            manual_cashout:          'Cashed out',
+            auto_payout:             'Auto-payout',
+            makeup_payout:           'Makeup payout',
+            admin_grant:             'Admin grant',
+            platform_fee:            'Platform fee',
+          };
+          var label = txLabels[tx.type] || tx.type;
+          var isCredit = tx.direction === 'credit';
+          var dateStr = new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        %>
+        <div class="px-4 py-3 border-b border-white/5 last:border-0 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-medium text-white/70 truncate"><%= label %><% if (tx.packageName) { %> · <%= tx.packageName %><% } %></p>
+            <p class="text-xs text-white/30 mt-0.5"><%= dateStr %></p>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="text-sm font-semibold <%= isCredit ? 'text-green-400' : 'text-white/60' %>">
+              <%= isCredit ? '+' : '−' %><%= tx.amountCHL.toLocaleString() %> 🌶️
+            </p>
+            <p class="text-xs text-white/25"><%= tx.balanceAfter.toLocaleString() %> after</p>
+          </div>
+        </div>
+        <% }) %>
+      </div>
+      <% } else { %>
+      <div class="bg-shark-900 border border-white/10 rounded-md px-4 py-8 text-center">
+        <iconify-icon icon="noto:hot-pepper" width="28" class="mb-2 opacity-30"></iconify-icon>
+        <p class="text-sm text-white/30">No transactions yet</p>
+        <a href="/wallet/topup" class="text-xs text-charm-400 hover:text-charm-300 transition-colors mt-1 inline-block">Top up to get started</a>
+      </div>
+      <% } %>
+
     </section>
 
     <!-- Danger Zone -->
@@ -216,6 +397,38 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') closeModal();
     });
+  }());
+
+  (function () {
+    var allowSel = document.getElementById('nomination-allow-select');
+    var whoRow   = document.getElementById('who-can-nominate-row');
+    if (allowSel && whoRow) {
+      allowSel.addEventListener('change', function () {
+        if (this.value === 'false') {
+          whoRow.classList.add('hidden');
+        } else {
+          whoRow.classList.remove('hidden');
+        }
+      });
+    }
+  }());
+
+  // Auto-scroll to active section
+  <% if (activeSection) { %>
+  (function () {
+    var el = document.getElementById('section-<%= activeSection %>');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }());
+  <% } %>
+
+  // Auto-dismiss success banner after 4s
+  (function () {
+    var banner = document.getElementById('settings-success-banner');
+    if (banner) setTimeout(function () {
+      banner.style.transition = 'opacity 0.4s';
+      banner.style.opacity = '0';
+      setTimeout(function () { banner.remove(); }, 400);
+    }, 4000);
   }());
 }());
 </script>

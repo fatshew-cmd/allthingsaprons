@@ -1,0 +1,139 @@
+<%- include('../partials/appStart', { title: title, activePage: 'settings' }) %>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <div class="flex items-center gap-3">
+      <a href="/settings?section=wallet" class="text-white/40 hover:text-white/70 transition-colors">
+        <iconify-icon icon="boxicons:arrow-back" width="18"></iconify-icon>
+      </a>
+      <h1 class="font-black text-xl tracking-tight">Top Up</h1>
+    </div>
+  </header>
+
+  <div class="px-5 py-6 max-w-xl">
+
+    <!-- Balance pill -->
+    <div class="flex items-center gap-2 text-sm text-white/50 mb-8">
+      <iconify-icon icon="noto:hot-pepper" width="14"></iconify-icon>
+      Current balance: <span class="text-white font-semibold"><%= balance.toLocaleString() %> chilli<%= balance !== 1 ? 'es' : '' %></span>
+    </div>
+
+    <!-- Currency toggle -->
+    <div class="flex items-center gap-1 bg-shark-900 border border-white/10 rounded-md p-0.5 w-fit mb-6">
+      <button id="toggle-usd" type="button"
+        class="px-3 py-1.5 text-xs font-semibold rounded transition-colors bg-white/10 text-white">
+        USD
+      </button>
+      <button id="toggle-chl" type="button"
+        class="px-3 py-1.5 text-xs font-semibold rounded transition-colors text-white/40 hover:text-white/70">
+        🌶️ Chillies
+      </button>
+    </div>
+
+    <!-- Preset packages -->
+    <div class="grid grid-cols-2 gap-3 mb-6">
+      <% packages.forEach(pkg => { %>
+      <a href="/wallet/checkout?amount=<%= pkg.chl %>&package=<%= pkg.name %>"
+        class="flex flex-col gap-1 bg-shark-900 border border-white/10 hover:border-charm-500/50 rounded-md p-4 transition-colors cursor-pointer group">
+        <span class="text-xs font-semibold text-white/40 uppercase tracking-wider group-hover:text-charm-400 transition-colors"><%= pkg.name %></span>
+        <span class="usd-val text-2xl font-black text-white">$<%= pkg.usd %></span>
+        <span class="chl-val text-2xl font-black text-white hidden"><%= pkg.chl.toLocaleString() %> 🌶️</span>
+        <span class="text-xs text-white/40 mt-0.5">
+          <span class="usd-sub"><%= pkg.chl.toLocaleString() %> chillies</span>
+          <span class="chl-sub hidden">$<%= pkg.usd %> USD</span>
+        </span>
+      </a>
+      <% }) %>
+    </div>
+
+    <!-- Custom amount -->
+    <div class="bg-shark-900 border border-white/10 rounded-md p-4">
+      <p class="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">Custom amount</p>
+
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-col gap-1.5">
+          <label for="custom-usd" class="text-xs text-white/50">Amount in USD ($20 – $500)</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-sm">$</span>
+            <input id="custom-usd" type="number" min="20" max="500" step="1" placeholder="20"
+              class="w-full bg-shark-800 border border-white/10 rounded-md pl-7 pr-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs text-white/30">
+          <div class="flex-1 h-px bg-white/10"></div>
+          <iconify-icon icon="noto:hot-pepper" width="12"></iconify-icon>
+          <span id="custom-chl-preview">Enter an amount above</span>
+          <div class="flex-1 h-px bg-white/10"></div>
+        </div>
+
+        <a id="custom-go-btn" href="#"
+          class="w-full text-center bg-charm-600 hover:bg-charm-500 disabled:opacity-40 disabled:pointer-events-none text-white text-sm font-semibold py-2.5 rounded-md transition-colors pointer-events-none opacity-40">
+          Continue
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<%- include('../partials/appEnd') %>
+
+<script>
+(function () {
+  var usdBtn   = document.getElementById('toggle-usd');
+  var chlBtn   = document.getElementById('toggle-chl');
+  var usdVals  = document.querySelectorAll('.usd-val');
+  var chlVals  = document.querySelectorAll('.chl-val');
+  var usdSubs  = document.querySelectorAll('.usd-sub');
+  var chlSubs  = document.querySelectorAll('.chl-sub');
+  var mode     = 'usd';
+
+  function setMode(m) {
+    mode = m;
+    if (m === 'usd') {
+      usdBtn.classList.add('bg-white/10', 'text-white');
+      usdBtn.classList.remove('text-white/40', 'hover:text-white/70');
+      chlBtn.classList.remove('bg-white/10', 'text-white');
+      chlBtn.classList.add('text-white/40', 'hover:text-white/70');
+      usdVals.forEach(function(el) { el.classList.remove('hidden'); });
+      chlVals.forEach(function(el) { el.classList.add('hidden'); });
+      usdSubs.forEach(function(el) { el.classList.remove('hidden'); });
+      chlSubs.forEach(function(el) { el.classList.add('hidden'); });
+    } else {
+      chlBtn.classList.add('bg-white/10', 'text-white');
+      chlBtn.classList.remove('text-white/40', 'hover:text-white/70');
+      usdBtn.classList.remove('bg-white/10', 'text-white');
+      usdBtn.classList.add('text-white/40', 'hover:text-white/70');
+      usdVals.forEach(function(el) { el.classList.add('hidden'); });
+      chlVals.forEach(function(el) { el.classList.remove('hidden'); });
+      usdSubs.forEach(function(el) { el.classList.add('hidden'); });
+      chlSubs.forEach(function(el) { el.classList.remove('hidden'); });
+    }
+  }
+
+  usdBtn.addEventListener('click', function() { setMode('usd'); });
+  chlBtn.addEventListener('click', function() { setMode('chl'); });
+
+  // Custom amount logic
+  var customUsd     = document.getElementById('custom-usd');
+  var customPreview = document.getElementById('custom-chl-preview');
+  var customGoBtn   = document.getElementById('custom-go-btn');
+
+  customUsd.addEventListener('input', function () {
+    var val = parseInt(this.value, 10);
+    if (!val || val < 20 || val > 500) {
+      customPreview.textContent = val && val < 20 ? 'Minimum $20' : val > 500 ? 'Maximum $500' : 'Enter an amount above';
+      customGoBtn.classList.add('pointer-events-none', 'opacity-40');
+      customGoBtn.removeAttribute('href');
+      return;
+    }
+    var chl = val * 5;
+    customPreview.textContent = chl.toLocaleString() + ' chillies';
+    customGoBtn.classList.remove('pointer-events-none', 'opacity-40');
+    customGoBtn.href = '/wallet/checkout?amount=' + chl + '&custom=true';
+  });
+})();
+</script>

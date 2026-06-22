@@ -35,6 +35,17 @@
           <iconify-icon icon="<%= isFollowing ? 'boxicons:user-check' : 'boxicons:user-plus' %>" width="15"></iconify-icon>
           <span id="follow-btn-label"><%= isFollowing ? 'Following' : 'Follow' %></span>
         </button>
+        <% if (locals.canNominate) { %>
+        <button type="button" id="nominate-btn"
+          data-nominee-id="<%= profileUser._id %>"
+          data-nominee-username="<%= profileUser.username?.value %>"
+          data-nominee-display="<%= profileUser.displayName?.value || ('@' + profileUser.username?.value) %>"
+          data-nominee-avatar="<%= profileUser.avatar?.value || '' %>"
+          class="inline-flex items-center gap-2 px-4 py-2 border border-white/35 rounded-md text-sm font-semibold text-white hover:bg-white/8 transition-colors cursor-pointer">
+          <iconify-icon icon="boxicons:trophy" width="15"></iconify-icon>
+          Nominate
+        </button>
+        <% } %>
       </div>
       <% } %>
     </div>
@@ -184,6 +195,14 @@
       <span class="text-xl font-bold leading-tight"><%= formatStat(thirdPrizes) %></span>
       <span class="text-xs text-white/40 mt-0.5">3rd Place</span>
     </div>
+    <% } %>
+
+    <% if (isOwn) { %>
+    <div class="w-px self-stretch bg-white/10"></div>
+    <a href="/settings#section-wallet" class="flex flex-col items-center no-underline hover:opacity-70 transition-opacity">
+      <span class="text-xl font-bold leading-tight"><%= formatStat(profileUser.wallet?.balanceCHL || 0) %></span>
+      <span class="text-xs text-white/40 mt-0.5">Chillies</span>
+    </a>
     <% } %>
 
   </div>
@@ -1212,6 +1231,382 @@
       })
       .finally(function () {
         btn.disabled = false;
+      });
+  });
+}());
+</script>
+<% } %>
+
+<% if (locals.canNominate) { %>
+
+<!-- Nomination Modal -->
+<div id="nominate-modal" class="fixed inset-0 z-50 items-center justify-center p-4 hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="nominate-modal-backdrop"></div>
+  <div class="relative w-full max-w-sm bg-shark-900 border border-white/10 rounded-md shadow-2xl">
+    <div class="p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-bold">Nominate for Head-to-Head</h2>
+        <button type="button" id="nominate-modal-close" class="text-white/30 hover:text-white/70 transition-colors cursor-pointer">
+          <iconify-icon icon="boxicons:x" width="20"></iconify-icon>
+        </button>
+      </div>
+
+      <!-- Nominee 1: pre-filled, locked -->
+      <div class="mb-1">
+        <p class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-1.5">Nominee 1</p>
+        <div id="nom1-badge" class="flex items-center gap-2.5 px-3 py-2 bg-shark-800 border border-white/10 rounded-md">
+          <div id="nom1-avatar-wrap" class="w-7 h-7 rounded-full overflow-hidden bg-shark-700 shrink-0 flex items-center justify-center">
+            <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+          </div>
+          <div class="flex flex-col min-w-0">
+            <span id="nom1-display" class="text-sm font-semibold truncate"></span>
+            <span id="nom1-username" class="text-xs text-white/40 truncate"></span>
+          </div>
+          <iconify-icon icon="boxicons:lock-alt" width="13" class="text-white/20 ml-auto shrink-0"></iconify-icon>
+        </div>
+      </div>
+
+      <!-- Nominee 1 entry picker -->
+      <div id="nom1-entry-section" class="hidden mb-3">
+        <p class="text-xs text-white/35 mb-1.5 pt-1.5">Pick an entry for them <span class="text-white/20">(optional)</span></p>
+        <div id="nom1-entry-grid" class="grid grid-cols-4 gap-1.5"></div>
+        <div id="nom1-entry-selected" class="hidden justify-end mt-1">
+          <button type="button" id="nom1-entry-clear" class="text-white/30 hover:text-white/60 cursor-pointer text-xs">Clear</button>
+        </div>
+      </div>
+
+      <!-- Nominee 2: search field -->
+      <div class="mb-3">
+        <p class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-1.5">Nominee 2</p>
+        <div class="relative">
+          <div id="nom2-selected" class="hidden flex items-center gap-2.5 px-3 py-2 bg-shark-800 border border-charm-600/40 rounded-md">
+            <div id="nom2-avatar-wrap" class="w-7 h-7 rounded-full overflow-hidden bg-shark-700 shrink-0 flex items-center justify-center">
+              <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+            </div>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span id="nom2-display" class="text-sm font-semibold truncate"></span>
+              <span id="nom2-username" class="text-xs text-white/40 truncate"></span>
+            </div>
+            <button type="button" id="nom2-clear" class="text-white/30 hover:text-white/70 shrink-0 cursor-pointer">
+              <iconify-icon icon="boxicons:x" width="15"></iconify-icon>
+            </button>
+          </div>
+          <input id="nom2-search" type="text" placeholder="Search by username…" autocomplete="off"
+            class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+          <div id="nom2-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 bg-shark-800 border border-white/10 rounded-md shadow-xl z-10 overflow-hidden"></div>
+        </div>
+        <p id="nom2-error" class="hidden text-xs text-red-400 mt-1.5"></p>
+      </div>
+
+      <!-- Nominee 2 entry picker -->
+      <div id="nom2-entry-section" class="hidden mb-3">
+        <p class="text-xs text-white/35 mb-1.5 pt-1.5">Pick an entry for them <span class="text-white/20">(optional)</span></p>
+        <div id="nom2-entry-grid" class="grid grid-cols-4 gap-1.5"></div>
+        <div id="nom2-entry-selected" class="hidden justify-end mt-1">
+          <button type="button" id="nom2-entry-clear" class="text-white/30 hover:text-white/60 cursor-pointer text-xs">Clear</button>
+        </div>
+      </div>
+
+      <!-- Optional message -->
+      <div class="mb-4">
+        <p class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-1.5">Message <span class="font-normal normal-case text-white/30">(optional)</span></p>
+        <textarea id="nom-message" rows="2" maxlength="160" placeholder="Add a message to both nominees…"
+          class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"></textarea>
+      </div>
+
+      <p id="nominate-modal-error" class="hidden text-xs text-red-400 mb-3"></p>
+
+      <button type="button" id="nominate-submit-btn" disabled
+        class="w-full py-2.5 rounded-md bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+        Send Nomination
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var nominateBtn    = document.getElementById('nominate-btn');
+  var modal          = document.getElementById('nominate-modal');
+  var backdrop       = document.getElementById('nominate-modal-backdrop');
+  var closeBtn       = document.getElementById('nominate-modal-close');
+  var nom2Search     = document.getElementById('nom2-search');
+  var nom2Dropdown   = document.getElementById('nom2-dropdown');
+  var nom2Selected   = document.getElementById('nom2-selected');
+  var nom2Clear      = document.getElementById('nom2-clear');
+  var nom2ErrorEl    = document.getElementById('nom2-error');
+  var nom2Display    = document.getElementById('nom2-display');
+  var nom2Username   = document.getElementById('nom2-username');
+  var nom2AvatarWrap = document.getElementById('nom2-avatar-wrap');
+  var submitBtn      = document.getElementById('nominate-submit-btn');
+  var modalErrorEl   = document.getElementById('nominate-modal-error');
+  var messageEl      = document.getElementById('nom-message');
+
+  if (!nominateBtn || !modal) return;
+
+  var nominee1Id      = '';
+  var nominee2Id      = '';
+  var nominee1EntryId = '';
+  var nominee2EntryId = '';
+  var searchTimer     = null;
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function avatarHtml(src, name, size) {
+    if (src) return '<img src="' + escHtml(src) + '" alt="' + escHtml(name) + '" class="w-full h-full object-cover rounded-full" />';
+    return '<iconify-icon icon="boxicons:user" width="' + size + '" class="text-white/30"></iconify-icon>';
+  }
+
+  // ── Entry picker ────────────────────────────────────────────────────
+
+  function loadEntryPicker(userId, gridEl, sectionEl, onSelect, onClear) {
+    gridEl.innerHTML = '<p class="col-span-4 text-xs text-white/30 py-1">Loading…</p>';
+    sectionEl.classList.remove('hidden');
+    fetch('/api/users/' + userId + '/entries')
+      .then(function (r) { return r.json(); })
+      .then(function (entries) {
+        if (!entries.length) {
+          gridEl.innerHTML = '<p class="col-span-4 text-xs text-white/30 py-1">No entries yet.</p>';
+          return;
+        }
+        gridEl.innerHTML = entries.map(function (e) {
+          var thumb = e.mediaType === 'video'
+            ? '<div class="w-full aspect-square bg-shark-700 flex items-center justify-center rounded-md overflow-hidden"><iconify-icon icon="boxicons:play-circle" width="22" class="text-white/40"></iconify-icon></div>'
+            : '<img src="' + escHtml(e.mediaUrl) + '" class="w-full aspect-square object-cover rounded-md" />';
+          return '<button type="button" class="entry-thumb-btn relative rounded-md overflow-hidden ring-2 ring-transparent hover:ring-charm-500/60 transition-all cursor-pointer"'
+            + ' data-entry-id="' + escHtml(e._id) + '">'
+            + thumb
+            + '</button>';
+        }).join('');
+        gridEl.querySelectorAll('.entry-thumb-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            gridEl.querySelectorAll('.entry-thumb-btn').forEach(function (b) {
+              b.classList.remove('ring-charm-500');
+              b.classList.add('ring-transparent');
+            });
+            btn.classList.remove('ring-transparent');
+            btn.classList.add('ring-charm-500');
+            onSelect(btn.dataset.entryId);
+          });
+        });
+      })
+      .catch(function () {
+        gridEl.innerHTML = '<p class="col-span-4 text-xs text-red-400 py-1">Could not load entries.</p>';
+      });
+
+    onClear.addEventListener('click', function () {
+      nominee1EntryId = '';
+      nominee2EntryId = '';
+      gridEl.querySelectorAll('.entry-thumb-btn').forEach(function (b) {
+        b.classList.remove('ring-charm-500');
+        b.classList.add('ring-transparent');
+      });
+      var selRow = sectionEl.querySelector('[id$="-entry-selected"]');
+      if (selRow) selRow.classList.add('hidden');
+    });
+  }
+
+  function showEntrySelectedRow(sectionEl) {
+    var selRow = sectionEl.querySelector('[id$="-entry-selected"]');
+    var capEl  = sectionEl.querySelector('[id$="-entry-selected-caption"]');
+    if (selRow) selRow.classList.remove('hidden');
+    if (capEl)  capEl.textContent = 'Entry selected';
+  }
+
+  // ── Modal open/close ────────────────────────────────────────────────
+
+  function openModal() {
+    nominee1Id      = nominateBtn.dataset.nomineeId      || '';
+    nominee1EntryId = '';
+    nominee2EntryId = '';
+    var display  = nominateBtn.dataset.nomineeDisplay  || '';
+    var username = nominateBtn.dataset.nomineeUsername || '';
+    var avatar   = nominateBtn.dataset.nomineeAvatar   || '';
+
+    document.getElementById('nom1-display').textContent  = display;
+    document.getElementById('nom1-username').textContent = '@' + username;
+    document.getElementById('nom1-avatar-wrap').innerHTML = avatarHtml(avatar, display, '14');
+
+    // Load nominee 1 entry picker immediately (she's already known)
+    var n1Section = document.getElementById('nom1-entry-section');
+    var n1Grid    = document.getElementById('nom1-entry-grid');
+    var n1Clear   = document.getElementById('nom1-entry-clear');
+    var n1SelRow  = document.getElementById('nom1-entry-selected');
+    if (n1SelRow) n1SelRow.classList.add('hidden');
+    loadEntryPicker(nominee1Id, n1Grid, n1Section, function (eid) {
+      nominee1EntryId = eid;
+      showEntrySelectedRow(n1Section);
+    }, n1Clear);
+
+    clearNominee2();
+    if (messageEl) messageEl.value = '';
+    if (modalErrorEl) { modalErrorEl.textContent = ''; modalErrorEl.classList.add('hidden'); }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(function () { if (nom2Search) nom2Search.focus(); }, 50);
+  }
+
+  function closeModal() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  nominateBtn.addEventListener('click', openModal);
+  backdrop.addEventListener('click', closeModal);
+  closeBtn.addEventListener('click', closeModal);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+
+  // ── Nominee 2 ───────────────────────────────────────────────────────
+
+  function clearNominee2() {
+    nominee2Id      = '';
+    nominee2EntryId = '';
+    nom2Selected.classList.add('hidden');
+    nom2Search.classList.remove('hidden');
+    nom2Search.value = '';
+    nom2Dropdown.classList.add('hidden');
+    nom2Dropdown.innerHTML = '';
+    if (nom2ErrorEl) { nom2ErrorEl.textContent = ''; nom2ErrorEl.classList.add('hidden'); }
+    var n2Section = document.getElementById('nom2-entry-section');
+    if (n2Section) n2Section.classList.add('hidden');
+    submitBtn.disabled = true;
+  }
+
+  nom2Clear.addEventListener('click', clearNominee2);
+
+  function selectNominee2(user) {
+    nom2Dropdown.classList.add('hidden');
+    nom2Dropdown.innerHTML = '';
+    if (nom2ErrorEl) { nom2ErrorEl.textContent = ''; nom2ErrorEl.classList.add('hidden'); }
+
+    fetch('/api/users/' + user._id + '/nomination-eligible')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.allowed) {
+          if (nom2ErrorEl) {
+            nom2ErrorEl.textContent = '@' + user.username + ' isn\'t accepting nominations from you.';
+            nom2ErrorEl.classList.remove('hidden');
+          }
+          return;
+        }
+        nominee2Id = user._id;
+        nom2Display.textContent  = user.displayName || ('@' + user.username);
+        nom2Username.textContent = '@' + user.username;
+        nom2AvatarWrap.innerHTML = avatarHtml(user.avatar, user.displayName || user.username, '14');
+        nom2Search.classList.add('hidden');
+        nom2Selected.classList.remove('hidden');
+        submitBtn.disabled = false;
+
+        // Load nominee 2 entry picker
+        var n2Section = document.getElementById('nom2-entry-section');
+        var n2Grid    = document.getElementById('nom2-entry-grid');
+        var n2Clear   = document.getElementById('nom2-entry-clear');
+        var n2SelRow  = document.getElementById('nom2-entry-selected');
+        if (n2SelRow) n2SelRow.classList.add('hidden');
+        nominee2EntryId = '';
+        loadEntryPicker(nominee2Id, n2Grid, n2Section, function (eid) {
+          nominee2EntryId = eid;
+          showEntrySelectedRow(n2Section);
+        }, n2Clear);
+      })
+      .catch(function () {
+        if (nom2ErrorEl) {
+          nom2ErrorEl.textContent = 'Could not verify eligibility. Try again.';
+          nom2ErrorEl.classList.remove('hidden');
+        }
+      });
+  }
+
+  function showDropdown(users) {
+    if (!users.length) { nom2Dropdown.classList.add('hidden'); return; }
+    nom2Dropdown.innerHTML = users.map(function (u) {
+      var av = u.avatar
+        ? '<img src="' + escHtml(u.avatar) + '" class="w-7 h-7 rounded-full object-cover shrink-0" />'
+        : '<div class="w-7 h-7 rounded-full bg-shark-700 flex items-center justify-center shrink-0"><iconify-icon icon="boxicons:user" width="13" class="text-white/30"></iconify-icon></div>';
+      return '<button type="button" class="nom2-result flex items-center gap-2.5 w-full px-3 py-2.5 hover:bg-white/5 text-left transition-colors cursor-pointer"'
+        + ' data-id="' + escHtml(u._id) + '"'
+        + ' data-username="' + escHtml(u.username) + '"'
+        + ' data-display="' + escHtml(u.displayName || u.username) + '"'
+        + ' data-avatar="' + escHtml(u.avatar || '') + '">'
+        + av
+        + '<div class="flex flex-col min-w-0"><span class="text-sm font-medium truncate">' + escHtml(u.displayName || u.username) + '</span>'
+        + '<span class="text-xs text-white/40 truncate">@' + escHtml(u.username) + '</span></div></button>';
+    }).join('');
+    nom2Dropdown.classList.remove('hidden');
+  }
+
+  nom2Dropdown.addEventListener('click', function (e) {
+    var row = e.target.closest('.nom2-result');
+    if (!row) return;
+    selectNominee2({
+      _id:         row.dataset.id,
+      username:    row.dataset.username,
+      displayName: row.dataset.display,
+      avatar:      row.dataset.avatar || null,
+    });
+  });
+
+  nom2Search.addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    var val = this.value.trim().replace(/^@/, '');
+    if (!val) { nom2Dropdown.classList.add('hidden'); return; }
+    searchTimer = setTimeout(function () {
+      fetch('/api/users/search?q=' + encodeURIComponent(val))
+        .then(function (r) { return r.json(); })
+        .then(function (users) {
+          var filtered = users.filter(function (u) { return u._id !== nominee1Id; });
+          showDropdown(filtered);
+        })
+        .catch(function () { nom2Dropdown.classList.add('hidden'); });
+    }, 200);
+  });
+
+  nom2Search.addEventListener('blur', function () {
+    setTimeout(function () { nom2Dropdown.classList.add('hidden'); }, 150);
+  });
+
+  // ── Submit ──────────────────────────────────────────────────────────
+
+  submitBtn.addEventListener('click', function () {
+    if (!nominee1Id || !nominee2Id) return;
+    submitBtn.disabled = true;
+    if (modalErrorEl) { modalErrorEl.textContent = ''; modalErrorEl.classList.add('hidden'); }
+
+    var body = {
+      nominee1Id:      nominee1Id,
+      nominee2Id:      nominee2Id,
+      message:         messageEl ? messageEl.value.trim() : '',
+    };
+    if (nominee1EntryId) body.nominee1EntryId = nominee1EntryId;
+    if (nominee2EntryId) body.nominee2EntryId = nominee2EntryId;
+
+    fetch('/api/contests/viewer-nominate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          if (modalErrorEl) {
+            modalErrorEl.textContent = res.data.error || 'Something went wrong.';
+            modalErrorEl.classList.remove('hidden');
+          }
+          submitBtn.disabled = false;
+          return;
+        }
+        closeModal();
+        if (window.showToast) window.showToast('Nomination sent!', 'success');
+      })
+      .catch(function () {
+        if (modalErrorEl) {
+          modalErrorEl.textContent = 'Something went wrong. Try again.';
+          modalErrorEl.classList.remove('hidden');
+        }
+        submitBtn.disabled = false;
       });
   });
 }());

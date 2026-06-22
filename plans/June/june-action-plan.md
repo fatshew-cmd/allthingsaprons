@@ -16,7 +16,7 @@ The **Take On feature** is now fully implemented. Initiator clicks Take On on an
 
 **Phase 5 background jobs are done.** `agenda` is installed and wired. The void deadline sweeper + `void_expired_contest` one-time jobs replace the old Mongoose post-hook bridge (post-hooks removed). The voting deadline sweeper + `close_contest` one-time jobs count votes, set `winnerEntryId`, status → `closed`, and fire `contest_closed` notifications to both participants. Both sweepers run on startup to catch any deadlines missed while the server was down.
 
-What remains: viewer nominations, fake credits admin action, and the remaining Phase 6 admin UI pages.
+What remains: fake credits admin action and the remaining Phase 6 admin UI pages.
 
 ### What is done
 | Asset | Status |
@@ -62,10 +62,10 @@ What remains: viewer nominations, fake credits admin action, and the remaining P
 | `/contests` page | `GET /contests` + `views/contests.ejs` — fully wired. Route queries active public contests (+ contests the user is in), builds contestant rows with per-viewer follow state, and passes live data. View: card layout with picture-in-picture media thumbnails, contestant rows with inline follow toggle buttons, live countdown timers, "vs" dividers. Pending nominations panel functional. |
 | Take On | `allowTakeOns: Boolean` (default `true`) + `takeOnCount: Number` on Entry. `Nomination` extended with `type` (`standard` / `take_on`), `nomineeEntryId`, `challengerEntryId`. Notification types `take_on_received` / `take_on_accepted`. Take On button on entryCard → `/submit?takeOnTargetId=<entryId>`. Submit page flow creates pending contest + nomination, fires `take_on_received`. Dedicated accept/decline page at `/take-on/:id` (`views/take-on.ejs`). `POST /nominations/:id/take-on-accept` moves contest to active. `PATCH /entries/:id/allow-take-ons` endpoint. "Allow Take Ons" toggle on edit-entry page. |
 | Contest Watch + Follower Notifications | `ContestWatch` model (`contestId`, `userId`, unique index on both). `utils/notifyWatchers.js` inserts `Notification` docs for all watchers, with an `excludeUserIds` set. Bell toggle ("Stay in the loop") on contest page with `POST /api/contests/:id/watch` (toggle on/off, returns `{ watching: bool }`). `isWatching` injected by the contest page route. Watched contests shown in the `/contests` page. Watcher notifications fire on: nominee accepted, nominee declined, contest forfeited (via route), contest voided and contest closed (both via background jobs). Follower notification type `contest_started` fires to all of the nominator's followers on new contest creation. All new notification types render in `views/notifications.ejs`: `contest_started`, `nominee_accepted`, `nominee_declined`, `contest_forfeited`. |
+| Viewer Nomination | Any authenticated user can nominate two other users for a HTH via a modal on the profile page. Viewer selects opponent from a user search, optionally selects a specific entry for each nominee and adds a message. `POST /api/contests/viewer-nominate` validates that both nominees accept viewer nominations (per `nominationSettings` — allow on/off, with `everyone` / `followers_only` / `followees_only` / `mutual_follow` controls). Creates one shared `Contest` doc + two `Nomination` docs (type: `viewer_nomination`) with `preSelectedEntryId` when a specific entry was chosen. Both nominees receive a `viewer_nomination` notification. Submit page + nomination acceptance flow handle `viewer_nomination` type: locked-entry path (when entry was pre-selected) and free-choice path. Settings page has "Allow viewer nominations" toggle + "Who can nominate me" dropdown. `nominationSettings` embedded on User. |
 
 ### What is not done yet
 - Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
-- Viewer nomination flow (any user nominates two others for a HTH with a message)
 - Fake credits admin action (superadmin balance write for contribution flow testing)
 - `Retag` model is scaffolded (`models/Retag.js`) but not yet wired into any route or UI
 - Forfeit scrub path: nominator cannot currently delete a `void` contest record (the `DELETE /contests/:id` route rejects non-pending contests) — the design's "scrub forfeit record" case is not yet implemented
@@ -256,7 +256,7 @@ The system that makes everything time-sensitive work reliably.
 - [x] Notification model: dedicated `Notification` collection (Option A) with compound index `{userId, read, createdAt}` and 90-day TTL index. `injectNotificationCount` middleware injects unread count into all main platform views. Sidebar badge (count label + collapsed dot). Per-notification click-to-mark-read + mark-all-as-read. Triggers: new comment → entry owner, reply → parent commenter, nomination created → nominee.
 - [x] Notifications page: paginated list at `/notifications` — actor avatar, notification text, relative timestamp, unread highlight. `contest_closed` / `contest_voided` rows render correctly (triggers now live from background jobs).
 - [x] Messages page: direct messaging between users — `Conversation` + `DirectMessage` models, `routes/messages.js`, two-panel view (`/messages` list + `/messages/:username` thread). Polled every 5s. Message button on profile opens or creates a conversation.
-- [ ] Viewer nomination flow: any registered user can nominate two other users for a HTH, with an optional message. Both nominees receive a notification.
+- [x] Viewer nomination flow: any registered user can nominate two other users for a HTH, with an optional message and optional entry pre-selection per nominee. Both nominees receive a `viewer_nomination` notification. Nomination settings (`allow`, `whoCanNominate`) on User control who can receive viewer nominations. Modal on profile page. Settings page UI wired.
 
 **Exit criteria:** Time-based contest state transitions happen automatically without manual intervention. Users receive in-app notifications for all nomination and contest events.
 
@@ -455,9 +455,270 @@ The page shows "tracking not yet wired" placeholders for these metrics until the
 
 ---
 
-## Financial System — Design Complete (June 17) / Implementation July
+## Phase 4.7 — Chilli Wallet + Economic Flow (Fake CCBill Phase)
 
-The full financial system was designed on June 17 and is fully documented in `plans/platform-core-concepts.md`. Implementation remains July scope. Key decisions locked:
+The full CCBill integration is July scope, but the economic flow needs to be testable before then. This phase builds the complete chilli economy end-to-end with a stubbed payment step that CCBill will simply replace later. Every model, route, and background job built here is production-ready — the only fake part is the payment confirmation screen.
+
+**Currency:** chillies (🌶️). Never displayed as "CHL" to users — always "chilli" / "chillies" + the emoji.
+**Exchange rate:** $1 = 5 🌶️ (1 🌶️ = $0.20). Stored on every transaction so disputes survive future rate changes.
+**Cashout minimum:** 100 🌶️ ($20).
+
+---
+
+### Schema Changes
+
+#### `User.wallet` — replace `balanceCents` with `balanceCHL`
+```
+wallet: {
+  balanceCHL: { type: Number, default: 0 },
+  updatedAt:  { type: Date },
+}
+```
+`balanceCents` is a leftover placeholder — it has no data. Migration: rename field, default 0.
+
+---
+
+### New Models
+
+#### `WalletTransaction`
+Full audit trail. One document per credit movement, no exceptions.
+
+| Field | Type | Notes |
+|---|---|---|
+| `userId` | ObjectId → User | |
+| `type` | enum | `top_up \| contribution \| contribution_adjustment \| contribution_withdrawal \| contest_payout_settled \| platform_fee \| admin_grant \| auto_payout \| makeup_payout \| manual_cashout` |
+| `direction` | enum | `credit \| debit` |
+| `amountCHL` | Number | Always positive — direction field carries the sign |
+| `amountUSD` | Number | Dollar equivalent at time of transaction |
+| `exchangeRate` | Number | Rate used (default 0.20) — frozen at tx time in case platform adjusts it later |
+| `balanceBefore` | Number | Wallet balance before this tx |
+| `balanceAfter` | Number | Wallet balance after this tx |
+| `status` | enum | `completed \| pending \| reversed` |
+| `source` | enum | `package \| custom \| admin \| contest_close \| system \| manual_cashout \| auto_payout \| makeup_payout` |
+| `packageName` | String | If a preset package was used (e.g. `"Starter"`) |
+| `referenceId` | ObjectId | Links to contest, contribution, payout doc, etc. |
+| `referenceType` | String | `Contest \| ContestContribution \| ContestPayout \| MonthlySnapshot` |
+| `metadata` | Mixed | Catch-all: user agent stub, future CCBill txn ID, IP |
+| `createdAt` | Date | Auto |
+
+Indexes: `{ userId, createdAt }`, `{ referenceId, referenceType }`, `{ type, status }`.
+
+---
+
+#### `ContestContribution`
+Tracks a viewer's live contribution to a specific entry in a contest. One doc per `{contestId, contributorId, entryId}` — updated in place as the user adjusts their contribution. The `WalletTransaction` log handles the delta audit trail.
+
+| Field | Type | Notes |
+|---|---|---|
+| `contestId` | ObjectId → Contest | |
+| `entryId` | ObjectId → Entry | Which contestant they're supporting |
+| `beneficiaryId` | ObjectId → User | Entry owner (denormalized for payout queries) |
+| `contributorId` | ObjectId → User | Who contributed |
+| `amountCHL` | Number | Current contribution amount (gross) |
+| `status` | enum | `active \| withdrawn \| locked` |
+| `lockedAt` | Date | Set when contest closes |
+| `createdAt` | Date | Auto |
+| `updatedAt` | Date | Auto |
+
+Unique index: `{ contestId, contributorId, entryId }`.
+Index: `{ contestId, beneficiaryId }` — used by close job to sum contributions per contestant.
+Index: `{ contributorId, status }` — used for contributor's own history.
+
+A user **can** contribute to both entries in the same contest (attribution is independent of voting). They **cannot** contribute to their own entry.
+
+---
+
+#### `ContestPayout`
+Created by the contest-close background job. One doc per contestant per contest. Tracks pending earnings from close until cashout.
+
+| Field | Type | Notes |
+|---|---|---|
+| `contestId` | ObjectId → Contest | |
+| `entryId` | ObjectId → Entry | |
+| `userId` | ObjectId → User | The contestant |
+| `grossContributionsCHL` | Number | Total contributed to this entry |
+| `netPayoutCHL` | Number | 75% of gross — what the contestant receives |
+| `platformFeeCHL` | Number | 25% of gross — platform's cut |
+| `status` | enum | `pending \| paid \| auto_paid \| makeup_paid` |
+| `paidAt` | Date | When settled |
+| `paidBy` | enum | `manual \| auto_30d \| makeup_15d` |
+| `createdAt` | Date | Auto (contest close time) |
+
+Index: `{ userId, status }` — cashout and auto-payout queries.
+Index: `{ contestId }` — contest page earnings display.
+
+---
+
+#### `MonthlySnapshot`
+Created on the 1st of each month for every user with `balanceCHL > 0`. Drives the auto-payout cycle.
+
+| Field | Type | Notes |
+|---|---|---|
+| `userId` | ObjectId → User | |
+| `month` | String | `"YYYY-MM"` — e.g. `"2026-03"` |
+| `snapshotDate` | Date | Exact datetime of snapshot (1st 00:00 UTC) |
+| `balanceCHL` | Number | Balance at snapshot time |
+| `autoPayoutDate` | Date | 30th of same month 00:00 UTC |
+| `makeupPayoutDate` | Date | 15th of next month 00:00 UTC |
+| `status` | enum | `pending \| paid \| held \| makeup_paid` |
+| `amountPaidCHL` | Number | Actual amount paid — `min(snapshotBalance, balanceAtPayoutTime)` |
+| `heldAt` | Date | When user requested hold |
+| `paidAt` | Date | When payout was executed |
+
+Unique index: `{ userId, month }`.
+Index: `{ status, autoPayoutDate }` — 30th sweeper.
+Index: `{ status, makeupPayoutDate }` — 15th makeup sweeper.
+
+---
+
+### Routes
+
+#### Top-up flow
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/wallet/topup` | Packages page — 4 preset cards + custom input + USD↔🌶️ toggle |
+| `GET` | `/wallet/checkout` | Order summary — shows package, amount in CHL + USD, fake "Complete Purchase" btn |
+| `POST` | `/wallet/checkout` | Processes fake payment — credits `balanceCHL`, writes `WalletTransaction` (type: `top_up`), redirects to `/settings?section=wallet&success=topup` |
+
+Query params on checkout: `?amount=100&package=Starter` (or `?amount=X&custom=true`).
+
+#### Contribution
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/contests/:id/contribute` | Body: `{ entryId, amountCHL }`. Validates balance, creates/updates `ContestContribution`, debits wallet, writes `WalletTransaction` (type: `contribution`). Cannot contribute to own entry. |
+| `PATCH` | `/api/contests/:id/contribute/:entryId` | Body: `{ amountCHL }`. Adjusts existing contribution up or down. Debits or credits the delta. Writes `WalletTransaction` (type: `contribution_adjustment`). |
+| `DELETE` | `/api/contests/:id/contribute/:entryId` | Full withdrawal — refunds full contribution to wallet. Sets `ContestContribution.status: withdrawn`. Writes `WalletTransaction` (type: `contribution_withdrawal`). |
+
+All three blocked if contest is not `active` or contribution is `locked`.
+
+#### Cashout + hold
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/wallet/cashout/:contestPayoutId` | Manual cashout of a specific `ContestPayout`. Requires `netPayoutCHL >= 100`. Credits wallet, writes `WalletTransaction` (type: `manual_cashout`), sets `ContestPayout.status: paid`. |
+| `POST` | `/api/wallet/hold-payout` | Requests hold on current month's auto-payout. Finds `MonthlySnapshot` for current month where `status: pending`, sets `status: held`, records `heldAt`. Only works between 25th and 30th. |
+
+#### Settings wallet section data
+Served as part of `GET /settings` — the wallet section queries:
+- `User.wallet.balanceCHL` — spendable balance
+- `ContestPayout.find({ userId, status: 'pending' })` — pending earnings ready to claim
+- `MonthlySnapshot.findOne({ userId, month: currentMonth })` — upcoming auto-payout info
+- `WalletTransaction.find({ userId }).sort({ createdAt: -1 }).limit(50)` — transaction history
+
+---
+
+### Views
+
+#### `/wallet/topup`
+- 4 preset package cards: **Starter** $20 / 100 🌶️, **Medium** $50 / 250 🌶️, **Hot** $100 / 500 🌶️, **Inferno** $200 / 1,000 🌶️
+- Custom amount input ($20–$500, live-computes CHL equivalent)
+- Currency toggle: switches all displayed amounts between USD and 🌶️ in real time (no page reload)
+- Selecting a package → redirects to `/wallet/checkout?amount=X&package=Name`
+
+#### `/wallet/checkout`
+- Order summary: package name (or "Custom"), CHL amount, USD amount
+- "Complete Purchase" button (the CCBill stub — later this page becomes the CCBill redirect)
+- Back link to `/wallet/topup`
+
+#### Settings → Wallet section
+- Spendable balance: `X 🌶️` with top-up anchor
+- **Pending earnings** — list of `ContestPayout` docs with `status: pending`. Per row: contest link, opponent, gross contributions shown, net payout (75%), "Cash Out" button (disabled if below 100 🌶️ minimum with tooltip)
+- **Auto-payout notice** — if a `MonthlySnapshot` exists for the current month with `status: pending`, show: *"X 🌶️ is scheduled for auto-payout on the 30th"* + "Hold until the 15th" button (visible 25th–29th only)
+- **Transaction history** — paginated table: date, type label, amount (coloured credit/debit), balance after
+
+#### Contest page additions
+- Per contestant: gross contribution total shown below their entry (visible to all viewers)
+- Contribution UI: slider or +/− input, shows your current contribution to that contestant, "Contribute" and "Withdraw" buttons. Hidden for the contestant's own entry. Blocked if contest is not `active`.
+- Your total contribution shown inline: *"You've contributed 50 🌶️ to this contestant"*
+
+#### Profile (owner view only)
+- Spendable balance displayed in the stats row — hidden from all other viewers
+
+---
+
+### Background Jobs (agenda pattern — same as existing sweepers)
+
+#### 1st of month — `snapshot_monthly_balances`
+Recurring on the 1st. Finds all users with `wallet.balanceCHL > 0` where no snapshot exists for the current month. Creates one `MonthlySnapshot` per user. Sets `autoPayoutDate` (30th of current month) and `makeupPayoutDate` (15th of next month).
+
+#### 25th of month — `payout_reminder`
+Recurring on the 25th. Finds all `MonthlySnapshot` docs with `status: pending` and `balanceCHL > 0`. For each: send in-app `Notification` (type: `payout_reminder`) and email via Resend — *"Your X 🌶️ auto-payout fires on the 30th. Tap here to hold it until the 15th."*
+
+#### 30th of month — `auto_payout_30`
+Recurring on the 30th. Finds all `MonthlySnapshot` docs with `status: pending` and `autoPayoutDate <= now`. For each:
+- Calculate `amountPaid = min(snapshot.balanceCHL, user.wallet.balanceCHL)`
+- If `amountPaid > 0`: debit `wallet.balanceCHL`, write `WalletTransaction` (type: `auto_payout`), set snapshot `status: paid`, `amountPaidCHL`, `paidAt`
+- Send in-app notification (type: `payout_processed`) confirming amount
+
+#### 15th of month — `makeup_payout_15`
+Recurring on the 15th. Finds all `MonthlySnapshot` docs with `status: held` and `makeupPayoutDate <= now`. Same logic as auto-payout — no further opt-out available.
+
+#### Contest-close job extension (existing `close_contest` job)
+After setting `winnerEntryId` and `status: closed`, the job now also:
+1. Aggregates `ContestContribution` totals per entry (only `status: active` contributions)
+2. Sets all contributions for this contest to `status: locked`
+3. Creates one `ContestPayout` doc per contestant with `grossContributionsCHL`, `netPayoutCHL` (75%), `platformFeeCHL` (25%), `status: pending`
+4. Sends `contest_payout_available` notification to each contestant who has pending earnings > 0
+
+---
+
+### New Notification Types
+
+| Type | When | Copy |
+|---|---|---|
+| `payout_reminder` | 25th of month | *"Your X 🌶️ auto-payout fires in 5 days. Tap to hold until the 15th."* |
+| `payout_processed` | 30th or 15th after auto-payout | *"X 🌶️ has been paid out from your account."* |
+| `contest_payout_available` | Contest closes with contributions > 0 | *"Your contest earned X 🌶️. Cash out in your wallet."* |
+| `cashout_success` | Manual cashout completes | *"X 🌶️ moved to your spendable balance."* |
+
+---
+
+### Task List
+
+**Schema**
+- [ ] Migrate `User.wallet.balanceCents → balanceCHL` (default 0, no data to preserve)
+- [ ] Create `WalletTransaction` model
+- [ ] Create `ContestContribution` model
+- [ ] Create `ContestPayout` model
+- [ ] Create `MonthlySnapshot` model
+- [ ] Add new notification types to `Notification` schema enum
+
+**Top-up flow**
+- [ ] `GET /wallet/topup` route + `views/wallet/topup.ejs` — package cards, custom input, USD↔🌶️ toggle
+- [ ] `GET /wallet/checkout` route + `views/wallet/checkout.ejs` — order summary
+- [ ] `POST /wallet/checkout` — credit wallet, write `WalletTransaction`, redirect with success flash
+
+**Contribution**
+- [ ] `POST /api/contests/:id/contribute` — create/update `ContestContribution`, debit wallet, write tx
+- [ ] `PATCH /api/contests/:id/contribute/:entryId` — adjust contribution, write delta tx
+- [ ] `DELETE /api/contests/:id/contribute/:entryId` — withdraw, refund wallet, write tx
+- [ ] Contest page contribution UI — slider/input per contestant, gross total display, your-contribution line
+
+**Pending earnings + cashout**
+- [ ] Extend `close_contest` background job — lock contributions, create `ContestPayout` docs, fire `contest_payout_available` notifications
+- [ ] `POST /api/wallet/cashout/:contestPayoutId` — manual cashout route
+- [ ] `POST /api/wallet/hold-payout` — hold current month's auto-payout
+
+**Settings wallet section**
+- [ ] Add Wallet section to `views/settings.ejs` — balance, pending earnings list, auto-payout notice, transaction history
+- [ ] Wire wallet data into `GET /settings` route
+
+**Profile**
+- [ ] Show `balanceCHL` in stats row — owner view only
+
+**Background jobs**
+- [ ] `snapshot_monthly_balances` — 1st of month
+- [ ] `payout_reminder` — 25th of month (in-app + email)
+- [ ] `auto_payout_30` — 30th of month
+- [ ] `makeup_payout_15` — 15th of month
+
+**Notifications**
+- [ ] Add `payout_reminder`, `payout_processed`, `contest_payout_available`, `cashout_success` render cases to `views/notifications.ejs`
+
+---
+
+## Financial System — Design Reference (June 17)
+
+The full financial system is documented in `plans/platform-core-concepts.md`. Key decisions locked:
 
 ### Credits
 - **Exchange rate:** 1 credit = $0.20 ($1 = 5 credits). Adjustable at platform discretion.
@@ -511,8 +772,8 @@ These are defined but deliberately deferred:
 | Feature | Reason |
 |---|---|
 | Tournaments | Needs contest system solid and battle-tested first |
-| Credit system + CCBill | Design complete (see above) — implementation deferred to July |
-| Apron payout system | Design complete (see above) — implementation deferred to July |
+| CCBill real payment integration | July — fake checkout stub built in Phase 4.7 is the drop-in replacement point |
+| Apron payout system | July — needs real vote volumes to be meaningful |
 | Ratings Challenge (tie-breaker) | Removed from design — replaced by 3-replay chain |
 | Open challenges (post-MVP) | Explicitly post-MVP |
 
@@ -520,12 +781,16 @@ These are defined but deliberately deferred:
 
 ## End-of-June Target
 
-By June 30, the platform should support the complete standalone contest lifecycle:
+By June 30, the platform should support the complete standalone contest lifecycle plus a testable economic layer:
 - Users register, upload entries, get rated
 - Users challenge each other to HTHs
 - Viewers can nominate two users for a HTH with a message
 - Contests run on a timer, void or close automatically
 - Winners are determined by vote count
 - Users receive notifications throughout
+- Users can top up chillies via the fake checkout flow
+- Viewers can contribute chillies to contestants on active contests
+- Contestants can cash out pending earnings from closed contests
+- Monthly auto-payout cycle with hold-to-15th opt-out runs via background jobs
 
-This is the MVP core. Tournaments and vote economics are the July scope.
+CCBill real payment integration and Apron payouts are July scope. Everything else is done.

@@ -1,0 +1,77 @@
+<%- include('../partials/appStart', { title: title, activePage: 'settings' }) %>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <div class="flex items-center gap-3">
+      <a href="/wallet/topup" class="text-white/40 hover:text-white/70 transition-colors">
+        <iconify-icon icon="boxicons:arrow-back" width="18"></iconify-icon>
+      </a>
+      <h1 class="font-black text-xl tracking-tight">Checkout</h1>
+    </div>
+  </header>
+
+  <div class="px-5 py-6 max-w-xl">
+
+    <!-- Order summary card -->
+    <div class="bg-shark-900 border border-white/10 rounded-md mb-6">
+
+      <div class="px-4 py-3 border-b border-white/8">
+        <p class="text-xs font-semibold text-white/40 uppercase tracking-wider">Order summary</p>
+      </div>
+
+      <div class="px-4 py-4 flex flex-col gap-3">
+
+        <!-- Package / custom label -->
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-white/60">
+            <% if (packageName) { %><%= packageName %> Package<% } else { %>Custom top-up<% } %>
+          </span>
+          <span class="text-sm font-semibold text-white">$<%= amountUSD.toFixed(2) %></span>
+        </div>
+
+        <!-- Chillies received -->
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-white/60">Chillies received</span>
+          <span class="flex items-center gap-1.5 text-sm font-semibold text-white">
+            <iconify-icon icon="noto:hot-pepper" width="14"></iconify-icon>
+            <%= amountCHL.toLocaleString() %> chillies
+          </span>
+        </div>
+
+        <div class="h-px bg-white/8"></div>
+
+        <!-- Total -->
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-semibold text-white">Total</span>
+          <span class="text-lg font-black text-white">$<%= amountUSD.toFixed(2) %></span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Exchange rate note -->
+    <p class="text-xs text-white/30 mb-6 text-center">
+      1 chilli = $0.20 &nbsp;·&nbsp; $1 = 5 chillies
+    </p>
+
+    <!-- Fake payment form (CCBill stub) -->
+    <form action="/wallet/checkout" method="POST">
+      <input type="hidden" name="amountCHL" value="<%= amountCHL %>">
+      <input type="hidden" name="packageName" value="<%= packageName || '' %>">
+
+      <button type="submit"
+        class="w-full bg-charm-600 hover:bg-charm-500 active:bg-charm-700 text-white font-bold py-3 rounded-md transition-colors text-sm tracking-wide">
+        Complete Purchase
+      </button>
+    </form>
+
+    <p class="text-xs text-white/20 text-center mt-4">
+      This is a simulated payment flow. No real charges are made.
+    </p>
+
+  </div>
+</div>
+
+<%- include('../partials/appEnd') %>

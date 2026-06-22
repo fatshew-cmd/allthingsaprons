@@ -108,8 +108,8 @@ const userSchema = new mongoose.Schema({
   adultContentAcknowledgedAt: { type: Date },
 
   wallet: {
-    balanceCents: { type: Number, default: 0 },
-    updatedAt:    { type: Date },
+    balanceCHL: { type: Number, default: 0 },
+    updatedAt:  { type: Date },
   },
 
   supportFirstReplyEmailSent: { type: Boolean, default: false },
@@ -118,6 +118,15 @@ const userSchema = new mongoose.Schema({
   adminInviteExpiry: { type: Date },
   isTemporary:       { type: Boolean, default: false },
   temporaryUntil:    { type: Date },
+
+  nominationSettings: {
+    allow:          { type: Boolean, default: true },
+    whoCanNominate: {
+      type:    String,
+      enum:    ['everyone', 'followers_only', 'followees_only', 'mutual_follow'],
+      default: 'everyone',
+    },
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

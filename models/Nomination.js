@@ -7,9 +7,10 @@ const nominationSchema = new mongoose.Schema({
   message:     { type: String },
   expiresAt:   { type: Date, required: true },
   status:          { type: String, enum: ['pending', 'accepted', 'void'], default: 'pending' },
-  nomineeEntryId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Entry', default: null },
-  challengerEntryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entry', default: null },
-  type:              { type: String, enum: ['standard', 'take_on'], default: 'standard' },
+  nomineeEntryId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Entry', default: null },
+  challengerEntryId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Entry', default: null },
+  preSelectedEntryId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Entry', default: null },
+  type:                { type: String, enum: ['standard', 'take_on', 'viewer_nomination'], default: 'standard' },
 }, { timestamps: true });
 
 nominationSchema.index({ contestId: 1 });

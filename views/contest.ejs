@@ -211,7 +211,7 @@
         <% if (ls && ls.entryId) { %>
         <div class="flex items-center gap-1">
           <% if (!ls.isMine && showLeftEntry) { %>
-          <a href="/submit?challenge=<%= ls.entryId %>" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white/30 hover:text-charm-400 transition-colors shrink-0">
+          <a href="/submit?challenge=<%= ls.entryId %>" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white hover:text-charm-400 transition-colors shrink-0">
             <iconify-icon icon="boxicons:git-compare" width="20"></iconify-icon>
             <span class="text-sm font-semibold">0</span>
           </a>
@@ -238,6 +238,18 @@
             </div>
             <% } %>
           </div>
+          <% if (ls.isMine) { %>
+          <div class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white">
+            <span>🌶️</span>
+            <span><%= grossByEntry[ls.entryId] || 0 %></span>
+          </div>
+          <% } else { %>
+          <button type="button" onclick="document.getElementById('chl-gross-left').closest('.border-t').scrollIntoView({behavior:'smooth',block:'start'})"
+            class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white hover:text-charm-400 transition-colors cursor-pointer">
+            <span>🌶️</span>
+            <span><%= grossByEntry[ls.entryId] || 0 %></span>
+          </button>
+          <% } %>
         </div>
         <% } %>
 
@@ -373,7 +385,7 @@
         <% if (rs && rs.entryId) { %>
         <div class="flex items-center gap-1">
           <% if (!rs.isMine && showRightEntry) { %>
-          <a href="/submit?challenge=<%= rs.entryId %>" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white/30 hover:text-charm-400 transition-colors shrink-0">
+          <a href="/submit?challenge=<%= rs.entryId %>" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white hover:text-charm-400 transition-colors shrink-0">
             <iconify-icon icon="boxicons:git-compare" width="20"></iconify-icon>
             <span class="text-sm font-semibold">0</span>
           </a>
@@ -398,6 +410,18 @@
             </button>
             <% } %>
           </div>
+          <% if (rs.isMine) { %>
+          <div class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white">
+            <span>🌶️</span>
+            <span><%= grossByEntry[rs.entryId] || 0 %></span>
+          </div>
+          <% } else { %>
+          <button type="button" onclick="document.getElementById('chl-gross-right').closest('.border-t').scrollIntoView({behavior:'smooth',block:'start'})"
+            class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white hover:text-charm-400 transition-colors cursor-pointer">
+            <span>🌶️</span>
+            <span><%= grossByEntry[rs.entryId] || 0 %></span>
+          </button>
+          <% } %>
         </div>
         <% } %>
 
@@ -423,6 +447,138 @@
 
   <!-- Total vote count (once revealed) -->
   <p id="cv-total" class="px-4 pb-4 text-xs text-white/25 text-center<%= (showVotes && totalVotes > 0) ? '' : ' hidden' %>"><%= totalVotes %> total vote<%= totalVotes !== 1 ? 's' : '' %></p>
+
+  <!-- ── Chilli Contributions ── -->
+  <% if (ls && ls.entryId) { %>
+  <%
+    var _lGross = grossByEntry[ls.entryId] || 0;
+    var _rGross = (rs && rs.entryId) ? (grossByEntry[rs.entryId] || 0) : 0;
+    var _totalGross = _lGross + _rGross;
+    var _lMyContrib = myContribMap[ls.entryId] || null;
+    var _rMyContrib = (rs && rs.entryId) ? (myContribMap[rs.entryId] || null) : null;
+    var _canContribLeft  = canContribute && locals.currentUser && !ls.isMine;
+    var _canContribRight = canContribute && locals.currentUser && rs && rs.entryId && !rs.isMine;
+  %>
+  <div class="px-4 pb-4 border-t border-white/8 pt-4">
+
+    <!-- Gross contribution totals -->
+    <div class="flex justify-between items-start mb-3">
+      <div class="text-left">
+        <p class="text-xs text-white/30 mb-0.5">🌶️ Contributed</p>
+        <p id="chl-gross-left" class="text-sm font-bold text-white"><%= _lGross.toLocaleString() %> <span class="text-white/40 font-normal text-xs">chilli<%= _lGross !== 1 ? 'es' : '' %></span></p>
+      </div>
+      <% if (rs && rs.entryId) { %>
+      <div class="text-right">
+        <p class="text-xs text-white/30 mb-0.5">🌶️ Contributed</p>
+        <p id="chl-gross-right" class="text-sm font-bold text-white"><%= _rGross.toLocaleString() %> <span class="text-white/40 font-normal text-xs">chilli<%= _rGross !== 1 ? 'es' : '' %></span></p>
+      </div>
+      <% } %>
+    </div>
+
+    <!-- Contribution bar -->
+    <% if (_totalGross > 0) { %>
+    <%
+      var _lBarPct = Math.round((_lGross / _totalGross) * 100);
+      var _rBarPct = 100 - _lBarPct;
+    %>
+    <div id="chl-bar" class="relative h-1.5 rounded-md overflow-hidden bg-white/8 mb-4">
+      <div id="chl-bar-left"  class="absolute left-0 top-0 bottom-0 bg-charm-500/60 transition-all duration-500" style="width: <%= _lBarPct %>%"></div>
+      <div id="chl-bar-right" class="absolute right-0 top-0 bottom-0 bg-white/25 transition-all duration-500"   style="width: <%= _rBarPct %>%"></div>
+    </div>
+    <% } else { %>
+    <div id="chl-bar" class="relative h-1.5 rounded-md overflow-hidden bg-white/8 mb-4 hidden">
+      <div id="chl-bar-left"  class="absolute left-0 top-0 bottom-0 bg-charm-500/60 transition-all duration-500" style="width:0%"></div>
+      <div id="chl-bar-right" class="absolute right-0 top-0 bottom-0 bg-white/25 transition-all duration-500"   style="width:0%"></div>
+    </div>
+    <% } %>
+
+    <!-- Contribute panels (active contest only, not own entry) -->
+    <% if (canContribute && locals.currentUser) { %>
+    <div class="grid grid-cols-2 gap-3">
+
+      <!-- Left contribute -->
+      <div id="contrib-panel-left" class="<%= !_canContribLeft ? 'opacity-30 pointer-events-none' : '' %>">
+        <% if (_lMyContrib) { %>
+        <!-- Already contributing -->
+        <div class="flex flex-col gap-1.5">
+          <p class="text-xs text-white/40">Your contribution</p>
+          <div class="flex items-center gap-1.5">
+            <input id="chl-input-left" type="number" min="1" value="<%= _lMyContrib.amountCHL %>"
+              class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-charm-500/60">
+            <button class="chl-adjust-btn shrink-0 px-2 py-1.5 text-xs bg-charm-600 hover:bg-charm-500 text-white rounded-md transition-colors cursor-pointer"
+              data-side="left" data-entry-id="<%= ls.entryId %>" data-contest-id="<%= contest._id %>">
+              Save
+            </button>
+          </div>
+          <button class="chl-withdraw-btn text-xs text-white/30 hover:text-red-400 transition-colors text-left cursor-pointer"
+            data-side="left" data-entry-id="<%= ls.entryId %>" data-contest-id="<%= contest._id %>">
+            Withdraw
+          </button>
+        </div>
+        <% } else if (_canContribLeft) { %>
+        <!-- New contribution -->
+        <div class="flex flex-col gap-1.5">
+          <p class="text-xs text-white/40">Contribute 🌶️</p>
+          <div class="flex items-center gap-1.5">
+            <input id="chl-input-left" type="number" min="1" placeholder="Amount"
+              class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-charm-500/60">
+            <button class="chl-contribute-btn shrink-0 px-2 py-1.5 text-xs bg-shark-700 hover:bg-charm-600 text-white/60 hover:text-white rounded-md transition-colors cursor-pointer"
+              data-side="left" data-entry-id="<%= ls.entryId %>" data-contest-id="<%= contest._id %>">
+              <iconify-icon icon="noto:hot-pepper" width="12"></iconify-icon>
+            </button>
+          </div>
+        </div>
+        <% } %>
+      </div>
+
+      <!-- Right contribute -->
+      <div id="contrib-panel-right" class="<%= !_canContribRight ? 'opacity-30 pointer-events-none' : '' %>">
+        <% if (rs && rs.entryId) { %>
+        <% if (_rMyContrib) { %>
+        <!-- Already contributing -->
+        <div class="flex flex-col gap-1.5">
+          <p class="text-xs text-white/40">Your contribution</p>
+          <div class="flex items-center gap-1.5">
+            <input id="chl-input-right" type="number" min="1" value="<%= _rMyContrib.amountCHL %>"
+              class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-charm-500/60">
+            <button class="chl-adjust-btn shrink-0 px-2 py-1.5 text-xs bg-charm-600 hover:bg-charm-500 text-white rounded-md transition-colors cursor-pointer"
+              data-side="right" data-entry-id="<%= rs.entryId %>" data-contest-id="<%= contest._id %>">
+              Save
+            </button>
+          </div>
+          <button class="chl-withdraw-btn text-xs text-white/30 hover:text-red-400 transition-colors text-left cursor-pointer"
+            data-side="right" data-entry-id="<%= rs.entryId %>" data-contest-id="<%= contest._id %>">
+            Withdraw
+          </button>
+        </div>
+        <% } else if (_canContribRight) { %>
+        <!-- New contribution -->
+        <div class="flex flex-col gap-1.5">
+          <p class="text-xs text-white/40">Contribute 🌶️</p>
+          <div class="flex items-center gap-1.5">
+            <input id="chl-input-right" type="number" min="1" placeholder="Amount"
+              class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-charm-500/60">
+            <button class="chl-contribute-btn shrink-0 px-2 py-1.5 text-xs bg-shark-700 hover:bg-charm-600 text-white/60 hover:text-white rounded-md transition-colors cursor-pointer"
+              data-side="right" data-entry-id="<%= rs.entryId %>" data-contest-id="<%= contest._id %>">
+              <iconify-icon icon="noto:hot-pepper" width="12"></iconify-icon>
+            </button>
+          </div>
+        </div>
+        <% } %>
+        <% } %>
+      </div>
+
+    </div><!-- /grid -->
+
+    <!-- Balance hint -->
+    <p class="text-xs text-white/20 mt-2 text-center">
+      Balance: <span id="chl-viewer-balance"><%= viewerBalanceCHL.toLocaleString() %></span> 🌶️
+      <% if (viewerBalanceCHL === 0) { %>&nbsp;·&nbsp;<a href="/wallet/topup" class="text-charm-400 hover:text-charm-300 transition-colors">Top up</a><% } %>
+    </p>
+    <% } %>
+
+  </div><!-- /contributions -->
+  <% } %>
 
   <%
   function linkifyCommentBody(body) {
@@ -1493,6 +1649,131 @@
 
   });
 
+}());
+
+// ── Chilli contribution handlers ──────────────────────────────────
+(function () {
+  var CONTEST_ID = '<%= contest._id %>';
+
+  function updateContribUI(data, side) {
+    var gross      = data.grossByEntry || {};
+    var leftGross  = gross['<%= ls && ls.entryId ? ls.entryId : "" %>'] || 0;
+    var rightGross = gross['<%= rs && rs.entryId ? rs.entryId : "" %>'] || 0;
+    var total      = leftGross + rightGross;
+
+    var glEl = document.getElementById('chl-gross-left');
+    var grEl = document.getElementById('chl-gross-right');
+    if (glEl) glEl.innerHTML = leftGross.toLocaleString() + ' <span class="text-white/40 font-normal text-xs">chilli' + (leftGross !== 1 ? 'es' : '') + '</span>';
+    if (grEl) grEl.innerHTML = rightGross.toLocaleString() + ' <span class="text-white/40 font-normal text-xs">chilli' + (rightGross !== 1 ? 'es' : '') + '</span>';
+
+    var bar = document.getElementById('chl-bar');
+    if (bar && total > 0) {
+      bar.classList.remove('hidden');
+      var lPct = Math.round((leftGross / total) * 100);
+      var rPct = 100 - lPct;
+      var bl = document.getElementById('chl-bar-left');
+      var br = document.getElementById('chl-bar-right');
+      if (bl) bl.style.width = lPct + '%';
+      if (br) br.style.width = rPct + '%';
+    }
+
+    var balEl = document.getElementById('chl-viewer-balance');
+    if (balEl && data.newBalance != null) balEl.textContent = data.newBalance.toLocaleString();
+  }
+
+  function rebuildContribPanel(side, myAmountCHL, entryId) {
+    var panelId = 'contrib-panel-' + side;
+    var panel   = document.getElementById(panelId);
+    if (!panel) return;
+
+    if (myAmountCHL > 0) {
+      panel.innerHTML = '<div class="flex flex-col gap-1.5">'
+        + '<p class="text-xs text-white/40">Your contribution</p>'
+        + '<div class="flex items-center gap-1.5">'
+        + '<input id="chl-input-' + side + '" type="number" min="1" value="' + myAmountCHL + '" class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-charm-500/60">'
+        + '<button class="chl-adjust-btn shrink-0 px-2 py-1.5 text-xs bg-charm-600 hover:bg-charm-500 text-white rounded-md transition-colors cursor-pointer" data-side="' + side + '" data-entry-id="' + entryId + '" data-contest-id="' + CONTEST_ID + '">Save</button>'
+        + '</div>'
+        + '<button class="chl-withdraw-btn text-xs text-white/30 hover:text-red-400 transition-colors text-left cursor-pointer" data-side="' + side + '" data-entry-id="' + entryId + '" data-contest-id="' + CONTEST_ID + '">Withdraw</button>'
+        + '</div>';
+    } else {
+      panel.innerHTML = '<div class="flex flex-col gap-1.5">'
+        + '<p class="text-xs text-white/40">Contribute 🌶️</p>'
+        + '<div class="flex items-center gap-1.5">'
+        + '<input id="chl-input-' + side + '" type="number" min="1" placeholder="Amount" class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-charm-500/60">'
+        + '<button class="chl-contribute-btn shrink-0 px-2 py-1.5 text-xs bg-shark-700 hover:bg-charm-600 text-white/60 hover:text-white rounded-md transition-colors cursor-pointer" data-side="' + side + '" data-entry-id="' + entryId + '" data-contest-id="' + CONTEST_ID + '"><iconify-icon icon="noto:hot-pepper" width="12"></iconify-icon></button>'
+        + '</div>'
+        + '</div>';
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+
+    // New contribution
+    var contribBtn = e.target.closest('.chl-contribute-btn');
+    if (contribBtn) {
+      var side    = contribBtn.dataset.side;
+      var entryId = contribBtn.dataset.entryId;
+      var input   = document.getElementById('chl-input-' + side);
+      var amount  = parseInt(input && input.value, 10);
+      if (!amount || amount < 1) { if (window.showToast) window.showToast('Enter a valid amount.', 'error'); return; }
+      contribBtn.disabled = true;
+      fetch('/api/contests/' + CONTEST_ID + '/contribute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryId: entryId, amountCHL: amount }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); contribBtn.disabled = false; return; }
+          updateContribUI(data, side);
+          rebuildContribPanel(side, data.myAmountCHL, entryId);
+        })
+        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); contribBtn.disabled = false; });
+      return;
+    }
+
+    // Adjust contribution
+    var adjustBtn = e.target.closest('.chl-adjust-btn');
+    if (adjustBtn) {
+      var side    = adjustBtn.dataset.side;
+      var entryId = adjustBtn.dataset.entryId;
+      var input   = document.getElementById('chl-input-' + side);
+      var amount  = parseInt(input && input.value, 10);
+      if (!amount || amount < 1) { if (window.showToast) window.showToast('Enter a valid amount.', 'error'); return; }
+      adjustBtn.disabled = true;
+      fetch('/api/contests/' + CONTEST_ID + '/contribute/' + entryId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amountCHL: amount }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); adjustBtn.disabled = false; return; }
+          updateContribUI(data, side);
+          rebuildContribPanel(side, data.myAmountCHL, entryId);
+        })
+        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); adjustBtn.disabled = false; });
+      return;
+    }
+
+    // Withdraw contribution
+    var withdrawBtn = e.target.closest('.chl-withdraw-btn');
+    if (withdrawBtn) {
+      var side    = withdrawBtn.dataset.side;
+      var entryId = withdrawBtn.dataset.entryId;
+      withdrawBtn.disabled = true;
+      fetch('/api/contests/' + CONTEST_ID + '/contribute/' + entryId, { method: 'DELETE' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); withdrawBtn.disabled = false; return; }
+          updateContribUI(data, side);
+          rebuildContribPanel(side, 0, entryId);
+        })
+        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); withdrawBtn.disabled = false; });
+      return;
+    }
+
+  });
 }());
 </script>
 

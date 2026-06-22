@@ -106,6 +106,62 @@
   <% if (acceptingNomination) { %>
   <!-- ── Nomination acceptance banner ──────────────────────────── -->
   <div class="flex flex-col gap-3 border border-charm-500/25 bg-charm-600/5 rounded-md px-4 py-3.5 mb-5">
+
+    <% if (acceptingNomination.isViewerNomination) { %>
+    <!-- Viewer nomination: nominator (User C) wants to see a fight -->
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <img src="<%= acceptingNomination.nominator.avatar?.value || '/img/default-avatar.png' %>"
+          class="w-7 h-7 rounded-full object-cover bg-shark-800 shrink-0" alt="">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-white/85 truncate">
+            <%= acceptingNomination.nominator.displayName?.value || ('@' + acceptingNomination.nominator.username?.value) %>
+          </p>
+          <p class="text-xs text-white/40 truncate">@<%= acceptingNomination.nominator.username?.value %> · wants to see you go head-to-head</p>
+          <% if (acceptingNomination.message) { %>
+          <p class="text-xs text-white/40 truncate">"<%= acceptingNomination.message %>"</p>
+          <% } %>
+        </div>
+      </div>
+      <div id="nom-countdown" class="text-xs text-amber-300 font-medium tabular-nums shrink-0"
+        data-expires="<%= acceptingNomination.expiresAt.toISOString() %>"></div>
+    </div>
+    <% if (acceptingNomination.opponent) { %>
+    <div class="flex items-center gap-2.5 px-3 py-2.5 bg-shark-900 rounded-md">
+      <div class="w-7 h-7 rounded-full overflow-hidden bg-shark-700 shrink-0 flex items-center justify-center">
+        <% if (acceptingNomination.opponent.avatar?.value) { %>
+        <img src="<%= acceptingNomination.opponent.avatar.value %>" class="w-full h-full object-cover" alt="">
+        <% } else { %>
+        <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+        <% } %>
+      </div>
+      <div class="min-w-0">
+        <p class="text-xs text-white/50 mb-0.5">Your opponent</p>
+        <p class="text-sm font-semibold text-white/85 truncate">
+          <%= acceptingNomination.opponent.displayName?.value || ('@' + acceptingNomination.opponent.username?.value) %>
+        </p>
+      </div>
+    </div>
+    <% } %>
+    <% if (acceptingNomination.isLocked && acceptingNomination.preSelectedEntry) { %>
+    <!-- Pre-selected entry: no upload needed -->
+    <div>
+      <p class="text-xs text-white/40 mb-2">Entry picked for you</p>
+      <div class="rounded-md overflow-hidden bg-shark-950">
+        <% if (acceptingNomination.preSelectedEntry.mediaType === 'video') { %>
+        <video src="<%= acceptingNomination.preSelectedEntry.mediaUrl %>" class="w-full max-h-52 object-contain" controls playsinline></video>
+        <% } else { %>
+        <img src="<%= acceptingNomination.preSelectedEntry.mediaUrl %>" class="w-full max-h-52 object-contain" alt="">
+        <% } %>
+      </div>
+      <% if (acceptingNomination.preSelectedEntry.caption) { %>
+      <p class="text-sm text-white/60 mt-2"><%= acceptingNomination.preSelectedEntry.caption %></p>
+      <% } %>
+    </div>
+    <% } %>
+
+    <% } else { %>
+    <!-- Standard / take-on nomination: challenger info + their entry -->
     <div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-2.5 min-w-0">
         <img src="<%= acceptingNomination.nominator.avatar?.value || '/img/default-avatar.png' %>"
@@ -150,6 +206,24 @@
       Entry hidden until you accept
     </div>
     <% } %>
+    <% } %>
+
+    <% if (acceptingNomination.isLocked) { %>
+    <div class="flex items-center gap-2 pt-0.5">
+      <button type="button" id="accept-locked-nomination-btn"
+        data-nomination-id="<%= acceptingNomination._id %>"
+        data-contest-id="<%= acceptingNomination.contestId %>"
+        class="flex-1 h-10 flex items-center justify-center gap-2 bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold rounded-md transition-colors cursor-pointer">
+        <iconify-icon icon="boxicons:check" width="15"></iconify-icon>
+        Accept &amp; Enter
+      </button>
+      <button type="button" id="decline-nomination-btn"
+        data-nomination-id="<%= acceptingNomination._id %>"
+        class="h-10 flex items-center text-xs text-red-400 hover:text-red-300 transition-colors cursor-pointer border border-red-400/30 hover:border-red-400/50 rounded-md px-2.5">
+        Decline
+      </button>
+    </div>
+    <% } else { %>
     <div class="flex items-center gap-2 pt-0.5">
       <p class="text-xs text-white/35 flex-1">Submit your entry below to accept the nomination.</p>
       <button type="button" id="decline-nomination-btn"
@@ -158,9 +232,11 @@
         Drop nomination
       </button>
     </div>
+    <% } %>
   </div>
   <% } %>
 
+  <% if (acceptingNomination?.isLocked) { %><%# locked nominations show accept/decline above — no upload form needed %><% } else { %>
   <form action="/submit" method="POST" enctype="multipart/form-data" id="submit-form" novalidate>
     <input type="hidden" id="accepting-nomination-id" value="<%= acceptingNomination ? acceptingNomination._id : '' %>">
     <% if (locals.takeOnTargetEntry) { %>
@@ -504,8 +580,14 @@
           <div class="flex flex-col gap-0.5 min-w-0 flex-1">
             <span class="text-sm text-white/80 font-medium truncate">
               <%= nom.nominatorId.displayName?.value || ('@' + nom.nominatorId.username?.value) %>
+              <% if (nom.type === 'viewer_nomination') { %>
+              <span class="ml-1 text-xs text-charm-400 font-normal">viewer nomination</span>
+              <% } %>
             </span>
-            <span class="text-xs text-white/35 truncate">@<%= nom.nominatorId.username?.value %> · nominated you</span>
+            <span class="text-xs text-white/35 truncate">
+              @<%= nom.nominatorId.username?.value %> ·
+              <% if (nom.type === 'viewer_nomination') { %>wants to see you compete<% } else { %>nominated you<% } %>
+            </span>
             <% if (nom.message) { %>
             <span class="text-xs text-white/40 truncate">"<%= nom.message %>"</span>
             <% } %>
@@ -604,6 +686,7 @@
     </button>
 
   </form>
+  <% } %>
 
 </div>
 
@@ -663,6 +746,27 @@
     }
     updateCountdowns();
     setInterval(updateCountdowns, 1000);
+  }
+
+  // ── Accept locked nomination ─────────────────────────────────────
+  var acceptLockedBtn = document.getElementById('accept-locked-nomination-btn');
+  if (acceptLockedBtn) {
+    acceptLockedBtn.addEventListener('click', async function () {
+      var nomId     = this.dataset.nominationId;
+      var contestId = this.dataset.contestId;
+      this.disabled = true;
+      this.textContent = 'Accepting…';
+      try {
+        var r = await fetch('/api/nominations/' + nomId + '/accept', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Failed');
+        window.location.href = '/contest/' + contestId;
+      } catch (e) {
+        this.disabled = false;
+        this.innerHTML = '<iconify-icon icon="boxicons:check" width="15"></iconify-icon> Accept &amp; Enter';
+        if (window.showToast) window.showToast(e.message || 'Something went wrong.', 'error');
+      }
+    });
   }
 
   // ── Drop nomination ──────────────────────────────────────────────

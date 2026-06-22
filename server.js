@@ -15,6 +15,7 @@ const careersRouter    = require('./routes/careers');
 const followRouter     = require('./routes/follow');
 const messagesRouter   = require('./routes/messages');
 const notificationsRouter = require('./routes/notifications');
+const walletRouter     = require('./routes/wallet');
 const injectNotificationCount = require('./middleware/injectNotificationCount');
 const injectRightPanelData    = require('./middleware/injectRightPanelData');
 
@@ -42,6 +43,7 @@ app.use('/contact', contactRouter);
 app.use('/careers', careersRouter);
 app.use('/admin', adminRouter);
 app.use('/', followRouter);
+app.use('/wallet', injectNotificationCount, injectRightPanelData, walletRouter);
 app.use('/messages', injectNotificationCount, injectRightPanelData, messagesRouter);
 app.use('/notifications', injectNotificationCount, injectRightPanelData, notificationsRouter);
 app.use('/', injectNotificationCount, injectRightPanelData, pagesRouter);
@@ -56,9 +58,12 @@ mongoose
     const agenda                  = require('./jobs/agenda');
     const { registerContestJobs } = require('./jobs/contestJobs');
     const { startSweeper }        = require('./jobs/sweeper');
+    const { registerWalletJobs, startWalletJobs } = require('./jobs/walletJobs');
     registerContestJobs(agenda);
+    registerWalletJobs(agenda);
     await agenda.start();
     await startSweeper(agenda);
+    await startWalletJobs(agenda);
     console.log('Background jobs started');
 
     async function gracefulShutdown(signal) {
