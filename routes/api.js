@@ -1539,18 +1539,22 @@ router.post('/contests/:id/contribute', async (req, res) => {
   let contribution, balanceBefore, balanceAfter;
   try {
     await withTxnOrFallback(async (session) => {
-      const updatedUser = await User.findOneAndUpdate(
-        { _id: req.session.userId, 'wallet.balanceCHL': { $gte: amountCHL } },
-        { $inc: { 'wallet.balanceCHL': -amountCHL }, $set: { 'wallet.updatedAt': new Date() } },
-        { new: true, select: 'wallet', session }
-      );
-      if (!updatedUser) {
-        const err = new Error('Insufficient chilli balance.');
-        err.statusCode = 400;
-        throw err;
+      // Read wallet to compute two-pool debit (purchasedCHL first, then earnedCHL)
+      const userWallet = await User.findById(req.session.userId).select('wallet').session(session).lean();
+      if (!userWallet) { const err = new Error('User not found.'); err.statusCode = 404; throw err; }
+      const purchased = userWallet.wallet?.purchasedCHL || 0;
+      const earned    = userWallet.wallet?.earnedCHL    || 0;
+      if (purchased + earned < amountCHL) {
+        const err = new Error('Insufficient chilli balance.'); err.statusCode = 400; throw err;
       }
-      balanceBefore = updatedUser.wallet.balanceCHL + amountCHL;
-      balanceAfter  = updatedUser.wallet.balanceCHL;
+      const fromPurchased = Math.min(purchased, amountCHL);
+      const fromEarned    = amountCHL - fromPurchased;
+      const walletInc = {};
+      if (fromPurchased > 0) walletInc['wallet.purchasedCHL'] = -fromPurchased;
+      if (fromEarned    > 0) walletInc['wallet.earnedCHL']    = -fromEarned;
+      await User.findByIdAndUpdate(req.session.userId, { $inc: walletInc, $set: { 'wallet.updatedAt': new Date() } }, { session });
+      balanceBefore = purchased + earned;
+      balanceAfter  = balanceBefore - amountCHL;
 
       if (existing && existing.status === 'active') {
         // Additive: amountCHL is the additional amount on top of existing total
@@ -1647,28 +1651,33 @@ router.patch('/contests/:id/contribute/:entryId', async (req, res) => {
   let balanceBefore, balanceAfter;
   try {
     await withTxnOrFallback(async (session) => {
-      let updatedUser;
       if (delta > 0) {
-        updatedUser = await User.findOneAndUpdate(
-          { _id: req.session.userId, 'wallet.balanceCHL': { $gte: delta } },
-          { $inc: { 'wallet.balanceCHL': -delta }, $set: { 'wallet.updatedAt': new Date() } },
-          { new: true, select: 'wallet', session }
-        );
-        if (!updatedUser) {
-          const err = new Error('Insufficient chilli balance.');
-          err.statusCode = 400;
-          throw err;
+        // Debit: purchasedCHL first, then earnedCHL
+        const userWallet = await User.findById(req.session.userId).select('wallet').session(session).lean();
+        if (!userWallet) { const err = new Error('User not found.'); err.statusCode = 404; throw err; }
+        const purchased = userWallet.wallet?.purchasedCHL || 0;
+        const earned    = userWallet.wallet?.earnedCHL    || 0;
+        if (purchased + earned < delta) {
+          const err = new Error('Insufficient chilli balance.'); err.statusCode = 400; throw err;
         }
+        const fromPurchased = Math.min(purchased, delta);
+        const fromEarned    = delta - fromPurchased;
+        const walletInc = {};
+        if (fromPurchased > 0) walletInc['wallet.purchasedCHL'] = -fromPurchased;
+        if (fromEarned    > 0) walletInc['wallet.earnedCHL']    = -fromEarned;
+        await User.findByIdAndUpdate(req.session.userId, { $inc: walletInc, $set: { 'wallet.updatedAt': new Date() } }, { session });
+        balanceBefore = purchased + earned;
+        balanceAfter  = balanceBefore - delta;
       } else {
-        updatedUser = await User.findByIdAndUpdate(
+        // Refund goes back to purchasedCHL
+        const updatedUser = await User.findByIdAndUpdate(
           req.session.userId,
-          { $inc: { 'wallet.balanceCHL': -delta }, $set: { 'wallet.updatedAt': new Date() } },
+          { $inc: { 'wallet.purchasedCHL': -delta }, $set: { 'wallet.updatedAt': new Date() } },
           { new: true, select: 'wallet', session }
         );
+        balanceAfter  = (updatedUser.wallet.purchasedCHL || 0) + (updatedUser.wallet.earnedCHL || 0);
+        balanceBefore = balanceAfter + delta;
       }
-
-      balanceAfter  = updatedUser.wallet.balanceCHL;
-      balanceBefore = balanceAfter + delta;
 
       contribution.amountCHL = newAmount;
       await contribution.save({ session });
@@ -1729,11 +1738,11 @@ router.delete('/contests/:id/contribute/:entryId', async (req, res) => {
 
       const updatedUser = await User.findByIdAndUpdate(
         req.session.userId,
-        { $inc: { 'wallet.balanceCHL': refundAmount }, $set: { 'wallet.updatedAt': new Date() } },
+        { $inc: { 'wallet.purchasedCHL': refundAmount }, $set: { 'wallet.updatedAt': new Date() } },
         { new: true, select: 'wallet', session }
       );
       if (!updatedUser) throw new Error('User not found during withdrawal.');
-      balanceAfter  = updatedUser.wallet.balanceCHL;
+      balanceAfter  = (updatedUser.wallet.purchasedCHL || 0) + (updatedUser.wallet.earnedCHL || 0);
       balanceBefore = balanceAfter - refundAmount;
 
       await WalletTransaction.create([{

@@ -564,9 +564,10 @@ router.get('/settings', async (req, res) => {
     user,
     nominationSettings: user?.nominationSettings || { allow: true, whoCanNominate: 'everyone' },
     privacySettings: user?.privacySettings || { whoCanDm: 'everyone', showMatureContent: true, showAiContent: true, defaultAllowTakeOns: true },
-    notifSettings: user?.notificationSettings || { emailComments: true, emailNominations: true, emailContests: true, emailPayouts: true },
+    notifSettings: user?.notificationSettings || { inAppComments: true, inAppNominations: true, inAppContests: true, inAppPayouts: true, emailComments: true, emailNominations: true, emailContests: true, emailPayouts: true },
     wallet: {
-      balanceCHL:       user?.wallet?.balanceCHL || 0,
+      purchasedCHL:     user?.wallet?.purchasedCHL || 0,
+      earnedCHL:        user?.wallet?.earnedCHL    || 0,
       monthlySnapshot,
       recentTransactions,
       showHoldBtn:      today >= 25 && today <= 29 && monthlySnapshot?.status === 'pending',
@@ -1076,13 +1077,13 @@ router.post('/settings/profile', upload.profile.fields([{ name: 'avatar', maxCou
     const join = safeReturnTo.includes('?') ? '&' : '?';
     return res.redirect(`${safeReturnTo}${join}saved=1`);
   }
-  res.redirect('/settings?tab=profile&saved=1');
+  res.redirect('/settings?saved=1');
 });
 
 // ── Privacy settings update ───────────────────────────────────────
 
 router.post('/settings/privacy', async (req, res) => {
-  const allow          = req.body.nominationAllow !== 'false';
+  const allow          = req.body.nominationAllow === 'true';
   const validWho       = ['everyone', 'followers_only', 'followees_only', 'mutual_follow'];
   const whoCanNominate = validWho.includes(req.body.whoCanNominate) ? req.body.whoCanNominate : 'everyone';
 
@@ -1094,12 +1095,12 @@ router.post('/settings/privacy', async (req, res) => {
       'nominationSettings.allow':            allow,
       'nominationSettings.whoCanNominate':   whoCanNominate,
       'privacySettings.whoCanDm':            whoCanDm,
-      'privacySettings.showMatureContent':   req.body.showMatureContent !== 'false',
-      'privacySettings.showAiContent':       req.body.showAiContent !== 'false',
-      'privacySettings.defaultAllowTakeOns': req.body.defaultAllowTakeOns !== 'false',
+      'privacySettings.showMatureContent':   req.body.showMatureContent   === 'true',
+      'privacySettings.showAiContent':       req.body.showAiContent       === 'true',
+      'privacySettings.defaultAllowTakeOns': req.body.defaultAllowTakeOns === 'true',
     },
   });
-  res.redirect('/settings?tab=privacy&saved=1');
+  res.redirect('/settings?tab=privacy&saved=privacy');
 });
 
 // ── Notification settings update ──────────────────────────────────
@@ -1107,10 +1108,14 @@ router.post('/settings/privacy', async (req, res) => {
 router.post('/settings/notifications', async (req, res) => {
   await User.findByIdAndUpdate(req.session.userId, {
     $set: {
-      'notificationSettings.emailComments':    req.body.emailComments    !== 'false',
-      'notificationSettings.emailNominations': req.body.emailNominations !== 'false',
-      'notificationSettings.emailContests':    req.body.emailContests    !== 'false',
-      'notificationSettings.emailPayouts':     req.body.emailPayouts     !== 'false',
+      'notificationSettings.inAppComments':    req.body.inAppComments    === 'true',
+      'notificationSettings.inAppNominations': req.body.inAppNominations === 'true',
+      'notificationSettings.inAppContests':    req.body.inAppContests    === 'true',
+      'notificationSettings.inAppPayouts':     req.body.inAppPayouts     === 'true',
+      'notificationSettings.emailComments':    req.body.emailComments    === 'true',
+      'notificationSettings.emailNominations': req.body.emailNominations === 'true',
+      'notificationSettings.emailContests':    req.body.emailContests    === 'true',
+      'notificationSettings.emailPayouts':     req.body.emailPayouts     === 'true',
     },
   });
   res.redirect('/settings?tab=notifications&saved=1');
@@ -1337,7 +1342,7 @@ router.get('/contest/:id', async (req, res) => {
     myContribMap,
     contribRankLeft,
     contribRankRight,
-    viewerBalanceCHL: viewerUser?.wallet?.balanceCHL || 0,
+    viewerBalanceCHL: (viewerUser?.wallet?.purchasedCHL || 0) + (viewerUser?.wallet?.earnedCHL || 0),
     canContribute:    effectiveStatus === 'active',
     comments,
     relatedContests,

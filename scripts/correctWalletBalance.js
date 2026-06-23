@@ -18,7 +18,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/allthingsap
     process.exit(1);
   }
 
-  const currentBalance = user.wallet?.balanceCHL ?? 0;
+  const currentBalance = (user.wallet?.purchasedCHL ?? 0) + (user.wallet?.earnedCHL ?? 0);
   console.log(`User:            @${user.username.value} (${user._id})`);
   console.log(`Balance in DB:   ${currentBalance} 🌶️`);
 
@@ -43,7 +43,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/allthingsap
 
   await User.findByIdAndUpdate(
     user._id,
-    { $set: { 'wallet.balanceCHL': computedBalance, 'wallet.updatedAt': new Date() } }
+    { $set: { 'wallet.purchasedCHL': computedBalance, 'wallet.earnedCHL': 0, 'wallet.updatedAt': new Date() } }
   );
 
   await WalletTransaction.create({

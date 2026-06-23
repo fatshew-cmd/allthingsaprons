@@ -138,7 +138,7 @@ These are two independent mechanics that run in parallel on every contest.
 - **Contributions are mutable while the contest is live**: the user can increase, decrease, or fully withdraw their contribution at any time. A full withdrawal returns the credits to the user's balance. Changes are locked in when the contest closes.
 - Adds to the entry's **attribution total** and determines position in the **voter ranking list** (shown under each entry, sorted by contribution amount, highest first).
 - Free votes carry no attribution value.
-- **Cash-out minimum:** a contestant must have at least **100 credits ($20)** in attribution earnings before requesting a cash-out.
+- **Cash-out minimum:** a contestant must have at least **100 credits ($20)** in `earnedCHL` (AAC) before requesting a cash-out. Users may optionally include `purchasedCHL` (SB) in their cashout via a toggle — the 100-credit minimum applies to the total requested amount regardless.
 
 **Contest UI — two parallel stats:**
 Each entry in a contest displays two independent metrics:

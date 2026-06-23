@@ -6,7 +6,7 @@ const monthlySnapshotSchema = new mongoose.Schema({
   month:        { type: String, required: true }, // "YYYY-MM"
   snapshotDate: { type: Date,   required: true }, // 1st of month 00:00 UTC
 
-  balanceCHL: { type: Number, required: true },
+  earnedCHL: { type: Number, required: true },
 
   autoPayoutDate:   { type: Date, required: true }, // 30th of same month
   makeupPayoutDate: { type: Date, required: true }, // 15th of next month

@@ -199,8 +199,8 @@
 
     <% if (isOwn) { %>
     <div class="w-px self-stretch bg-white/10"></div>
-    <a href="/settings#section-wallet" class="flex flex-col items-center no-underline hover:opacity-70 transition-opacity">
-      <span class="text-xl font-bold leading-tight"><%= formatStat(profileUser.wallet?.balanceCHL || 0) %></span>
+    <a href="/settings?tab=wallet" class="flex flex-col items-center no-underline hover:opacity-70 transition-opacity">
+      <span class="text-xl font-bold leading-tight"><%= formatStat((profileUser.wallet?.purchasedCHL || 0) + (profileUser.wallet?.earnedCHL || 0)) %></span>
       <span class="text-xs text-white/40 mt-0.5">Chillies</span>
     </a>
     <% } %>

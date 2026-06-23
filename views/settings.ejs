@@ -2,15 +2,9 @@
 
 <div class="flex flex-col pb-20 md:pb-0">
 
-  <!-- Header -->
-  <header class="sticky top-0 z-20 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
-    <h1 class="font-black text-xl tracking-tight">Settings</h1>
-  </header>
-
   <!-- Tab bar -->
-  <div class="sticky top-15.25 z-10 bg-shark-950/95 backdrop-blur-sm border-b border-white/8 overflow-x-auto">
+  <div class="sticky top-0 z-10 bg-shark-950/95 backdrop-blur-sm border-b border-white/8 overflow-x-auto">
     <div class="flex px-2">
-      <button id="tab-btn-profile"       data-tab="profile"       class="tab-btn shrink-0 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors">Profile</button>
       <button id="tab-btn-notifications" data-tab="notifications" class="tab-btn shrink-0 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors">Notifications</button>
       <button id="tab-btn-privacy"       data-tab="privacy"       class="tab-btn shrink-0 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors">Privacy</button>
       <button id="tab-btn-wallet"        data-tab="wallet"        class="tab-btn shrink-0 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors">Wallet</button>
@@ -18,203 +12,113 @@
     </div>
   </div>
 
-  <div class="px-5 py-6 max-w-xl">
+  <div class="px-5 py-6">
 
-    <!-- Flash banners -->
     <% if (error) { %>
-    <div id="settings-error-banner" class="flex items-center gap-2 text-sm text-red-400 bg-red-400/8 border border-red-400/20 rounded-md px-3 py-2.5 mb-6">
-      <iconify-icon icon="boxicons:error-circle" width="15" class="shrink-0"></iconify-icon>
-      <%= error %>
-    </div>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.showToast) window.showToast(<%- JSON.stringify(error) %>, 'error', 0); });</script>
     <% } %>
-    <% if (success) { %>
-    <div id="settings-success-banner" class="flex items-center gap-2 text-sm text-green-400 bg-green-400/8 border border-green-400/20 rounded-md px-3 py-2.5 mb-6">
-      <iconify-icon icon="boxicons:check-circle" width="15" class="shrink-0"></iconify-icon>
-      <%= success %>
-    </div>
-    <% } %>
-
-    <!-- ── Profile ─────────────────────────────────────────────────── -->
-    <div id="tab-panel-profile" class="hidden">
-      <form action="/settings/profile" method="POST" enctype="multipart/form-data" class="flex flex-col gap-5">
-
-        <!-- Avatar -->
-        <div class="flex items-center gap-4">
-          <label class="relative cursor-pointer group shrink-0">
-            <% if (user.avatar?.value) { %>
-            <img id="avatar-preview" src="<%= user.avatar.value %>" alt="Avatar"
-              class="w-16 h-16 rounded-md object-cover bg-shark-800 border-2 border-dashed border-white/15 group-hover:border-charm-600/60 transition-colors">
-            <% } else { %>
-            <div id="avatar-preview" class="w-16 h-16 rounded-md bg-shark-800 border-2 border-dashed border-white/15 flex items-center justify-center group-hover:border-charm-600/60 transition-colors">
-              <iconify-icon icon="boxicons:camera" width="22" class="text-white/30 group-hover:text-white/50 transition-colors"></iconify-icon>
-            </div>
-            <% } %>
-            <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-md bg-shark-700 border border-white/15 flex items-center justify-center shadow pointer-events-none">
-              <iconify-icon icon="boxicons:plus" width="12" class="text-white/60"></iconify-icon>
-            </div>
-            <input type="file" name="avatar" id="avatar-input" accept="image/*" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer">
-          </label>
-          <div>
-            <p class="text-sm font-medium">Profile photo</p>
-            <p class="text-xs text-white/35 mt-0.5">JPG, PNG, JPEG — max 10 MB</p>
-          </div>
-        </div>
-
-        <!-- Username -->
-        <div class="flex flex-col gap-1.5">
-          <label for="username" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-            Username <span class="text-charm-500">*</span>
-          </label>
-          <div class="relative">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
-            <input id="username" name="username" type="text" value="<%= user.username?.value || '' %>"
-              maxlength="15" autocomplete="off" spellcheck="false"
-              class="w-full bg-shark-800 border border-white/10 rounded-md pl-7 pr-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
-          </div>
-        </div>
-
-        <!-- Bio -->
-        <div class="flex flex-col gap-1.5">
-          <div class="flex items-center justify-between">
-            <label for="bio" class="text-xs font-semibold text-white/50 uppercase tracking-wide">Bio</label>
-            <span id="bio-counter" class="text-xs text-white/30"><%= user.bio?.value ? user.bio.value.replace(/\s/g, '').length : 0 %> / 220</span>
-          </div>
-          <textarea id="bio" name="bio" rows="3"
-            placeholder="Tell people about yourself and your passion for aprons..."
-            class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"><%= user.bio?.value || '' %></textarea>
-        </div>
-
-        <button type="submit"
-          class="self-start px-6 py-2.5 bg-charm-600 hover:bg-charm-500 text-white text-sm font-bold rounded-md transition-colors cursor-pointer">
-          Save Changes
-        </button>
-      </form>
-    </div>
 
     <!-- ── Notifications ───────────────────────────────────────────── -->
     <div id="tab-panel-notifications" class="hidden">
-      <form action="/settings/notifications" method="POST" class="flex flex-col gap-8">
+      <div class="flex flex-col gap-6">
 
-        <div>
-          <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">In-App</h2>
-          <div class="bg-shark-900 border border-white/8 rounded-md px-4 py-3.5">
-            <p class="text-sm text-white/50">All in-app notifications are always enabled. Use the email settings below to control which ones also reach your inbox.</p>
+        <div class="bg-shark-900 border border-white/8 rounded-md overflow-hidden">
+          <!-- Column headers -->
+          <div class="grid grid-cols-[1fr_3.5rem_3.5rem] items-center px-4 py-2.5 border-b border-white/8 gap-x-4">
+            <div></div>
+            <span class="text-xs font-semibold text-white/30 uppercase tracking-wider text-center">In-App</span>
+            <span class="text-xs font-semibold text-white/30 uppercase tracking-wider text-center">Email</span>
           </div>
-        </div>
 
-        <div>
-          <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Email</h2>
-          <div class="bg-shark-900 border border-white/8 rounded-md overflow-hidden">
+          <% var notifRows = [
+            { label: 'Comments & Replies',  desc: 'Comments on your entries and replies to you',      inApp: 'inAppComments',    email: 'emailComments'    },
+            { label: 'Contest Invitations', desc: 'Nominations and take-on challenges',                inApp: 'inAppNominations', email: 'emailNominations' },
+            { label: 'Contest Updates',     desc: "Status changes on contests you're in or watching", inApp: 'inAppContests',    email: 'emailContests'    },
+            { label: 'Payouts',             desc: 'Payout reminders and confirmed payouts',            inApp: 'inAppPayouts',     email: 'emailPayouts'     },
+          ]; %>
 
-            <div class="flex items-center justify-between px-4 py-3.5 border-b border-white/5">
-              <div>
-                <p class="text-sm font-medium">Comments &amp; Replies</p>
-                <p class="text-xs text-white/40 mt-0.5">Someone comments on your entry or replies to you</p>
-              </div>
-              <select name="emailComments"
-                class="bg-shark-800 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
-                <option value="true"  <%= notifSettings.emailComments !== false ? 'selected' : '' %>>On</option>
-                <option value="false" <%= notifSettings.emailComments === false  ? 'selected' : '' %>>Off</option>
-              </select>
+          <% notifRows.forEach(function(row, i) { %>
+          <div class="grid grid-cols-[1fr_3.5rem_3.5rem] items-center px-4 py-3.5 gap-x-4 <%= i < notifRows.length - 1 ? 'border-b border-white/5' : '' %>">
+            <div>
+              <p class="text-sm font-medium"><%= row.label %></p>
+              <p class="text-xs text-white/40 mt-0.5"><%= row.desc %></p>
             </div>
-
-            <div class="flex items-center justify-between px-4 py-3.5 border-b border-white/5">
-              <div>
-                <p class="text-sm font-medium">Contest Invitations</p>
-                <p class="text-xs text-white/40 mt-0.5">Nominations and take-on challenges sent to you</p>
-              </div>
-              <select name="emailNominations"
-                class="bg-shark-800 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
-                <option value="true"  <%= notifSettings.emailNominations !== false ? 'selected' : '' %>>On</option>
-                <option value="false" <%= notifSettings.emailNominations === false  ? 'selected' : '' %>>Off</option>
-              </select>
+            <div class="flex justify-center">
+              <button type="button" id="toggle-<%= row.inApp %>" data-on="<%- notifSettings[row.inApp] !== false ? 'true' : 'false' %>"
+                class="relative w-14 h-7 rounded-full transition-colors cursor-pointer shrink-0 <%- notifSettings[row.inApp] !== false ? 'bg-charm-600' : 'bg-shark-700' %>">
+                <span id="thumb-<%= row.inApp %>" class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%- notifSettings[row.inApp] !== false ? 'translate-x-7' : '' %>"></span>
+              </button>
+              <input type="hidden" id="input-<%= row.inApp %>" name="<%= row.inApp %>" value="<%- notifSettings[row.inApp] !== false ? 'true' : 'false' %>">
             </div>
-
-            <div class="flex items-center justify-between px-4 py-3.5 border-b border-white/5">
-              <div>
-                <p class="text-sm font-medium">Contest Updates</p>
-                <p class="text-xs text-white/40 mt-0.5">Status changes on contests you're in or watching</p>
-              </div>
-              <select name="emailContests"
-                class="bg-shark-800 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
-                <option value="true"  <%= notifSettings.emailContests !== false ? 'selected' : '' %>>On</option>
-                <option value="false" <%= notifSettings.emailContests === false  ? 'selected' : '' %>>Off</option>
-              </select>
+            <div class="flex justify-center">
+              <button type="button" id="toggle-<%= row.email %>" data-on="<%- notifSettings[row.email] !== false ? 'true' : 'false' %>"
+                class="relative w-14 h-7 rounded-full transition-colors cursor-pointer shrink-0 <%- notifSettings[row.email] !== false ? 'bg-charm-600' : 'bg-shark-700' %>">
+                <span id="thumb-<%= row.email %>" class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%- notifSettings[row.email] !== false ? 'translate-x-7' : '' %>"></span>
+              </button>
+              <input type="hidden" id="input-<%= row.email %>" name="<%= row.email %>" value="<%- notifSettings[row.email] !== false ? 'true' : 'false' %>">
             </div>
-
-            <div class="flex items-center justify-between px-4 py-3.5">
-              <div>
-                <p class="text-sm font-medium">Payouts</p>
-                <p class="text-xs text-white/40 mt-0.5">Payout reminders and confirmed payouts</p>
-              </div>
-              <select name="emailPayouts"
-                class="bg-shark-800 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
-                <option value="true"  <%= notifSettings.emailPayouts !== false ? 'selected' : '' %>>On</option>
-                <option value="false" <%= notifSettings.emailPayouts === false  ? 'selected' : '' %>>Off</option>
-              </select>
-            </div>
-
           </div>
+          <% }) %>
         </div>
 
-        <div>
-          <button type="submit"
-            class="px-6 py-2.5 bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold rounded-md transition-colors cursor-pointer">
-            Save Notification Settings
-          </button>
-        </div>
-      </form>
+
+      </div>
     </div>
 
     <!-- ── Privacy ─────────────────────────────────────────────────── -->
     <div id="tab-panel-privacy" class="hidden">
-      <form action="/settings/privacy" method="POST" class="flex flex-col gap-8">
+      <form action="/settings/privacy" method="POST" class="flex flex-col gap-6">
 
-        <!-- Nominations -->
-        <div>
-          <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Nominations</h2>
-          <div class="bg-shark-900 border border-white/8 rounded-md overflow-hidden">
-            <div class="flex items-center justify-between px-4 py-3.5 border-b border-white/5">
-              <div>
-                <p class="text-sm font-medium">Allow viewer nominations</p>
-                <p class="text-xs text-white/40 mt-0.5">Let others nominate you for a head-to-head contest</p>
+        <!-- Top row: Nominations + Messaging side by side on desktop -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- Nominations -->
+          <div>
+            <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Nominations</h2>
+            <div class="bg-shark-900 border border-white/8 rounded-md overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-3.5 border-b border-white/5">
+                <div>
+                  <p class="text-sm font-medium">Allow viewer nominations</p>
+                  <p class="text-xs text-white/40 mt-0.5">Let others nominate you for a head-to-head contest</p>
+                </div>
+                <button type="button" id="toggle-nominationAllow" data-on="<%- nominationSettings.allow !== false ? 'true' : 'false' %>"
+                  class="relative w-14 h-7 rounded-full transition-colors cursor-pointer shrink-0 <%- nominationSettings.allow !== false ? 'bg-charm-600' : 'bg-shark-700' %>">
+                  <span id="thumb-nominationAllow" class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%- nominationSettings.allow !== false ? 'translate-x-7' : '' %>"></span>
+                </button>
+                <input type="hidden" id="input-nominationAllow" name="nominationAllow" value="<%- nominationSettings.allow !== false ? 'true' : 'false' %>">
               </div>
-              <select id="nomination-allow-select" name="nominationAllow"
-                class="bg-shark-800 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
-                <option value="true"  <%= nominationSettings.allow !== false ? 'selected' : '' %>>On</option>
-                <option value="false" <%= nominationSettings.allow === false  ? 'selected' : '' %>>Off</option>
-              </select>
-            </div>
-            <div id="who-can-nominate-row" class="px-4 py-3.5 <%= nominationSettings.allow === false ? 'hidden' : '' %>">
-              <label class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2 block">Who can nominate me</label>
-              <select name="whoCanNominate"
-                class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
-                <option value="everyone"       <%= nominationSettings.whoCanNominate === 'everyone'       ? 'selected' : '' %>>Everyone</option>
-                <option value="followers_only" <%= nominationSettings.whoCanNominate === 'followers_only' ? 'selected' : '' %>>My followers only</option>
-                <option value="followees_only" <%= nominationSettings.whoCanNominate === 'followees_only' ? 'selected' : '' %>>People I follow only</option>
-                <option value="mutual_follow"  <%= nominationSettings.whoCanNominate === 'mutual_follow'  ? 'selected' : '' %>>Mutual follows only</option>
-              </select>
+              <div id="who-can-nominate-row" class="px-4 py-3.5 <%= nominationSettings.allow === false ? 'hidden' : '' %>">
+                <label class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2 block">Who can nominate me</label>
+                <select name="whoCanNominate"
+                  class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
+                  <option value="everyone"       <%= nominationSettings.whoCanNominate === 'everyone'       ? 'selected' : '' %>>Everyone</option>
+                  <option value="followers_only" <%= nominationSettings.whoCanNominate === 'followers_only' ? 'selected' : '' %>>My followers only</option>
+                  <option value="followees_only" <%= nominationSettings.whoCanNominate === 'followees_only' ? 'selected' : '' %>>People I follow only</option>
+                  <option value="mutual_follow"  <%= nominationSettings.whoCanNominate === 'mutual_follow'  ? 'selected' : '' %>>Mutual follows only</option>
+                </select>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Messaging -->
-        <div>
-          <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Messaging</h2>
-          <div class="bg-shark-900 border border-white/8 rounded-md overflow-hidden">
-            <div class="px-4 py-3.5">
-              <label class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2 block">Who can send me direct messages</label>
-              <select name="whoCanDm"
-                class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
-                <option value="everyone"       <%= privacySettings.whoCanDm === 'everyone'       ? 'selected' : '' %>>Everyone</option>
-                <option value="followers_only" <%= privacySettings.whoCanDm === 'followers_only' ? 'selected' : '' %>>My followers only</option>
-                <option value="mutual_follow"  <%= privacySettings.whoCanDm === 'mutual_follow'  ? 'selected' : '' %>>Mutual follows only</option>
-              </select>
+          <!-- Messaging -->
+          <div>
+            <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Messaging</h2>
+            <div class="bg-shark-900 border border-white/8 rounded-md overflow-hidden">
+              <div class="px-4 py-3.5">
+                <label class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2 block">Who can send me direct messages</label>
+                <select name="whoCanDm"
+                  class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
+                  <option value="everyone"       <%= privacySettings.whoCanDm === 'everyone'       ? 'selected' : '' %>>Everyone</option>
+                  <option value="followers_only" <%= privacySettings.whoCanDm === 'followers_only' ? 'selected' : '' %>>My followers only</option>
+                  <option value="mutual_follow"  <%= privacySettings.whoCanDm === 'mutual_follow'  ? 'selected' : '' %>>Mutual follows only</option>
+                </select>
+              </div>
             </div>
           </div>
+
         </div>
 
-        <!-- Content -->
+        <!-- Content — full width -->
         <div>
           <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Content</h2>
           <div class="bg-shark-900 border border-white/8 rounded-md overflow-hidden">
@@ -223,33 +127,33 @@
                 <p class="text-sm font-medium">Show mature-tagged entries</p>
                 <p class="text-xs text-white/40 mt-0.5">Display entries marked as mature content in your feed</p>
               </div>
-              <select name="showMatureContent"
-                class="bg-shark-800 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
-                <option value="true"  <%= privacySettings.showMatureContent !== false ? 'selected' : '' %>>On</option>
-                <option value="false" <%= privacySettings.showMatureContent === false  ? 'selected' : '' %>>Off</option>
-              </select>
+              <button type="button" id="toggle-showMatureContent" data-on="<%- privacySettings.showMatureContent !== false ? 'true' : 'false' %>"
+                class="relative w-14 h-7 rounded-full transition-colors cursor-pointer shrink-0 <%- privacySettings.showMatureContent !== false ? 'bg-charm-600' : 'bg-shark-700' %>">
+                <span id="thumb-showMatureContent" class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%- privacySettings.showMatureContent !== false ? 'translate-x-7' : '' %>"></span>
+              </button>
+              <input type="hidden" id="input-showMatureContent" name="showMatureContent" value="<%- privacySettings.showMatureContent !== false ? 'true' : 'false' %>">
             </div>
             <div class="flex items-center justify-between px-4 py-3.5 border-b border-white/5">
               <div>
                 <p class="text-sm font-medium">Show AI-generated entries</p>
                 <p class="text-xs text-white/40 mt-0.5">Display entries marked as AI-generated in your feed</p>
               </div>
-              <select name="showAiContent"
-                class="bg-shark-800 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
-                <option value="true"  <%= privacySettings.showAiContent !== false ? 'selected' : '' %>>On</option>
-                <option value="false" <%= privacySettings.showAiContent === false  ? 'selected' : '' %>>Off</option>
-              </select>
+              <button type="button" id="toggle-showAiContent" data-on="<%- privacySettings.showAiContent !== false ? 'true' : 'false' %>"
+                class="relative w-14 h-7 rounded-full transition-colors cursor-pointer shrink-0 <%- privacySettings.showAiContent !== false ? 'bg-charm-600' : 'bg-shark-700' %>">
+                <span id="thumb-showAiContent" class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%- privacySettings.showAiContent !== false ? 'translate-x-7' : '' %>"></span>
+              </button>
+              <input type="hidden" id="input-showAiContent" name="showAiContent" value="<%- privacySettings.showAiContent !== false ? 'true' : 'false' %>">
             </div>
             <div class="flex items-center justify-between px-4 py-3.5">
               <div>
                 <p class="text-sm font-medium">Allow Take Ons by default</p>
                 <p class="text-xs text-white/40 mt-0.5">Pre-select "Allow Take Ons" when you submit a new entry</p>
               </div>
-              <select name="defaultAllowTakeOns"
-                class="bg-shark-800 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-charm-600/50 cursor-pointer">
-                <option value="true"  <%= privacySettings.defaultAllowTakeOns !== false ? 'selected' : '' %>>On</option>
-                <option value="false" <%= privacySettings.defaultAllowTakeOns === false  ? 'selected' : '' %>>Off</option>
-              </select>
+              <button type="button" id="toggle-defaultAllowTakeOns" data-on="<%- privacySettings.defaultAllowTakeOns !== false ? 'true' : 'false' %>"
+                class="relative w-14 h-7 rounded-full transition-colors cursor-pointer shrink-0 <%- privacySettings.defaultAllowTakeOns !== false ? 'bg-charm-600' : 'bg-shark-700' %>">
+                <span id="thumb-defaultAllowTakeOns" class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%- privacySettings.defaultAllowTakeOns !== false ? 'translate-x-7' : '' %>"></span>
+              </button>
+              <input type="hidden" id="input-defaultAllowTakeOns" name="defaultAllowTakeOns" value="<%- privacySettings.defaultAllowTakeOns !== false ? 'true' : 'false' %>">
             </div>
           </div>
         </div>
@@ -264,32 +168,59 @@
     </div>
 
     <!-- ── Wallet ──────────────────────────────────────────────────── -->
-    <div id="tab-panel-wallet" class="hidden">
+    <%
+      var cashoutAAC    = wallet.earnedCHL;
+      var cashoutSB     = wallet.purchasedCHL;
+      var cashoutMinMet = cashoutAAC >= 100;
 
-      <!-- Balance card -->
-      <div class="bg-shark-900 border border-white/10 rounded-md mb-4">
-        <div class="px-4 py-4 flex items-center justify-between">
+      var payoutHint = null;
+      if (wallet.monthlySnapshot && (wallet.monthlySnapshot.status === 'pending' || wallet.monthlySnapshot.status === 'held')) {
+        var _pd = new Date(wallet.monthlySnapshot.status === 'held'
+          ? wallet.monthlySnapshot.makeupPayoutDate
+          : wallet.monthlySnapshot.autoPayoutDate);
+        var _diffDays = Math.ceil((_pd - new Date()) / 86400000);
+        var _dateStr  = _pd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (_diffDays <= 0) {
+          payoutHint = 'Auto-payout processing soon';
+        } else if (_diffDays === 1) {
+          payoutHint = 'Auto-payout tomorrow (' + _dateStr + ')';
+        } else {
+          payoutHint = 'Auto-payout in ' + _diffDays + ' days (' + _dateStr + ')';
+        }
+      } else if (cashoutAAC > 0) {
+        payoutHint = 'Auto-payouts run on the 30th each month';
+      }
+    %>
+    <div id="tab-panel-wallet" class="hidden">
+    <!-- tab-bar ~44px + py-6 top 24px ≈ 68px; mobile also subtracts 80px bottom nav -->
+    <div class="flex flex-col h-[calc(100vh-11rem)] md:h-[calc(100vh-6rem)]">
+
+      <!-- Scrollable content -->
+      <div class="flex-1 min-h-0 overflow-y-auto">
+
+        <!-- Spendable Balance card -->
+        <div class="bg-shark-900 border border-white/10 rounded-md px-4 py-4 mb-4 flex items-center justify-between">
           <div>
-            <p class="text-xs text-white/40 mb-0.5">Spendable balance</p>
-            <div class="flex items-center gap-2">
-              <iconify-icon icon="noto:hot-pepper" width="18"></iconify-icon>
-              <span class="text-2xl font-black text-white"><%= wallet.balanceCHL.toLocaleString() %></span>
-              <span class="text-sm text-white/40">chilli<%= wallet.balanceCHL !== 1 ? 'es' : '' %></span>
+            <p class="text-xs text-white/40 mb-1">Spendable balance</p>
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <iconify-icon icon="noto:hot-pepper" width="16"></iconify-icon>
+              <span class="text-xl font-black text-white"><%= wallet.purchasedCHL.toLocaleString() %></span>
             </div>
-            <p class="text-xs text-white/25 mt-1">≈ $<%= (wallet.balanceCHL * 0.20).toFixed(2) %> USD</p>
+            <p class="text-xs text-white/25">≈ $<%= (wallet.purchasedCHL * 0.20).toFixed(2) %></p>
           </div>
           <a href="/wallet/topup"
             class="flex items-center gap-1.5 px-3 py-2 bg-charm-600 hover:bg-charm-500 text-white text-xs font-semibold rounded-md transition-colors">
-            <iconify-icon icon="boxicons:plus" width="13"></iconify-icon>
+            <iconify-icon icon="boxicons:plus" width="12"></iconify-icon>
             Top Up
           </a>
         </div>
 
-        <% if (wallet.monthlySnapshot && wallet.monthlySnapshot.status === 'pending' && wallet.monthlySnapshot.balanceCHL > 0) { %>
-        <div class="px-4 py-3 border-t border-white/8 flex items-center justify-between gap-3">
+        <!-- Auto-payout notice -->
+        <% if (wallet.monthlySnapshot && wallet.monthlySnapshot.status === 'pending' && wallet.monthlySnapshot.earnedCHL > 0) { %>
+        <div class="bg-shark-900 border border-white/10 rounded-md px-4 py-3 mb-4 flex items-center justify-between gap-3">
           <p class="text-xs text-white/40">
             <iconify-icon icon="boxicons:time" width="13" class="inline mr-1"></iconify-icon>
-            <span class="text-white/60"><%= wallet.monthlySnapshot.balanceCHL.toLocaleString() %> chillies</span>
+            <span class="text-white/60"><%= wallet.monthlySnapshot.earnedCHL.toLocaleString() %> chillies</span>
             scheduled for auto-payout on the 30th
           </p>
           <% if (wallet.showHoldBtn) { %>
@@ -304,89 +235,154 @@
         <% } %>
 
         <% if (wallet.monthlySnapshot && wallet.monthlySnapshot.status === 'held') { %>
-        <div class="px-4 py-3 border-t border-white/8">
+        <div class="bg-shark-900 border border-white/10 rounded-md px-4 py-3 mb-4">
           <p class="text-xs text-amber-400/70">
             <iconify-icon icon="boxicons:info-circle" width="13" class="inline mr-1"></iconify-icon>
-            Payout held — <span class="font-semibold"><%= wallet.monthlySnapshot.balanceCHL.toLocaleString() %> chillies</span> will be paid out on the 15th. No further holds.
+            Payout held — <span class="font-semibold"><%= wallet.monthlySnapshot.earnedCHL.toLocaleString() %> chillies</span> will be paid out on the 15th. No further holds.
           </p>
         </div>
         <% } %>
+
+        <!-- Transaction history -->
+        <% if (wallet.recentTransactions.length > 0) { %>
+        <div class="bg-shark-900 border border-white/10 rounded-md">
+          <div class="px-4 py-3 border-b border-white/8">
+            <p class="text-xs font-semibold text-white/40 uppercase tracking-wider">Transaction History</p>
+          </div>
+          <% wallet.recentTransactions.forEach(function(tx) { %>
+          <%
+            var txLabels = {
+              top_up:                  'Top Up',
+              contribution:            'Contribution',
+              contribution_adjustment: 'Contribution adjusted',
+              contribution_withdrawal: 'Contribution withdrawn',
+              contest_payout_settled:  'Contest payout',
+              auto_payout:             'Auto-payout',
+              makeup_payout:           'Makeup payout',
+              admin_grant:             'Admin grant',
+              platform_fee:            'Platform fee',
+            };
+            var label = txLabels[tx.type] || tx.type;
+            var isCredit = tx.direction === 'credit';
+            var dateStr = new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          %>
+          <a href="/wallet/transaction/<%= tx._id %>"
+            class="px-4 py-3 border-b border-white/5 last:border-0 flex items-center justify-between gap-3 hover:bg-white/4 transition-colors">
+            <div class="min-w-0">
+              <p class="text-xs font-medium text-white/70 truncate"><%= label %><% if (tx.packageName) { %> · <%= tx.packageName %><% } %></p>
+              <p class="text-xs text-white/30 mt-0.5"><%= dateStr %></p>
+            </div>
+            <div class="text-right shrink-0 flex items-center gap-2">
+              <div>
+                <p class="text-sm font-semibold <%= isCredit ? 'text-green-400' : 'text-white/60' %>">
+                  <%= isCredit ? '+' : '−' %><%= tx.amountCHL.toLocaleString() %> 🌶️
+                </p>
+                <p class="text-xs text-white/25"><%= tx.balanceAfter.toLocaleString() %> after</p>
+              </div>
+              <iconify-icon icon="boxicons:chevron-right" width="14" class="text-white/20 shrink-0"></iconify-icon>
+            </div>
+          </a>
+          <% }) %>
+        </div>
+        <% } else { %>
+        <div class="bg-shark-900 border border-white/10 rounded-md px-4 py-8 text-center">
+          <iconify-icon icon="noto:hot-pepper" width="28" class="mb-2 opacity-30"></iconify-icon>
+          <p class="text-sm text-white/30">No transactions yet</p>
+          <a href="/wallet/topup" class="text-xs text-charm-400 hover:text-charm-300 transition-colors mt-1 inline-block">Top up to get started</a>
+        </div>
+        <% } %>
+
+      </div><!-- end scrollable -->
+
+      <!-- ── Cashout bar — always visible at bottom of panel ───────── -->
+      <div id="cashout-bar" class="shrink-0 border-t border-white/10 pt-4">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-xs text-white/40 mb-0.5">Cash out</p>
+            <p class="text-xl font-black text-white">$<span id="cashout-display-usd"><%= (cashoutAAC * 0.20).toFixed(2) %></span></p>
+            <% if (payoutHint) { %>
+            <p class="text-xs text-white/30 mt-0.5"><%= payoutHint %></p>
+            <% } %>
+          </div>
+          <div class="flex flex-col items-end gap-2">
+            <button type="button" id="cashout-submit-btn"
+              <% if (!cashoutMinMet) { %>disabled<% } %>
+              class="shrink-0 px-4 py-2.5 text-sm font-semibold rounded-md transition-colors cursor-pointer
+                <%= cashoutMinMet ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-white/8 text-white/30 cursor-not-allowed' %>">
+              Request Cashout
+            </button>
+            <% if (cashoutSB > 0) { %>
+            <label class="flex items-center gap-1.5 cursor-pointer select-none">
+              <input type="checkbox" id="cashout-include-sb" class="rounded accent-charm-500"
+                data-sb="<%= cashoutSB %>" data-aac="<%= cashoutAAC %>">
+              <span class="text-xs text-white/40">+ spendable balance ($<%= (cashoutSB * 0.20).toFixed(2) %>)</span>
+            </label>
+            <% } %>
+          </div>
+        </div>
       </div>
 
-      <!-- Transaction history -->
-      <% if (wallet.recentTransactions.length > 0) { %>
-      <div class="bg-shark-900 border border-white/10 rounded-md">
-        <div class="px-4 py-3 border-b border-white/8">
-          <p class="text-xs font-semibold text-white/40 uppercase tracking-wider">Transaction History</p>
-        </div>
-        <% wallet.recentTransactions.forEach(function(tx) { %>
-        <%
-          var txLabels = {
-            top_up:                  'Top Up',
-            contribution:            'Contribution',
-            contribution_adjustment: 'Contribution adjusted',
-            contribution_withdrawal: 'Contribution withdrawn',
-            contest_payout_settled:  'Contest payout',
-            auto_payout:             'Auto-payout',
-            makeup_payout:           'Makeup payout',
-            admin_grant:             'Admin grant',
-            platform_fee:            'Platform fee',
-          };
-          var label = txLabels[tx.type] || tx.type;
-          var isCredit = tx.direction === 'credit';
-          var dateStr = new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        %>
-        <a href="/wallet/transaction/<%= tx._id %>"
-          class="px-4 py-3 border-b border-white/5 last:border-0 flex items-center justify-between gap-3 hover:bg-white/4 transition-colors">
-          <div class="min-w-0">
-            <p class="text-xs font-medium text-white/70 truncate"><%= label %><% if (tx.packageName) { %> · <%= tx.packageName %><% } %></p>
-            <p class="text-xs text-white/30 mt-0.5"><%= dateStr %></p>
-          </div>
-          <div class="text-right shrink-0 flex items-center gap-2">
-            <div>
-              <p class="text-sm font-semibold <%= isCredit ? 'text-green-400' : 'text-white/60' %>">
-                <%= isCredit ? '+' : '−' %><%= tx.amountCHL.toLocaleString() %> 🌶️
-              </p>
-              <p class="text-xs text-white/25"><%= tx.balanceAfter.toLocaleString() %> after</p>
-            </div>
-            <iconify-icon icon="boxicons:chevron-right" width="14" class="text-white/20 shrink-0"></iconify-icon>
-          </div>
-        </a>
-        <% }) %>
-      </div>
-      <% } else { %>
-      <div class="bg-shark-900 border border-white/10 rounded-md px-4 py-8 text-center">
-        <iconify-icon icon="noto:hot-pepper" width="28" class="mb-2 opacity-30"></iconify-icon>
-        <p class="text-sm text-white/30">No transactions yet</p>
-        <a href="/wallet/topup" class="text-xs text-charm-400 hover:text-charm-300 transition-colors mt-1 inline-block">Top up to get started</a>
-      </div>
-      <% } %>
-    </div>
+    </div><!-- end flex column -->
+    </div><!-- end tab-panel-wallet -->
+
+    <script>
+    (function () {
+      var toggle     = document.getElementById('cashout-include-sb');
+      var displayUsd = document.getElementById('cashout-display-usd');
+      var btn        = document.getElementById('cashout-submit-btn');
+
+      if (toggle && displayUsd) {
+        var aac = parseInt(toggle.dataset.aac, 10) || 0;
+        var sb  = parseInt(toggle.dataset.sb,  10) || 0;
+
+        toggle.addEventListener('change', function () {
+          var total    = toggle.checked ? aac + sb : aac;
+          displayUsd.textContent = (total * 0.20).toFixed(2);
+          var meetsMin = total >= 100;
+          btn.disabled = !meetsMin;
+          btn.className = btn.className.replace(/(bg-green-600 hover:bg-green-500 text-white|bg-white\/8 text-white\/30 cursor-not-allowed)/,
+            meetsMin ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-white/8 text-white/30 cursor-not-allowed');
+        });
+      }
+
+      if (btn) {
+        btn.addEventListener('click', function () {
+          if (btn.disabled) return;
+          if (window.showToast) window.showToast('Cashout requests will be available soon.', 'info');
+        });
+      }
+    })();
+    </script>
 
     <!-- ── Account ─────────────────────────────────────────────────── -->
     <div id="tab-panel-account" class="hidden">
 
-      <!-- Email -->
-      <section class="mb-8">
-        <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Email</h2>
-        <div class="bg-shark-900 border border-white/8 rounded-md px-4 py-3.5">
-          <p class="text-xs text-white/40 mb-0.5">Email address</p>
-          <p class="text-sm text-white/70"><%= user.email?.value %></p>
-        </div>
-      </section>
+      <!-- Top row: Email + Session side by side on desktop -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
-      <!-- Session -->
-      <section class="mb-8">
-        <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Session</h2>
-        <form action="/logout" method="POST">
-          <button type="submit"
-            class="w-full py-3 rounded-md border border-white/10 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors cursor-pointer">
-            Sign Out
-          </button>
-        </form>
-      </section>
+        <!-- Email -->
+        <section>
+          <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Email</h2>
+          <div class="bg-shark-900 border border-white/8 rounded-md px-4 py-3.5">
+            <p class="text-xs text-white/40 mb-0.5">Email address</p>
+            <p class="text-sm text-white/70"><%= user.email?.value %></p>
+          </div>
+        </section>
 
-      <!-- Danger Zone -->
+        <!-- Session -->
+        <section>
+          <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Session</h2>
+          <form action="/logout" method="POST">
+            <button type="submit"
+              class="w-full py-3 rounded-md border border-white/10 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors cursor-pointer">
+              Sign Out
+            </button>
+          </form>
+        </section>
+
+      </div>
+
+      <!-- Danger Zone — full width -->
       <section>
         <h2 class="text-xs font-semibold text-red-500/60 uppercase tracking-wider mb-3">Danger Zone</h2>
         <div class="bg-red-950/20 border border-red-500/20 rounded-md p-4">
@@ -452,10 +448,10 @@
 (function () {
 
   // ── Tab switching ────────────────────────────────────────────────
-  var TABS = ['profile', 'notifications', 'privacy', 'wallet', 'account'];
+  var TABS = ['notifications', 'privacy', 'wallet', 'account'];
 
   function showTab(name) {
-    if (!TABS.includes(name)) name = 'profile';
+    if (!TABS.includes(name)) name = 'notifications';
     TABS.forEach(function (t) {
       var btn   = document.getElementById('tab-btn-' + t);
       var panel = document.getElementById('tab-panel-' + t);
@@ -471,7 +467,7 @@
     history.replaceState({}, '', url.toString());
   }
 
-  var initialTab = new URLSearchParams(window.location.search).get('tab') || 'profile';
+  var initialTab = new URLSearchParams(window.location.search).get('tab') || 'notifications';
   showTab(initialTab);
 
   TABS.forEach(function (t) {
@@ -480,41 +476,59 @@
     });
   });
 
-  // ── Avatar preview ───────────────────────────────────────────────
-  document.getElementById('avatar-input').addEventListener('change', function () {
-    var file = this.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function (e) {
-      var preview = document.getElementById('avatar-preview');
-      if (preview.tagName === 'IMG') {
-        preview.src = e.target.result;
-      } else {
-        var img = document.createElement('img');
-        img.id        = 'avatar-preview';
-        img.src       = e.target.result;
-        img.alt       = 'Avatar';
-        img.className = 'w-16 h-16 rounded-md object-cover bg-shark-800 border-2 border-dashed border-white/15 group-hover:border-charm-600/60 transition-colors';
-        preview.replaceWith(img);
-      }
-    };
-    reader.readAsDataURL(file);
+  // ── Toggle switch helper ─────────────────────────────────────────
+  function makeToggle(btnId, thumbId, inputId, onChange) {
+    var btn   = document.getElementById(btnId);
+    var thumb = document.getElementById(thumbId);
+    var input = document.getElementById(inputId);
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var on = btn.dataset.on !== 'true';
+      btn.dataset.on = on ? 'true' : 'false';
+      btn.classList.toggle('bg-charm-600', on);
+      btn.classList.toggle('bg-shark-700', !on);
+      thumb.classList.toggle('translate-x-7', on);
+      if (input) input.value = on ? 'true' : 'false';
+      if (onChange) onChange(on);
+    });
+  }
+
+  // Notification toggles — auto-save on change
+  var notifFields = ['inAppComments','inAppNominations','inAppContests','inAppPayouts',
+                     'emailComments','emailNominations','emailContests','emailPayouts'];
+
+  function saveNotifSettings() {
+    var body = new URLSearchParams();
+    notifFields.forEach(function (f) {
+      var input = document.getElementById('input-' + f);
+      if (input) body.append(f, input.value);
+    });
+    fetch('/settings/notifications', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    body.toString(),
+    }).then(function () {
+      if (window.showToast) window.showToast('Saved.', 'success');
+    }).catch(function () {
+      if (window.showToast) window.showToast('Could not save. Please try again.', 'error');
+    });
+  }
+
+  notifFields.forEach(function (f) {
+    makeToggle('toggle-' + f, 'thumb-' + f, 'input-' + f, saveNotifSettings);
   });
 
-  // ── Bio counter ──────────────────────────────────────────────────
-  document.getElementById('bio').addEventListener('input', function () {
-    document.getElementById('bio-counter').textContent = this.value.replace(/\s/g, '').length + ' / 220';
-  });
+  // Privacy toggles
+  makeToggle('toggle-showMatureContent',   'thumb-showMatureContent',   'input-showMatureContent');
+  makeToggle('toggle-showAiContent',       'thumb-showAiContent',       'input-showAiContent');
+  makeToggle('toggle-defaultAllowTakeOns', 'thumb-defaultAllowTakeOns', 'input-defaultAllowTakeOns');
 
   // ── Nomination allow toggle ──────────────────────────────────────
   (function () {
-    var allowSel = document.getElementById('nomination-allow-select');
-    var whoRow   = document.getElementById('who-can-nominate-row');
-    if (allowSel && whoRow) {
-      allowSel.addEventListener('change', function () {
-        whoRow.classList.toggle('hidden', this.value === 'false');
-      });
-    }
+    var whoRow = document.getElementById('who-can-nominate-row');
+    makeToggle('toggle-nominationAllow', 'thumb-nominationAllow', 'input-nominationAllow', function (on) {
+      if (whoRow) whoRow.classList.toggle('hidden', !on);
+    });
   }());
 
   // ── Delete account modal ─────────────────────────────────────────
@@ -544,15 +558,24 @@
     });
   }());
 
-  // ── Auto-dismiss success banner ──────────────────────────────────
-  (function () {
-    var banner = document.getElementById('settings-success-banner');
-    if (banner) setTimeout(function () {
-      banner.style.transition = 'opacity 0.4s';
-      banner.style.opacity = '0';
-      setTimeout(function () { banner.remove(); }, 400);
-    }, 4000);
-  }());
+  // ── URL-param toasts ─────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function () {
+    var params  = new URLSearchParams(window.location.search);
+    var saved   = params.get('saved');
+    var success = params.get('success');
+    var msg     = null;
+
+    if (saved === 'privacy') msg = 'Privacy settings saved.';
+    if (success === 'topup') msg = 'Your chillies have been added to your wallet.';
+
+    if (msg && window.showToast) {
+      window.showToast(msg, 'success');
+      params.delete('saved');
+      params.delete('success');
+      var qs = params.toString();
+      history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
+    }
+  });
 
 }());
 </script>

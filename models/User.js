@@ -108,8 +108,9 @@ const userSchema = new mongoose.Schema({
   adultContentAcknowledgedAt: { type: Date },
 
   wallet: {
-    balanceCHL: { type: Number, default: 0 },
-    updatedAt:  { type: Date },
+    purchasedCHL: { type: Number, default: 0 },
+    earnedCHL:    { type: Number, default: 0 },
+    updatedAt:    { type: Date },
   },
 
   supportFirstReplyEmailSent: { type: Boolean, default: false },
@@ -136,6 +137,10 @@ const userSchema = new mongoose.Schema({
   },
 
   notificationSettings: {
+    inAppComments:    { type: Boolean, default: true },
+    inAppNominations: { type: Boolean, default: true },
+    inAppContests:    { type: Boolean, default: true },
+    inAppPayouts:     { type: Boolean, default: true },
     emailComments:    { type: Boolean, default: true },
     emailNominations: { type: Boolean, default: true },
     emailContests:    { type: Boolean, default: true },

@@ -37,7 +37,7 @@ async function snapshotMonthlyBalances() {
   const now   = new Date();
   const month = monthString(now);
 
-  const users = await User.find({ 'wallet.balanceCHL': { $gt: 0 } })
+  const users = await User.find({ 'wallet.earnedCHL': { $gt: 0 } })
     .select('_id wallet')
     .lean();
 
@@ -54,7 +54,7 @@ async function snapshotMonthlyBalances() {
     userId:           u._id,
     month,
     snapshotDate:     firstOfMonth(now),
-    balanceCHL:       u.wallet.balanceCHL,
+    earnedCHL:        u.wallet.earnedCHL,
     autoPayoutDate:   thirtiethOfMonth(now),
     makeupPayoutDate: fifteenthOfNextMonth(now),
     status:           'pending',
@@ -70,7 +70,7 @@ async function payoutReminder() {
   const now   = new Date();
   const month = monthString(now);
 
-  const snapshots = await MonthlySnapshot.find({ month, status: 'pending', balanceCHL: { $gt: 0 } })
+  const snapshots = await MonthlySnapshot.find({ month, status: 'pending', earnedCHL: { $gt: 0 } })
     .populate('userId', 'email username displayName')
     .lean();
 
@@ -88,7 +88,7 @@ async function payoutReminder() {
       userId:  snap.userId._id || snap.userId,
       type:    'payout_reminder',
       payload: {
-        amountCHL:     snap.balanceCHL,
+        amountCHL:      snap.earnedCHL,
         autoPayoutDate: snap.autoPayoutDate,
         url:           '/settings?tab=wallet',
       },
@@ -99,9 +99,9 @@ async function payoutReminder() {
       resend.emails.send({
         from:    FROM_EMAIL,
         to:      email,
-        subject: `Your ${snap.balanceCHL.toLocaleString()} 🌶️ auto-payout is in 5 days`,
+        subject: `Your ${snap.earnedCHL.toLocaleString()} 🌶️ auto-payout is in 5 days`,
         html: `<p>Hi ${displayName},</p>
-<p>You have <strong>${snap.balanceCHL.toLocaleString()} chillies</strong> (≈ $${(snap.balanceCHL * EXCHANGE_RATE).toFixed(2)}) scheduled for automatic payout on the 30th.</p>
+<p>You have <strong>${snap.earnedCHL.toLocaleString()} chillies</strong> (≈ $${(snap.earnedCHL * EXCHANGE_RATE).toFixed(2)}) scheduled for automatic payout on the 30th.</p>
 <p>If you'd like to keep them on your account a little longer, you can <a href="${process.env.APP_URL || 'https://allthingsaprons.com'}/settings?tab=wallet">visit your wallet settings</a> and tap "Hold until the 15th" before the 30th.</p>
 <p>If you do nothing, the payout happens automatically.</p>`,
       }).catch(() => {});
@@ -117,23 +117,25 @@ async function executePayout(snapshot, paidBy) {
   const user = await User.findById(snapshot.userId).select('wallet');
   if (!user) return;
 
-  const currentBalance = user.wallet?.balanceCHL || 0;
-  const amountPaid     = Math.min(snapshot.balanceCHL, currentBalance);
+  const currentEarned  = user.wallet?.earnedCHL    || 0;
+  const currentPurchased = user.wallet?.purchasedCHL || 0;
+  const amountPaid     = Math.min(snapshot.earnedCHL, currentEarned);
 
   if (amountPaid <= 0) {
-    // Nothing left to pay — mark done anyway so the job doesn't retry
     await MonthlySnapshot.updateOne(
       { _id: snapshot._id },
-      { $set: { status: paidBy === 'manual' ? 'paid' : paidBy === 'auto_30d' ? 'paid' : 'makeup_paid', amountPaidCHL: 0, paidAt: new Date() } },
+      { $set: { status: paidBy === 'auto_30d' ? 'paid' : 'makeup_paid', amountPaidCHL: 0, paidAt: new Date() } },
     );
     return;
   }
 
-  const balanceBefore = currentBalance;
-  const balanceAfter  = currentBalance - amountPaid;
+  const balanceBefore = currentPurchased + currentEarned;
+  const balanceAfter  = balanceBefore - amountPaid;
 
-  user.wallet = { balanceCHL: balanceAfter, updatedAt: new Date() };
-  await user.save();
+  await User.findByIdAndUpdate(
+    snapshot.userId,
+    { $inc: { 'wallet.earnedCHL': -amountPaid }, $set: { 'wallet.updatedAt': new Date() } },
+  );
 
   const txType = paidBy === 'auto_30d' ? 'auto_payout' : 'makeup_payout';
   await WalletTransaction.create({
@@ -178,7 +180,7 @@ async function autoPayoutThirtieth() {
     month,
     status:        'pending',
     autoPayoutDate: { $lte: now },
-    balanceCHL:    { $gt: 0 },
+    earnedCHL:     { $gt: 0 },
   }).lean();
 
   for (const snap of snapshots) {
@@ -196,7 +198,7 @@ async function makeupPayoutFifteenth() {
   const snapshots = await MonthlySnapshot.find({
     status:          'held',
     makeupPayoutDate: { $lte: now },
-    balanceCHL:      { $gt: 0 },
+    earnedCHL:       { $gt: 0 },
   }).lean();
 
   for (const snap of snapshots) {

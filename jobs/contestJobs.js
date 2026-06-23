@@ -91,12 +91,12 @@ async function closeContest(contestId) {
 
       const updatedUser = await User.findByIdAndUpdate(
         r.beneficiaryId,
-        { $inc: { 'wallet.balanceCHL': net }, $set: { 'wallet.updatedAt': now } },
+        { $inc: { 'wallet.earnedCHL': net }, $set: { 'wallet.updatedAt': now } },
         { new: true, select: 'wallet' },
       );
       if (!updatedUser) return;
 
-      const balanceAfter  = updatedUser.wallet.balanceCHL;
+      const balanceAfter  = (updatedUser.wallet.purchasedCHL || 0) + (updatedUser.wallet.earnedCHL || 0);
       const balanceBefore = balanceAfter - net;
 
       await Promise.all([

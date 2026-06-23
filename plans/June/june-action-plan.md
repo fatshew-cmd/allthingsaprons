@@ -16,7 +16,7 @@ The **Take On feature** is now fully implemented. Initiator clicks Take On on an
 
 **Phase 5 background jobs are done.** `agenda` is installed and wired. The void deadline sweeper + `void_expired_contest` one-time jobs replace the old Mongoose post-hook bridge (post-hooks removed). The voting deadline sweeper + `close_contest` one-time jobs count votes, set `winnerEntryId`, status → `closed`, and fire `contest_closed` notifications to both participants. Both sweepers run on startup to catch any deadlines missed while the server was down.
 
-**Phase 4.7 (Chilli Wallet + Economic Flow) is substantially complete.** All models are built (`WalletTransaction`, `ContestContribution`, `ContestPayout`, `MonthlySnapshot`). `User.wallet.balanceCHL` replaces the old `balanceCents` placeholder. The full top-up flow is live (`/wallet/topup` → `/wallet/checkout` → `POST /wallet/checkout` → wallet credit + `WalletTransaction` audit record). Contribution routes are fully wired on active contests: `POST /api/contests/:id/contribute`, `PATCH` (adjust), and `DELETE` (withdraw), each debiting/crediting the wallet and writing the appropriate transaction record. The contest-close job (`close_contest`) now locks all active contributions, credits 75% net to each contestant's wallet immediately, creates `ContestPayout` audit docs, and fires `contest_payout_available` notifications. The settings wallet section is live: balance display, auto-payout notice with "Hold until the 15th" button (visible 25th–29th), and transaction history with links to a dedicated `/wallet/transaction/:id` detail page. Profile stats row shows spendable balance (owner view only). All four monthly payout background jobs are running via agenda: `snapshot_monthly_balances` (1st), `payout_reminder` (25th, in-app + email), `auto_payout_30` (30th), and `makeup_payout_15` (15th). `POST /wallet/hold-payout` endpoint is live. All three new notification types (`payout_reminder`, `payout_processed`, `contest_payout_available`) render correctly in `/notifications`.
+**Phase 4.7 (Chilli Wallet + Economic Flow) is substantially complete.** All models are built (`WalletTransaction`, `ContestContribution`, `ContestPayout`, `MonthlySnapshot`). The wallet uses two separate pools — `purchasedCHL` (SB, from top-ups) and `earnedCHL` (AAC, from contest payouts) — replacing the old single `balanceCHL` field. The full top-up flow is live (`/wallet/topup` → `/wallet/checkout` → `POST /wallet/checkout` → wallet credit + `WalletTransaction` audit record). Contribution routes are fully wired on active contests: `POST /api/contests/:id/contribute`, `PATCH` (adjust), and `DELETE` (withdraw), each debiting/crediting the wallet and writing the appropriate transaction record. The contest-close job (`close_contest`) now locks all active contributions, credits 75% net to each contestant's `earnedCHL` immediately, creates `ContestPayout` audit docs, and fires `contest_payout_available` notifications. The settings wallet section is live: SB + AAC balance display, auto-payout notice with "Hold until the 15th" button (visible 25th–29th), and transaction history with links to a dedicated `/wallet/transaction/:id` detail page. Profile stats row shows spendable balance (owner view only). All four monthly payout background jobs are running via agenda: `snapshot_monthly_balances` (1st), `payout_reminder` (25th, in-app + email), `auto_payout_30` (30th), and `makeup_payout_15` (15th). `POST /wallet/hold-payout` endpoint is live. All three new notification types (`payout_reminder`, `payout_processed`, `contest_payout_available`) render correctly in `/notifications`.
 
 What remains: fake credits admin action (superadmin balance write for contribution flow testing) and the remaining Phase 6 admin UI pages.
 
@@ -469,14 +469,19 @@ The full CCBill integration is July scope, but the economic flow needs to be tes
 
 ### Schema Changes
 
-#### `User.wallet` — replace `balanceCents` with `balanceCHL`
+#### `User.wallet` — two-pool model
 ```
 wallet: {
-  balanceCHL: { type: Number, default: 0 },
-  updatedAt:  { type: Date },
+  purchasedCHL: { type: Number, default: 0 },  // SB — credits from top-ups
+  earnedCHL:    { type: Number, default: 0 },  // AAC — credits from contest earnings
+  updatedAt:    { type: Date },
 }
 ```
-`balanceCents` is a leftover placeholder — it has no data. Migration: rename field, default 0.
+- **SB (Spendable Balance)** = `purchasedCHL`. Credits bought via top-up. Spent on contributions (debited first before `earnedCHL`). Can be cashed out via optional toggle.
+- **AAC (Amount Available for Cashout)** = `earnedCHL`. Credits earned from contest payouts. The default cashout pool. Also available to fund contributions if SB is insufficient.
+- **Total spendable** = `purchasedCHL + earnedCHL`. Contribution spending order: debit `purchasedCHL` first; if insufficient, debit remainder from `earnedCHL`.
+
+`balanceCHL` (the original single-field design) is superseded. Migration: rename existing `balanceCHL` to `purchasedCHL`, add `earnedCHL: 0`.
 
 ---
 
@@ -493,8 +498,8 @@ Full audit trail. One document per credit movement, no exceptions.
 | `amountCHL` | Number | Always positive — direction field carries the sign |
 | `amountUSD` | Number | Dollar equivalent at time of transaction |
 | `exchangeRate` | Number | Rate used (default 0.20) — frozen at tx time in case platform adjusts it later |
-| `balanceBefore` | Number | Wallet balance before this tx |
-| `balanceAfter` | Number | Wallet balance after this tx |
+| `balanceBefore` | Number | Total wallet balance (`purchasedCHL + earnedCHL`) before this tx |
+| `balanceAfter` | Number | Total wallet balance (`purchasedCHL + earnedCHL`) after this tx |
 | `status` | enum | `completed \| pending \| reversed` |
 | `source` | enum | `package \| custom \| admin \| contest_close \| system \| manual_cashout \| auto_payout \| makeup_payout` |
 | `packageName` | String | If a preset package was used (e.g. `"Starter"`) |
@@ -531,7 +536,7 @@ A user **can** contribute to both entries in the same contest (attribution is in
 ---
 
 #### `ContestPayout`
-Audit record created by the contest-close job. One doc per contestant per contest. Earnings are credited to `wallet.balanceCHL` immediately at contest close — no pending/claim step.
+Audit record created by the contest-close job. One doc per contestant per contest. Earnings are credited to `wallet.earnedCHL` immediately at contest close — no pending/claim step.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -558,7 +563,7 @@ Created on the 1st of each month for every user with `balanceCHL > 0`. Drives th
 | `userId` | ObjectId → User | |
 | `month` | String | `"YYYY-MM"` — e.g. `"2026-03"` |
 | `snapshotDate` | Date | Exact datetime of snapshot (1st 00:00 UTC) |
-| `balanceCHL` | Number | Balance at snapshot time |
+| `earnedCHL` | Number | AAC (`wallet.earnedCHL`) at snapshot time — only earned credits are auto-paid out |
 | `autoPayoutDate` | Date | 30th of same month 00:00 UTC |
 | `makeupPayoutDate` | Date | 15th of next month 00:00 UTC |
 | `status` | enum | `pending \| paid \| held \| makeup_paid` |
@@ -579,14 +584,14 @@ Index: `{ status, makeupPayoutDate }` — 15th makeup sweeper.
 |---|---|---|
 | `GET` | `/wallet/topup` | Packages page — 4 preset cards + custom input + USD↔🌶️ toggle |
 | `GET` | `/wallet/checkout` | Order summary — shows package, amount in CHL + USD, fake "Complete Purchase" btn |
-| `POST` | `/wallet/checkout` | Processes fake payment — credits `balanceCHL`, writes `WalletTransaction` (type: `top_up`), redirects to `/settings?section=wallet&success=topup` |
+| `POST` | `/wallet/checkout` | Processes fake payment — credits `purchasedCHL`, writes `WalletTransaction` (type: `top_up`), redirects to `/settings?section=wallet&success=topup` |
 
 Query params on checkout: `?amount=100&package=Starter` (or `?amount=X&custom=true`).
 
 #### Contribution
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/contests/:id/contribute` | Body: `{ entryId, amountCHL }`. Validates balance, creates/updates `ContestContribution`, debits wallet, writes `WalletTransaction` (type: `contribution`). Cannot contribute to own entry. |
+| `POST` | `/api/contests/:id/contribute` | Body: `{ entryId, amountCHL }`. Validates total balance (`purchasedCHL + earnedCHL`), creates/updates `ContestContribution`, debits wallet (SB first, then AAC for any remainder), writes `WalletTransaction` (type: `contribution`). Cannot contribute to own entry. |
 | `PATCH` | `/api/contests/:id/contribute/:entryId` | Body: `{ amountCHL }`. Adjusts existing contribution up or down. Debits or credits the delta. Writes `WalletTransaction` (type: `contribution_adjustment`). |
 | `DELETE` | `/api/contests/:id/contribute/:entryId` | Full withdrawal — refunds full contribution to wallet. Sets `ContestContribution.status: withdrawn`. Writes `WalletTransaction` (type: `contribution_withdrawal`). |
 
@@ -594,7 +599,8 @@ All three blocked if contest is not `active` or contribution is `locked`.
 
 #### Settings wallet section data
 Served as part of `GET /settings` — the wallet section queries:
-- `User.wallet.balanceCHL` — spendable balance (includes contest earnings, credited immediately at close)
+- `User.wallet.purchasedCHL` — SB (spendable balance from top-ups)
+- `User.wallet.earnedCHL` — AAC (amount available for cashout from contest earnings)
 - `MonthlySnapshot.findOne({ userId, month: currentMonth })` — upcoming auto-payout info
 - `WalletTransaction.find({ userId }).sort({ createdAt: -1 }).limit(50)` — transaction history
 
@@ -614,8 +620,9 @@ Served as part of `GET /settings` — the wallet section queries:
 - Back link to `/wallet/topup`
 
 #### Settings → Wallet section
-- Spendable balance: `X 🌶️` with top-up anchor (contest earnings land here directly at contest close)
-- **Auto-payout notice** — if a `MonthlySnapshot` exists for the current month with `status: pending`, show: *"X 🌶️ is scheduled for auto-payout on the 30th"* + "Hold until the 15th" button (visible 25th–29th only)
+- **Spendable Balance (SB):** `purchasedCHL` 🌶️ with top-up anchor — credits from top-ups only
+- **Available to Cash Out (AAC):** `earnedCHL` 🌶️ — credits earned from contest payouts; default cashout pool
+- **Auto-payout notice** — if a `MonthlySnapshot` exists for the current month with `status: pending`, show: *"X 🌶️ is scheduled for auto-payout on the 30th"* + "Hold until the 15th" button (visible 25th–29th only). Auto-payout draws from `earnedCHL` only.
 - **Transaction history** — paginated table: date, type label, amount (coloured credit/debit), balance after
 
 #### Contest page additions
@@ -624,32 +631,32 @@ Served as part of `GET /settings` — the wallet section queries:
 - Your total contribution shown inline: *"You've contributed 50 🌶️ to this contestant"*
 
 #### Profile (owner view only)
-- Spendable balance displayed in the stats row — hidden from all other viewers
+- SB (`purchasedCHL`) and AAC (`earnedCHL`) displayed in the stats row — hidden from all other viewers
 
 ---
 
 ### Background Jobs (agenda pattern — same as existing sweepers)
 
 #### 1st of month — `snapshot_monthly_balances`
-Recurring on the 1st. Finds all users with `wallet.balanceCHL > 0` where no snapshot exists for the current month. Creates one `MonthlySnapshot` per user. Sets `autoPayoutDate` (30th of current month) and `makeupPayoutDate` (15th of next month).
+Recurring on the 1st. Finds all users with `wallet.earnedCHL > 0` where no snapshot exists for the current month. Creates one `MonthlySnapshot` per user, capturing `earnedCHL` at snapshot time. Sets `autoPayoutDate` (30th of current month) and `makeupPayoutDate` (15th of next month).
 
 #### 25th of month — `payout_reminder`
 Recurring on the 25th. Finds all `MonthlySnapshot` docs with `status: pending` and `balanceCHL > 0`. For each: send in-app `Notification` (type: `payout_reminder`) and email via Resend — *"Your X 🌶️ auto-payout fires on the 30th. Tap here to hold it until the 15th."*
 
 #### 30th of month — `auto_payout_30`
 Recurring on the 30th. Finds all `MonthlySnapshot` docs with `status: pending` and `autoPayoutDate <= now`. For each:
-- Calculate `amountPaid = min(snapshot.balanceCHL, user.wallet.balanceCHL)`
-- If `amountPaid > 0`: debit `wallet.balanceCHL`, write `WalletTransaction` (type: `auto_payout`), set snapshot `status: paid`, `amountPaidCHL`, `paidAt`
+- Calculate `amountPaid = min(snapshot.earnedCHL, user.wallet.earnedCHL)` — draws from AAC only
+- If `amountPaid > 0`: debit `wallet.earnedCHL`, write `WalletTransaction` (type: `auto_payout`), set snapshot `status: paid`, `amountPaidCHL`, `paidAt`
 - Send in-app notification (type: `payout_processed`) confirming amount
 
 #### 15th of month — `makeup_payout_15`
-Recurring on the 15th. Finds all `MonthlySnapshot` docs with `status: held` and `makeupPayoutDate <= now`. Same logic as auto-payout — no further opt-out available.
+Recurring on the 15th. Finds all `MonthlySnapshot` docs with `status: held` and `makeupPayoutDate <= now`. Same logic as auto-payout — draws from `earnedCHL` only, no further opt-out available.
 
 #### Contest-close job extension (existing `close_contest` job)
 After setting `winnerEntryId` and `status: closed`, the job now also:
 1. Aggregates `ContestContribution` totals per entry (only `status: active` contributions)
 2. Sets all contributions for this contest to `status: locked`
-3. For each entry with contributions > 0: credits `wallet.balanceCHL` with `netPayoutCHL` (75% of gross), writes a `WalletTransaction` (type: `contest_payout_settled`, direction: `credit`), creates a `ContestPayout` audit doc with `status: completed`
+3. For each entry with contributions > 0: credits `wallet.earnedCHL` with `netPayoutCHL` (75% of gross), writes a `WalletTransaction` (type: `contest_payout_settled`, direction: `credit`), creates a `ContestPayout` audit doc with `status: completed`
 4. Sends `contest_payout_available` notification to each contestant who received earnings
 
 ---
@@ -668,6 +675,7 @@ After setting `winnerEntryId` and `status: closed`, the job now also:
 
 **Schema**
 - [x] Migrate `User.wallet.balanceCents → balanceCHL` (default 0, no data to preserve)
+- [ ] Refactor `User.wallet.balanceCHL → purchasedCHL + earnedCHL` — rename field, add earnedCHL, update all routes/jobs/views
 - [x] Create `WalletTransaction` model
 - [x] Create `ContestContribution` model
 - [x] Create `ContestPayout` model
@@ -694,7 +702,7 @@ After setting `winnerEntryId` and `status: closed`, the job now also:
 - [x] Wire wallet data into `GET /settings` route
 
 **Profile**
-- [x] Show `balanceCHL` in stats row — owner view only
+- [ ] Show SB (`purchasedCHL`) and AAC (`earnedCHL`) in stats row — owner view only (update from single `balanceCHL`)
 
 **Background jobs**
 - [x] `snapshot_monthly_balances` — 1st of month

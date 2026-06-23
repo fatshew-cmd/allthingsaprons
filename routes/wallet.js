@@ -46,7 +46,7 @@ router.get('/topup', requireAuth, async (req, res) => {
     title:      'Top Up',
     activePage: 'wallet',
     packages:   PACKAGES,
-    balance:    user?.wallet?.balanceCHL || 0,
+    balance:    (user?.wallet?.purchasedCHL || 0) + (user?.wallet?.earnedCHL || 0),
   });
 });
 
@@ -68,7 +68,7 @@ router.get('/checkout', requireAuth, async (req, res) => {
     amountCHL,
     amountUSD,
     packageName,
-    balance:     user?.wallet?.balanceCHL || 0,
+    balance:     (user?.wallet?.purchasedCHL || 0) + (user?.wallet?.earnedCHL || 0),
   });
 });
 
@@ -86,12 +86,12 @@ router.post('/checkout', requireAuth, async (req, res) => {
     await withTxnOrFallback(async (session) => {
       const updatedUser = await User.findByIdAndUpdate(
         userId,
-        { $inc: { 'wallet.balanceCHL': amountCHL }, $set: { 'wallet.updatedAt': new Date() } },
+        { $inc: { 'wallet.purchasedCHL': amountCHL }, $set: { 'wallet.updatedAt': new Date() } },
         { new: true, select: 'wallet', session }
       );
       if (!updatedUser) throw new Error('User not found.');
 
-      const balanceAfter  = updatedUser.wallet.balanceCHL;
+      const balanceAfter  = (updatedUser.wallet.purchasedCHL || 0) + (updatedUser.wallet.earnedCHL || 0);
       const balanceBefore = balanceAfter - amountCHL;
 
       await WalletTransaction.create([{
