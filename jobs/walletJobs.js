@@ -90,7 +90,7 @@ async function payoutReminder() {
       payload: {
         amountCHL:     snap.balanceCHL,
         autoPayoutDate: snap.autoPayoutDate,
-        url:           '/settings?section=wallet',
+        url:           '/settings?tab=wallet',
       },
     }).catch(() => {});
 
@@ -102,7 +102,7 @@ async function payoutReminder() {
         subject: `Your ${snap.balanceCHL.toLocaleString()} 🌶️ auto-payout is in 5 days`,
         html: `<p>Hi ${displayName},</p>
 <p>You have <strong>${snap.balanceCHL.toLocaleString()} chillies</strong> (≈ $${(snap.balanceCHL * EXCHANGE_RATE).toFixed(2)}) scheduled for automatic payout on the 30th.</p>
-<p>If you'd like to keep them on your account a little longer, you can <a href="${process.env.APP_URL || 'https://allthingsaprons.com'}/settings?section=wallet">visit your wallet settings</a> and tap "Hold until the 15th" before the 30th.</p>
+<p>If you'd like to keep them on your account a little longer, you can <a href="${process.env.APP_URL || 'https://allthingsaprons.com'}/settings?tab=wallet">visit your wallet settings</a> and tap "Hold until the 15th" before the 30th.</p>
 <p>If you do nothing, the payout happens automatically.</p>`,
       }).catch(() => {});
     }
@@ -163,7 +163,7 @@ async function executePayout(snapshot, paidBy) {
     payload: {
       amountCHL: amountPaid,
       paidBy,
-      url:       '/settings?section=wallet',
+      url:       '/settings?tab=wallet',
     },
   }).catch(() => {});
 }

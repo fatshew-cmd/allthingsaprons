@@ -15,7 +15,7 @@ const walletTransactionSchema = new mongoose.Schema({
       'admin_grant',
       'auto_payout',
       'makeup_payout',
-      'manual_cashout',
+      'manual_correction',
     ],
     required: true,
   },
@@ -33,7 +33,7 @@ const walletTransactionSchema = new mongoose.Schema({
 
   source: {
     type: String,
-    enum: ['package', 'custom', 'admin', 'contest_close', 'system', 'manual_cashout', 'auto_payout', 'makeup_payout'],
+    enum: ['package', 'custom', 'admin', 'contest_close', 'system', 'auto_payout', 'makeup_payout', 'manual_correction'],
   },
 
   packageName: { type: String },

@@ -210,11 +210,20 @@
 
         <% if (ls && ls.entryId) { %>
         <div class="flex items-center gap-1">
-          <% if (!ls.isMine && showLeftEntry) { %>
-          <a href="/submit?challenge=<%= ls.entryId %>" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white hover:text-charm-400 transition-colors shrink-0">
+          <% if (showLeftEntry) { %>
+          <% if (ls.isMine) { %>
+          <div class="cursor-not-allowed shrink-0">
+            <a href="#" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white/50 pointer-events-none">
+              <iconify-icon icon="boxicons:git-compare" width="20"></iconify-icon>
+              <span class="text-sm font-semibold">0</span>
+            </a>
+          </div>
+          <% } else { %>
+          <a href="/submit?challenge=<%= ls.entryId %>" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white/50 hover:text-charm-400 transition-colors shrink-0">
             <iconify-icon icon="boxicons:git-compare" width="20"></iconify-icon>
             <span class="text-sm font-semibold">0</span>
           </a>
+          <% } %>
           <% } %>
           <div data-cv-action="<%= ls.entryId %>">
             <% if (canVote && !ls.isMine) { %>
@@ -231,7 +240,7 @@
             </button>
             <% } else { %>
             <div class="cursor-not-allowed">
-              <button disabled class="flex items-center gap-2 h-8 px-2 text-white/20 font-semibold text-sm pointer-events-none">
+              <button disabled class="flex items-center gap-2 h-8 px-2 text-white/50 font-semibold text-sm pointer-events-none">
                 <iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon>
                 <span><%= ls.voteCount %></span>
               </button>
@@ -239,13 +248,15 @@
             <% } %>
           </div>
           <% if (ls.isMine) { %>
-          <div class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white">
-            <span>🌶️</span>
-            <span><%= grossByEntry[ls.entryId] || 0 %></span>
+          <div class="cursor-not-allowed">
+            <button type="button" class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white/50 pointer-events-none">
+              <span>🌶️</span>
+              <span><%= grossByEntry[ls.entryId] || 0 %></span>
+            </button>
           </div>
           <% } else { %>
-          <button type="button" onclick="document.getElementById('chl-gross-left').closest('.border-t').scrollIntoView({behavior:'smooth',block:'start'})"
-            class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white hover:text-charm-400 transition-colors cursor-pointer">
+          <button type="button" data-contrib-open="left"
+            class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white/50 hover:text-charm-400 transition-colors cursor-pointer">
             <span>🌶️</span>
             <span><%= grossByEntry[ls.entryId] || 0 %></span>
           </button>
@@ -384,11 +395,20 @@
 
         <% if (rs && rs.entryId) { %>
         <div class="flex items-center gap-1">
-          <% if (!rs.isMine && showRightEntry) { %>
-          <a href="/submit?challenge=<%= rs.entryId %>" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white hover:text-charm-400 transition-colors shrink-0">
+          <% if (showRightEntry) { %>
+          <% if (rs.isMine) { %>
+          <div class="cursor-not-allowed shrink-0">
+            <a href="#" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white/50 pointer-events-none">
+              <iconify-icon icon="boxicons:git-compare" width="20"></iconify-icon>
+              <span class="text-sm font-semibold">0</span>
+            </a>
+          </div>
+          <% } else { %>
+          <a href="/submit?challenge=<%= rs.entryId %>" class="flex items-center gap-1.5 h-10 px-2 rounded-md text-white/50 hover:text-charm-400 transition-colors shrink-0">
             <iconify-icon icon="boxicons:git-compare" width="20"></iconify-icon>
             <span class="text-sm font-semibold">0</span>
           </a>
+          <% } %>
           <% } %>
           <div data-cv-action="<%= rs.entryId %>">
             <% if (canVote && !rs.isMine) { %>
@@ -404,20 +424,24 @@
               <span><%= rs.voteCount %></span>
             </button>
             <% } else { %>
-            <button disabled class="flex items-center gap-2 h-8 px-2 text-white/20 font-semibold text-sm cursor-not-allowed">
-              <iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon>
-              <span><%= rs.voteCount %></span>
-            </button>
+            <div class="cursor-not-allowed">
+              <button disabled class="flex items-center gap-2 h-8 px-2 text-white/50 font-semibold text-sm pointer-events-none">
+                <iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon>
+                <span><%= rs.voteCount %></span>
+              </button>
+            </div>
             <% } %>
           </div>
           <% if (rs.isMine) { %>
-          <div class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white">
-            <span>🌶️</span>
-            <span><%= grossByEntry[rs.entryId] || 0 %></span>
+          <div class="cursor-not-allowed">
+            <button type="button" class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white/50 pointer-events-none">
+              <span>🌶️</span>
+              <span><%= grossByEntry[rs.entryId] || 0 %></span>
+            </button>
           </div>
           <% } else { %>
-          <button type="button" onclick="document.getElementById('chl-gross-right').closest('.border-t').scrollIntoView({behavior:'smooth',block:'start'})"
-            class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white hover:text-charm-400 transition-colors cursor-pointer">
+          <button type="button" data-contrib-open="right"
+            class="flex items-center gap-1.5 h-8 px-2 font-semibold text-sm text-white/50 hover:text-charm-400 transition-colors cursor-pointer">
             <span>🌶️</span>
             <span><%= grossByEntry[rs.entryId] || 0 %></span>
           </button>
@@ -451,134 +475,84 @@
   <!-- ── Chilli Contributions ── -->
   <% if (ls && ls.entryId) { %>
   <%
-    var _lGross = grossByEntry[ls.entryId] || 0;
-    var _rGross = (rs && rs.entryId) ? (grossByEntry[rs.entryId] || 0) : 0;
-    var _totalGross = _lGross + _rGross;
-    var _lMyContrib = myContribMap[ls.entryId] || null;
-    var _rMyContrib = (rs && rs.entryId) ? (myContribMap[rs.entryId] || null) : null;
-    var _canContribLeft  = canContribute && locals.currentUser && !ls.isMine;
-    var _canContribRight = canContribute && locals.currentUser && rs && rs.entryId && !rs.isMine;
   %>
-  <div class="px-4 pb-4 border-t border-white/8 pt-4">
+  <div id="chl-gross-left" class="px-4 pb-4 border-t border-white/8 pt-4">
+    <div class="grid grid-cols-2 gap-x-9">
 
-    <!-- Gross contribution totals -->
-    <div class="flex justify-between items-start mb-3">
-      <div class="text-left">
-        <p class="text-xs text-white/30 mb-0.5">🌶️ Contributed</p>
-        <p id="chl-gross-left" class="text-sm font-bold text-white"><%= _lGross.toLocaleString() %> <span class="text-white/40 font-normal text-xs">chilli<%= _lGross !== 1 ? 'es' : '' %></span></p>
-      </div>
-      <% if (rs && rs.entryId) { %>
-      <div class="text-right">
-        <p class="text-xs text-white/30 mb-0.5">🌶️ Contributed</p>
-        <p id="chl-gross-right" class="text-sm font-bold text-white"><%= _rGross.toLocaleString() %> <span class="text-white/40 font-normal text-xs">chilli<%= _rGross !== 1 ? 'es' : '' %></span></p>
-      </div>
-      <% } %>
-    </div>
-
-    <!-- Contribution bar -->
-    <% if (_totalGross > 0) { %>
-    <%
-      var _lBarPct = Math.round((_lGross / _totalGross) * 100);
-      var _rBarPct = 100 - _lBarPct;
-    %>
-    <div id="chl-bar" class="relative h-1.5 rounded-md overflow-hidden bg-white/8 mb-4">
-      <div id="chl-bar-left"  class="absolute left-0 top-0 bottom-0 bg-charm-500/60 transition-all duration-500" style="width: <%= _lBarPct %>%"></div>
-      <div id="chl-bar-right" class="absolute right-0 top-0 bottom-0 bg-white/25 transition-all duration-500"   style="width: <%= _rBarPct %>%"></div>
-    </div>
-    <% } else { %>
-    <div id="chl-bar" class="relative h-1.5 rounded-md overflow-hidden bg-white/8 mb-4 hidden">
-      <div id="chl-bar-left"  class="absolute left-0 top-0 bottom-0 bg-charm-500/60 transition-all duration-500" style="width:0%"></div>
-      <div id="chl-bar-right" class="absolute right-0 top-0 bottom-0 bg-white/25 transition-all duration-500"   style="width:0%"></div>
-    </div>
-    <% } %>
-
-    <!-- Contribute panels (active contest only, not own entry) -->
-    <% if (canContribute && locals.currentUser) { %>
-    <div class="grid grid-cols-2 gap-3">
-
-      <!-- Left contribute -->
-      <div id="contrib-panel-left" class="<%= !_canContribLeft ? 'opacity-30 pointer-events-none' : '' %>">
-        <% if (_lMyContrib) { %>
-        <!-- Already contributing -->
-        <div class="flex flex-col gap-1.5">
-          <p class="text-xs text-white/40">Your contribution</p>
-          <div class="flex items-center gap-1.5">
-            <input id="chl-input-left" type="number" min="1" value="<%= _lMyContrib.amountCHL %>"
-              class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-charm-500/60">
-            <button class="chl-adjust-btn shrink-0 px-2 py-1.5 text-xs bg-charm-600 hover:bg-charm-500 text-white rounded-md transition-colors cursor-pointer"
-              data-side="left" data-entry-id="<%= ls.entryId %>" data-contest-id="<%= contest._id %>">
-              Save
-            </button>
+      <!-- Left column -->
+      <div id="contrib-panel-left">
+        <% if (contribRankLeft.length === 0) { %>
+        <p class="text-xs text-white/20 py-2">No contributions yet</p>
+        <% } else { %>
+        <% contribRankLeft.forEach(function(c, i) { %>
+        <%
+          var _cu = c.contributorId;
+          var _cuName = (_cu && (_cu.displayName && _cu.displayName.value || '@' + _cu.username.value)) || 'Unknown';
+          var _cuHandle = _cu ? ('@' + _cu.username.value) : '';
+          var _cuAvatar = _cu && _cu.avatar && _cu.avatar.value;
+          var _cuSlug = _cu && _cu.username && _cu.username.value;
+          var _isOwn = locals.currentUser && _cu && String(_cu._id) === String(locals.currentUser._id);
+        %>
+        <div class="flex items-center gap-2 py-1.5 <%= i > 0 ? 'border-t border-white/5' : '' %>"<% if (_isOwn) { %> data-contrib-row="<%= String(c.entryId) %>"<% } %>>
+          <a href="<%= _cuSlug ? '/' + _cuSlug : '#' %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 flex items-center justify-center no-underline">
+            <% if (_cuAvatar) { %>
+            <img src="<%= _cuAvatar %>" alt="" class="w-full h-full object-cover">
+            <% } else { %>
+            <iconify-icon icon="boxicons:user" width="13" class="text-white/30"></iconify-icon>
+            <% } %>
+          </a>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-semibold text-white truncate leading-tight"><%= _cuName %></p>
+            <p class="text-[10px] text-white/30 truncate leading-tight"><%= _cuHandle %></p>
           </div>
-          <button class="chl-withdraw-btn text-xs text-white/30 hover:text-red-400 transition-colors text-left cursor-pointer"
-            data-side="left" data-entry-id="<%= ls.entryId %>" data-contest-id="<%= contest._id %>">
-            Withdraw
-          </button>
+          <p class="shrink-0 text-xs font-bold text-charm-400">🌶️ <%= c.amountCHL.toLocaleString() %></p>
+          <% if (_isOwn && contest.status === 'active') { %>
+          <button type="button" class="contrib-withdraw-btn shrink-0 text-xs text-white/40 hover:text-red-400 transition-colors cursor-pointer ml-1" data-entry-id="<%= String(c.entryId) %>" data-side="left">Withdraw</button>
+          <% } %>
         </div>
-        <% } else if (_canContribLeft) { %>
-        <!-- New contribution -->
-        <div class="flex flex-col gap-1.5">
-          <p class="text-xs text-white/40">Contribute 🌶️</p>
-          <div class="flex items-center gap-1.5">
-            <input id="chl-input-left" type="number" min="1" placeholder="Amount"
-              class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-charm-500/60">
-            <button class="chl-contribute-btn shrink-0 px-2 py-1.5 text-xs bg-shark-700 hover:bg-charm-600 text-white/60 hover:text-white rounded-md transition-colors cursor-pointer"
-              data-side="left" data-entry-id="<%= ls.entryId %>" data-contest-id="<%= contest._id %>">
-              <iconify-icon icon="noto:hot-pepper" width="12"></iconify-icon>
-            </button>
-          </div>
-        </div>
+        <% }); %>
         <% } %>
       </div>
 
-      <!-- Right contribute -->
-      <div id="contrib-panel-right" class="<%= !_canContribRight ? 'opacity-30 pointer-events-none' : '' %>">
-        <% if (rs && rs.entryId) { %>
-        <% if (_rMyContrib) { %>
-        <!-- Already contributing -->
-        <div class="flex flex-col gap-1.5">
-          <p class="text-xs text-white/40">Your contribution</p>
-          <div class="flex items-center gap-1.5">
-            <input id="chl-input-right" type="number" min="1" value="<%= _rMyContrib.amountCHL %>"
-              class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-charm-500/60">
-            <button class="chl-adjust-btn shrink-0 px-2 py-1.5 text-xs bg-charm-600 hover:bg-charm-500 text-white rounded-md transition-colors cursor-pointer"
-              data-side="right" data-entry-id="<%= rs.entryId %>" data-contest-id="<%= contest._id %>">
-              Save
-            </button>
+      <!-- Right column -->
+      <div id="contrib-panel-right">
+        <% if (contribRankRight.length === 0) { %>
+        <p class="text-xs text-white/20 py-2">No contributions yet</p>
+        <% } else { %>
+        <% contribRankRight.forEach(function(c, i) { %>
+        <%
+          var _cu = c.contributorId;
+          var _cuName = (_cu && (_cu.displayName && _cu.displayName.value || '@' + _cu.username.value)) || 'Unknown';
+          var _cuHandle = _cu ? ('@' + _cu.username.value) : '';
+          var _cuAvatar = _cu && _cu.avatar && _cu.avatar.value;
+          var _cuSlug = _cu && _cu.username && _cu.username.value;
+          var _isOwn = locals.currentUser && _cu && String(_cu._id) === String(locals.currentUser._id);
+        %>
+        <div class="flex items-center gap-2 py-1.5 <%= i > 0 ? 'border-t border-white/5' : '' %>"<% if (_isOwn) { %> data-contrib-row="<%= String(c.entryId) %>"<% } %>>
+          <a href="<%= _cuSlug ? '/' + _cuSlug : '#' %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 flex items-center justify-center no-underline">
+            <% if (_cuAvatar) { %>
+            <img src="<%= _cuAvatar %>" alt="" class="w-full h-full object-cover">
+            <% } else { %>
+            <iconify-icon icon="boxicons:user" width="13" class="text-white/30"></iconify-icon>
+            <% } %>
+          </a>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-semibold text-white truncate leading-tight"><%= _cuName %></p>
+            <p class="text-[10px] text-white/30 truncate leading-tight"><%= _cuHandle %></p>
           </div>
-          <button class="chl-withdraw-btn text-xs text-white/30 hover:text-red-400 transition-colors text-left cursor-pointer"
-            data-side="right" data-entry-id="<%= rs.entryId %>" data-contest-id="<%= contest._id %>">
-            Withdraw
-          </button>
+          <p class="shrink-0 text-xs font-bold text-charm-400">🌶️ <%= c.amountCHL.toLocaleString() %></p>
+          <% if (_isOwn && contest.status === 'active') { %>
+          <button type="button" class="contrib-withdraw-btn shrink-0 text-xs text-white/40 hover:text-red-400 transition-colors cursor-pointer ml-1" data-entry-id="<%= String(c.entryId) %>" data-side="right">Withdraw</button>
+          <% } %>
         </div>
-        <% } else if (_canContribRight) { %>
-        <!-- New contribution -->
-        <div class="flex flex-col gap-1.5">
-          <p class="text-xs text-white/40">Contribute 🌶️</p>
-          <div class="flex items-center gap-1.5">
-            <input id="chl-input-right" type="number" min="1" placeholder="Amount"
-              class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-charm-500/60">
-            <button class="chl-contribute-btn shrink-0 px-2 py-1.5 text-xs bg-shark-700 hover:bg-charm-600 text-white/60 hover:text-white rounded-md transition-colors cursor-pointer"
-              data-side="right" data-entry-id="<%= rs.entryId %>" data-contest-id="<%= contest._id %>">
-              <iconify-icon icon="noto:hot-pepper" width="12"></iconify-icon>
-            </button>
-          </div>
-        </div>
-        <% } %>
+        <% }); %>
         <% } %>
       </div>
 
-    </div><!-- /grid -->
-
-    <!-- Balance hint -->
-    <p class="text-xs text-white/20 mt-2 text-center">
-      Balance: <span id="chl-viewer-balance"><%= viewerBalanceCHL.toLocaleString() %></span> 🌶️
-      <% if (viewerBalanceCHL === 0) { %>&nbsp;·&nbsp;<a href="/wallet/topup" class="text-charm-400 hover:text-charm-300 transition-colors">Top up</a><% } %>
-    </p>
-    <% } %>
-
+    </div>
   </div><!-- /contributions -->
   <% } %>
+
 
   <%
   function linkifyCommentBody(body) {
@@ -806,6 +780,26 @@
 
 </div>
 
+<% if (canContribute && locals.currentUser) { %>
+<!-- Contribution Popup -->
+<div id="contrib-modal" class="fixed inset-0 z-50 items-center justify-center p-4 hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="contrib-modal-bg"></div>
+  <div class="relative w-full max-w-xs bg-shark-900 border border-white/10 rounded-md shadow-2xl">
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-3">
+        <p id="contrib-modal-title" class="text-sm font-bold text-white">Contribute</p>
+        <button type="button" id="contrib-modal-close" class="w-7 h-7 flex items-center justify-center text-white/40 hover:text-white/70 transition-colors cursor-pointer rounded-md hover:bg-white/8">
+          <iconify-icon icon="boxicons:x" width="18"></iconify-icon>
+        </button>
+      </div>
+      <div id="contrib-modal-recipient" class="relative mb-3"></div>
+      <p class="text-sm text-white/60 mb-6">Balance: <span id="contrib-modal-balance"><%= viewerBalanceCHL.toLocaleString() %></span> 🌶️ · <a href="/wallet/topup" class="text-charm-400 hover:text-charm-300 transition-colors">Top up</a></p>
+      <div id="contrib-modal-mount" class="contrib-slider-mount"></div>
+    </div>
+  </div>
+</div>
+<% } %>
+
 <% if (locals.isNominator || locals.isNominee) { %>
 <!-- Drop Out Confirmation Modal -->
 <div id="dropout-modal" class="fixed inset-0 z-50 items-center justify-center p-4 hidden">
@@ -879,6 +873,46 @@
     70%  { opacity: 1; }
     100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.45); opacity: 0; }
   }
+  input[type="range"].contrib-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: linear-gradient(to right, #c73b64 var(--fill-pct, 0%), rgba(255,255,255,0.12) var(--fill-pct, 0%));
+    border-radius: 9999px;
+    outline: none;
+    cursor: pointer;
+    width: 100%;
+    display: block;
+  }
+  input[type="range"].contrib-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: #c73b64;
+    cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.15);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  input[type="range"].contrib-range::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: #c73b64;
+    cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.15);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    border: none;
+  }
+  input[type="range"].contrib-range::-moz-range-track {
+    height: 4px;
+    background: transparent;
+  }
+  input[type="range"].contrib-range::-moz-range-progress {
+    height: 4px;
+    background: #c73b64;
+    border-radius: 9999px;
+  }
 </style>
 <script>
 (function () {
@@ -938,6 +972,39 @@
     }
   }
 
+  window.burstContribConfetti = function burstContribConfetti(avatarUrl) {
+    var overlay = getVoteOverlay();
+    var ow = overlay.offsetWidth;
+    var oh = overlay.offsetHeight;
+    var total = 32;
+    for (var i = 0; i < total; i++) {
+      (function (idx) {
+        var useAvatar = avatarUrl && (idx % 4 === 0);
+        var p = document.createElement(useAvatar ? 'img' : 'span');
+        if (useAvatar) {
+          p.src = avatarUrl;
+          p.style.cssText = 'position:absolute;width:42px;height:42px;border-radius:9999px;object-fit:cover;border:2px solid rgba(255,255,255,0.25);pointer-events:none;will-change:transform,opacity;';
+        } else {
+          p.textContent = '🌶️';
+          p.style.cssText = 'position:absolute;pointer-events:none;font-size:2.8rem;line-height:1;will-change:transform,opacity;';
+        }
+        var cx = 40 + Math.random() * (ow - 80);
+        p.style.left = cx + 'px';
+        p.style.top  = oh + 'px';
+        var tx = (Math.random() - 0.5) * 220;
+        var ty = -(320 + Math.random() * 260);
+        var mx = tx + (Math.random() - 0.5) * 300;
+        p.style.setProperty('--tx', tx + 'px');
+        p.style.setProperty('--ty', ty + 'px');
+        p.style.setProperty('--mx', mx + 'px');
+        p.style.animation = '_cv-burst ' + (2.8 + Math.random() * 0.5) + 's ease-out forwards';
+        p.style.animationDelay = (idx * 0.04 + Math.random() * 0.15) + 's';
+        overlay.appendChild(p);
+        p.addEventListener('animationend', function () { if (p.parentNode) p.parentNode.removeChild(p); }, { once: true });
+      }(i));
+    }
+  }
+
   function makeCountdown(id) {
     var el = document.getElementById(id);
     if (!el) return;
@@ -959,6 +1026,7 @@
   }
   makeCountdown('contest-deadline');
   makeCountdown('contest-void-deadline');
+
 
   document.addEventListener('click', function (e) {
     var followBtn = e.target.closest('.contest-follow-btn');
@@ -1651,125 +1719,312 @@
 
 }());
 
-// ── Chilli contribution handlers ──────────────────────────────────
+// ── Chilli contribution popup ─────────────────────────────────────
 (function () {
   var CONTEST_ID = '<%= contest._id %>';
 
-  function updateContribUI(data, side) {
-    var gross      = data.grossByEntry || {};
-    var leftGross  = gross['<%= ls && ls.entryId ? ls.entryId : "" %>'] || 0;
-    var rightGross = gross['<%= rs && rs.entryId ? rs.entryId : "" %>'] || 0;
-    var total      = leftGross + rightGross;
+  // Server-rendered contribution data for each side (snapshot on page load)
+  var SIDES = {
+    left: {
+      entryId:    '<%= ls && ls.entryId || "" %>',
+      name:       <%- JSON.stringify(ls && ls.user && (ls.user.displayName && ls.user.displayName.value || '@' + ls.user.username.value) || '') %>,
+      handle:         <%- JSON.stringify(ls && ls.user && ls.user.username && ls.user.username.value || '') %>,
+      avatar:         <%- JSON.stringify(ls && ls.user && ls.user.avatar && ls.user.avatar.value || '') %>,
+      entryMediaUrl:  <%- JSON.stringify(ls && ls.entry && ls.entry.mediaUrl || '') %>,
+      entryMediaType: <%- JSON.stringify(ls && ls.entry && ls.entry.mediaType || 'photo') %>,
+      existing:   <%- (ls && ls.entryId && myContribMap[ls.entryId]) ? myContribMap[ls.entryId].amountCHL : 0 %>,
+      balance:    <%- viewerBalanceCHL %>,
+      milestones: <%- JSON.stringify((contribRankLeft || []).filter(function(c){ return c.contributorId && String(c.contributorId._id) !== (locals.currentUser ? String(locals.currentUser._id) : ''); }).map(function(c){ return { amount: c.amountCHL, avatar: c.contributorId && c.contributorId.avatar && c.contributorId.avatar.value || '' }; })) %>,
+      canContrib: <%- (canContribute && locals.currentUser && ls && !ls.isMine) ? 'true' : 'false' %>,
+    },
+    right: {
+      entryId:    '<%= rs && rs.entryId || "" %>',
+      name:       <%- JSON.stringify(rs && rs.user && (rs.user.displayName && rs.user.displayName.value || '@' + rs.user.username.value) || '') %>,
+      handle:         <%- JSON.stringify(rs && rs.user && rs.user.username && rs.user.username.value || '') %>,
+      avatar:         <%- JSON.stringify(rs && rs.user && rs.user.avatar && rs.user.avatar.value || '') %>,
+      entryMediaUrl:  <%- JSON.stringify(rs && rs.entry && rs.entry.mediaUrl || '') %>,
+      entryMediaType: <%- JSON.stringify(rs && rs.entry && rs.entry.mediaType || 'photo') %>,
+      existing:   <%- (rs && rs.entryId && myContribMap[rs.entryId]) ? myContribMap[rs.entryId].amountCHL : 0 %>,
+      balance:    <%- viewerBalanceCHL %>,
+      milestones: <%- JSON.stringify((contribRankRight || []).filter(function(c){ return c.contributorId && String(c.contributorId._id) !== (locals.currentUser ? String(locals.currentUser._id) : ''); }).map(function(c){ return { amount: c.amountCHL, avatar: c.contributorId && c.contributorId.avatar && c.contributorId.avatar.value || '' }; })) %>,
+      canContrib: <%- (canContribute && locals.currentUser && rs && rs.entryId && !rs.isMine) ? 'true' : 'false' %>,
+    },
+  };
 
-    var glEl = document.getElementById('chl-gross-left');
-    var grEl = document.getElementById('chl-gross-right');
-    if (glEl) glEl.innerHTML = leftGross.toLocaleString() + ' <span class="text-white/40 font-normal text-xs">chilli' + (leftGross !== 1 ? 'es' : '') + '</span>';
-    if (grEl) grEl.innerHTML = rightGross.toLocaleString() + ' <span class="text-white/40 font-normal text-xs">chilli' + (rightGross !== 1 ? 'es' : '') + '</span>';
+  var modal          = document.getElementById('contrib-modal');
+  var modalBg        = document.getElementById('contrib-modal-bg');
+  var modalClose     = document.getElementById('contrib-modal-close');
+  var modalTitle     = document.getElementById('contrib-modal-title');
+  var modalBal       = document.getElementById('contrib-modal-balance');
+  var modalRecipient = document.getElementById('contrib-modal-recipient');
+  var mount          = document.getElementById('contrib-modal-mount');
 
-    var bar = document.getElementById('chl-bar');
-    if (bar && total > 0) {
-      bar.classList.remove('hidden');
-      var lPct = Math.round((leftGross / total) * 100);
-      var rPct = 100 - lPct;
-      var bl = document.getElementById('chl-bar-left');
-      var br = document.getElementById('chl-bar-right');
-      if (bl) bl.style.width = lPct + '%';
-      if (br) br.style.width = rPct + '%';
-    }
+  var activeSide = null;
 
-    var balEl = document.getElementById('chl-viewer-balance');
-    if (balEl && data.newBalance != null) balEl.textContent = data.newBalance.toLocaleString();
+  function renderRecipient(selectedSide) {
+    if (!modalRecipient) return;
+    var available = ['left', 'right'].filter(function (s) { return SIDES[s] && SIDES[s].canContrib; });
+    var sd = SIDES[selectedSide];
+    var canToggle = available.length > 1;
+
+    var arrowHtml = canToggle
+      ? '<button type="button" class="contrib-toggle-btn shrink-0 w-8 self-stretch flex items-center justify-center text-white/50 hover:text-white transition-colors cursor-pointer border-r border-white/8">'
+        + '<iconify-icon icon="boxicons:arrow-left-right" width="13"></iconify-icon>'
+        + '</button>'
+      : '<span class="shrink-0 w-8 border-r border-white/8 self-stretch"></span>';
+
+    var avatarHtml = sd.avatar
+      ? '<img src="' + sd.avatar + '" alt="" class="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0">'
+      : '<span class="w-9 h-9 rounded-full bg-shark-800 border border-white/15 flex items-center justify-center shrink-0"><iconify-icon icon="boxicons:user" width="15" class="text-white/25"></iconify-icon></span>';
+    var handleHtml = sd.handle ? '<p class="text-[11px] text-white/40 truncate">@' + sd.handle + '</p>' : '';
+    var pfpHtml = '<div class="flex items-center gap-2.5 flex-1 min-w-0">'
+      + avatarHtml
+      + '<div class="flex flex-col gap-0.5 min-w-0"><p class="text-sm font-semibold text-white leading-tight truncate">' + sd.name + '</p>' + handleHtml + '</div>'
+      + '</div>';
+
+    var thumbHtml = sd.entryMediaUrl
+      ? (sd.entryMediaType === 'video'
+          ? '<div class="shrink-0 w-14 h-14 rounded-r-md overflow-hidden border-l border-white/8">'
+            + '<video src="' + sd.entryMediaUrl + '" class="w-full h-full object-cover" muted preload="metadata" playsinline></video>'
+            + '</div>'
+          : '<img src="' + sd.entryMediaUrl + '" alt="" class="shrink-0 w-14 h-14 rounded-r-md object-cover border-l border-white/8">')
+      : '<div class="shrink-0 w-14 h-14 rounded-r-md bg-shark-800 border-l border-white/8"></div>';
+
+    modalRecipient.innerHTML = '<div class="flex items-center bg-shark-800/60 border border-white/8 rounded-md overflow-hidden">'
+      + arrowHtml
+      + '<div class="flex items-center gap-2.5 flex-1 px-3 py-2 min-w-0">' + pfpHtml + '</div>'
+      + thumbHtml
+      + '</div>';
   }
 
-  function rebuildContribPanel(side, myAmountCHL, entryId) {
-    var panelId = 'contrib-panel-' + side;
-    var panel   = document.getElementById(panelId);
-    if (!panel) return;
+  function mountSide(side) {
+    var sd = SIDES[side];
+    activeSide = side;
+    if (modalBal) modalBal.textContent = Number(sd.balance).toLocaleString();
+    mount.dataset.entryId    = sd.entryId;
+    mount.dataset.side       = side;
+    mount.dataset.contestId  = CONTEST_ID;
+    mount.dataset.existing   = sd.existing;
+    mount.dataset.balance    = sd.balance;
+    mount.dataset.max        = sd.balance;
+    mount.dataset.milestones = JSON.stringify(sd.milestones);
+    initContribSlider(mount);
+  }
 
-    if (myAmountCHL > 0) {
-      panel.innerHTML = '<div class="flex flex-col gap-1.5">'
-        + '<p class="text-xs text-white/40">Your contribution</p>'
-        + '<div class="flex items-center gap-1.5">'
-        + '<input id="chl-input-' + side + '" type="number" min="1" value="' + myAmountCHL + '" class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-charm-500/60">'
-        + '<button class="chl-adjust-btn shrink-0 px-2 py-1.5 text-xs bg-charm-600 hover:bg-charm-500 text-white rounded-md transition-colors cursor-pointer" data-side="' + side + '" data-entry-id="' + entryId + '" data-contest-id="' + CONTEST_ID + '">Save</button>'
-        + '</div>'
-        + '<button class="chl-withdraw-btn text-xs text-white/30 hover:text-red-400 transition-colors text-left cursor-pointer" data-side="' + side + '" data-entry-id="' + entryId + '" data-contest-id="' + CONTEST_ID + '">Withdraw</button>'
-        + '</div>';
-    } else {
-      panel.innerHTML = '<div class="flex flex-col gap-1.5">'
-        + '<p class="text-xs text-white/40">Contribute 🌶️</p>'
-        + '<div class="flex items-center gap-1.5">'
-        + '<input id="chl-input-' + side + '" type="number" min="1" placeholder="Amount" class="w-full bg-shark-800 border border-white/10 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-charm-500/60">'
-        + '<button class="chl-contribute-btn shrink-0 px-2 py-1.5 text-xs bg-shark-700 hover:bg-charm-600 text-white/60 hover:text-white rounded-md transition-colors cursor-pointer" data-side="' + side + '" data-entry-id="' + entryId + '" data-contest-id="' + CONTEST_ID + '"><iconify-icon icon="noto:hot-pepper" width="12"></iconify-icon></button>'
-        + '</div>'
-        + '</div>';
+  function openModal(side) {
+    var sd = SIDES[side];
+    if (!sd || !sd.canContrib || !modal) return;
+    modalTitle.textContent = 'Contribute to';
+    renderRecipient(side);
+    mountSide(side);
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeModal() {
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    activeSide = null;
+  }
+
+  if (modalClose) modalClose.addEventListener('click', closeModal);
+  if (modalBg)    modalBg.addEventListener('click', closeModal);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && activeSide) { e.stopPropagation(); closeModal(); }
+  });
+
+  // Open on 🌶️ button click
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-contrib-open]');
+    if (btn) { openModal(btn.dataset.contribOpen); return; }
+
+    // Toggle arrow — switch to the other available side
+    if (e.target.closest('.contrib-toggle-btn')) {
+      var available = ['left', 'right'].filter(function (s) { return SIDES[s] && SIDES[s].canContrib; });
+      var otherSide = available.find(function (s) { return s !== activeSide; });
+      if (otherSide) { renderRecipient(otherSide); mountSide(otherSide); }
+      return;
     }
+  });
+
+  // ── Slider logic ──────────────────────────────────────────────────
+
+  function getStep(max) {
+    if (max <= 100)  return 1;
+    if (max <= 500)  return 5;
+    if (max <= 2000) return 10;
+    return 25;
+  }
+
+  function buildClusters(milestones, max) {
+    var step = getStep(max);
+    var threshold = Math.max(step * 2, Math.floor(max * 0.05));
+    var clusters = [];
+    var sorted = milestones.filter(function (m) { return m.amount <= max; }).sort(function (a, b) { return a.amount - b.amount; });
+    sorted.forEach(function (m) {
+      var last = clusters[clusters.length - 1];
+      if (last && (m.amount - last.midAmount) <= threshold) {
+        last.items.push(m);
+        last.midAmount = last.items.reduce(function (s, x) { return s + x.amount; }, 0) / last.items.length;
+      } else {
+        clusters.push({ items: [m], midAmount: m.amount });
+      }
+    });
+    return clusters;
+  }
+
+  function avatarEl(avatar) {
+    if (avatar) return '<img src="' + avatar + '" alt="" class="w-6 h-6 rounded-full object-cover border border-white/15 shadow-md">';
+    return '<span class="w-6 h-6 rounded-full bg-shark-800 border border-white/15 flex items-center justify-center"><iconify-icon icon="boxicons:user" width="11" class="text-white/25"></iconify-icon></span>';
+  }
+
+  function initContribSlider(m) {
+    var entryId  = m.dataset.entryId;
+    var side     = m.dataset.side;
+    var cid      = m.dataset.contestId;
+    var existing = parseInt(m.dataset.existing, 10) || 0;
+    var balance  = parseInt(m.dataset.balance, 10)  || 0;
+    var max      = parseInt(m.dataset.max, 10)       || balance;
+    var milestones;
+    try { milestones = JSON.parse(m.dataset.milestones || '[]'); } catch (x) { milestones = []; }
+
+    if (max === 0) {
+      m.innerHTML = '<p class="text-sm text-white/40 text-center py-3">No balance to contribute. <a href="/wallet/topup" class="text-charm-400 hover:text-charm-300 transition-colors">Top up →</a></p>';
+      return;
+    }
+
+    var initVal = 0;
+    var step    = getStep(max);
+    var clusters = buildClusters(milestones, max);
+
+    var markersHtml = clusters.map(function (cl) {
+      var pct = max > 0 ? Math.min(100, (cl.midAmount / max) * 100).toFixed(2) : 0;
+      var tip = cl.items.length === 1
+        ? cl.midAmount + ' 🌶️'
+        : cl.items.length + ' contributors at ~' + Math.round(cl.midAmount) + ' 🌶️';
+      var inner = cl.items.length === 1
+        ? avatarEl(cl.items[0].avatar)
+        : '<span class="w-6 h-6 rounded-full bg-shark-800 border border-white/20 flex items-center justify-center text-[10px] font-bold text-white/60">' + cl.items.length + '</span>';
+      return '<div class="absolute bottom-0 -translate-x-1/2 flex flex-col items-center" title="' + tip + '" style="left:' + pct + '%">'
+        + inner + '<div class="w-px h-1.5 bg-white/20 shrink-0"></div></div>';
+    }).join('');
+
+    m.innerHTML =
+      (existing > 0 ? '<p class="text-xs text-white/50 mb-3">Current contribution: <span class="text-charm-400 font-semibold">' + existing.toLocaleString() + ' 🌶️</span></p>' : '') +
+      (clusters.length ? '<div class="relative h-8 mb-1">' + markersHtml + '</div>' : '') +
+      '<input type="range" class="contrib-range" min="0" max="' + max + '" step="' + step + '" value="0">' +
+      '<div class="flex items-center gap-1.5 mt-3">' +
+        '<span class="text-sm shrink-0">🌶️</span>' +
+        '<input type="number" class="contrib-num min-w-0 flex-1 bg-shark-800 border border-white/10 rounded-md px-2 py-1.5 text-xs text-white focus:outline-none focus:border-charm-500/60" min="0" max="' + max + '" value="0" placeholder="0">' +
+      '</div>' +
+      '<div class="flex gap-2 mt-3">' +
+        '<button type="button" class="contrib-send-btn flex-1 py-2.5 text-xs font-bold rounded-md transition-colors cursor-pointer bg-shark-700 text-white/35 hover:bg-shark-600 hover:text-white/60"' +
+          ' data-entry-id="' + entryId + '" data-side="' + side + '" data-contest-id="' + cid + '">Contribute' +
+        '</button>' +
+      '</div>';
+
+    var rangeEl = m.querySelector('.contrib-range');
+    var numEl   = m.querySelector('.contrib-num');
+    var sendBtn = m.querySelector('.contrib-send-btn');
+
+    function syncTrack(v) {
+      var pct = max > 0 ? ((v / max) * 100).toFixed(2) : 0;
+      rangeEl.style.setProperty('--fill-pct', pct + '%');
+    }
+    function activateBtn(v) {
+      sendBtn.className = 'contrib-send-btn flex-1 py-2.5 text-xs font-bold rounded-md transition-colors cursor-pointer bg-charm-600 hover:bg-charm-500 text-white';
+      sendBtn.textContent = 'Contribute ' + Number(v).toLocaleString() + ' Chillies';
+    }
+    function deactivateBtn() {
+      sendBtn.className = 'contrib-send-btn flex-1 py-2.5 text-xs font-bold rounded-md transition-colors cursor-pointer bg-shark-700 text-white/35 hover:bg-shark-600 hover:text-white/60';
+      sendBtn.textContent = 'Contribute';
+    }
+
+    rangeEl.addEventListener('input', function () {
+      var v = parseInt(this.value, 10);
+      numEl.value = v;
+      syncTrack(v);
+      if (v > 0) activateBtn(v); else deactivateBtn();
+    });
+    numEl.addEventListener('input', function () {
+      var v = Math.max(0, Math.min(max, parseInt(this.value, 10) || 0));
+      rangeEl.value = v;
+      syncTrack(v);
+      if (v > 0) activateBtn(v); else deactivateBtn();
+    });
+    syncTrack(0);
+  }
+
+  // ── API handlers ──────────────────────────────────────────────────
+
+  function updateGrossBtns(data) {
+    var gross  = data.grossByEntry || {};
+    var lGross = gross['<%= ls && ls.entryId ? ls.entryId : "" %>'];
+    var rGross = gross['<%= rs && rs.entryId ? rs.entryId : "" %>'];
+    var lBtn = document.querySelector('[data-contrib-open="left"] span:last-child');
+    var rBtn = document.querySelector('[data-contrib-open="right"] span:last-child');
+    if (lBtn && lGross != null) lBtn.textContent = Number(lGross).toLocaleString();
+    if (rBtn && rGross != null) rBtn.textContent = Number(rGross).toLocaleString();
+  }
+
+  function afterSuccess(side, newExisting, newBalance) {
+    var sd = SIDES[side];
+    if (sd) sd.existing = newExisting;
+    if (newBalance != null) {
+      if (SIDES.left)  SIDES.left.balance  = newBalance;
+      if (SIDES.right) SIDES.right.balance = newBalance;
+      if (modalBal) modalBal.textContent = Number(newBalance).toLocaleString();
+    }
+    closeModal();
   }
 
   document.addEventListener('click', function (e) {
 
-    // New contribution
-    var contribBtn = e.target.closest('.chl-contribute-btn');
-    if (contribBtn) {
-      var side    = contribBtn.dataset.side;
-      var entryId = contribBtn.dataset.entryId;
-      var input   = document.getElementById('chl-input-' + side);
-      var amount  = parseInt(input && input.value, 10);
-      if (!amount || amount < 1) { if (window.showToast) window.showToast('Enter a valid amount.', 'error'); return; }
-      contribBtn.disabled = true;
-      fetch('/api/contests/' + CONTEST_ID + '/contribute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryId: entryId, amountCHL: amount }),
-      })
+    var sendBtn = e.target.closest('.contrib-send-btn');
+    if (sendBtn && !sendBtn.disabled) {
+      var m       = sendBtn.closest('.contrib-slider-mount');
+      var entryId = sendBtn.dataset.entryId;
+      var side    = sendBtn.dataset.side;
+      var numEl   = m && m.querySelector('.contrib-num');
+      var amount  = parseInt(numEl && numEl.value, 10);
+
+      if (!amount || amount < 1) { if (window.showToast) window.showToast('Enter an amount greater than 0.', 'error'); return; }
+      sendBtn.disabled = true;
+      sendBtn.style.opacity = '0.5';
+
+      var url    = '/api/contests/' + CONTEST_ID + '/contribute';
+      var method = 'POST';
+      var body   = { entryId: entryId, amountCHL: amount };
+
+      fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); contribBtn.disabled = false; return; }
-          updateContribUI(data, side);
-          rebuildContribPanel(side, data.myAmountCHL, entryId);
+          if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); sendBtn.disabled = false; sendBtn.style.opacity = ''; return; }
+          updateGrossBtns(data);
+          afterSuccess(side, data.myAmountCHL != null ? data.myAmountCHL : amount, data.newBalance);
+          if (window.burstContribConfetti) window.burstContribConfetti(SIDES[side] && SIDES[side].avatar || '');
         })
-        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); contribBtn.disabled = false; });
+        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); sendBtn.disabled = false; sendBtn.style.opacity = ''; });
       return;
     }
 
-    // Adjust contribution
-    var adjustBtn = e.target.closest('.chl-adjust-btn');
-    if (adjustBtn) {
-      var side    = adjustBtn.dataset.side;
-      var entryId = adjustBtn.dataset.entryId;
-      var input   = document.getElementById('chl-input-' + side);
-      var amount  = parseInt(input && input.value, 10);
-      if (!amount || amount < 1) { if (window.showToast) window.showToast('Enter a valid amount.', 'error'); return; }
-      adjustBtn.disabled = true;
-      fetch('/api/contests/' + CONTEST_ID + '/contribute/' + entryId, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amountCHL: amount }),
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); adjustBtn.disabled = false; return; }
-          updateContribUI(data, side);
-          rebuildContribPanel(side, data.myAmountCHL, entryId);
-        })
-        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); adjustBtn.disabled = false; });
-      return;
-    }
-
-    // Withdraw contribution
-    var withdrawBtn = e.target.closest('.chl-withdraw-btn');
-    if (withdrawBtn) {
-      var side    = withdrawBtn.dataset.side;
-      var entryId = withdrawBtn.dataset.entryId;
-      withdrawBtn.disabled = true;
+    var wdBtn = e.target.closest('.contrib-withdraw-btn');
+    if (wdBtn && !wdBtn.disabled) {
+      var entryId  = wdBtn.dataset.entryId;
+      var side     = wdBtn.dataset.side;
+      var listRow  = wdBtn.closest('[data-contrib-row]');
+      wdBtn.disabled = true;
       fetch('/api/contests/' + CONTEST_ID + '/contribute/' + entryId, { method: 'DELETE' })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); withdrawBtn.disabled = false; return; }
-          updateContribUI(data, side);
-          rebuildContribPanel(side, 0, entryId);
+          if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); wdBtn.disabled = false; return; }
+          updateGrossBtns(data);
+          afterSuccess(side, 0, data.newBalance);
+          if (listRow && listRow.parentNode) listRow.parentNode.removeChild(listRow);
+          if (window.showToast) window.showToast('Contribution withdrawn.', 'success');
         })
-        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); withdrawBtn.disabled = false; });
+        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); wdBtn.disabled = false; });
       return;
     }
 

@@ -59,15 +59,18 @@ async function closeContest(contestId) {
   if (contest.entries.length < 2) return;
 
   const userIds = contest.entries.map(e => e.userId);
-  const users   = await User.find({ _id: { $in: userIds } }).select('_id username').lean();
+  const users   = await User.find({ _id: { $in: userIds } }).select('_id username displayName').lean();
   const userMap = {};
-  for (const u of users) userMap[u._id.toString()] = u.username?.value || 'your opponent';
+  for (const u of users) userMap[u._id.toString()] = { username: u.username?.value || 'your opponent', displayName: u.displayName?.value || u.username?.value || 'your opponent' };
 
   const winnerUserId = winnerEntryId
     ? contest.entries.find(e => e.entryId.toString() === winnerEntryId.toString())?.userId
     : null;
 
-  // ── Lock contributions and create ContestPayout docs ──────────────
+  // ── Lock contributions and settle earnings immediately ────────────
+  const EXCHANGE_RATE = 0.20;
+  const now = new Date();
+
   const [contributionAgg] = await Promise.all([
     ContestContribution.aggregate([
       { $match: { contestId: contest._id, status: 'active' } },
@@ -75,55 +78,77 @@ async function closeContest(contestId) {
     ]),
     ContestContribution.updateMany(
       { contestId: contest._id, status: 'active' },
-      { $set: { status: 'locked', lockedAt: new Date() } },
+      { $set: { status: 'locked', lockedAt: now } },
     ),
   ]);
 
-  const payoutNotifyUserIds = [];
-  if (contributionAgg.length > 0) {
-    const payoutDocs = contributionAgg
-      .filter(r => r.totalCHL > 0)
-      .map(r => {
-        const gross   = r.totalCHL;
-        const net     = Math.floor(gross * 0.75);
-        const fee     = gross - net;
-        payoutNotifyUserIds.push(r.beneficiaryId);
-        return {
+  const earningRows = contributionAgg.filter(r => r.totalCHL > 0);
+  if (earningRows.length > 0) {
+    await Promise.all(earningRows.map(async r => {
+      const gross = r.totalCHL;
+      const net   = Math.floor(gross * 0.75);
+      const fee   = gross - net;
+
+      const updatedUser = await User.findByIdAndUpdate(
+        r.beneficiaryId,
+        { $inc: { 'wallet.balanceCHL': net }, $set: { 'wallet.updatedAt': now } },
+        { new: true, select: 'wallet' },
+      );
+      if (!updatedUser) return;
+
+      const balanceAfter  = updatedUser.wallet.balanceCHL;
+      const balanceBefore = balanceAfter - net;
+
+      await Promise.all([
+        ContestPayout.create({
           contestId:             contest._id,
           entryId:               r._id,
           userId:                r.beneficiaryId,
           grossContributionsCHL: gross,
           netPayoutCHL:          net,
           platformFeeCHL:        fee,
-          status:                'pending',
-        };
-      });
-
-    if (payoutDocs.length > 0) {
-      await ContestPayout.insertMany(payoutDocs);
-
-      Notification.insertMany(payoutDocs.map(p => ({
-        userId:  p.userId,
-        type:    'contest_payout_available',
-        payload: {
-          amountCHL: p.netPayoutCHL,
-          contestId: contest._id,
-          url:       '/settings?section=wallet',
-        },
-      }))).catch(() => {});
-    }
+          status:                'completed',
+          paidAt:                now,
+        }),
+        require('../models/WalletTransaction').create({
+          userId:        r.beneficiaryId,
+          type:          'contest_payout_settled',
+          direction:     'credit',
+          amountCHL:     net,
+          amountUSD:     +(net * EXCHANGE_RATE).toFixed(2),
+          exchangeRate:  EXCHANGE_RATE,
+          balanceBefore,
+          balanceAfter,
+          status:        'completed',
+          source:        'contest_close',
+          referenceId:   contest._id,
+          referenceType: 'Contest',
+        }),
+        Notification.create({
+          userId:  r.beneficiaryId,
+          type:    'contest_payout_available',
+          payload: {
+            amountCHL: net,
+            contestId: contest._id,
+            url:       '/settings?tab=wallet',
+          },
+        }),
+      ]);
+    }));
   }
 
   // ── Participant and watcher notifications ─────────────────────────
   const notifications = contest.entries.map(e => {
     const uid           = e.userId.toString();
     const opponentEntry = contest.entries.find(oe => oe.userId.toString() !== uid);
-    const opponentUsername = opponentEntry ? (userMap[opponentEntry.userId.toString()] || 'your opponent') : 'your opponent';
+    const opponentData  = opponentEntry ? (userMap[opponentEntry.userId.toString()] || {}) : {};
+    const opponentUsername    = opponentData.username    || 'your opponent';
+    const opponentDisplayName = opponentData.displayName || opponentUsername;
     const won = winnerUserId ? winnerUserId.toString() === uid : null;
     return {
       userId:  e.userId,
       type:    'contest_closed',
-      payload: { contestId: contest._id, winnerEntryId, won, opponentUsername, url: '/contest/' + contest._id, isParticipant: true },
+      payload: { contestId: contest._id, winnerEntryId, won, opponentUsername, opponentDisplayName, url: '/contest/' + contest._id, isParticipant: true },
     };
   });
 

@@ -288,7 +288,7 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
 
   // TEMP: bypass idVerified for test accounts — remove before launch
   const TEST_BYPASS_USERNAMES = ['celuiqui', 'storiesbyshews'];
-  const actor = await User.findById(req.session.userId).select('idVerified username avatar').lean();
+  const actor = await User.findById(req.session.userId).select('idVerified username displayName avatar').lean();
   const isBypassUser = actor && TEST_BYPASS_USERNAMES.includes(actor.username?.value);
   if (!actor || (!actor.idVerified && !isBypassUser)) return res.status(403).json({ error: 'identity_required' });
 
@@ -402,10 +402,11 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
         if (isSecond) {
           const sibling = await Nomination.findOne({ contestId: pendingNom.contestId, _id: { $ne: pendingNom._id } }).lean();
           const acceptPayload = {
-            actorUsername: actor?.username?.value || 'Someone',
-            actorAvatar:   actor?.avatar?.value   || null,
-            contestId:     pendingNom.contestId,
-            url:           '/contest/' + pendingNom.contestId,
+            actorUsername:    actor?.username?.value    || 'Someone',
+            actorDisplayName: actor?.displayName?.value || actor?.username?.value || 'Someone',
+            actorAvatar:      actor?.avatar?.value      || null,
+            contestId:        pendingNom.contestId,
+            url:              '/contest/' + pendingNom.contestId,
           };
           if (sibling) {
             Notification.create({ userId: sibling.nomineeId, type: 'nominee_accepted', payload: acceptPayload }).catch(() => {});
@@ -427,10 +428,11 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
           ),
         ]);
         const nomAcceptPayload = {
-          actorUsername: actor?.username?.value || 'Someone',
-          actorAvatar:   actor?.avatar?.value   || null,
-          contestId:     pendingNom.contestId,
-          url:           '/contest/' + pendingNom.contestId,
+          actorUsername:    actor?.username?.value    || 'Someone',
+          actorDisplayName: actor?.displayName?.value || actor?.username?.value || 'Someone',
+          actorAvatar:      actor?.avatar?.value      || null,
+          contestId:        pendingNom.contestId,
+          url:              '/contest/' + pendingNom.contestId,
         };
         Notification.create({
           userId:  pendingNom.nominatorId,
@@ -453,10 +455,11 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
       ]);
       contestId = pendingTakeOn.contest._id;
       notifyWatchers(pendingTakeOn.contest._id, 'nominee_accepted', {
-        actorUsername: actor?.username?.value || 'Someone',
-        actorAvatar:   actor?.avatar?.value   || null,
-        contestId:     pendingTakeOn.contest._id,
-        url:           '/contest/' + pendingTakeOn.contest._id,
+        actorUsername:    actor?.username?.value    || 'Someone',
+        actorDisplayName: actor?.displayName?.value || actor?.username?.value || 'Someone',
+        actorAvatar:      actor?.avatar?.value      || null,
+        contestId:        pendingTakeOn.contest._id,
+        url:              '/contest/' + pendingTakeOn.contest._id,
       }, [req.session.userId, pendingTakeOn.contest.createdBy]);
     }
 
@@ -466,7 +469,7 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
       const rawWin      = parseInt(req.body.challengeWindowHours, 10);
       const windowHours = [24, 48, 72, 168].includes(rawWin) ? rawWin : 72;
       const expiry      = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      const nominator   = await User.findById(req.session.userId).select('username avatar').lean();
+      const nominator   = await User.findById(req.session.userId).select('username displayName avatar').lean();
       const contests    = await Promise.all(nominees.map(nom =>
         Contest.create({
           createdBy:        req.session.userId,
@@ -487,10 +490,11 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
             userId:  nom._id,
             type:    'nomination_received',
             payload: {
-              actorUsername: nominator?.username?.value || 'Someone',
-              actorAvatar:   nominator?.avatar?.value || null,
-              contestId:     c._id,
-              url:           '/submit?nomination=' + nomination._id,
+              actorUsername:    nominator?.username?.value    || 'Someone',
+              actorDisplayName: nominator?.displayName?.value || nominator?.username?.value || 'Someone',
+              actorAvatar:      nominator?.avatar?.value      || null,
+              contestId:        c._id,
+              url:              '/submit?nomination=' + nomination._id,
             },
           }).catch(() => {});
           return c._id;
@@ -531,7 +535,7 @@ router.post('/nominations/:id/accept', async (req, res) => {
 
   const [nomContest, nominee] = await Promise.all([
     Contest.findById(nom.contestId).select('entries windowHours').lean(),
-    User.findById(req.session.userId).select('username avatar').lean(),
+    User.findById(req.session.userId).select('username displayName avatar').lean(),
   ]);
   const winHours = nomContest?.windowHours || 72;
 
@@ -551,9 +555,10 @@ router.post('/nominations/:id/accept', async (req, res) => {
     ]);
     const sibling     = await Nomination.findOne({ contestId: nom.contestId, _id: { $ne: req.params.id } }).lean();
     const basePayload = {
-      actorUsername: nominee?.username?.value || 'Someone',
-      actorAvatar:   nominee?.avatar?.value   || null,
-      contestId:     nom.contestId,
+      actorUsername:    nominee?.username?.value    || 'Someone',
+      actorDisplayName: nominee?.displayName?.value || nominee?.username?.value || 'Someone',
+      actorAvatar:      nominee?.avatar?.value      || null,
+      contestId:        nom.contestId,
     };
 
     if (isSecond) {
@@ -590,10 +595,11 @@ router.post('/nominations/:id/accept', async (req, res) => {
     ),
   ]);
   const acceptPayload = {
-    actorUsername: nominee?.username?.value || 'Someone',
-    actorAvatar:   nominee?.avatar?.value   || null,
-    contestId:     nom.contestId,
-    url:           '/contest/' + nom.contestId,
+    actorUsername:    nominee?.username?.value    || 'Someone',
+    actorDisplayName: nominee?.displayName?.value || nominee?.username?.value || 'Someone',
+    actorAvatar:      nominee?.avatar?.value      || null,
+    contestId:        nom.contestId,
+    url:              '/contest/' + nom.contestId,
   };
   Notification.create({
     userId:  nom.nominatorId,
@@ -613,12 +619,13 @@ router.post('/nominations/:id/decline', async (req, res) => {
   if (nom.status !== 'pending')                                     return res.status(409).json({ error: 'Nomination already resolved.' });
   if (nom.expiresAt < new Date())                                   return res.status(410).json({ error: 'This nomination has expired.' });
 
-  const decliner = await User.findById(req.session.userId).select('username avatar').lean();
+  const decliner = await User.findById(req.session.userId).select('username displayName avatar').lean();
   const declinedPayload = {
-    actorUsername: decliner?.username?.value || 'Someone',
-    actorAvatar:   decliner?.avatar?.value   || null,
-    contestId:     nom.contestId,
-    url:           '/contest/' + nom.contestId,
+    actorUsername:    decliner?.username?.value    || 'Someone',
+    actorDisplayName: decliner?.displayName?.value || decliner?.username?.value || 'Someone',
+    actorAvatar:      decliner?.avatar?.value      || null,
+    contestId:        nom.contestId,
+    url:              '/contest/' + nom.contestId,
   };
 
   if (nom.type === 'viewer_nomination') {
@@ -695,15 +702,16 @@ router.post('/contests/challenge', async (req, res) => {
     status:      'pending',
   });
 
-  const nominator = await User.findById(req.session.userId).select('username avatar').lean();
+  const nominator = await User.findById(req.session.userId).select('username displayName avatar').lean();
   Notification.create({
     userId:  nominee._id,
     type:    'nomination_received',
     payload: {
-      actorUsername: nominator?.username?.value || 'Someone',
-      actorAvatar:   nominator?.avatar?.value || null,
-      contestId:     contest._id,
-      url:           '/submit?nomination=' + nomination._id,
+      actorUsername:    nominator?.username?.value    || 'Someone',
+      actorDisplayName: nominator?.displayName?.value || nominator?.username?.value || 'Someone',
+      actorAvatar:      nominator?.avatar?.value      || null,
+      contestId:        contest._id,
+      url:              '/submit?nomination=' + nomination._id,
     },
   }).catch(() => {});
 
@@ -717,10 +725,11 @@ router.post('/contests/challenge', async (req, res) => {
           userId:  f.followerId,
           type:    'contest_started',
           payload: {
-            actorUsername: nominator?.username?.value || 'Someone',
-            actorAvatar:   nominator?.avatar?.value || null,
-            contestId:     contest._id,
-            url:           '/contest/' + contest._id,
+            actorUsername:    nominator?.username?.value    || 'Someone',
+            actorDisplayName: nominator?.displayName?.value || nominator?.username?.value || 'Someone',
+            actorAvatar:      nominator?.avatar?.value      || null,
+            contestId:        contest._id,
+            url:              '/contest/' + contest._id,
           },
           read: false,
         }));
@@ -921,14 +930,15 @@ router.post('/contests/:id/forfeit', async (req, res) => {
 
   const [, forfeiter] = await Promise.all([
     Contest.findByIdAndUpdate(req.params.id, { $set: { status: 'void', voidReason, winnerEntryId, lastActivityAt: new Date() } }),
-    User.findById(req.session.userId).select('username avatar').lean(),
+    User.findById(req.session.userId).select('username displayName avatar').lean(),
   ]);
   notifyWatchers(req.params.id, 'contest_forfeited', {
-    actorUsername: forfeiter?.username?.value || 'Someone',
-    actorAvatar:   forfeiter?.avatar?.value   || null,
-    contestId:     req.params.id,
+    actorUsername:    forfeiter?.username?.value    || 'Someone',
+    actorDisplayName: forfeiter?.displayName?.value || forfeiter?.username?.value || 'Someone',
+    actorAvatar:      forfeiter?.avatar?.value      || null,
+    contestId:        req.params.id,
     voidReason,
-    url:           '/contest/' + req.params.id,
+    url:              '/contest/' + req.params.id,
   }, [req.session.userId]);
   res.json({ ok: true, voidReason });
 });
@@ -962,7 +972,7 @@ router.post('/entries/:id/take-on', async (req, res) => {
   const [targetEntry, challengerEntry, actor] = await Promise.all([
     Entry.findById(req.params.id).select('userId allowTakeOns mediaUrl mediaType').lean().catch(() => null),
     Entry.findById(challengerEntryId).select('userId mediaUrl mediaType').lean().catch(() => null),
-    User.findById(req.session.userId).select('username avatar idVerified').lean(),
+    User.findById(req.session.userId).select('username displayName avatar idVerified').lean(),
   ]);
 
   if (!targetEntry)    return res.status(404).json({ error: 'Entry not found.' });
@@ -1001,8 +1011,9 @@ router.post('/entries/:id/take-on', async (req, res) => {
     userId:  targetEntry.userId,
     type:    'take_on_received',
     payload: {
-      actorUsername:       actor.username?.value || 'Someone',
-      actorAvatar:         actor.avatar?.value || null,
+      actorUsername:       actor.username?.value    || 'Someone',
+      actorDisplayName:    actor.displayName?.value || actor.username?.value || 'Someone',
+      actorAvatar:         actor.avatar?.value      || null,
       contestId:           contest._id,
       nominationId:        nomination._id,
       entryId:             targetEntry._id,
@@ -1030,7 +1041,7 @@ router.post('/nominations/:id/take-on-accept', async (req, res) => {
   if (nom.expiresAt < new Date())                                  return res.status(410).json({ error: 'This take-on has expired.' });
   if (!nom.nomineeEntryId)                                         return res.status(400).json({ error: 'No target entry on this nomination.' });
 
-  const acceptor = await User.findById(req.session.userId).select('username avatar').lean();
+  const acceptor = await User.findById(req.session.userId).select('username displayName avatar').lean();
   const votingDeadline = new Date(Date.now() + 72 * 60 * 60 * 1000);
 
   await Promise.all([
@@ -1048,17 +1059,19 @@ router.post('/nominations/:id/take-on-accept', async (req, res) => {
     userId:  nom.nominatorId,
     type:    'take_on_accepted',
     payload: {
-      actorUsername: acceptor?.username?.value || 'Someone',
-      actorAvatar:   acceptor?.avatar?.value || null,
-      contestId:     nom.contestId,
-      url:           '/contest/' + nom.contestId,
+      actorUsername:    acceptor?.username?.value    || 'Someone',
+      actorDisplayName: acceptor?.displayName?.value || acceptor?.username?.value || 'Someone',
+      actorAvatar:      acceptor?.avatar?.value      || null,
+      contestId:        nom.contestId,
+      url:              '/contest/' + nom.contestId,
     },
   }).catch(() => {});
   notifyWatchers(nom.contestId, 'nominee_accepted', {
-    actorUsername: acceptor?.username?.value || 'Someone',
-    actorAvatar:   acceptor?.avatar?.value   || null,
-    contestId:     nom.contestId,
-    url:           '/contest/' + nom.contestId,
+    actorUsername:    acceptor?.username?.value    || 'Someone',
+    actorDisplayName: acceptor?.displayName?.value || acceptor?.username?.value || 'Someone',
+    actorAvatar:      acceptor?.avatar?.value      || null,
+    contestId:        nom.contestId,
+    url:              '/contest/' + nom.contestId,
   }, [req.session.userId, nom.nominatorId]);
 
   res.json({ ok: true, contestId: nom.contestId });
@@ -1302,8 +1315,9 @@ router.post('/entries/:eid/comments', async (req, res) => {
     await Entry.updateOne({ _id: req.params.eid }, { $inc: { commentCount: 1 } });
     const user = await User.findById(req.session.userId).select('username displayName avatar').lean();
 
-    const actorUsername = user.username?.value || 'Someone';
-    const actorAvatar   = user.avatar?.value || null;
+    const actorUsername    = user.username?.value    || 'Someone';
+    const actorDisplayName = user.displayName?.value || user.username?.value || 'Someone';
+    const actorAvatar      = user.avatar?.value      || null;
     const preview       = body.length > 80 ? body.slice(0, 80) + '…' : body;
     const entryUrl      = '/entry/' + req.params.eid;
     const myId          = req.session.userId.toString();
@@ -1315,7 +1329,7 @@ router.post('/entries/:eid/comments', async (req, res) => {
         notifPromises.push(Notification.create({
           userId:  entry.userId,
           type:    'comment',
-          payload: { actorUsername, actorAvatar, preview, url: entryUrl },
+          payload: { actorUsername, actorDisplayName, actorAvatar, preview, url: entryUrl },
         }));
       }
     } else {
@@ -1324,7 +1338,7 @@ router.post('/entries/:eid/comments', async (req, res) => {
         notifPromises.push(Notification.create({
           userId:  parentComment.userId,
           type:    'reply',
-          payload: { actorUsername, actorAvatar, preview, url: entryUrl },
+          payload: { actorUsername, actorDisplayName, actorAvatar, preview, url: entryUrl },
         }));
       }
     }
@@ -1472,6 +1486,28 @@ router.post('/announcements/:id/dismiss', async (req, res) => {
 
 const EXCHANGE_RATE = 0.20;
 
+// Runs fn(session) inside a MongoDB multi-document transaction when the deployment
+// supports it (Atlas / replica set). Falls back to fn(null) on standalone dev MongoDB.
+// The fallback is safe because: (a) the "no replica set" error fires before any fn
+// operations execute, and (b) each individual write already uses $inc (atomic).
+async function withTxnOrFallback(fn) {
+  const session = await mongoose.startSession();
+  let needsFallback = false;
+  try {
+    await session.withTransaction(() => fn(session));
+  } catch (err) {
+    const noReplicaSet =
+      (err?.message || '').includes('retryable writes') ||
+      (err?.message || '').includes('Transaction numbers') ||
+      (err?.message || '').includes('replica set');
+    if (!noReplicaSet) throw err;
+    needsFallback = true;
+  } finally {
+    await session.endSession();
+  }
+  if (needsFallback) await fn(null);
+}
+
 // POST /api/contests/:id/contribute
 router.post('/contests/:id/contribute', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
@@ -1492,48 +1528,89 @@ router.post('/contests/:id/contribute', async (req, res) => {
     return res.status(403).json({ error: 'You cannot contribute to your own entry.' });
   }
 
-  const user = await User.findById(req.session.userId).select('wallet');
-  const balance = user?.wallet?.balanceCHL || 0;
-  if (balance < amountCHL) return res.status(400).json({ error: 'Insufficient chilli balance.' });
-
   const existing = await ContestContribution.findOne({
     contestId:     contest._id,
     contributorId: req.session.userId,
     entryId,
-    status:        { $ne: 'withdrawn' },
   });
-  if (existing) return res.status(400).json({ error: 'You already have an active contribution to this entry. Use adjust instead.' });
 
   const beneficiaryEntry = contest.entries.find(e => e.entryId.toString() === entryId);
-  const balanceBefore = balance;
-  const balanceAfter  = balance - amountCHL;
 
-  user.wallet = { balanceCHL: balanceAfter, updatedAt: new Date() };
-  await user.save();
+  let contribution, balanceBefore, balanceAfter;
+  try {
+    await withTxnOrFallback(async (session) => {
+      const updatedUser = await User.findOneAndUpdate(
+        { _id: req.session.userId, 'wallet.balanceCHL': { $gte: amountCHL } },
+        { $inc: { 'wallet.balanceCHL': -amountCHL }, $set: { 'wallet.updatedAt': new Date() } },
+        { new: true, select: 'wallet', session }
+      );
+      if (!updatedUser) {
+        const err = new Error('Insufficient chilli balance.');
+        err.statusCode = 400;
+        throw err;
+      }
+      balanceBefore = updatedUser.wallet.balanceCHL + amountCHL;
+      balanceAfter  = updatedUser.wallet.balanceCHL;
 
-  const contribution = await ContestContribution.create({
-    contestId:     contest._id,
-    entryId,
-    beneficiaryId: beneficiaryEntry.userId,
-    contributorId: req.session.userId,
-    amountCHL,
-    status:        'active',
-  });
+      if (existing && existing.status === 'active') {
+        // Additive: amountCHL is the additional amount on top of existing total
+        existing.amountCHL += amountCHL;
+        await existing.save({ session });
+        contribution = existing;
+      } else if (existing) {
+        // Re-activate a withdrawn contribution from scratch
+        existing.amountCHL = amountCHL;
+        existing.status    = 'active';
+        await existing.save({ session });
+        contribution = existing;
+      } else {
+        [contribution] = await ContestContribution.create([{
+          contestId:     contest._id,
+          entryId,
+          beneficiaryId: beneficiaryEntry.userId,
+          contributorId: req.session.userId,
+          amountCHL,
+          status:        'active',
+        }], { session });
+      }
 
-  await WalletTransaction.create({
-    userId:        req.session.userId,
-    type:          'contribution',
-    direction:     'debit',
-    amountCHL,
-    amountUSD:     +(amountCHL * EXCHANGE_RATE).toFixed(2),
-    exchangeRate:  EXCHANGE_RATE,
-    balanceBefore,
-    balanceAfter,
-    status:        'completed',
-    source:        'contest_close',
-    referenceId:   contribution._id,
-    referenceType: 'ContestContribution',
-  });
+      await WalletTransaction.create([{
+        userId:        req.session.userId,
+        type:          'contribution',
+        direction:     'debit',
+        amountCHL,
+        amountUSD:     +(amountCHL * EXCHANGE_RATE).toFixed(2),
+        exchangeRate:  EXCHANGE_RATE,
+        balanceBefore,
+        balanceAfter,
+        status:        'completed',
+        source:        'contest_close',
+        referenceId:   contribution._id,
+        referenceType: 'ContestContribution',
+      }], { session });
+    });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+    console.error('Contribute transaction error:', err);
+    return res.status(500).json({ error: 'Transaction failed. Please try again.' });
+  }
+
+  // Notify the entry owner of the contribution (fire-and-forget)
+  User.findById(req.session.userId).select('username displayName avatar').lean().then(contributor => {
+    if (!contributor) return;
+    Notification.create({
+      userId:  beneficiaryEntry.userId,
+      type:    'contest_contribution',
+      payload: {
+        actorUsername:    contributor.username?.value    || contributor.username    || 'Someone',
+        actorDisplayName: contributor.displayName?.value || contributor.displayName || null,
+        actorAvatar:      contributor.avatar?.value      || contributor.avatar      || null,
+        amountCHL,
+        contestId:        contest._id,
+        url:              '/contest/' + contest._id,
+      },
+    });
+  }).catch(() => {});
 
   const agg = await ContestContribution.aggregate([
     { $match: { contestId: contest._id, status: { $ne: 'withdrawn' } } },
@@ -1567,33 +1644,55 @@ router.patch('/contests/:id/contribute/:entryId', async (req, res) => {
   const delta = newAmount - contribution.amountCHL;
   if (delta === 0) return res.json({ ok: true, newBalance: null, myAmountCHL: newAmount });
 
-  const user = await User.findById(req.session.userId).select('wallet');
-  const balance = user?.wallet?.balanceCHL || 0;
+  let balanceBefore, balanceAfter;
+  try {
+    await withTxnOrFallback(async (session) => {
+      let updatedUser;
+      if (delta > 0) {
+        updatedUser = await User.findOneAndUpdate(
+          { _id: req.session.userId, 'wallet.balanceCHL': { $gte: delta } },
+          { $inc: { 'wallet.balanceCHL': -delta }, $set: { 'wallet.updatedAt': new Date() } },
+          { new: true, select: 'wallet', session }
+        );
+        if (!updatedUser) {
+          const err = new Error('Insufficient chilli balance.');
+          err.statusCode = 400;
+          throw err;
+        }
+      } else {
+        updatedUser = await User.findByIdAndUpdate(
+          req.session.userId,
+          { $inc: { 'wallet.balanceCHL': -delta }, $set: { 'wallet.updatedAt': new Date() } },
+          { new: true, select: 'wallet', session }
+        );
+      }
 
-  if (delta > 0 && balance < delta) return res.status(400).json({ error: 'Insufficient chilli balance.' });
+      balanceAfter  = updatedUser.wallet.balanceCHL;
+      balanceBefore = balanceAfter + delta;
 
-  const balanceBefore = balance;
-  const balanceAfter  = balance - delta;
-  user.wallet = { balanceCHL: balanceAfter, updatedAt: new Date() };
-  await user.save();
+      contribution.amountCHL = newAmount;
+      await contribution.save({ session });
 
-  contribution.amountCHL = newAmount;
-  await contribution.save();
-
-  await WalletTransaction.create({
-    userId:        req.session.userId,
-    type:          'contribution_adjustment',
-    direction:     delta > 0 ? 'debit' : 'credit',
-    amountCHL:     Math.abs(delta),
-    amountUSD:     +(Math.abs(delta) * EXCHANGE_RATE).toFixed(2),
-    exchangeRate:  EXCHANGE_RATE,
-    balanceBefore,
-    balanceAfter,
-    status:        'completed',
-    source:        'contest_close',
-    referenceId:   contribution._id,
-    referenceType: 'ContestContribution',
-  });
+      await WalletTransaction.create([{
+        userId:        req.session.userId,
+        type:          'contribution_adjustment',
+        direction:     delta > 0 ? 'debit' : 'credit',
+        amountCHL:     Math.abs(delta),
+        amountUSD:     +(Math.abs(delta) * EXCHANGE_RATE).toFixed(2),
+        exchangeRate:  EXCHANGE_RATE,
+        balanceBefore,
+        balanceAfter,
+        status:        'completed',
+        source:        'contest_close',
+        referenceId:   contribution._id,
+        referenceType: 'ContestContribution',
+      }], { session });
+    });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+    console.error('Adjust contribution transaction error:', err);
+    return res.status(500).json({ error: 'Transaction failed. Please try again.' });
+  }
 
   const agg = await ContestContribution.aggregate([
     { $match: { contestId: contest._id, status: { $ne: 'withdrawn' } } },
@@ -1620,30 +1719,43 @@ router.delete('/contests/:id/contribute/:entryId', async (req, res) => {
   });
   if (!contribution) return res.status(404).json({ error: 'No active contribution found.' });
 
-  const user = await User.findById(req.session.userId).select('wallet');
-  const balanceBefore = user?.wallet?.balanceCHL || 0;
-  const balanceAfter  = balanceBefore + contribution.amountCHL;
+  const refundAmount = contribution.amountCHL;
 
-  user.wallet = { balanceCHL: balanceAfter, updatedAt: new Date() };
-  await user.save();
+  let balanceBefore, balanceAfter;
+  try {
+    await withTxnOrFallback(async (session) => {
+      contribution.status = 'withdrawn';
+      await contribution.save({ session });
 
-  contribution.status = 'withdrawn';
-  await contribution.save();
+      const updatedUser = await User.findByIdAndUpdate(
+        req.session.userId,
+        { $inc: { 'wallet.balanceCHL': refundAmount }, $set: { 'wallet.updatedAt': new Date() } },
+        { new: true, select: 'wallet', session }
+      );
+      if (!updatedUser) throw new Error('User not found during withdrawal.');
+      balanceAfter  = updatedUser.wallet.balanceCHL;
+      balanceBefore = balanceAfter - refundAmount;
 
-  await WalletTransaction.create({
-    userId:        req.session.userId,
-    type:          'contribution_withdrawal',
-    direction:     'credit',
-    amountCHL:     contribution.amountCHL,
-    amountUSD:     +(contribution.amountCHL * EXCHANGE_RATE).toFixed(2),
-    exchangeRate:  EXCHANGE_RATE,
-    balanceBefore,
-    balanceAfter,
-    status:        'completed',
-    source:        'contest_close',
-    referenceId:   contribution._id,
-    referenceType: 'ContestContribution',
-  });
+      await WalletTransaction.create([{
+        userId:        req.session.userId,
+        type:          'contribution_withdrawal',
+        direction:     'credit',
+        amountCHL:     refundAmount,
+        amountUSD:     +(refundAmount * EXCHANGE_RATE).toFixed(2),
+        exchangeRate:  EXCHANGE_RATE,
+        balanceBefore,
+        balanceAfter,
+        status:        'completed',
+        source:        'contest_close',
+        referenceId:   contribution._id,
+        referenceType: 'ContestContribution',
+      }], { session });
+    });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+    console.error('Withdraw contribution transaction error:', err);
+    return res.status(500).json({ error: 'Transaction failed. Please try again.' });
+  }
 
   const agg = await ContestContribution.aggregate([
     { $match: { contestId: contest._id, status: { $ne: 'withdrawn' } } },

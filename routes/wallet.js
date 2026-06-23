@@ -1,18 +1,37 @@
 const express  = require('express');
 const router   = express.Router();
+const mongoose = require('mongoose');
 const User     = require('../models/User');
 const WalletTransaction = require('../models/WalletTransaction');
 const ContestPayout     = require('../models/ContestPayout');
 const MonthlySnapshot   = require('../models/MonthlySnapshot');
 const Notification      = require('../models/Notification');
 
-const EXCHANGE_RATE = 0.20; // 1 🌶️ = $0.20
+const EXCHANGE_RATE = 0.20;
+
+async function withTxnOrFallback(fn) {
+  const session = await mongoose.startSession();
+  let needsFallback = false;
+  try {
+    await session.withTransaction(() => fn(session));
+  } catch (err) {
+    const noReplicaSet =
+      (err?.message || '').includes('retryable writes') ||
+      (err?.message || '').includes('Transaction numbers') ||
+      (err?.message || '').includes('replica set');
+    if (!noReplicaSet) throw err;
+    needsFallback = true;
+  } finally {
+    await session.endSession();
+  }
+  if (needsFallback) await fn(null);
+} // 1 🌶️ = $0.20
 
 const PACKAGES = [
-  { name: 'Starter',  usd: 20,  chl: 100  },
-  { name: 'Medium',   usd: 50,  chl: 250  },
-  { name: 'Hot',      usd: 100, chl: 500  },
-  { name: 'Inferno',  usd: 200, chl: 1000 },
+  { name: 'Chill Vibes', usd: 20,  chl: 100  },
+  { name: 'After Hours', usd: 50,  chl: 250  },
+  { name: 'Milky Way',   usd: 100, chl: 500  },
+  { name: 'Inferno',     usd: 200, chl: 1000 },
 ];
 
 function requireAuth(req, res, next) {
@@ -24,9 +43,10 @@ function requireAuth(req, res, next) {
 router.get('/topup', requireAuth, async (req, res) => {
   const user = await User.findById(req.session.userId).select('wallet').lean();
   res.render('wallet/topup', {
-    title:    'Top Up',
-    packages: PACKAGES,
-    balance:  user?.wallet?.balanceCHL || 0,
+    title:      'Top Up',
+    activePage: 'wallet',
+    packages:   PACKAGES,
+    balance:    user?.wallet?.balanceCHL || 0,
   });
 });
 
@@ -44,6 +64,7 @@ router.get('/checkout', requireAuth, async (req, res) => {
 
   res.render('wallet/checkout', {
     title:       'Checkout',
+    activePage:  'wallet',
     amountCHL,
     amountUSD,
     packageName,
@@ -59,82 +80,68 @@ router.post('/checkout', requireAuth, async (req, res) => {
   if (!amountCHL || amountCHL < 100) return res.redirect('/wallet/topup');
 
   const amountUSD = +(amountCHL * EXCHANGE_RATE).toFixed(2);
+  const userId    = req.session.userId;
 
-  const user = await User.findById(req.session.userId).select('wallet');
-  if (!user) return res.redirect('/signup');
+  try {
+    await withTxnOrFallback(async (session) => {
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $inc: { 'wallet.balanceCHL': amountCHL }, $set: { 'wallet.updatedAt': new Date() } },
+        { new: true, select: 'wallet', session }
+      );
+      if (!updatedUser) throw new Error('User not found.');
 
-  const balanceBefore = user.wallet?.balanceCHL || 0;
-  const balanceAfter  = balanceBefore + amountCHL;
+      const balanceAfter  = updatedUser.wallet.balanceCHL;
+      const balanceBefore = balanceAfter - amountCHL;
 
-  user.wallet = { balanceCHL: balanceAfter, updatedAt: new Date() };
-  await user.save();
+      await WalletTransaction.create([{
+        userId,
+        type:          'top_up',
+        direction:     'credit',
+        amountCHL,
+        amountUSD,
+        exchangeRate:  EXCHANGE_RATE,
+        balanceBefore,
+        balanceAfter,
+        status:        'completed',
+        source:        packageName ? 'package' : 'custom',
+        packageName:   packageName || undefined,
+        metadata:      { userAgent: req.headers['user-agent'] },
+      }], { session });
+    });
+  } catch (err) {
+    console.error('Top-up transaction error:', err);
+    return res.redirect('/wallet/topup?error=failed');
+  }
 
-  await WalletTransaction.create({
-    userId:        user._id,
-    type:          'top_up',
-    direction:     'credit',
-    amountCHL,
-    amountUSD,
-    exchangeRate:  EXCHANGE_RATE,
-    balanceBefore,
-    balanceAfter,
-    status:        'completed',
-    source:        packageName ? 'package' : 'custom',
-    packageName:   packageName || undefined,
-    metadata:      { userAgent: req.headers['user-agent'] },
-  });
-
-  res.redirect('/settings?section=wallet&success=topup');
+  res.redirect('/settings?tab=wallet&success=topup');
 });
 
-// POST /wallet/cashout/:contestPayoutId — manual cashout of pending contest earnings
-router.post('/cashout/:contestPayoutId', requireAuth, async (req, res) => {
-  const userId = req.session.userId;
-  const payout = await ContestPayout.findOne({ _id: req.params.contestPayoutId, userId, status: 'pending' });
-  if (!payout) return res.redirect('/settings?section=wallet&error=notfound');
+// GET /wallet/transaction/:id — transaction detail page
+router.get('/transaction/:id', requireAuth, async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.redirect('/settings?tab=wallet');
 
-  if (payout.netPayoutCHL < 100) return res.redirect('/settings?section=wallet&error=minimum');
+  const tx = await WalletTransaction.findOne({ _id: req.params.id, userId: req.session.userId }).lean();
+  if (!tx) return res.redirect('/settings?tab=wallet');
 
-  const user = await User.findById(userId).select('wallet');
-  if (!user) return res.redirect('/signup');
+  let reference = null;
+  if (tx.referenceId && tx.referenceType === 'Contest') {
+    const Contest = require('../models/Contest');
+    reference = await Contest.findById(tx.referenceId).select('entries status').lean();
+  } else if (tx.referenceId && tx.referenceType === 'ContestContribution') {
+    const ContestContribution = require('../models/ContestContribution');
+    const contrib = await ContestContribution.findById(tx.referenceId)
+      .select('contestId entryId amountCHL status')
+      .lean();
+    if (contrib) reference = { ...contrib, _type: 'ContestContribution' };
+  }
 
-  const balanceBefore = user.wallet?.balanceCHL || 0;
-  const balanceAfter  = balanceBefore + payout.netPayoutCHL;
-
-  user.wallet = { balanceCHL: balanceAfter, updatedAt: new Date() };
-  await user.save();
-
-  payout.status = 'paid';
-  payout.paidAt = new Date();
-  payout.paidBy = 'manual';
-  await payout.save();
-
-  await WalletTransaction.create({
-    userId,
-    type:          'manual_cashout',
-    direction:     'credit',
-    amountCHL:     payout.netPayoutCHL,
-    amountUSD:     +(payout.netPayoutCHL * EXCHANGE_RATE).toFixed(2),
-    exchangeRate:  EXCHANGE_RATE,
-    balanceBefore,
-    balanceAfter,
-    status:        'completed',
-    source:        'manual_cashout',
-    referenceId:   payout._id,
-    referenceType: 'ContestPayout',
+  res.render('wallet/transaction', {
+    title:      'Transaction Detail',
+    activePage: 'settings',
+    tx,
+    reference,
   });
-
-  await Notification.create({
-    userId,
-    type:    'cashout_success',
-    payload: {
-      amountCHL:  payout.netPayoutCHL,
-      contestId:  payout.contestId,
-      url:        '/settings?section=wallet',
-    },
-  });
-
-  res.redirect('/settings?section=wallet&success=cashout');
 });
 
 // POST /wallet/hold-payout — hold current month's auto-payout until the 15th
@@ -142,17 +149,17 @@ router.post('/hold-payout', requireAuth, async (req, res) => {
   const userId = req.session.userId;
   const today  = new Date().getDate();
 
-  if (today < 25 || today > 29) return res.redirect('/settings?section=wallet');
+  if (today < 25 || today > 29) return res.redirect('/settings?tab=wallet');
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const snapshot = await MonthlySnapshot.findOne({ userId, month: currentMonth, status: 'pending' });
-  if (!snapshot) return res.redirect('/settings?section=wallet');
+  if (!snapshot) return res.redirect('/settings?tab=wallet');
 
   snapshot.status = 'held';
   snapshot.heldAt = new Date();
   await snapshot.save();
 
-  res.redirect('/settings?section=wallet');
+  res.redirect('/settings?tab=wallet');
 });
 
 module.exports = router;

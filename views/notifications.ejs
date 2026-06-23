@@ -16,30 +16,43 @@ function fmtNotifTime(d) {
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function userLabel(displayName, handle) {
+  var dn = displayName || handle || 'Someone';
+  if (handle) {
+    return dn + ' <span class="font-normal text-white/40">- @' + handle + '</span>';
+  }
+  return dn;
+}
+
+function actorLabel(p) {
+  return userLabel(p.actorDisplayName || p.actorUsername, p.actorHandle || p.actorUsername);
+}
+
 function notifText(n) {
   const p = n.payload || {};
   switch (n.type) {
     case 'comment':
-      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> commented on your entry';
+      return '<strong>' + actorLabel(p) + '</strong> commented on your entry';
     case 'reply':
-      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> replied to your comment';
+      return '<strong>' + actorLabel(p) + '</strong> replied to your comment';
     case 'nomination_received':
-      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> challenged you to a head-to-head';
+      return '<strong>' + actorLabel(p) + '</strong> challenged you to a head-to-head';
     case 'contest_started':
-      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> started a new head-to-head contest';
+      return '<strong>' + actorLabel(p) + '</strong> started a new head-to-head contest';
     case 'nominee_accepted':
       return p.contestIsLive
-        ? '<strong>' + (p.actorUsername || 'Someone') + '</strong> accepted — the contest is now live'
-        : '<strong>' + (p.actorUsername || 'Someone') + '</strong> submitted their entry — waiting on the other nominee';
+        ? '<strong>' + actorLabel(p) + '</strong> accepted — the contest is now live'
+        : '<strong>' + actorLabel(p) + '</strong> submitted their entry — waiting on the other nominee';
     case 'nominee_declined':
-      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> declined the challenge';
+      return '<strong>' + actorLabel(p) + '</strong> declined the challenge';
     case 'contest_forfeited':
-      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> forfeited the contest';
+      return '<strong>' + actorLabel(p) + '</strong> forfeited the contest';
     case 'contest_closed':
       if (p.isParticipant) {
+        var opp = '<strong>' + userLabel(p.opponentDisplayName || p.opponentUsername, p.opponentUsername) + '</strong>';
         return p.won
-          ? 'You won your contest against <strong>' + (p.opponentUsername || 'your opponent') + '</strong>'
-          : 'Your contest against <strong>' + (p.opponentUsername || 'your opponent') + '</strong> ended';
+          ? 'You won your contest against ' + opp
+          : 'Your contest against ' + opp + ' ended';
       }
       return 'A contest you\'re watching has ended';
     case 'contest_voided':
@@ -47,17 +60,19 @@ function notifText(n) {
         ? 'Your contest was voided — the opponent didn\'t respond in time'
         : 'A contest you\'re watching was voided';
     case 'viewer_nomination': {
-      var vnActor    = (p.actorDisplayName || p.actorUsername || 'Someone')
-                     + (p.actorHandle ? ' — <span class="font-normal text-white/50">@' + p.actorHandle + '</span>' : '');
       var vnOpponent = p.opponentHandle
-        ? ' against <strong>' + (p.opponentDisplayName || p.opponentHandle) + ' — <span class="font-normal text-white/50">@' + p.opponentHandle + '</span></strong>'
+        ? ' against <strong>' + userLabel(p.opponentDisplayName || p.opponentHandle, p.opponentHandle) + '</strong>'
         : '';
-      return '<strong>' + vnActor + '</strong> nominated you for a head-to-head' + vnOpponent;
+      return '<strong>' + actorLabel(p) + '</strong> nominated you for a head-to-head' + vnOpponent;
     }
     case 'take_on_received':
-      return '<strong>@' + (p.actorUsername || 'Someone') + '</strong> requested a take-on';
+      return '<strong>' + actorLabel(p) + '</strong> requested a take-on';
     case 'take_on_accepted':
-      return '<strong>' + (p.actorUsername || 'Someone') + '</strong> accepted your take-on — the contest is live';
+      return '<strong>' + actorLabel(p) + '</strong> accepted your take-on — the contest is live';
+    case 'contest_contribution': {
+      var ccAmt = p.amountCHL ? p.amountCHL.toLocaleString() : '0';
+      return '<strong>' + actorLabel(p) + '</strong> contributed <strong>' + ccAmt + ' 🌶️</strong> to your entry';
+    }
     case 'payout_reminder': {
       var prAmt = p.amountCHL ? p.amountCHL.toLocaleString() : '0';
       return '<strong>' + prAmt + ' 🌶️</strong> auto-payout fires in 5 days — tap to hold until the 15th';
@@ -69,11 +84,7 @@ function notifText(n) {
     }
     case 'contest_payout_available': {
       var cpaAmt = p.amountCHL ? p.amountCHL.toLocaleString() : '0';
-      return 'Your contest earned <strong>' + cpaAmt + ' 🌶️</strong> — ready to cash out in your wallet';
-    }
-    case 'cashout_success': {
-      var csAmt = p.amountCHL ? p.amountCHL.toLocaleString() : '0';
-      return '<strong>' + csAmt + ' 🌶️</strong> moved to your spendable balance';
+      return 'Your contest earned <strong>' + cpaAmt + ' 🌶️</strong> — added to your balance';
     }
     default:
       return 'New notification';
@@ -96,8 +107,8 @@ function notifIcon(type) {
     case 'contest_voided':           return 'boxicons:x-circle';
     case 'payout_reminder':          return 'boxicons:time';
     case 'payout_processed':         return 'boxicons:money';
+    case 'contest_contribution':     return 'boxicons:coin';
     case 'contest_payout_available': return 'boxicons:wallet';
-    case 'cashout_success':          return 'boxicons:check-circle';
     default:                         return 'boxicons:bell';
   }
 }
@@ -130,7 +141,7 @@ function notifIcon(type) {
     <% var p = n.payload || {}; %>
     <% var isTakeOnReceived = n.type === 'take_on_received' && p.nominationId; %>
     <li data-id="<%= n._id %>" data-url="<%= p.url || '/notifications' %>"
-        class="notif-item px-5 py-4 cursor-pointer transition-colors hover:bg-white/4 <%= n.read ? '' : 'bg-white/3' %> <%= isTakeOnReceived ? 'flex flex-col gap-3' : 'flex items-start gap-3' %>">
+        class="notif-item px-5 py-4 cursor-pointer transition-colors hover:bg-white/4 <%= n.read ? '' : 'bg-charm-500/8' %> <%= isTakeOnReceived ? 'flex flex-col gap-3' : 'flex items-start gap-3' %>">
 
       <% if (isTakeOnReceived) { %>
 
@@ -250,7 +261,7 @@ function notifIcon(type) {
       if (dot) {
         await markRead(id);
         dot.remove();
-        item.classList.remove('bg-white/3');
+        item.classList.remove('bg-charm-500/8');
         // Update badge
         const badge = document.getElementById('notif-badge');
         if (badge) {
@@ -295,7 +306,7 @@ function notifIcon(type) {
       await fetch('/notifications/read-all', { method: 'POST' });
       document.querySelectorAll('.unread-dot').forEach(function (dot) { dot.remove(); });
       document.querySelectorAll('.notif-item').forEach(function (item) {
-        item.classList.remove('bg-white/3');
+        item.classList.remove('bg-charm-500/8');
       });
       const badge = document.getElementById('notif-badge');
       if (badge) badge.remove();

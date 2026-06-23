@@ -1,10 +1,11 @@
-const express        = require('express');
-const router         = express.Router();
-const User           = require('../models/User');
-const SupportThread  = require('../models/SupportThread');
-const SupportMessage = require('../models/SupportMessage');
-const requireAuth    = require('../middleware/requireAuth');
-const upload = require('../middleware/upload');
+const express            = require('express');
+const router             = express.Router();
+const User               = require('../models/User');
+const SupportThread      = require('../models/SupportThread');
+const SupportMessage     = require('../models/SupportMessage');
+const WalletTransaction  = require('../models/WalletTransaction');
+const requireAuth        = require('../middleware/requireAuth');
+const upload             = require('../middleware/upload');
 
 const { TOPIC_LABELS } = SupportThread;
 
@@ -50,11 +51,12 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /contact/new?topic=X — find or create open thread, redirect into it
+// GET /contact/new?topic=X&txId=Y — find or create open thread, redirect into it
 router.get('/new', async (req, res) => {
   try {
     const validTopics = SupportThread.schema.path('topic').enumValues;
     const topic = validTopics.includes(req.query.topic) ? req.query.topic : 'general';
+    const txId  = req.query.txId || null;
 
     let thread = await SupportThread.findOne({
       userId: req.session.userId,
@@ -62,8 +64,41 @@ router.get('/new', async (req, res) => {
       status: 'open',
     });
 
+    const isNew = !thread;
     if (!thread) {
       thread = await SupportThread.create({ userId: req.session.userId, topic });
+    }
+
+    // Auto-post a reference message when opening a billing dispute from a transaction page
+    if (isNew && topic === 'billing' && txId) {
+      const tx = await WalletTransaction.findOne({ _id: txId, userId: req.session.userId }).lean();
+      if (tx) {
+        const txLabels = {
+          top_up:                  'Top Up',
+          contribution:            'Contribution',
+          contribution_adjustment: 'Contribution Adjusted',
+          contribution_withdrawal: 'Contribution Withdrawn',
+          contest_payout_settled:  'Contest Payout',
+          auto_payout:             'Auto-Payout',
+          makeup_payout:           'Makeup Payout',
+          admin_grant:             'Admin Grant',
+          platform_fee:            'Platform Fee',
+          manual_correction:       'Manual Correction',
+        };
+        const label  = txLabels[tx.type] || tx.type;
+        const sign   = tx.direction === 'credit' ? '+' : '−';
+        const date   = new Date(tx.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+        const body   = `I'd like to dispute a transaction.\n\nType: ${label}\nAmount: ${sign}${tx.amountCHL.toLocaleString()} 🌶️ ($${tx.amountUSD.toFixed(2)})\nDate: ${date}\nTransaction ID: ${tx._id}`;
+        await SupportMessage.create({
+          threadId:      thread._id,
+          userId:        req.session.userId,
+          from:          'user',
+          body,
+          readBySupport: false,
+          readByUser:    true,
+        });
+        await SupportThread.findByIdAndUpdate(thread._id, { updatedAt: new Date() });
+      }
     }
 
     res.redirect('/contact/thread/' + thread._id);

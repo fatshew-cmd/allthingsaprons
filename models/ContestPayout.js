@@ -9,12 +9,11 @@ const contestPayoutSchema = new mongoose.Schema({
   netPayoutCHL:          { type: Number, required: true, default: 0 },
   platformFeeCHL:        { type: Number, required: true, default: 0 },
 
-  status: { type: String, enum: ['pending', 'paid', 'auto_paid', 'makeup_paid'], default: 'pending' },
+  status: { type: String, enum: ['completed'], default: 'completed' },
   paidAt: { type: Date },
-  paidBy: { type: String, enum: ['manual', 'auto_30d', 'makeup_15d'] },
 }, { timestamps: true });
 
-contestPayoutSchema.index({ userId: 1, status: 1 });
+contestPayoutSchema.index({ userId: 1 });
 contestPayoutSchema.index({ contestId: 1 });
 
 module.exports = mongoose.model('ContestPayout', contestPayoutSchema);

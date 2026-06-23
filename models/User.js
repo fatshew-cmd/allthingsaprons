@@ -127,6 +127,20 @@ const userSchema = new mongoose.Schema({
       default: 'everyone',
     },
   },
+
+  privacySettings: {
+    whoCanDm:            { type: String, enum: ['everyone', 'followers_only', 'mutual_follow'], default: 'everyone' },
+    showMatureContent:   { type: Boolean, default: true },
+    showAiContent:       { type: Boolean, default: true },
+    defaultAllowTakeOns: { type: Boolean, default: true },
+  },
+
+  notificationSettings: {
+    emailComments:    { type: Boolean, default: true },
+    emailNominations: { type: Boolean, default: true },
+    emailContests:    { type: Boolean, default: true },
+    emailPayouts:     { type: Boolean, default: true },
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
