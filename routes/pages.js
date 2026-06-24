@@ -542,12 +542,15 @@ router.get('/settings', async (req, res) => {
   const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
   const today        = new Date().getDate();
 
-  const [monthlySnapshot, recentTransactions] = await Promise.all([
+  const [monthlySnapshot, recentTransactions, totalTransactions, txMonthsRaw] = await Promise.all([
     MonthlySnapshot.findOne({ userId, month: currentMonth }).lean(),
-    WalletTransaction.find({ userId })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean(),
+    WalletTransaction.find({ userId }).sort({ createdAt: -1 }).limit(12).lean(),
+    WalletTransaction.countDocuments({ userId }),
+    WalletTransaction.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } } } },
+      { $sort: { _id: -1 } },
+    ]),
   ]);
 
   const successParam = req.query.success || req.query.saved || null;
@@ -570,6 +573,8 @@ router.get('/settings', async (req, res) => {
       earnedCHL:        user?.wallet?.earnedCHL    || 0,
       monthlySnapshot,
       recentTransactions,
+      totalTransactions,
+      transactionMonths: txMonthsRaw.map(r => r._id),
       showHoldBtn:      today >= 25 && today <= 29 && monthlySnapshot?.status === 'pending',
     },
     activeTab: req.query.tab || 'profile',
@@ -1513,6 +1518,7 @@ router.get('/:username', async (req, res) => {
   const overallRank = ratedEntries.length
     ? (ratedEntries.reduce((s, e) => s + e.ratingAvg, 0) / ratedEntries.length).toFixed(1)
     : null;
+  const totalRatingCount = ratedEntries.reduce((s, e) => s + e.ratingCount, 0);
 
   const title = user.displayName?.value
     ? `${user.displayName.value} - @${user.username.value} on AllThingsAprons.com`
@@ -1550,6 +1556,7 @@ router.get('/:username', async (req, res) => {
     secondPrizes,
     thirdPrizes,
     overallRank,
+    totalRatingCount,
     isOwn,
     isFollowing,
     canNominate,

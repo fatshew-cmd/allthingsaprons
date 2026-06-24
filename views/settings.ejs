@@ -209,7 +209,7 @@
             <p class="text-xs text-white/25">≈ $<%= (wallet.purchasedCHL * 0.20).toFixed(2) %></p>
           </div>
           <a href="/wallet/topup"
-            class="flex items-center gap-1.5 px-3 py-2 bg-charm-600 hover:bg-charm-500 text-white text-xs font-semibold rounded-md transition-colors">
+            class="flex items-center gap-1.5 px-3 py-2 bg-charm-500/15 hover:bg-charm-500/25 text-charm-400 text-xs font-semibold rounded-md transition-colors">
             <iconify-icon icon="boxicons:plus" width="12"></iconify-icon>
             Top Up
           </a>
@@ -244,53 +244,148 @@
         <% } %>
 
         <!-- Transaction history -->
-        <% if (wallet.recentTransactions.length > 0) { %>
-        <div class="bg-shark-900 border border-white/10 rounded-md">
-          <div class="px-4 py-3 border-b border-white/8">
-            <p class="text-xs font-semibold text-white/40 uppercase tracking-wider">Transaction History</p>
-          </div>
-          <% wallet.recentTransactions.forEach(function(tx) { %>
-          <%
-            var txLabels = {
-              top_up:                  'Top Up',
-              contribution:            'Contribution',
-              contribution_adjustment: 'Contribution adjusted',
-              contribution_withdrawal: 'Contribution withdrawn',
-              contest_payout_settled:  'Contest payout',
-              auto_payout:             'Auto-payout',
-              makeup_payout:           'Makeup payout',
-              admin_grant:             'Admin grant',
-              platform_fee:            'Platform fee',
-            };
-            var label = txLabels[tx.type] || tx.type;
-            var isCredit = tx.direction === 'credit';
-            var dateStr = new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          %>
-          <a href="/wallet/transaction/<%= tx._id %>"
-            class="px-4 py-3 border-b border-white/5 last:border-0 flex items-center justify-between gap-3 hover:bg-white/4 transition-colors">
-            <div class="min-w-0">
-              <p class="text-xs font-medium text-white/70 truncate"><%= label %><% if (tx.packageName) { %> · <%= tx.packageName %><% } %></p>
-              <p class="text-xs text-white/30 mt-0.5"><%= dateStr %></p>
-            </div>
-            <div class="text-right shrink-0 flex items-center gap-2">
-              <div>
-                <p class="text-sm font-semibold <%= isCredit ? 'text-green-400' : 'text-white/60' %>">
-                  <%= isCredit ? '+' : '−' %><%= tx.amountCHL.toLocaleString() %> 🌶️
-                </p>
-                <p class="text-xs text-white/25"><%= tx.balanceAfter.toLocaleString() %> after</p>
+        <%
+          var _txLabels = {
+            top_up:                  'Top Up',
+            contribution:            'Contribution',
+            contribution_adjustment: 'Contribution adjusted',
+            contribution_withdrawal: 'Contribution withdrawn',
+            contest_payout_settled:  'Contest payout',
+            auto_payout:             'Auto-payout',
+            makeup_payout:           'Makeup payout',
+            admin_grant:             'Admin grant',
+            platform_fee:            'Platform fee',
+            manual_correction:       'Manual correction',
+          };
+          function _fmtMonth(m) {
+            var p = m.split('-');
+            return new Date(parseInt(p[0]), parseInt(p[1]) - 1, 1)
+              .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+          }
+        %>
+        <!-- Filter row -->
+        <div class="flex items-center gap-2 mb-3">
+          <div class="relative flex-1" id="month-multiselect">
+            <button type="button" id="month-ms-btn"
+              class="w-full flex items-center justify-between gap-1 bg-shark-900 border border-white/10 text-xs rounded-md pl-2.5 pr-2 py-1.5 cursor-pointer focus:outline-none focus:border-white/20">
+              <span id="month-ms-label" class="text-white/60 truncate">All time</span>
+              <iconify-icon icon="boxicons:chevron-down" width="11" class="text-white/30 shrink-0 transition-transform" id="month-ms-chevron"></iconify-icon>
+            </button>
+            <div id="month-ms-panel" class="fixed z-50 hidden bg-shark-900 border border-white/15 rounded-md shadow-xl py-1 overflow-y-auto" style="max-height:200px">
+              <div id="month-ms-all-row" class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5">
+                <iconify-icon id="month-ms-all-icon" icon="boxicons:check-square-filled" width="15" style="color:#c73b64" class="shrink-0 transition-colors"></iconify-icon>
+                <span class="text-xs text-white/70">All time</span>
               </div>
-              <iconify-icon icon="boxicons:chevron-right" width="14" class="text-white/20 shrink-0"></iconify-icon>
+              <% wallet.transactionMonths.forEach(function(m) { %>
+              <div class="month-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-month="<%= m %>">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors month-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50"><%= _fmtMonth(m) %></span>
+              </div>
+              <% }) %>
             </div>
+          </div>
+          <div class="relative flex-1" id="type-multiselect">
+            <button type="button" id="type-ms-btn"
+              class="w-full flex items-center justify-between gap-1 bg-shark-900 border border-white/10 text-xs rounded-md pl-2.5 pr-2 py-1.5 cursor-pointer focus:outline-none focus:border-white/20">
+              <span id="type-ms-label" class="text-white/60 truncate">All types</span>
+              <iconify-icon icon="boxicons:chevron-down" width="11" class="text-white/30 shrink-0 transition-transform" id="type-ms-chevron"></iconify-icon>
+            </button>
+            <div id="type-ms-panel" class="fixed z-50 hidden bg-shark-900 border border-white/15 rounded-md shadow-xl py-1 overflow-y-auto" style="max-height:220px">
+              <div id="type-ms-all-row" class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5">
+                <iconify-icon id="type-ms-all-icon" icon="boxicons:check-square-filled" width="15" style="color:#c73b64" class="shrink-0 transition-colors"></iconify-icon>
+                <span class="text-xs text-white/70">All types</span>
+              </div>
+              <div class="type-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-type="top_up">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors type-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50">Top Up</span>
+              </div>
+              <div class="type-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-type="contribution">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors type-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50">Contribution</span>
+              </div>
+              <div class="type-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-type="contribution_adjustment">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors type-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50">Contribution Adjusted</span>
+              </div>
+              <div class="type-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-type="contribution_withdrawal">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors type-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50">Contribution Withdrawn</span>
+              </div>
+              <div class="type-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-type="contest_payout_settled">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors type-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50">Contest Payout</span>
+              </div>
+              <div class="type-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-type="auto_payout">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors type-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50">Auto-Payout</span>
+              </div>
+              <div class="type-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-type="makeup_payout">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors type-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50">Makeup Payout</span>
+              </div>
+              <div class="type-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-type="admin_grant">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors type-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50">Admin Grant</span>
+              </div>
+              <div class="type-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-type="platform_fee">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors type-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50">Platform Fee</span>
+              </div>
+              <div class="type-ms-row flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5" data-type="manual_correction">
+                <iconify-icon icon="boxicons:square" width="15" style="color:rgba(255,255,255,0.25)" class="shrink-0 transition-colors type-ms-row-icon"></iconify-icon>
+                <span class="text-xs text-white/50">Manual Correction</span>
+              </div>
+            </div>
+          </div>
+          <a id="tx-download-link" href="/wallet/transactions/download"
+            class="shrink-0 h-7 w-7 flex items-center justify-center bg-shark-900 border border-white/10 text-white/50 hover:text-white/70 rounded-md transition-colors">
+            <iconify-icon icon="boxicons:arrow-in-down-square-half" width="14"></iconify-icon>
           </a>
-          <% }) %>
         </div>
-        <% } else { %>
-        <div class="bg-shark-900 border border-white/10 rounded-md px-4 py-8 text-center">
-          <iconify-icon icon="noto:hot-pepper" width="28" class="mb-2 opacity-30"></iconify-icon>
-          <p class="text-sm text-white/30">No transactions yet</p>
-          <a href="/wallet/topup" class="text-xs text-charm-400 hover:text-charm-300 transition-colors mt-1 inline-block">Top up to get started</a>
+
+        <!-- List container (replaced by AJAX) -->
+        <div id="tx-list-wrapper">
+          <% if (wallet.recentTransactions.length > 0) { %>
+          <div class="bg-shark-900 border border-white/10 rounded-md">
+            <% wallet.recentTransactions.forEach(function(tx) { %>
+            <%
+              var _label = _txLabels[tx.type] || tx.type;
+              var _isCredit = tx.direction === 'credit';
+              var _dateStr = new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            %>
+            <a href="/wallet/transaction/<%= tx._id %>"
+              class="px-4 py-3 border-b border-white/5 last:border-0 flex items-center justify-between gap-3 hover:bg-white/4 transition-colors">
+              <div class="min-w-0">
+                <p class="text-xs font-medium text-white/70 truncate"><%= _label %><% if (tx.packageName) { %> · <%= tx.packageName %><% } %></p>
+                <p class="text-xs text-white/30 mt-0.5"><%= _dateStr %></p>
+              </div>
+              <div class="text-right shrink-0 flex items-center gap-2">
+                <div>
+                  <p class="text-sm font-semibold <%= _isCredit ? 'text-green-400' : 'text-white/60' %>">
+                    <%= _isCredit ? '+' : '−' %><%= tx.amountCHL.toLocaleString() %> 🌶️
+                  </p>
+                  <p class="text-xs text-white/25"><%= tx.balanceAfter.toLocaleString() %> after</p>
+                </div>
+                <iconify-icon icon="boxicons:chevron-right" width="14" class="text-white/20 shrink-0"></iconify-icon>
+              </div>
+            </a>
+            <% }) %>
+          </div>
+          <% if (wallet.totalTransactions > 12) { %>
+          <a id="tx-see-more-link" href="/wallet/transactions"
+            class="mt-2 flex items-center justify-center gap-1 py-2.5 text-xs text-white/40 hover:text-white/60 transition-colors">
+            See all <%= wallet.totalTransactions %> transactions
+            <iconify-icon icon="boxicons:chevron-right" width="13"></iconify-icon>
+          </a>
+          <% } %>
+          <% } else { %>
+          <div class="bg-shark-900 border border-white/10 rounded-md px-4 py-8 text-center">
+            <iconify-icon icon="noto:hot-pepper" width="28" class="mb-2 opacity-30"></iconify-icon>
+            <p class="text-sm text-white/30">No transactions yet</p>
+            <a href="/wallet/topup" class="text-xs text-charm-400 hover:text-charm-300 transition-colors mt-1 inline-block">Top up to get started</a>
+          </div>
+          <% } %>
         </div>
-        <% } %>
 
       </div><!-- end scrollable -->
 
@@ -303,21 +398,22 @@
             <% if (payoutHint) { %>
             <p class="text-xs text-white/30 mt-0.5"><%= payoutHint %></p>
             <% } %>
-          </div>
-          <div class="flex flex-col items-end gap-2">
-            <button type="button" id="cashout-submit-btn"
-              <% if (!cashoutMinMet) { %>disabled<% } %>
-              class="shrink-0 px-4 py-2.5 text-sm font-semibold rounded-md transition-colors cursor-pointer
-                <%= cashoutMinMet ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-white/8 text-white/30 cursor-not-allowed' %>">
-              Request Cashout
-            </button>
             <% if (cashoutSB > 0) { %>
-            <label class="flex items-center gap-1.5 cursor-pointer select-none">
-              <input type="checkbox" id="cashout-include-sb" class="rounded accent-charm-500"
+            <label class="flex items-center gap-1.5 cursor-pointer select-none mt-2 group">
+              <input type="checkbox" id="cashout-include-sb" class="sr-only"
                 data-sb="<%= cashoutSB %>" data-aac="<%= cashoutAAC %>">
-              <span class="text-xs text-white/40">+ spendable balance ($<%= (cashoutSB * 0.20).toFixed(2) %>)</span>
+              <iconify-icon id="cashout-include-sb-icon" icon="boxicons:square" width="17" class="shrink-0 transition-colors" style="color:rgba(255,255,255,0.25)"></iconify-icon>
+              <span class="text-xs text-white/40 group-hover:text-white/60 transition-colors">+ spendable balance ($<%= (cashoutSB * 0.20).toFixed(2) %>)</span>
             </label>
             <% } %>
+          </div>
+          <div id="cashout-btn-wrapper" class="<%= cashoutMinMet ? '' : 'cursor-not-allowed' %>">
+            <button type="button" id="cashout-submit-btn"
+              <% if (!cashoutMinMet) { %>disabled<% } %>
+              class="shrink-0 px-4 py-2.5 text-sm font-semibold rounded-md transition-colors
+                <%= cashoutMinMet ? 'bg-charm-500/15 hover:bg-charm-500/25 text-charm-400 cursor-pointer' : 'bg-white/8 text-white/30 pointer-events-none' %>">
+              Cash Out
+            </button>
           </div>
         </div>
       </div>
@@ -330,18 +426,25 @@
       var toggle     = document.getElementById('cashout-include-sb');
       var displayUsd = document.getElementById('cashout-display-usd');
       var btn        = document.getElementById('cashout-submit-btn');
+      var btnWrapper = document.getElementById('cashout-btn-wrapper');
 
       if (toggle && displayUsd) {
         var aac = parseInt(toggle.dataset.aac, 10) || 0;
         var sb  = parseInt(toggle.dataset.sb,  10) || 0;
 
+        var icon = document.getElementById('cashout-include-sb-icon');
         toggle.addEventListener('change', function () {
+          if (icon) {
+            icon.setAttribute('icon', this.checked ? 'boxicons:check-square-filled' : 'boxicons:square');
+            icon.style.color = this.checked ? '#c73b64' : 'rgba(255,255,255,0.25)';
+          }
           var total    = toggle.checked ? aac + sb : aac;
           displayUsd.textContent = (total * 0.20).toFixed(2);
           var meetsMin = total >= 100;
           btn.disabled = !meetsMin;
-          btn.className = btn.className.replace(/(bg-green-600 hover:bg-green-500 text-white|bg-white\/8 text-white\/30 cursor-not-allowed)/,
-            meetsMin ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-white/8 text-white/30 cursor-not-allowed');
+          btn.className = btn.className.replace(/(bg-charm-500\/15 hover:bg-charm-500\/25 text-charm-400 cursor-pointer|bg-white\/8 text-white\/30 pointer-events-none)/,
+            meetsMin ? 'bg-charm-500/15 hover:bg-charm-500/25 text-charm-400 cursor-pointer' : 'bg-white/8 text-white/30 pointer-events-none');
+          if (btnWrapper) btnWrapper.className = meetsMin ? '' : 'cursor-not-allowed';
         });
       }
 
@@ -351,6 +454,240 @@
           if (window.showToast) window.showToast('Cashout requests will be available soon.', 'info');
         });
       }
+
+      // Transaction filters
+      var txListWrapper  = document.getElementById('tx-list-wrapper');
+      var txDownloadLink = document.getElementById('tx-download-link');
+
+      // Month multi-select state
+      var selectedMonths = [];
+      var msBtn     = document.getElementById('month-ms-btn');
+      var msLabel   = document.getElementById('month-ms-label');
+      var msPanel   = document.getElementById('month-ms-panel');
+      var msChevron = document.getElementById('month-ms-chevron');
+      var msAllRow  = document.getElementById('month-ms-all-row');
+      var msAllIcon = document.getElementById('month-ms-all-icon');
+      var msRows    = msPanel ? Array.from(msPanel.querySelectorAll('.month-ms-row')) : [];
+
+      function fmtMonthStr(m) {
+        var p = m.split('-');
+        return new Date(parseInt(p[0]), parseInt(p[1]) - 1, 1)
+          .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      }
+
+      function syncMsState() {
+        var isAll = selectedMonths.length === 0;
+        msAllIcon.setAttribute('icon', isAll ? 'boxicons:check-square-filled' : 'boxicons:square');
+        msAllIcon.style.color = isAll ? '#c73b64' : 'rgba(255,255,255,0.25)';
+        msRows.forEach(function (row) {
+          var icon = row.querySelector('.month-ms-row-icon');
+          var sel  = selectedMonths.indexOf(row.dataset.month) !== -1;
+          if (icon) {
+            icon.setAttribute('icon', sel ? 'boxicons:check-square-filled' : 'boxicons:square');
+            icon.style.color = sel ? '#c73b64' : 'rgba(255,255,255,0.25)';
+          }
+        });
+        if (isAll) {
+          msLabel.textContent = 'All time';
+        } else if (selectedMonths.length === 1) {
+          msLabel.textContent = fmtMonthStr(selectedMonths[0]);
+        } else {
+          msLabel.textContent = selectedMonths.length + ' months';
+        }
+      }
+
+      function openMsPanel() {
+        var rect = msBtn.getBoundingClientRect();
+        msPanel.style.top   = (rect.bottom + 4) + 'px';
+        msPanel.style.left  = rect.left + 'px';
+        msPanel.style.width = rect.width + 'px';
+        msPanel.classList.remove('hidden');
+        msChevron.style.transform = 'rotate(180deg)';
+      }
+
+      function closeMsPanel() {
+        msPanel.classList.add('hidden');
+        msChevron.style.transform = '';
+      }
+
+      if (msBtn) {
+        msBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          msPanel.classList.contains('hidden') ? openMsPanel() : closeMsPanel();
+        });
+      }
+
+      document.addEventListener('click', function () { if (msPanel) closeMsPanel(); });
+      if (msPanel) msPanel.addEventListener('click', function (e) { e.stopPropagation(); });
+
+      if (msAllRow) {
+        msAllRow.addEventListener('click', function () {
+          selectedMonths = [];
+          syncMsState();
+          closeMsPanel();
+          updateFilteredTx();
+        });
+      }
+
+      msRows.forEach(function (row) {
+        row.addEventListener('click', function () {
+          var m   = row.dataset.month;
+          var idx = selectedMonths.indexOf(m);
+          if (idx === -1) selectedMonths.push(m);
+          else            selectedMonths.splice(idx, 1);
+          syncMsState();
+          updateFilteredTx();
+        });
+      });
+
+      var TX_LABELS = {
+        top_up: 'Top Up', contribution: 'Contribution',
+        contribution_adjustment: 'Contribution adjusted',
+        contribution_withdrawal: 'Contribution withdrawn',
+        contest_payout_settled: 'Contest payout',
+        auto_payout: 'Auto-payout', makeup_payout: 'Makeup payout',
+        admin_grant: 'Admin grant', platform_fee: 'Platform fee',
+        manual_correction: 'Manual correction',
+      };
+
+      function escH(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      function txItemHtml(tx) {
+        var label = TX_LABELS[tx.type] || tx.type;
+        var isCredit = tx.direction === 'credit';
+        var dateStr = new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        var pkg = tx.packageName ? ' · ' + escH(tx.packageName) : '';
+        return '<a href="/wallet/transaction/' + escH(tx._id) + '" class="px-4 py-3 border-b border-white/5 last:border-0 flex items-center justify-between gap-3 hover:bg-white/4 transition-colors">' +
+          '<div class="min-w-0">' +
+            '<p class="text-xs font-medium text-white/70 truncate">' + escH(label) + pkg + '</p>' +
+            '<p class="text-xs text-white/30 mt-0.5">' + dateStr + '</p>' +
+          '</div>' +
+          '<div class="text-right shrink-0 flex items-center gap-2">' +
+            '<div>' +
+              '<p class="text-sm font-semibold ' + (isCredit ? 'text-green-400' : 'text-white/60') + '">' +
+                (isCredit ? '+' : '−') + tx.amountCHL.toLocaleString() + ' 🌶️' +
+              '</p>' +
+              '<p class="text-xs text-white/25">' + tx.balanceAfter.toLocaleString() + ' after</p>' +
+            '</div>' +
+            '<iconify-icon icon="boxicons:chevron-right" width="14" class="text-white/20 shrink-0"></iconify-icon>' +
+          '</div>' +
+        '</a>';
+      }
+
+      function buildFilterParams() {
+        var parts = [];
+        if (selectedMonths.length > 0) parts.push('months=' + selectedMonths.map(encodeURIComponent).join(','));
+        if (selectedTypes.length  > 0) parts.push('types='  + selectedTypes.map(encodeURIComponent).join(','));
+        return parts.join('&');
+      }
+
+      function updateFilteredTx() {
+        if (!txListWrapper) return;
+        var params = buildFilterParams();
+        fetch('/api/wallet/transactions' + (params ? '?' + params : ''))
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var html = '';
+            if (data.transactions && data.transactions.length > 0) {
+              html += '<div class="bg-shark-900 border border-white/10 rounded-md">';
+              data.transactions.forEach(function (tx) { html += txItemHtml(tx); });
+              html += '</div>';
+              if (data.total > 12) {
+                var seeMoreHref = '/wallet/transactions' + (params ? '?' + params : '');
+                html += '<a href="' + seeMoreHref + '" class="mt-2 flex items-center justify-center gap-1 py-2.5 text-xs text-white/40 hover:text-white/60 transition-colors">' +
+                  'See all ' + data.total + ' transactions ' +
+                  '<iconify-icon icon="boxicons:chevron-right" width="13"></iconify-icon></a>';
+              }
+            } else {
+              html = '<div class="bg-shark-900 border border-white/10 rounded-md px-4 py-8 text-center">' +
+                '<iconify-icon icon="noto:hot-pepper" width="28" class="mb-2 opacity-30"></iconify-icon>' +
+                '<p class="text-sm text-white/30">No transactions found</p></div>';
+            }
+            txListWrapper.innerHTML = html;
+            if (window.Iconify) Iconify.scan(txListWrapper);
+            if (txDownloadLink) {
+              txDownloadLink.href = '/wallet/transactions/download' + (params ? '?' + params : '');
+            }
+          })
+          .catch(function () {});
+      }
+
+      // Type multi-select
+      var selectedTypes = [];
+      var typeMsBtn     = document.getElementById('type-ms-btn');
+      var typeMsLabel   = document.getElementById('type-ms-label');
+      var typeMsPanel   = document.getElementById('type-ms-panel');
+      var typeMsChevron = document.getElementById('type-ms-chevron');
+      var typeMsAllRow  = document.getElementById('type-ms-all-row');
+      var typeMsAllIcon = document.getElementById('type-ms-all-icon');
+      var typeMsRows    = typeMsPanel ? Array.from(typeMsPanel.querySelectorAll('.type-ms-row')) : [];
+
+      function syncTypeState() {
+        var isAll = selectedTypes.length === 0;
+        typeMsAllIcon.setAttribute('icon', isAll ? 'boxicons:check-square-filled' : 'boxicons:square');
+        typeMsAllIcon.style.color = isAll ? '#c73b64' : 'rgba(255,255,255,0.25)';
+        typeMsRows.forEach(function (row) {
+          var icon = row.querySelector('.type-ms-row-icon');
+          var sel  = selectedTypes.indexOf(row.dataset.type) !== -1;
+          if (icon) {
+            icon.setAttribute('icon', sel ? 'boxicons:check-square-filled' : 'boxicons:square');
+            icon.style.color = sel ? '#c73b64' : 'rgba(255,255,255,0.25)';
+          }
+        });
+        if (isAll) {
+          typeMsLabel.textContent = 'All types';
+        } else if (selectedTypes.length === 1) {
+          typeMsLabel.textContent = TX_LABELS[selectedTypes[0]] || selectedTypes[0];
+        } else {
+          typeMsLabel.textContent = selectedTypes.length + ' types';
+        }
+      }
+
+      function openTypePanel() {
+        var rect = typeMsBtn.getBoundingClientRect();
+        typeMsPanel.style.top   = (rect.bottom + 4) + 'px';
+        typeMsPanel.style.left  = rect.left + 'px';
+        typeMsPanel.style.width = rect.width + 'px';
+        typeMsPanel.classList.remove('hidden');
+        typeMsChevron.style.transform = 'rotate(180deg)';
+      }
+
+      function closeTypePanel() {
+        typeMsPanel.classList.add('hidden');
+        typeMsChevron.style.transform = '';
+      }
+
+      if (typeMsBtn) {
+        typeMsBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          typeMsPanel.classList.contains('hidden') ? openTypePanel() : closeTypePanel();
+        });
+      }
+
+      document.addEventListener('click', function () { if (typeMsPanel) closeTypePanel(); });
+      if (typeMsPanel) typeMsPanel.addEventListener('click', function (e) { e.stopPropagation(); });
+
+      if (typeMsAllRow) {
+        typeMsAllRow.addEventListener('click', function () {
+          selectedTypes = [];
+          syncTypeState();
+          closeTypePanel();
+          updateFilteredTx();
+        });
+      }
+
+      typeMsRows.forEach(function (row) {
+        row.addEventListener('click', function () {
+          var t   = row.dataset.type;
+          var idx = selectedTypes.indexOf(t);
+          if (idx === -1) selectedTypes.push(t);
+          else            selectedTypes.splice(idx, 1);
+          syncTypeState();
+          updateFilteredTx();
+        });
+      });
     })();
     </script>
 

@@ -165,8 +165,17 @@
     </div>
 
     <% if (overallRank) { %>
+    <%
+      var _avg = parseFloat(overallRank);
+      var _cnt = totalRatingCount || 0;
+      var _ratingColor;
+      if (_avg >= 7.40 && _cnt > 10000)     _ratingColor = 'text-charm-400';
+      else if (_avg >= 7.40 && _cnt > 1000) _ratingColor = 'text-amber-400';
+      else if (_avg >= 7.40 && _cnt > 500)  _ratingColor = 'text-white';
+      else                                   _ratingColor = 'text-white/30';
+    %>
     <div class="flex flex-col items-center">
-      <span class="text-xl font-bold leading-tight"><%= overallRank %></span>
+      <span class="text-xl font-bold leading-tight <%= _ratingColor %>"><%= overallRank %></span>
       <span class="text-xs text-white/40 mt-0.5">Avg Rating</span>
     </div>
     <% } %>

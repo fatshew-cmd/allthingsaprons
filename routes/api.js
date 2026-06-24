@@ -1776,4 +1776,39 @@ router.delete('/contests/:id/contribute/:entryId', async (req, res) => {
   res.json({ ok: true, newBalance: balanceAfter, grossByEntry, myAmountCHL: 0 });
 });
 
+// GET /api/wallet/transactions — filtered list for settings tab AJAX
+router.get('/wallet/transactions', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const userId = req.session.userId;
+  const { months, types } = req.query;
+  const filter = { userId };
+
+  if (months) {
+    const monthList = months.split(',').map(m => m.trim()).filter(m => /^\d{4}-\d{2}$/.test(m));
+    if (monthList.length === 1) {
+      const [y, m] = monthList[0].split('-').map(Number);
+      filter.createdAt = { $gte: new Date(y, m - 1, 1), $lt: new Date(y, m, 1) };
+    } else if (monthList.length > 1) {
+      filter.$or = monthList.map(mo => {
+        const [y, m] = mo.split('-').map(Number);
+        return { createdAt: { $gte: new Date(y, m - 1, 1), $lt: new Date(y, m, 1) } };
+      });
+    }
+  }
+
+  if (types) {
+    const typeList = types.split(',').map(t => t.trim()).filter(Boolean);
+    if (typeList.length === 1) filter.type = typeList[0];
+    else if (typeList.length > 1) filter.type = { $in: typeList };
+  }
+
+  const [transactions, total] = await Promise.all([
+    WalletTransaction.find(filter).sort({ createdAt: -1 }).limit(12).lean(),
+    WalletTransaction.countDocuments(filter),
+  ]);
+
+  res.json({ transactions, total });
+});
+
 module.exports = router;

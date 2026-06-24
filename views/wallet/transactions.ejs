@@ -1,0 +1,119 @@
+<%- include('../partials/appStart', { title: title, activePage: 'settings' }) %>
+
+<%
+function fmtMonth(m) {
+  var parts = m.split('-');
+  return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1)
+    .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+var typeOptions = [
+  { value: 'top_up',                  label: 'Top Up' },
+  { value: 'contribution',            label: 'Contribution' },
+  { value: 'contribution_adjustment', label: 'Contribution Adjusted' },
+  { value: 'contribution_withdrawal', label: 'Contribution Withdrawn' },
+  { value: 'contest_payout_settled',  label: 'Contest Payout' },
+  { value: 'auto_payout',             label: 'Auto-Payout' },
+  { value: 'makeup_payout',           label: 'Makeup Payout' },
+  { value: 'admin_grant',             label: 'Admin Grant' },
+  { value: 'platform_fee',            label: 'Platform Fee' },
+  { value: 'manual_correction',       label: 'Manual Correction' },
+];
+var downloadHref = '/wallet/transactions/download' +
+  ((filterMonth || filterType) ? '?' : '') +
+  (filterMonth ? 'month=' + filterMonth : '') +
+  (filterMonth && filterType && filterType !== 'all' ? '&' : '') +
+  (filterType && filterType !== 'all' ? 'type=' + filterType : '');
+%>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <div class="flex items-center gap-3">
+      <a href="/settings?tab=wallet" class="text-white/40 hover:text-white/70 transition-colors">
+        <iconify-icon icon="boxicons:arrow-back" width="18"></iconify-icon>
+      </a>
+      <h1 class="font-black text-lg tracking-tight">Transaction History</h1>
+    </div>
+  </header>
+
+  <div class="px-5 py-5 max-w-lg mx-auto w-full">
+
+    <!-- Filters -->
+    <form method="GET" action="/wallet/transactions" class="flex items-center gap-2 mb-4">
+      <div class="relative flex-1">
+        <select name="month"
+          class="w-full appearance-none bg-shark-900 border border-white/10 text-xs text-white/60 rounded-md pl-2.5 pr-6 py-2 cursor-pointer focus:outline-none focus:border-white/20">
+          <option value="">All time</option>
+          <% transactionMonths.forEach(function(m) { %>
+          <option value="<%= m %>" <%= filterMonth === m ? 'selected' : '' %>><%= fmtMonth(m) %></option>
+          <% }) %>
+        </select>
+        <iconify-icon icon="boxicons:chevron-down" width="11" class="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"></iconify-icon>
+      </div>
+      <div class="relative flex-1">
+        <select name="type"
+          class="w-full appearance-none bg-shark-900 border border-white/10 text-xs text-white/60 rounded-md pl-2.5 pr-6 py-2 cursor-pointer focus:outline-none focus:border-white/20">
+          <option value="all">All types</option>
+          <% typeOptions.forEach(function(opt) { %>
+          <option value="<%= opt.value %>" <%= filterType === opt.value ? 'selected' : '' %>><%= opt.label %></option>
+          <% }) %>
+        </select>
+        <iconify-icon icon="boxicons:chevron-down" width="11" class="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"></iconify-icon>
+      </div>
+      <button type="submit"
+        class="shrink-0 px-3 py-2 bg-shark-900 border border-white/10 text-white/50 hover:text-white/70 text-xs rounded-md transition-colors cursor-pointer">
+        Filter
+      </button>
+      <a href="<%= downloadHref %>"
+        class="shrink-0 flex items-center gap-1 px-3 py-2 bg-shark-900 border border-white/10 text-white/50 hover:text-white/70 text-xs rounded-md transition-colors">
+        <iconify-icon icon="boxicons:arrow-in-down-square-half" width="13"></iconify-icon>
+      </a>
+    </form>
+
+    <!-- Result count -->
+    <p class="text-xs text-white/30 mb-3">
+      <%= totalCount %> transaction<%= totalCount !== 1 ? 's' : '' %>
+      <% if (filterMonth) { %> in <%= fmtMonth(filterMonth) %><% } %>
+      <% if (filterType && filterType !== 'all') { %> · <%= txLabels[filterType] || filterType %><% } %>
+    </p>
+
+    <!-- List -->
+    <% if (transactions.length > 0) { %>
+    <div class="bg-shark-900 border border-white/10 rounded-md">
+      <% transactions.forEach(function(tx) { %>
+      <%
+        var label = txLabels[tx.type] || tx.type;
+        var isCredit = tx.direction === 'credit';
+        var dateStr = new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      %>
+      <a href="/wallet/transaction/<%= tx._id %>"
+        class="px-4 py-3 border-b border-white/5 last:border-0 flex items-center justify-between gap-3 hover:bg-white/4 transition-colors">
+        <div class="min-w-0">
+          <p class="text-xs font-medium text-white/70 truncate"><%= label %><% if (tx.packageName) { %> · <%= tx.packageName %><% } %></p>
+          <p class="text-xs text-white/30 mt-0.5"><%= dateStr %></p>
+        </div>
+        <div class="text-right shrink-0 flex items-center gap-2">
+          <div>
+            <p class="text-sm font-semibold <%= isCredit ? 'text-green-400' : 'text-white/60' %>">
+              <%= isCredit ? '+' : '−' %><%= tx.amountCHL.toLocaleString() %> 🌶️
+            </p>
+            <p class="text-xs text-white/25"><%= tx.balanceAfter.toLocaleString() %> after</p>
+          </div>
+          <iconify-icon icon="boxicons:chevron-right" width="14" class="text-white/20 shrink-0"></iconify-icon>
+        </div>
+      </a>
+      <% }) %>
+    </div>
+    <% } else { %>
+    <div class="bg-shark-900 border border-white/10 rounded-md px-4 py-10 text-center">
+      <iconify-icon icon="noto:hot-pepper" width="28" class="mb-2 opacity-30"></iconify-icon>
+      <p class="text-sm text-white/30">No transactions found</p>
+    </div>
+    <% } %>
+
+  </div>
+
+</div>
+
+<%- include('../partials/appEnd') %>

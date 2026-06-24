@@ -1,6 +1,7 @@
 const express  = require('express');
 const router   = express.Router();
 const mongoose = require('mongoose');
+const XLSX     = require('xlsx');
 const User     = require('../models/User');
 const WalletTransaction = require('../models/WalletTransaction');
 const ContestPayout     = require('../models/ContestPayout');
@@ -8,6 +9,43 @@ const MonthlySnapshot   = require('../models/MonthlySnapshot');
 const Notification      = require('../models/Notification');
 
 const EXCHANGE_RATE = 0.20;
+
+const TX_LABELS = {
+  top_up:                  'Top Up',
+  contribution:            'Contribution',
+  contribution_adjustment: 'Contribution Adjusted',
+  contribution_withdrawal: 'Contribution Withdrawn',
+  contest_payout_settled:  'Contest Payout',
+  auto_payout:             'Auto-Payout',
+  makeup_payout:           'Makeup Payout',
+  admin_grant:             'Admin Grant',
+  platform_fee:            'Platform Fee',
+  manual_correction:       'Manual Correction',
+};
+
+function buildTxFilter(userId, month, type, months, types) {
+  const filter = { userId };
+  const monthList = months
+    ? months.split(',').map(m => m.trim()).filter(m => /^\d{4}-\d{2}$/.test(m))
+    : (month && /^\d{4}-\d{2}$/.test(month) ? [month] : []);
+  if (monthList.length === 1) {
+    const [y, m] = monthList[0].split('-').map(Number);
+    filter.createdAt = { $gte: new Date(y, m - 1, 1), $lt: new Date(y, m, 1) };
+  } else if (monthList.length > 1) {
+    filter.$or = monthList.map(mo => {
+      const [y, m] = mo.split('-').map(Number);
+      return { createdAt: { $gte: new Date(y, m - 1, 1), $lt: new Date(y, m, 1) } };
+    });
+  }
+  if (types) {
+    const typeList = types.split(',').map(t => t.trim()).filter(Boolean);
+    if (typeList.length === 1) filter.type = typeList[0];
+    else if (typeList.length > 1) filter.type = { $in: typeList };
+  } else if (type && type !== 'all') {
+    filter.type = type;
+  }
+  return filter;
+}
 
 async function withTxnOrFallback(fn) {
   const session = await mongoose.startSession();
@@ -115,6 +153,64 @@ router.post('/checkout', requireAuth, async (req, res) => {
   }
 
   res.redirect('/settings?tab=wallet&success=topup');
+});
+
+// GET /wallet/transactions — full paginated transaction history
+router.get('/transactions', requireAuth, async (req, res) => {
+  const userId = req.session.userId;
+  const { month, type, months, types } = req.query;
+  const filter = buildTxFilter(userId, month, type, months, types);
+
+  const [transactions, transactionMonthsRaw] = await Promise.all([
+    WalletTransaction.find(filter).sort({ createdAt: -1 }).lean(),
+    WalletTransaction.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } } } },
+      { $sort: { _id: -1 } },
+    ]),
+  ]);
+
+  res.render('wallet/transactions', {
+    title:      'Transaction History',
+    activePage: 'settings',
+    transactions,
+    totalCount:        transactions.length,
+    transactionMonths: transactionMonthsRaw.map(r => r._id),
+    txLabels:          TX_LABELS,
+    filterMonth:       month || '',
+    filterType:        type  || '',
+  });
+});
+
+// GET /wallet/transactions/download — Excel export of filtered transactions
+router.get('/transactions/download', requireAuth, async (req, res) => {
+  const userId = req.session.userId;
+  const { month, type, months, types } = req.query;
+  const filter = buildTxFilter(userId, month, type, months, types);
+
+  const transactions = await WalletTransaction.find(filter).sort({ createdAt: -1 }).lean();
+
+  const rows = transactions.map(tx => ({
+    Date:              new Date(tx.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+    Type:              TX_LABELS[tx.type] || tx.type,
+    Direction:         tx.direction === 'credit' ? 'Credit' : 'Debit',
+    'Amount (CHL)':    tx.direction === 'credit' ? tx.amountCHL : -tx.amountCHL,
+    'Amount (USD)':    tx.direction === 'credit' ? tx.amountUSD : -tx.amountUSD,
+    'Balance After (CHL)': tx.balanceAfter,
+    Status:            tx.status,
+    Package:           tx.packageName || '',
+  }));
+
+  const ws  = XLSX.utils.json_to_sheet(rows);
+  const wb  = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+
+  const buf      = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  const filename = `transactions${month ? '-' + month : ''}${type && type !== 'all' ? '-' + type : ''}.xlsx`;
+
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
 });
 
 // GET /wallet/transaction/:id — transaction detail page

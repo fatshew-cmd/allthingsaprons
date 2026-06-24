@@ -25,8 +25,8 @@
         var ct2 = comp.contestants[1] || null;
       %>
       <a href="/contest/<%= comp._id %>"
-        class="shrink-0 w-64 rounded-md overflow-hidden relative no-underline flex flex-col"
-        style="height:200px">
+        class="shrink-0 w-72 rounded-md overflow-hidden relative no-underline flex flex-col"
+        style="height:220px">
 
         <!-- Split entry images -->
         <div class="absolute inset-0 flex">
@@ -73,17 +73,32 @@
         </div>
 
         <!-- Bottom info -->
-        <div class="absolute bottom-0 left-0 right-0 px-2.5 pb-2.5 pt-8" style="background:linear-gradient(to top, rgba(0,0,0,0.88) 60%, transparent)">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <% if (ct1 && ct1.avatar) { %>
-              <img src="<%= ct1.avatar %>" class="w-4 h-4 rounded-full object-cover border border-white/20 shrink-0" alt="">
-            <% } %>
-            <p class="text-[11px] font-semibold text-white truncate m-0 leading-none"><%= ct1 ? ct1.displayName : '—' %></p>
-            <span class="text-[9px] font-bold text-white/25 shrink-0 mx-0.5">vs</span>
-            <% if (ct2 && ct2.avatar) { %>
-              <img src="<%= ct2.avatar %>" class="w-4 h-4 rounded-full object-cover border border-white/20 shrink-0 opacity-70" alt="">
-            <% } %>
-            <p class="text-[11px] text-white/60 truncate m-0 leading-none"><%= ct2 ? ct2.displayName : 'Awaiting' %></p>
+        <div class="absolute bottom-0 left-0 right-0 px-2.5 pb-2.5 pt-10" style="background:linear-gradient(to top, rgba(0,0,0,0.88) 60%, transparent)">
+          <div class="flex items-center gap-2 min-w-0">
+            <!-- Left contestant -->
+            <div class="flex items-center gap-1.5 min-w-0 flex-1">
+              <% if (ct1 && ct1.avatar) { %>
+                <img src="<%= ct1.avatar %>" class="w-6 h-6 rounded-full object-cover border border-white/20 shrink-0" alt="">
+              <% } %>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-white truncate m-0 leading-tight"><%= ct1 ? ct1.displayName : '—' %></p>
+                <% if (ct1 && ct1.username) { %>
+                  <p class="text-[10px] text-white/40 truncate m-0 leading-tight">@<%= ct1.username %></p>
+                <% } %>
+              </div>
+            </div>
+            <!-- Right contestant -->
+            <div class="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+              <div class="min-w-0 text-right">
+                <p class="text-xs font-semibold text-white truncate m-0 leading-tight"><%= ct2 ? ct2.displayName : 'Awaiting' %></p>
+                <% if (ct2 && ct2.username) { %>
+                  <p class="text-[10px] text-white/40 truncate m-0 leading-tight">@<%= ct2.username %></p>
+                <% } %>
+              </div>
+              <% if (ct2 && ct2.avatar) { %>
+                <img src="<%= ct2.avatar %>" class="w-6 h-6 rounded-full object-cover border border-white/20 shrink-0" alt="">
+              <% } %>
+            </div>
           </div>
         </div>
       </a>
