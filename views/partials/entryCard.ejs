@@ -312,7 +312,7 @@
   </div>
 
   <!-- Comments panel -->
-  <div class="ec-panel hidden border-t border-white/8" data-eid="<%= _eid %>" data-panel="comments">
+  <div class="ec-panel hidden" data-eid="<%= _eid %>" data-panel="comments">
   <% if (locals.mediaFull && Array.isArray(locals.comments)) { %>
   <%
   function ecLinkifyBody(body) {
@@ -322,28 +322,42 @@
   %>
 
   <!-- Compose box -->
-  <div class="px-3 pt-3 pb-2.5 border-b border-white/8 ec-compose-box"
+  <div class="px-3 pt-3 pb-2.5 ec-compose-box"
     data-eid="<%= _eid %>"
     data-is-owner="<%= _isOwner ? '1' : '0' %>"
     data-cur-username="<%= locals.currentUser ? locals.currentUser.username : '' %>"
     data-cur-avatar="<%= (locals.currentUser && locals.currentUser.avatar) ? locals.currentUser.avatar : '' %>">
-    <div class="flex gap-2.5">
-      <a href="<%= locals.currentUser ? '/' + locals.currentUser.username : '#' %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
-        <% if (locals.currentUser && locals.currentUser.avatar) { %>
-        <img src="<%= locals.currentUser.avatar %>" class="w-full h-full object-cover">
-        <% } else { %>
-        <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
-        <% } %>
-      </a>
-      <div class="flex-1 flex flex-col gap-1.5">
-        <textarea class="ec-comment-ta w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" placeholder="Add a comment…" data-eid="<%= _eid %>"></textarea>
-        <div class="flex items-center justify-between">
-          <span class="ec-comment-count text-xs text-white/25" data-eid="<%= _eid %>">0/280</span>
-          <div class="flex items-center gap-2">
-            <button type="button" class="ec-comment-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer" data-eid="<%= _eid %>">Cancel</button>
-            <button type="button" class="ec-comment-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-eid="<%= _eid %>">Post</button>
+    <div class="border border-white/12 rounded-md bg-white/6 focus-within:border-charm-500/40 transition-colors cursor-text" onclick="if(!event.target.closest('button,a,textarea')){this.querySelector('textarea').focus()}">
+      <!-- Row 1: pfp badge + char counter -->
+      <div class="flex items-center justify-between px-3 pt-3">
+        <div class="flex items-center gap-2 min-w-0">
+          <a href="<%= locals.currentUser ? '/' + locals.currentUser.username : '#' %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+            <% if (locals.currentUser && locals.currentUser.avatar) { %>
+            <img src="<%= locals.currentUser.avatar %>" class="w-full h-full object-cover">
+            <% } else { %>
+            <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+            <% } %>
+          </a>
+          <div class="flex flex-col min-w-0">
+            <span class="text-xs text-white/30">Posting as:</span>
+            <div class="flex items-baseline gap-1.5">
+              <span class="text-sm font-semibold text-white/80 truncate"><%= locals.currentUser ? (locals.currentUser.displayName || ('@' + locals.currentUser.username)) : '' %></span>
+              <% if (locals.currentUser && locals.currentUser.displayName) { %>
+              <span class="text-xs text-white/30 shrink-0">@<%= locals.currentUser.username %></span>
+              <% } %>
+            </div>
           </div>
         </div>
+        <span class="ec-comment-count text-xs text-white/25 shrink-0 ml-2" data-eid="<%= _eid %>">0/280</span>
+      </div>
+      <!-- Row 2: textarea -->
+      <div class="px-3 pt-3">
+        <textarea class="ec-comment-ta w-full bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none" rows="3" placeholder="Add a comment…" data-eid="<%= _eid %>"></textarea>
+      </div>
+      <!-- Row 3: buttons -->
+      <div class="flex items-center justify-end gap-2 px-3 pb-3">
+        <button type="button" class="ec-comment-cancel h-8 px-4 text-sm rounded-md text-white hover:text-white/60 transition-colors cursor-pointer" data-eid="<%= _eid %>">Cancel</button>
+        <button type="button" class="ec-comment-submit h-8 px-4 text-sm font-semibold rounded-md bg-charm-600 text-charm-100 hover:bg-charm-500 transition-colors cursor-pointer" data-eid="<%= _eid %>">Post</button>
       </div>
     </div>
   </div>
@@ -366,10 +380,15 @@
           <% } else { %><iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon><% } %>
         </a>
         <div class="flex-1 min-w-0">
-          <div class="flex items-baseline gap-1.5 flex-wrap">
-            <a href="/<%= cUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= cUser.displayName?.value || ('@' + cUser.username?.value) %></a>
-            <span class="text-xs text-white/25"><%= new Date(comment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
-            <% if (comment.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
+          <div class="flex flex-col">
+            <div class="flex items-baseline gap-1.5">
+              <a href="/<%= cUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= cUser.displayName?.value || ('@' + cUser.username?.value) %></a>
+              <% if (cUser.displayName?.value) { %><span class="text-xs text-white/35">@<%= cUser.username?.value %></span><% } %>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs text-white/25"><%= new Date(comment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+              <% if (comment.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
+            </div>
           </div>
           <p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- ecLinkifyBody(comment.body) %></p>
           <div class="ec-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">
@@ -385,19 +404,21 @@
             <button type="button" class="ec-edit-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= cid %>">Edit</button>
             <button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Delete</button>
             <% } else if (_isOwner) { %>
-            <button type="button" class="ec-chide text-xs text-white/30 hover:text-amber-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Hide</button>
+            <button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Delete</button>
             <button type="button" class="ec-creport text-xs text-white/20 hover:text-white/50 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Report</button>
             <% } else { %>
             <button type="button" class="ec-creport text-xs text-white/20 hover:text-white/50 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Report</button>
             <% } %>
           </div>
-          <div class="ec-reply-form hidden mt-2.5 flex gap-2" data-parent-id="<%= cid %>">
-            <div class="w-px bg-white/10 self-stretch shrink-0 ml-0.5"></div>
-            <div class="flex-1 flex flex-col gap-1">
-              <textarea class="ec-reply-ta w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" placeholder="Reply…"></textarea>
-              <div class="flex justify-end gap-2">
-                <button type="button" class="ec-reply-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 transition-colors cursor-pointer">Cancel</button>
-                <button type="button" class="ec-reply-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="<%= cid %>" data-eid="<%= _eid %>">Reply</button>
+          <div class="ec-reply-form hidden mt-2.5" data-parent-id="<%= cid %>">
+            <div class="border border-white/12 rounded-md bg-white/6 focus-within:border-charm-500/40 transition-colors">
+              <div class="px-3 pt-3">
+                <textarea class="ec-reply-ta w-full bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none" rows="2" placeholder="Reply…"></textarea>
+              </div>
+              <div class="flex items-center gap-2 px-3 pb-3">
+                <span class="ec-reply-count text-xs text-white/25 flex-1">0/280</span>
+                <button type="button" class="ec-reply-cancel h-8 px-4 text-sm rounded-md text-white hover:text-white/60 transition-colors cursor-pointer">Cancel</button>
+                <button type="button" class="ec-reply-submit h-8 px-4 text-sm font-semibold rounded-md bg-charm-600 text-charm-100 hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="<%= cid %>" data-eid="<%= _eid %>">Reply</button>
               </div>
             </div>
           </div>
@@ -415,10 +436,15 @@
                   <% } else { %><iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon><% } %>
                 </a>
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-baseline gap-1.5 flex-wrap">
-                    <a href="/<%= rUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= rUser.displayName?.value || ('@' + rUser.username?.value) %></a>
-                    <span class="text-xs text-white/25"><%= new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
-                    <% if (reply.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
+                  <div class="flex flex-col">
+                    <div class="flex items-baseline gap-1.5">
+                      <a href="/<%= rUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= rUser.displayName?.value || ('@' + rUser.username?.value) %></a>
+                      <% if (rUser.displayName?.value) { %><span class="text-xs text-white/35">@<%= rUser.username?.value %></span><% } %>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-xs text-white/25"><%= new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+                      <% if (reply.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
+                    </div>
                   </div>
                   <p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- ecLinkifyBody(reply.body) %></p>
                   <div class="ec-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">
@@ -449,38 +475,6 @@
     </div>
     <% }); %>
   </div>
-
-  <% if (_isOwner && locals.hiddenComments && locals.hiddenComments.length) { %>
-  <div class="px-3 py-3 border-t border-white/8">
-    <p class="text-xs font-semibold text-white/30 uppercase tracking-wide mb-3">Hidden (<%= locals.hiddenComments.length %>)</p>
-    <div class="flex flex-col gap-4">
-      <% locals.hiddenComments.forEach(function(hc) {
-        var hcid   = hc._id.toString();
-        var hcUser = hc.userId;
-      %>
-      <div class="ec-citem opacity-45" data-cid="<%= hcid %>">
-        <div class="flex gap-2.5">
-          <a href="/<%= hcUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
-            <% if (hcUser.avatar?.value) { %><img src="<%= hcUser.avatar.value %>" class="w-full h-full object-cover">
-            <% } else { %><iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon><% } %>
-          </a>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-baseline gap-1.5 flex-wrap">
-              <a href="/<%= hcUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= hcUser.displayName?.value || ('@' + hcUser.username?.value) %></a>
-              <span class="text-xs text-white/25"><%= new Date(hc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
-            </div>
-            <p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- ecLinkifyBody(hc.body) %></p>
-            <div class="flex items-center gap-3 mt-1.5">
-              <button type="button" class="ec-chide text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= hcid %>" data-eid="<%= _eid %>">Unhide</button>
-              <button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= hcid %>" data-eid="<%= _eid %>">Delete</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <% }); %>
-    </div>
-  </div>
-  <% } %>
 
   <% } else { %>
   <div class="flex flex-col items-center gap-2 text-center px-3 py-6">
@@ -802,12 +796,16 @@
       : '<iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>';
     var act = '<button type="button" class="ec-edit-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Edit</button>'
       + '<button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="' + c._id + '" data-eid="' + eid + '">Delete</button>';
+    var unameSpan = c.user.displayName ? '<span class="text-xs text-white/35">@' + ecEsc(c.user.username) + '</span>' : '';
     return '<div class="ec-citem px-3 py-3 border-t border-white/6" data-cid="' + c._id + '">'
       + '<div class="flex gap-2.5">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'
       + '<div class="flex-1 min-w-0">'
-      + '<div class="flex items-baseline gap-1.5 flex-wrap">'
+      + '<div class="flex flex-col">'
+      + '<div class="flex items-baseline gap-1.5">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity">' + ecEsc(dn) + '</a>'
+      + unameSpan
+      + '</div>'
       + '<span class="text-xs text-white/25">' + dt + '</span>'
       + '</div>'
       + '<p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words">' + ecLinkify(ecEsc(c.body)) + '</p>'
@@ -821,13 +819,15 @@
       + '<button type="button" class="ec-reply-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Reply</button>'
       + act
       + '</div>'
-      + '<div class="ec-reply-form hidden mt-2.5 flex gap-2" data-parent-id="' + c._id + '">'
-      + '<div class="w-px bg-white/10 self-stretch shrink-0 ml-0.5"></div>'
-      + '<div class="flex-1 flex flex-col gap-1">'
-      + '<textarea class="ec-reply-ta w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" placeholder="Reply…"></textarea>'
-      + '<div class="flex justify-end gap-2">'
-      + '<button type="button" class="ec-reply-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 transition-colors cursor-pointer">Cancel</button>'
-      + '<button type="button" class="ec-reply-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="' + c._id + '" data-eid="' + eid + '">Reply</button>'
+      + '<div class="ec-reply-form hidden mt-2.5" data-parent-id="' + c._id + '">'
+      + '<div class="border border-white/12 rounded-md bg-white/6 focus-within:border-charm-500/40 transition-colors">'
+      + '<div class="px-3 pt-3">'
+      + '<textarea class="ec-reply-ta w-full bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none" rows="2" placeholder="Reply…"></textarea>'
+      + '</div>'
+      + '<div class="flex items-center gap-2 px-3 pb-3">'
+      + '<span class="ec-reply-count text-xs text-white/25 flex-1">0/280</span>'
+      + '<button type="button" class="ec-reply-cancel h-8 px-4 text-sm rounded-md text-white hover:text-white/60 transition-colors cursor-pointer">Cancel</button>'
+      + '<button type="button" class="ec-reply-submit h-8 px-4 text-sm font-semibold rounded-md bg-charm-600 text-charm-100 hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="' + c._id + '" data-eid="' + eid + '">Reply</button>'
       + '</div></div></div>'
       + '<div class="ec-replies hidden mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="' + c._id + '"></div>'
       + '</div></div></div>';
@@ -839,12 +839,16 @@
     var av = c.user.avatar
       ? '<img src="' + ecEsc(c.user.avatar) + '" class="w-full h-full object-cover">'
       : '<iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon>';
+    var unameSpanR = c.user.displayName ? '<span class="text-xs text-white/35">@' + ecEsc(c.user.username) + '</span>' : '';
     return '<div class="ec-citem" data-cid="' + c._id + '">'
       + '<div class="flex gap-2">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'
       + '<div class="flex-1 min-w-0">'
-      + '<div class="flex items-baseline gap-1.5 flex-wrap">'
+      + '<div class="flex flex-col">'
+      + '<div class="flex items-baseline gap-1.5">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity">' + ecEsc(dn) + '</a>'
+      + unameSpanR
+      + '</div>'
       + '<span class="text-xs text-white/25">' + dt + '</span>'
       + '</div>'
       + '<p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words">' + ecLinkify(ecEsc(c.body)) + '</p>'
@@ -928,6 +932,8 @@
       }
       form.classList.add('hidden');
       ta.value = '';
+      var countEl = form.querySelector('.ec-reply-count');
+      if (countEl) countEl.textContent = '0/280';
       ecUpdateCount(eid, 1);
     })
     .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
@@ -936,13 +942,19 @@
 
   // Char count
   document.addEventListener('input', function (e) {
-    var ta = e.target.closest('.ec-comment-ta');
-    if (!ta) return;
-    var eid     = ta.dataset.eid;
-    var compose = ecGetCompose(eid);
-    if (!compose) return;
-    var countEl = compose.querySelector('.ec-comment-count');
-    if (countEl) countEl.textContent = ta.value.replace(/\s/g, '').length + '/280';
+    var cta = e.target.closest('.ec-comment-ta');
+    if (cta) {
+      var compose = ecGetCompose(cta.dataset.eid);
+      var countEl = compose && compose.querySelector('.ec-comment-count');
+      if (countEl) countEl.textContent = cta.value.replace(/\s/g, '').length + '/280';
+      return;
+    }
+    var rta = e.target.closest('.ec-reply-ta');
+    if (rta) {
+      var form    = rta.closest('.ec-reply-form');
+      var countEl = form && form.querySelector('.ec-reply-count');
+      if (countEl) countEl.textContent = rta.value.replace(/\s/g, '').length + '/280';
+    }
   });
 
   // Enter to submit (Shift+Enter = newline)
@@ -995,7 +1007,12 @@
     var replyCancel = e.target.closest('.ec-reply-cancel');
     if (replyCancel) {
       var form = replyCancel.closest('.ec-reply-form');
-      if (form) { form.classList.add('hidden'); form.querySelector('.ec-reply-ta').value = ''; }
+      if (form) {
+        form.classList.add('hidden');
+        form.querySelector('.ec-reply-ta').value = '';
+        var countEl = form.querySelector('.ec-reply-count');
+        if (countEl) countEl.textContent = '0/280';
+      }
       return;
     }
 
@@ -1077,23 +1094,6 @@
       })
       .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
       .finally(function () { delBtn.disabled = false; });
-      return;
-    }
-
-    // Hide / Unhide
-    var hideBtn = e.target.closest('.ec-chide');
-    if (hideBtn && !hideBtn.disabled) {
-      var cid = hideBtn.dataset.cid;
-      var eid = hideBtn.dataset.eid;
-      hideBtn.disabled = true;
-      fetch('/api/entries/' + eid + '/comments/' + cid + '/hide', { method: 'POST' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
-        // Reload the page so hidden/visible sections update correctly
-        window.location.reload();
-      })
-      .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); hideBtn.disabled = false; });
       return;
     }
 

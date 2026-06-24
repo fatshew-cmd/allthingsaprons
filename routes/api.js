@@ -1193,10 +1193,11 @@ router.delete('/contests/:id/comments/:cid', async (req, res) => {
     return res.status(404).json({ error: 'Comment not found.' });
   }
 
+  const MOD_ROLES_CC = new Set(['moderator', 'supervisor', 'superadmin', 'founder']);
   const myId   = req.session.userId.toString();
   const isOwn  = comment.userId.toString() === myId;
-  const isAdmin = req.currentUser?.role === 'admin';
-  if (!isOwn && !isAdmin) return res.status(403).json({ error: 'Not authorized.' });
+  const isMod  = MOD_ROLES_CC.has(req.currentUser?.role);
+  if (!isOwn && !isMod) return res.status(403).json({ error: 'Not authorized.' });
 
   await Promise.all([
     ContestComment.deleteOne({ _id: comment._id }),
@@ -1226,6 +1227,7 @@ router.post('/contests/:id/comments/:cid/report', async (req, res) => {
       contestCommentId: comment._id,
       reportedBy:       req.session.userId,
     });
+    await ContestComment.updateOne({ _id: comment._id }, { $set: { hidden: true } });
     res.json({ ok: true });
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ error: "You've already reported this comment." });
@@ -1295,6 +1297,27 @@ router.post('/entries/:eid/comments', async (req, res) => {
   const entry = await Entry.findById(req.params.eid).select('userId commentsEnabled').lean().catch(() => null);
   if (!entry) return res.status(404).json({ error: 'Entry not found.' });
   if (!entry.commentsEnabled) return res.status(403).json({ error: 'Comments are disabled for this entry.' });
+
+  const commenterId = req.session.userId.toString();
+  const entryOwnerId = entry.userId.toString();
+
+  if (commenterId !== entryOwnerId) {
+    const owner = await User.findById(entry.userId).select('privacySettings').lean().catch(() => null);
+    const rule  = owner?.privacySettings?.whoCanComment || 'everyone';
+
+    if (rule === 'followers_only') {
+      const follows = await Follow.exists({ followerId: commenterId, followingId: entryOwnerId });
+      if (!follows) return res.status(403).json({ error: 'Only followers can comment on this entry.' });
+    } else if (rule === 'contributors_only') {
+      const contestIds = await Contest.find({ 'entries.entryId': entry._id }).select('_id').lean().catch(() => []);
+      if (!contestIds.length) return res.status(403).json({ error: 'Only contest contributors can comment on this entry.' });
+      const isContributor = await ContestContribution.exists({
+        contestId: { $in: contestIds.map(c => c._id) },
+        contributorId: commenterId,
+      });
+      if (!isContributor) return res.status(403).json({ error: 'Only contest contributors can comment on this entry.' });
+    }
+  }
 
   let parentComment = null;
   if (parentId) {
@@ -1394,9 +1417,11 @@ router.delete('/entries/:eid/comments/:cid', async (req, res) => {
   if (!comment || comment.entryId.toString() !== req.params.eid) return res.status(404).json({ error: 'Comment not found.' });
   if (!entry) return res.status(404).json({ error: 'Entry not found.' });
 
+  const MOD_ROLES    = new Set(['moderator', 'supervisor', 'superadmin', 'founder']);
   const isOwn        = comment.userId.toString() === req.session.userId.toString();
   const isEntryOwner = entry.userId.toString() === req.session.userId.toString();
-  if (!isOwn && !isEntryOwner) return res.status(403).json({ error: 'Not authorized.' });
+  const isMod        = MOD_ROLES.has(req.currentUser?.role);
+  if (!isOwn && !isEntryOwner && !isMod) return res.status(403).json({ error: 'Not authorized.' });
 
   let deletedCount = 1;
   if (!comment.parentId) {
@@ -1415,23 +1440,6 @@ router.delete('/entries/:eid/comments/:cid', async (req, res) => {
   res.json({ ok: true, deletedCount });
 });
 
-router.post('/entries/:eid/comments/:cid/hide', async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
-  if (!mongoose.isValidObjectId(req.params.eid) || !mongoose.isValidObjectId(req.params.cid)) {
-    return res.status(400).json({ error: 'Invalid ID.' });
-  }
-  const [comment, entry] = await Promise.all([
-    Comment.findById(req.params.cid).catch(() => null),
-    Entry.findById(req.params.eid).select('userId').lean().catch(() => null),
-  ]);
-  if (!comment || comment.entryId.toString() !== req.params.eid) return res.status(404).json({ error: 'Comment not found.' });
-  if (!entry || entry.userId.toString() !== req.session.userId.toString()) return res.status(403).json({ error: 'Not your entry.' });
-
-  comment.hidden = !comment.hidden;
-  await comment.save();
-  res.json({ ok: true, hidden: comment.hidden });
-});
-
 router.post('/entries/:eid/comments/:cid/report', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   if (!mongoose.isValidObjectId(req.params.eid) || !mongoose.isValidObjectId(req.params.cid)) {
@@ -1443,6 +1451,7 @@ router.post('/entries/:eid/comments/:cid/report', async (req, res) => {
 
   try {
     await CommentReport.create({ commentId: comment._id, reportedBy: req.session.userId });
+    await Comment.updateOne({ _id: comment._id }, { $set: { hidden: true } });
     res.json({ ok: true });
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ error: "You've already reported this comment." });

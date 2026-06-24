@@ -67,77 +67,7 @@ async function closeContest(contestId) {
     ? contest.entries.find(e => e.entryId.toString() === winnerEntryId.toString())?.userId
     : null;
 
-  // ── Lock contributions and settle earnings immediately ────────────
-  const EXCHANGE_RATE = 0.20;
-  const now = new Date();
-
-  const [contributionAgg] = await Promise.all([
-    ContestContribution.aggregate([
-      { $match: { contestId: contest._id, status: 'active' } },
-      { $group: { _id: '$entryId', totalCHL: { $sum: '$amountCHL' }, beneficiaryId: { $first: '$beneficiaryId' } } },
-    ]),
-    ContestContribution.updateMany(
-      { contestId: contest._id, status: 'active' },
-      { $set: { status: 'locked', lockedAt: now } },
-    ),
-  ]);
-
-  const earningRows = contributionAgg.filter(r => r.totalCHL > 0);
-  if (earningRows.length > 0) {
-    await Promise.all(earningRows.map(async r => {
-      const gross = r.totalCHL;
-      const net   = Math.floor(gross * 0.75);
-      const fee   = gross - net;
-
-      const updatedUser = await User.findByIdAndUpdate(
-        r.beneficiaryId,
-        { $inc: { 'wallet.earnedCHL': net }, $set: { 'wallet.updatedAt': now } },
-        { new: true, select: 'wallet' },
-      );
-      if (!updatedUser) return;
-
-      const balanceAfter  = (updatedUser.wallet.purchasedCHL || 0) + (updatedUser.wallet.earnedCHL || 0);
-      const balanceBefore = balanceAfter - net;
-
-      await Promise.all([
-        ContestPayout.create({
-          contestId:             contest._id,
-          entryId:               r._id,
-          userId:                r.beneficiaryId,
-          grossContributionsCHL: gross,
-          netPayoutCHL:          net,
-          platformFeeCHL:        fee,
-          status:                'completed',
-          paidAt:                now,
-        }),
-        require('../models/WalletTransaction').create({
-          userId:        r.beneficiaryId,
-          type:          'contest_payout_settled',
-          direction:     'credit',
-          amountCHL:     net,
-          amountUSD:     +(net * EXCHANGE_RATE).toFixed(2),
-          exchangeRate:  EXCHANGE_RATE,
-          balanceBefore,
-          balanceAfter,
-          status:        'completed',
-          source:        'contest_close',
-          referenceId:   contest._id,
-          referenceType: 'Contest',
-        }),
-        Notification.create({
-          userId:  r.beneficiaryId,
-          type:    'contest_payout_available',
-          payload: {
-            amountCHL: net,
-            contestId: contest._id,
-            url:       '/settings?tab=wallet',
-          },
-        }),
-      ]);
-    }));
-  }
-
-  // ── Participant and watcher notifications ─────────────────────────
+  // ── Participant and watcher notifications (fire before earnings so a payout error can't silence them) ──
   const notifications = contest.entries.map(e => {
     const uid           = e.userId.toString();
     const opponentEntry = contest.entries.find(oe => oe.userId.toString() !== uid);
@@ -152,12 +82,90 @@ async function closeContest(contestId) {
     };
   });
 
-  Notification.insertMany(notifications).catch(() => {});
-  notifyWatchers(contest._id, 'contest_closed', {
-    contestId:     contest._id,
-    winnerEntryId: winnerEntryId || null,
-    url:           '/contest/' + contest._id,
-  }, userIds);
+  await Promise.all([
+    Notification.insertMany(notifications, { ordered: false }).catch(() => {}),
+    notifyWatchers(contest._id, 'contest_closed', {
+      contestId:     contest._id,
+      winnerEntryId: winnerEntryId || null,
+      url:           '/contest/' + contest._id,
+    }, userIds),
+  ]);
+
+  // ── Lock contributions and settle earnings ────────────────────────
+  try {
+    const EXCHANGE_RATE = 0.20;
+    const now = new Date();
+
+    // Aggregate first to capture totals, THEN lock — running concurrently risks
+    // updateMany winning the race and flipping status before the aggregate reads.
+    const contributionAgg = await ContestContribution.aggregate([
+      { $match: { contestId: contest._id, status: 'active' } },
+      { $group: { _id: '$entryId', totalCHL: { $sum: '$amountCHL' }, beneficiaryId: { $first: '$beneficiaryId' } } },
+    ]);
+    await ContestContribution.updateMany(
+      { contestId: contest._id, status: 'active' },
+      { $set: { status: 'locked', lockedAt: now } },
+    );
+
+    const earningRows = contributionAgg.filter(r => r.totalCHL > 0);
+    await Promise.all(earningRows.map(async r => {
+      try {
+        const gross = r.totalCHL;
+        const net   = Math.floor(gross * 0.75);
+        const fee   = gross - net;
+
+        const updatedUser = await User.findByIdAndUpdate(
+          r.beneficiaryId,
+          { $inc: { 'wallet.earnedCHL': net }, $set: { 'wallet.updatedAt': now } },
+          { new: true, select: 'wallet' },
+        );
+        if (!updatedUser) return;
+
+        const balanceAfter  = (updatedUser.wallet.purchasedCHL || 0) + (updatedUser.wallet.earnedCHL || 0);
+        const balanceBefore = balanceAfter - net;
+
+        await Promise.all([
+          ContestPayout.create({
+            contestId:             contest._id,
+            entryId:               r._id,
+            userId:                r.beneficiaryId,
+            grossContributionsCHL: gross,
+            netPayoutCHL:          net,
+            platformFeeCHL:        fee,
+            status:                'completed',
+            paidAt:                now,
+          }),
+          require('../models/WalletTransaction').create({
+            userId:        r.beneficiaryId,
+            type:          'contest_payout_settled',
+            direction:     'credit',
+            amountCHL:     net,
+            amountUSD:     +(net * EXCHANGE_RATE).toFixed(2),
+            exchangeRate:  EXCHANGE_RATE,
+            balanceBefore,
+            balanceAfter,
+            status:        'completed',
+            source:        'contest_close',
+            referenceId:   contest._id,
+            referenceType: 'Contest',
+          }),
+          Notification.create({
+            userId:  r.beneficiaryId,
+            type:    'contest_payout_available',
+            payload: {
+              amountCHL: net,
+              contestId: contest._id,
+              url:       '/settings?tab=wallet',
+            },
+          }),
+        ]);
+      } catch (err) {
+        console.error('[closeContest] payout failed for beneficiary', r.beneficiaryId, 'contest', contest._id, ':', err.message);
+      }
+    }));
+  } catch (err) {
+    console.error('[closeContest] earnings settlement failed for contest', contest._id, ':', err.message);
+  }
 }
 
 function registerContestJobs(agenda) {

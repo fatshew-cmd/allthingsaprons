@@ -408,18 +408,10 @@ router.get('/entry/:id', async (req, res) => {
   const chipRank = s => s === 'active' ? 0 : s === 'pending' ? 1 : s === 'closed' ? 2 : 3;
   nominees.sort((a, b) => chipRank(a.contestStatus) - chipRank(b.contestStatus));
 
-  const [topLevelComments, hiddenComments] = await Promise.all([
-    Comment.find({ entryId: entry._id, parentId: null, hidden: false })
-      .populate('userId', 'username displayName avatar')
-      .sort({ createdAt: 1 })
-      .lean(),
-    isOwn
-      ? Comment.find({ entryId: entry._id, parentId: null, hidden: true })
-          .populate('userId', 'username displayName avatar')
-          .sort({ createdAt: 1 })
-          .lean()
-      : Promise.resolve([]),
-  ]);
+  const topLevelComments = await Comment.find({ entryId: entry._id, parentId: null, hidden: false })
+    .populate('userId', 'username displayName avatar')
+    .sort({ createdAt: 1 })
+    .lean();
 
   const topLevelIds = topLevelComments.map(c => c._id);
   const replies = topLevelIds.length
@@ -454,7 +446,6 @@ router.get('/entry/:id', async (req, res) => {
     })(),
     nominees,
     comments,
-    hiddenComments,
   });
 });
 
@@ -566,7 +557,7 @@ router.get('/settings', async (req, res) => {
     currentUser: req.currentUser,
     user,
     nominationSettings: user?.nominationSettings || { allow: true, whoCanNominate: 'everyone' },
-    privacySettings: user?.privacySettings || { whoCanDm: 'everyone', showMatureContent: true, showAiContent: true, defaultAllowTakeOns: true },
+    privacySettings: user?.privacySettings || { whoCanDm: 'everyone', whoCanComment: 'everyone', showMatureContent: true, showAiContent: true, defaultAllowTakeOns: true },
     notifSettings: user?.notificationSettings || { inAppComments: true, inAppNominations: true, inAppContests: true, inAppPayouts: true, emailComments: true, emailNominations: true, emailContests: true, emailPayouts: true },
     wallet: {
       purchasedCHL:     user?.wallet?.purchasedCHL || 0,
@@ -1095,11 +1086,15 @@ router.post('/settings/privacy', async (req, res) => {
   const validDmScope = ['everyone', 'followers_only', 'mutual_follow'];
   const whoCanDm = validDmScope.includes(req.body.whoCanDm) ? req.body.whoCanDm : 'everyone';
 
+  const validCommentScope = ['everyone', 'followers_only', 'contributors_only'];
+  const whoCanComment = validCommentScope.includes(req.body.whoCanComment) ? req.body.whoCanComment : 'everyone';
+
   await User.findByIdAndUpdate(req.session.userId, {
     $set: {
       'nominationSettings.allow':            allow,
       'nominationSettings.whoCanNominate':   whoCanNominate,
       'privacySettings.whoCanDm':            whoCanDm,
+      'privacySettings.whoCanComment':       whoCanComment,
       'privacySettings.showMatureContent':   req.body.showMatureContent   === 'true',
       'privacySettings.showAiContent':       req.body.showAiContent       === 'true',
       'privacySettings.defaultAllowTakeOns': req.body.defaultAllowTakeOns === 'true',

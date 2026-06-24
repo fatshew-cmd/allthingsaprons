@@ -1,6 +1,6 @@
 # June Action Plan
 
-## Current State (June 22)
+## Current State (June 24)
 
 Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, private contests, and withdrawal/forfeit — is now substantially complete. Void deadline state is normalized at read time via Mongoose post-hooks (bridge until Phase 5 background jobs land); UI correctly shows "Timed out" / "No response" states across entryCard, edit-entry, and the contest page. Entry comments and replies are fully implemented. The notification system is live. The right panel is fully built. Nomination notification redirect is fixed.
 
@@ -18,7 +18,15 @@ The **Take On feature** is now fully implemented. Initiator clicks Take On on an
 
 **Phase 4.7 (Chilli Wallet + Economic Flow) is substantially complete.** All models are built (`WalletTransaction`, `ContestContribution`, `ContestPayout`, `MonthlySnapshot`). The wallet uses two separate pools — `purchasedCHL` (SB, from top-ups) and `earnedCHL` (AAC, from contest payouts) — replacing the old single `balanceCHL` field. The full top-up flow is live (`/wallet/topup` → `/wallet/checkout` → `POST /wallet/checkout` → wallet credit + `WalletTransaction` audit record). Contribution routes are fully wired on active contests: `POST /api/contests/:id/contribute`, `PATCH` (adjust), and `DELETE` (withdraw), each debiting/crediting the wallet and writing the appropriate transaction record. The contest-close job (`close_contest`) now locks all active contributions, credits 75% net to each contestant's `earnedCHL` immediately, creates `ContestPayout` audit docs, and fires `contest_payout_available` notifications. The settings wallet section is live: SB + AAC balance display, auto-payout notice with "Hold until the 15th" button (visible 25th–29th), and transaction history with links to a dedicated `/wallet/transaction/:id` detail page. Profile stats row shows spendable balance (owner view only). All four monthly payout background jobs are running via agenda: `snapshot_monthly_balances` (1st), `payout_reminder` (25th, in-app + email), `auto_payout_30` (30th), and `makeup_payout_15` (15th). `POST /wallet/hold-payout` endpoint is live. All three new notification types (`payout_reminder`, `payout_processed`, `contest_payout_available`) render correctly in `/notifications`.
 
-What remains: fake credits admin action (superadmin balance write for contribution flow testing) and the remaining Phase 6 admin UI pages.
+**Privacy & notification settings are now live.** `privacySettings` (`whoCanDm`, `showMatureContent`, `showAiContent`, `defaultAllowTakeOns`) and `notificationSettings` (in-app + email toggles for comments, nominations, contests, payouts) are embedded on User. Both are wired to new settings tabs (Privacy, Notifications) with `POST /settings/privacy` and `POST /settings/notifications` routes.
+
+**Wallet schema migration complete.** `User.wallet.balanceCHL` → `purchasedCHL` + `earnedCHL` two-pool model is fully live. Migration scripts ran (`scripts/migrateWalletPools.js`, `scripts/correctWalletBalance.js`). All routes, jobs, and views updated. The `withTxnOrFallback` helper in `routes/wallet.js` handles replica-set-less dev environments gracefully.
+
+**Full transaction history page** (`GET /wallet/transactions`) is live with month + type filters and Excel download (`GET /wallet/transactions/download`). The `transaction/:id` detail page links to a billing dispute flow: `GET /contact/new?topic=billing&txId=<id>` auto-creates a support thread and pre-populates a dispute message with the transaction details.
+
+**Top-up package names updated:** Starter → "Chill Vibes", Medium → "After Hours", Hot → "Milky Way", Inferno stays.
+
+What remains: the remaining Phase 6 admin UI pages (content moderation, entries moderation, tournament management).
 
 ### What is done
 | Asset | Status |
@@ -65,6 +73,12 @@ What remains: fake credits admin action (superadmin balance write for contributi
 | Take On | `allowTakeOns: Boolean` (default `true`) + `takeOnCount: Number` on Entry. `Nomination` extended with `type` (`standard` / `take_on`), `nomineeEntryId`, `challengerEntryId`. Notification types `take_on_received` / `take_on_accepted`. Take On button on entryCard → `/submit?takeOnTargetId=<entryId>`. Submit page flow creates pending contest + nomination, fires `take_on_received`. Dedicated accept/decline page at `/take-on/:id` (`views/take-on.ejs`). `POST /nominations/:id/take-on-accept` moves contest to active. `PATCH /entries/:id/allow-take-ons` endpoint. "Allow Take Ons" toggle on edit-entry page. |
 | Contest Watch + Follower Notifications | `ContestWatch` model (`contestId`, `userId`, unique index on both). `utils/notifyWatchers.js` inserts `Notification` docs for all watchers, with an `excludeUserIds` set. Bell toggle ("Stay in the loop") on contest page with `POST /api/contests/:id/watch` (toggle on/off, returns `{ watching: bool }`). `isWatching` injected by the contest page route. Watched contests shown in the `/contests` page. Watcher notifications fire on: nominee accepted, nominee declined, contest forfeited (via route), contest voided and contest closed (both via background jobs). Follower notification type `contest_started` fires to all of the nominator's followers on new contest creation. All new notification types render in `views/notifications.ejs`: `contest_started`, `nominee_accepted`, `nominee_declined`, `contest_forfeited`. |
 | Viewer Nomination | Any authenticated user can nominate two other users for a HTH via a modal on the profile page. Viewer selects opponent from a user search, optionally selects a specific entry for each nominee and adds a message. `POST /api/contests/viewer-nominate` validates that both nominees accept viewer nominations (per `nominationSettings` — allow on/off, with `everyone` / `followers_only` / `followees_only` / `mutual_follow` controls). Creates one shared `Contest` doc + two `Nomination` docs (type: `viewer_nomination`) with `preSelectedEntryId` when a specific entry was chosen. Both nominees receive a `viewer_nomination` notification. Submit page + nomination acceptance flow handle `viewer_nomination` type: locked-entry path (when entry was pre-selected) and free-choice path. Settings page has "Allow viewer nominations" toggle + "Who can nominate me" dropdown. `nominationSettings` embedded on User. |
+| Wallet schema migration | `User.wallet.balanceCHL` replaced by two-pool `purchasedCHL` (SB) + `earnedCHL` (AAC). Migration scripts at `scripts/migrateWalletPools.js` and `scripts/correctWalletBalance.js`. `withTxnOrFallback` helper in `routes/wallet.js` handles replica-set-less dev environments. All routes, background jobs, and views updated. |
+| Full transaction history page | `GET /wallet/transactions` + `views/wallet/transactions.ejs` — filterable by month and transaction type, with Excel download via `GET /wallet/transactions/download`. Links from the "See all" button in Settings wallet section. |
+| Transaction detail page | `GET /wallet/transaction/:id` + `views/wallet/transaction.ejs` — shows full transaction metadata; "Dispute this transaction" link opens `GET /contact/new?topic=billing&txId=<id>` which auto-creates a support thread and pre-populates a dispute message with the transaction details. |
+| Privacy settings | `privacySettings` embedded on User: `whoCanDm` (`everyone` / `followers_only` / `mutual_follow`), `showMatureContent`, `showAiContent`, `defaultAllowTakeOns`. Settings page Privacy tab wired to `POST /settings/privacy`. |
+| Notification settings | `notificationSettings` embedded on User: in-app + email toggles for Comments, Contest Invitations, Contest Updates, Payouts. Settings page Notifications tab wired to `POST /settings/notifications`. |
+| Top-up package names | Packages renamed: Starter → "Chill Vibes", Medium → "After Hours", Hot → "Milky Way", Inferno unchanged. |
 
 ### What is not done yet
 - Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
@@ -675,7 +689,7 @@ After setting `winnerEntryId` and `status: closed`, the job now also:
 
 **Schema**
 - [x] Migrate `User.wallet.balanceCents → balanceCHL` (default 0, no data to preserve)
-- [ ] Refactor `User.wallet.balanceCHL → purchasedCHL + earnedCHL` — rename field, add earnedCHL, update all routes/jobs/views
+- [x] Refactor `User.wallet.balanceCHL → purchasedCHL + earnedCHL` — rename field, add earnedCHL, update all routes/jobs/views
 - [x] Create `WalletTransaction` model
 - [x] Create `ContestContribution` model
 - [x] Create `ContestPayout` model
@@ -702,7 +716,7 @@ After setting `winnerEntryId` and `status: closed`, the job now also:
 - [x] Wire wallet data into `GET /settings` route
 
 **Profile**
-- [ ] Show SB (`purchasedCHL`) and AAC (`earnedCHL`) in stats row — owner view only (update from single `balanceCHL`)
+- [x] Show SB (`purchasedCHL`) and AAC (`earnedCHL`) in stats row — owner view only (update from single `balanceCHL`)
 
 **Background jobs**
 - [x] `snapshot_monthly_balances` — 1st of month

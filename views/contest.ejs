@@ -506,7 +506,7 @@
             <p class="text-[10px] text-white/30 truncate leading-tight"><%= _cuHandle %></p>
           </div>
           <p class="shrink-0 text-xs font-bold text-charm-400">🌶️ <%= c.amountCHL.toLocaleString() %></p>
-          <% if (_isOwn && contest.status === 'active') { %>
+          <% if (_isOwn && effectiveStatus === 'active') { %>
           <button type="button" class="contrib-withdraw-btn shrink-0 text-xs text-white/40 hover:text-red-400 transition-colors cursor-pointer ml-1" data-entry-id="<%= String(c.entryId) %>" data-side="left">Withdraw</button>
           <% } %>
         </div>
@@ -541,7 +541,7 @@
             <p class="text-[10px] text-white/30 truncate leading-tight"><%= _cuHandle %></p>
           </div>
           <p class="shrink-0 text-xs font-bold text-charm-400">🌶️ <%= c.amountCHL.toLocaleString() %></p>
-          <% if (_isOwn && contest.status === 'active') { %>
+          <% if (_isOwn && effectiveStatus === 'active') { %>
           <button type="button" class="contrib-withdraw-btn shrink-0 text-xs text-white/40 hover:text-red-400 transition-colors cursor-pointer ml-1" data-entry-id="<%= String(c.entryId) %>" data-side="right">Withdraw</button>
           <% } %>
         </div>
@@ -579,24 +579,38 @@
     <!-- New comment input -->
     <% if (locals.currentUser) { %>
     <div class="px-2 mb-5" id="cc-new-root">
-      <div class="flex gap-2.5">
-        <a href="/<%= currentUser.username %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
-          <% if (currentUser.avatar) { %>
-          <img src="<%= currentUser.avatar %>" class="w-full h-full object-cover">
-          <% } else { %>
-          <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
-          <% } %>
-        </a>
-        <div class="flex-1 flex flex-col gap-1.5">
-          <textarea id="cc-new-body" rows="2" placeholder="Add a comment…"
-            class="w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors"></textarea>
-          <div class="flex items-center justify-between">
-            <span id="cc-new-count" class="text-xs text-white/25">0/280</span>
-            <div class="flex items-center gap-2">
-              <button id="cc-new-cancel" type="button" class="h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer">Cancel</button>
-              <button id="cc-new-submit" type="button" class="h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer">Post</button>
+      <div class="border border-white/12 rounded-md bg-white/6 focus-within:border-charm-500/40 transition-colors cursor-text" onclick="if(!event.target.closest('button,a,textarea')){this.querySelector('textarea').focus()}">
+        <!-- Row 1: pfp badge + char counter -->
+        <div class="flex items-center justify-between px-3 pt-3">
+          <div class="flex items-center gap-2 min-w-0">
+            <a href="/<%= currentUser.username %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+              <% if (currentUser.avatar) { %>
+              <img src="<%= currentUser.avatar %>" class="w-full h-full object-cover">
+              <% } else { %>
+              <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+              <% } %>
+            </a>
+            <div class="flex flex-col min-w-0">
+              <span class="text-xs text-white/30">Posting as:</span>
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-sm font-semibold text-white/80 truncate"><%= currentUser.displayName || ('@' + currentUser.username) %></span>
+                <% if (currentUser.displayName) { %>
+                <span class="text-xs text-white/30 shrink-0">@<%= currentUser.username %></span>
+                <% } %>
+              </div>
             </div>
           </div>
+          <span id="cc-new-count" class="text-xs text-white/25 shrink-0 ml-2">0/280</span>
+        </div>
+        <!-- Row 2: textarea -->
+        <div class="px-3 pt-3">
+          <textarea id="cc-new-body" rows="3" placeholder="Add a comment…"
+            class="w-full bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none"></textarea>
+        </div>
+        <!-- Row 3: buttons -->
+        <div class="flex items-center justify-end gap-2 px-3 pb-3">
+          <button id="cc-new-cancel" type="button" class="h-8 px-4 text-sm rounded-md text-white hover:text-white/60 transition-colors cursor-pointer">Cancel</button>
+          <button id="cc-new-submit" type="button" class="h-8 px-4 text-sm font-semibold rounded-md bg-charm-600 text-charm-100 hover:bg-charm-500 transition-colors cursor-pointer">Post</button>
         </div>
       </div>
     </div>
@@ -1005,13 +1019,19 @@
     }
   }
 
-  function makeCountdown(id) {
+  function makeCountdown(id, onExpire) {
     var el = document.getElementById(id);
     if (!el) return;
     var ts = parseInt(el.dataset.ts, 10);
+    var iv = setInterval(update, 1000);
     function update() {
       var diff = ts - Date.now();
-      if (diff <= 0) { el.textContent = 'closed'; return; }
+      if (diff <= 0) {
+        clearInterval(iv);
+        el.textContent = 'closed';
+        if (onExpire) onExpire();
+        return;
+      }
       var d = Math.floor(diff / 86400000);
       var h = Math.floor((diff % 86400000) / 3600000);
       var m = Math.floor((diff % 3600000) / 60000);
@@ -1022,9 +1042,16 @@
       else el.textContent = 'in ' + pad(m) + 'm ' + pad(s) + 's';
     }
     update();
-    setInterval(update, 1000);
   }
-  makeCountdown('contest-deadline');
+  makeCountdown('contest-deadline', function() {
+    var banner = document.getElementById('contest-deadline');
+    if (banner) {
+      var row = banner.closest('.border-b');
+      if (row) row.innerHTML = '<span class="text-sm text-white/40 italic">Voting ended — finalizing results…</span>';
+    }
+    // Allow ~4 s for the agenda job to close the contest, then reload to show updated state
+    setTimeout(function() { window.location.reload(); }, 4000);
+  });
   makeCountdown('contest-void-deadline');
 
 

@@ -131,6 +131,7 @@ const userSchema = new mongoose.Schema({
 
   privacySettings: {
     whoCanDm:            { type: String, enum: ['everyone', 'followers_only', 'mutual_follow'], default: 'everyone' },
+    whoCanComment:       { type: String, enum: ['everyone', 'followers_only', 'contributors_only'], default: 'everyone' },
     showMatureContent:   { type: Boolean, default: true },
     showAiContent:       { type: Boolean, default: true },
     defaultAllowTakeOns: { type: Boolean, default: true },
