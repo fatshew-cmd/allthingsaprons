@@ -672,7 +672,9 @@
           </div>
           <!-- Replies -->
           <% if (comment.replies.length) { %>
-          <div class="cc-replies mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="<%= cid %>">
+          <button type="button" class="cc-replies-toggle mt-2 text-xs text-white/40 hover:text-white/60 transition-colors cursor-pointer" data-parent-id="<%= cid %>">Show Replies (<%= comment.replies.length %>)</button>
+          <% } %>
+          <div class="cc-replies hidden mt-3 flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="<%= cid %>">
             <% comment.replies.forEach(function(reply) {
               var rid      = reply._id.toString();
               var rUser    = reply.userId;
@@ -715,9 +717,6 @@
             </div>
             <% }); %>
           </div>
-          <% } else { %>
-          <div class="cc-replies hidden mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="<%= cid %>"></div>
-          <% } %>
         </div>
       </div>
     </div>
@@ -1370,7 +1369,7 @@
       : '<a href="/' + c.user.username + '" class="shrink-0 ' + avatarCls + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><iconify-icon icon="boxicons:user" width="' + iconSz + '" class="text-white/30"></iconify-icon></a>';
     var gap = isReply ? 'gap-2' : 'gap-2.5';
     var replyBlock = !isReply
-      ? '<div class="cc-replies hidden mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="' + c._id + '"></div>'
+      ? '<div class="cc-replies hidden mt-3 flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="' + c._id + '"></div>'
       : '';
     var replyBtn = !isReply
       ? '<button type="button" class="cc-reply-btn text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Reply</button>'
@@ -1593,7 +1592,22 @@
       var repliesEl = document.querySelector('.cc-replies[data-parent-id="' + parentId + '"]');
       if (repliesEl) {
         repliesEl.classList.remove('hidden');
+        repliesEl.classList.add('flex');
         repliesEl.insertAdjacentHTML('beforeend', buildCommentHtml(data, true));
+        var replyCount = repliesEl.querySelectorAll(':scope > .cc-item').length;
+        var toggleBtn = document.querySelector('.cc-replies-toggle[data-parent-id="' + parentId + '"]');
+        if (replyCount >= 2) {
+          if (toggleBtn) {
+            toggleBtn.textContent = 'Hide Replies';
+          } else {
+            var newToggle = document.createElement('button');
+            newToggle.type = 'button';
+            newToggle.className = 'cc-replies-toggle mt-2 text-xs text-white/40 hover:text-white/60 transition-colors cursor-pointer';
+            newToggle.dataset.parentId = parentId;
+            newToggle.textContent = 'Hide Replies';
+            repliesEl.parentNode.insertBefore(newToggle, repliesEl);
+          }
+        }
       }
       form.classList.add('hidden');
       ta.value = '';
@@ -1613,6 +1627,27 @@
   });
 
   document.addEventListener('click', function (e) {
+
+    // Replies toggle (show/hide)
+    var repliesToggle = e.target.closest('.cc-replies-toggle');
+    if (repliesToggle) {
+      var parentId = repliesToggle.dataset.parentId;
+      var repliesEl = document.querySelector('.cc-replies[data-parent-id="' + parentId + '"]');
+      if (repliesEl) {
+        var isHidden = repliesEl.classList.contains('hidden');
+        if (isHidden) {
+          repliesEl.classList.remove('hidden');
+          repliesEl.classList.add('flex');
+          repliesToggle.textContent = 'Hide Replies';
+        } else {
+          repliesEl.classList.add('hidden');
+          repliesEl.classList.remove('flex');
+          var replyCount = repliesEl.querySelectorAll(':scope > .cc-item').length;
+          repliesToggle.textContent = 'Show Replies (' + replyCount + ')';
+        }
+      }
+      return;
+    }
 
     // Reply button — show/hide reply form
     var replyBtn = e.target.closest('.cc-reply-btn');

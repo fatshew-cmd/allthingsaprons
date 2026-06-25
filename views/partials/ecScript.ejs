@@ -1,0 +1,277 @@
+<script>
+(function () {
+  var LABELS = ['','Chopped — What even is this? 🤮','An L — Not even trying 😑','Mid — It\'s just... there 😐','Basic — Standard, pretty boring 🥱','Mid — Just whatever 🫱','Decent — Not bad, actually kind of okay 😉','Fire — This is kind of hot 🔥','Banger — Goddayumm 😍','Ate — I\'m gagged 🌶️','God-tier — That should be illegal 😈'];
+  var EMOJIS  = ['','🤮','😑','😐','🥱','🫱','😉','🔥','😍','🌶️','😈'];
+
+  function getConfettiOverlay() {
+    var overlay = document.getElementById('ec-confetti-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'ec-confetti-overlay';
+      overlay.style.cssText = 'position:fixed;top:0;bottom:0;overflow:hidden;pointer-events:none;z-index:9999;';
+      document.body.appendChild(overlay);
+    }
+    var main = document.querySelector('main');
+    var rect = main ? main.getBoundingClientRect() : { left: 0, width: window.innerWidth };
+    overlay.style.left  = rect.left + 'px';
+    overlay.style.width = rect.width + 'px';
+    return overlay;
+  }
+
+  function burstConfetti(score) {
+    var emoji = EMOJIS[score];
+    if (!emoji) return;
+    var overlay = getConfettiOverlay();
+    var ow = overlay.offsetWidth;
+    var oh = overlay.offsetHeight;
+    var count = 30;
+    for (var i = 0; i < count; i++) {
+      (function (idx) {
+        var p = document.createElement('span');
+        p.textContent = emoji;
+        var cx = 40 + Math.random() * (ow - 80);
+        p.style.cssText = 'position:absolute;left:' + cx + 'px;top:' + oh + 'px;pointer-events:none;font-size:3.5rem;line-height:1;will-change:transform,opacity;';
+        var tx = (Math.random() - 0.5) * 220;
+        var ty = -(320 + Math.random() * 260);
+        var mx = tx + (Math.random() - 0.5) * 300;
+        p.style.setProperty('--tx', tx + 'px');
+        p.style.setProperty('--ty', ty + 'px');
+        p.style.setProperty('--mx', mx + 'px');
+        p.style.animation = '_ec-burst ' + (2.8 + Math.random() * 0.5) + 's ease-out forwards';
+        p.style.animationDelay = (idx * 0.04 + Math.random() * 0.15) + 's';
+        overlay.appendChild(p);
+        p.addEventListener('animationend', function () { if (p.parentNode) p.parentNode.removeChild(p); }, { once: true });
+      }(i));
+    }
+  }
+
+  function getCard(eid) { return document.getElementById('ec-' + eid); }
+
+  window.ecToggleMore = function (btn, e) {
+    e.stopPropagation();
+    e.preventDefault();
+    var menu = btn.nextElementSibling;
+    if (!menu) return;
+    var isHidden = menu.classList.contains('hidden');
+    document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
+    if (isHidden) menu.classList.remove('hidden');
+  };
+
+  function setTab(eid, panel) {
+    var panels  = document.querySelectorAll('.ec-panel[data-eid="' + eid + '"]');
+    var tabBtns = document.querySelectorAll('.ec-tab-btn[data-eid="' + eid + '"]');
+    var target  = document.querySelector('.ec-panel[data-eid="' + eid + '"][data-panel="' + panel + '"]');
+    var isOpen  = target && !target.classList.contains('hidden');
+
+    panels.forEach(function (p) { p.classList.add('hidden'); });
+    tabBtns.forEach(function (b) { b.classList.remove('ec-on'); });
+
+    if (!isOpen && target) {
+      target.classList.remove('hidden');
+      var btn = document.querySelector('.ec-tab-btn[data-eid="' + eid + '"][data-panel="' + panel + '"]');
+      if (btn) btn.classList.add('ec-on');
+    }
+  }
+
+  var _pendingToasts = {};
+
+  function lockRatingPanel(eid, confirmedScore) {
+    document.querySelectorAll('.ec-rating-tile[data-eid="' + eid + '"]').forEach(function (t) {
+      if (parseInt(t.dataset.score, 10) !== confirmedScore) {
+        t.classList.add('ec-locked');
+      }
+    });
+    var lbl = document.querySelector('.ec-rlabel[data-eid="' + eid + '"]');
+    if (lbl) lbl.textContent = LABELS[confirmedScore] || '';
+  }
+
+  function selectTile(eid, score) {
+    document.querySelectorAll('.ec-rating-tile[data-eid="' + eid + '"]').forEach(function (t) { t.classList.remove('ec-sel'); });
+    var tile = document.querySelector('.ec-rating-tile[data-eid="' + eid + '"][data-score="' + score + '"]');
+    if (tile) tile.classList.add('ec-sel');
+    var lbl = document.querySelector('.ec-rlabel[data-eid="' + eid + '"]');
+    if (lbl) lbl.textContent = LABELS[score] || '';
+  }
+
+  function clearTileSelection(eid) {
+    document.querySelectorAll('.ec-rating-tile[data-eid="' + eid + '"]').forEach(function (t) { t.classList.remove('ec-sel'); });
+    var lbl = document.querySelector('.ec-rlabel[data-eid="' + eid + '"]');
+    if (lbl) lbl.textContent = ' ';
+  }
+
+  function submitRating(eid, score) {
+    fetch('/api/entries/' + eid + '/rate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ score: score })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) { window.showToast(data.error, 'error'); return; }
+      lockRatingPanel(eid, score);
+      var avgSpan = document.querySelector('.ec-tab-btn.ec-rat[data-eid="' + eid + '"] span');
+      if (avgSpan) avgSpan.textContent = parseFloat(data.ratingAvg).toFixed(1);
+      window.showToast('Rating submitted.', 'success');
+    })
+    .catch(function () { window.showToast('Something went wrong.', 'error'); });
+  }
+
+  document.addEventListener('click', function (e) {
+    // Close all more menus when clicking outside
+    if (!e.target.closest('.ec-more-btn') && !e.target.closest('.ec-more-menu')) {
+      document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
+    }
+
+    var reportBtn = e.target.closest('.ec-more-report');
+    if (reportBtn) {
+      document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
+      if (window.showToast) window.showToast('Report submitted.', 'success');
+      return;
+    }
+
+    var blockBtn = e.target.closest('.ec-more-block');
+    if (blockBtn) {
+      document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
+      if (window.showToast) window.showToast('User blocked.', 'success');
+      return;
+    }
+
+    var notIntBtn = e.target.closest('.ec-more-notinterested');
+    if (notIntBtn) {
+      document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
+      var card = notIntBtn.closest('[data-ec-nav], [id^="ec-"]');
+      if (card) card.remove();
+      return;
+    }
+
+    var navCard = e.target.closest('[data-ec-nav]');
+    if (navCard && !e.target.closest('button') && !e.target.closest('a')) {
+      window.location.href = navCard.dataset.ecNav;
+      return;
+    }
+
+    var followBtn = e.target.closest('.ec-follow');
+    if (followBtn) {
+      var following = followBtn.dataset.following === 'true';
+      var uname = followBtn.dataset.username;
+      followBtn.disabled = true;
+      fetch((following ? '/unfollow/' : '/follow/') + uname, {
+        method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var nowFollowing = data.following;
+        followBtn.dataset.following = nowFollowing ? 'true' : 'false';
+        followBtn.textContent = nowFollowing ? 'Following' : 'Follow';
+        followBtn.className = 'ec-follow text-xs font-semibold rounded-md px-2.5 py-1 transition-colors cursor-pointer ' +
+          (nowFollowing
+            ? 'border border-white/30 text-white/50 hover:bg-white/8'
+            : 'border border-charm-500/40 text-charm-400 hover:bg-charm-500/10');
+      })
+      .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
+      .finally(function () { followBtn.disabled = false; });
+      return;
+    }
+
+    var takeOnBtn = e.target.closest('.ec-take-on');
+    if (takeOnBtn) {
+      window.location.href = '/submit?takeOnTargetId=' + takeOnBtn.dataset.eid;
+      return;
+    }
+
+    var btn = e.target.closest('.ec-tab-btn');
+    if (btn) {
+      var card = getCard(btn.dataset.eid);
+      if (btn.dataset.panel === 'comments' && card && card.dataset.ecNav) {
+        window.location.href = '/entry/' + btn.dataset.eid;
+        return;
+      }
+      setTab(btn.dataset.eid, btn.dataset.panel);
+      return;
+    }
+
+    var tile = e.target.closest('.ec-rating-tile');
+    if (tile) {
+      var eid   = tile.dataset.eid;
+      var score = parseInt(tile.dataset.score, 10);
+
+      if (_pendingToasts[eid]) {
+        _pendingToasts[eid].dispatchEvent(new Event('ec-dismiss'));
+      }
+
+      selectTile(eid, score);
+
+      if (localStorage.getItem('ec-skip-rating-confirm') === '1') {
+        burstConfetti(score);
+        submitRating(eid, score);
+        return;
+      }
+
+      var t = window.showToast(
+        'Your rating can\'t be changed after you confirm.',
+        'info', 0,
+        [
+          {
+            label: 'Cancel',
+            cls: 'bg-white/8 text-white/50 hover:bg-white/12 hover:text-white/80',
+            fn: function () { delete _pendingToasts[eid]; clearTileSelection(eid); }
+          },
+          {
+            label: 'Confirm rating',
+            cls: 'bg-amber-500 text-black hover:bg-amber-400',
+            fn: function () {
+              if (t.querySelector('.ec-skip-cb') && t.querySelector('.ec-skip-cb').checked) {
+                localStorage.setItem('ec-skip-rating-confirm', '1');
+              }
+              delete _pendingToasts[eid];
+              burstConfetti(score);
+              submitRating(eid, score);
+            }
+          }
+        ]
+      );
+
+      var skipRow = document.createElement('div');
+      skipRow.className = 'px-3 pb-1';
+      skipRow.innerHTML = '<label class="flex items-center gap-2 text-xs text-white/35 cursor-pointer select-none"><input type="checkbox" class="ec-skip-cb cursor-pointer accent-amber-500"> Don\'t show again</label>';
+      t.insertBefore(skipRow, t.lastElementChild);
+
+      _pendingToasts[eid] = t;
+      t.addEventListener('ec-dismiss', function () {
+        t.dispatchEvent(new Event('animationend'));
+        if (t.parentNode) t.parentNode.removeChild(t);
+        delete _pendingToasts[eid];
+        clearTileSelection(eid);
+      });
+    }
+  });
+
+  document.addEventListener('mouseover', function (e) {
+    var tile = e.target.closest('.ec-rating-tile');
+    if (!tile || tile.classList.contains('ec-locked')) return;
+    var lbl = document.querySelector('.ec-rlabel[data-eid="' + tile.dataset.eid + '"]');
+    if (lbl) lbl.textContent = LABELS[parseInt(tile.dataset.score, 10)] || '';
+  });
+
+  document.addEventListener('mouseout', function (e) {
+    var tile = e.target.closest('.ec-rating-tile');
+    if (!tile) return;
+    var eid  = tile.dataset.eid;
+    var sel  = document.querySelector('.ec-rating-tile.ec-sel[data-eid="' + eid + '"]');
+    var lbl  = document.querySelector('.ec-rlabel[data-eid="' + eid + '"]');
+    if (lbl) lbl.textContent = sel ? (LABELS[parseInt(sel.dataset.score, 10)] || ' ') : ' ';
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.ec-panel[data-panel="rating"][data-user-rating]').forEach(function (panel) {
+      lockRatingPanel(panel.dataset.eid, parseInt(panel.dataset.userRating, 10));
+    });
+    // Auto-open comments panel on the full entry page
+    document.querySelectorAll('.ec-panel[data-panel="comments"]').forEach(function (panel) {
+      var eid = panel.dataset.eid;
+      if (panel.closest('[data-ec-nav]')) return; // feed card — leave collapsed
+      setTab(eid, 'comments');
+    });
+  });
+}());
+</script>

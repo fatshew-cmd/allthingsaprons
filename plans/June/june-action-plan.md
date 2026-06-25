@@ -1,8 +1,10 @@
 # June Action Plan
 
-## Current State (June 24)
+## Current State (June 25)
 
 Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, private contests, and withdrawal/forfeit — is now substantially complete. Void deadline state is normalized at read time via Mongoose post-hooks (bridge until Phase 5 background jobs land); UI correctly shows "Timed out" / "No response" states across entryCard, edit-entry, and the contest page. Entry comments and replies are fully implemented. The notification system is live. The right panel is fully built. Nomination notification redirect is fixed.
+
+**entryCard script extracted to partial.** The large inline `<script>` block that was previously embedded in `views/partials/entryCard.ejs` (guarded by `locals.__ecScript`) has been extracted to its own partial `views/partials/ecScript.ejs`. It is now included once per page via `views/partials/appEnd.ejs`. This removes the guard hack and ensures the script loads exactly once regardless of how many cards are on the page. Minor fix: the rating label element uses `h-5 leading-5 overflow-hidden` instead of `min-h-4` to prevent layout shifts.
 
 A **contest eligibility gate** is now wired: before a user can create a contest or accept a nomination, `utils/contestEligibility.js` checks their entries against configurable thresholds (`minEntries`, `minRatingCount`, `minWeightedAvg`) stored in the `PlatformSettings` collection. The admin **Platform Settings page** (`/admin/settings`) lets the founder adjust these thresholds live. The **announcement detail/stats page** is implemented — shows dismissal count, placeholder rows for impressions/clicks (tracking not yet wired), a right-panel card preview, and activate/expire/delete actions.
 
@@ -79,6 +81,7 @@ What remains: the remaining Phase 6 admin UI pages (content moderation, entries 
 | Privacy settings | `privacySettings` embedded on User: `whoCanDm` (`everyone` / `followers_only` / `mutual_follow`), `showMatureContent`, `showAiContent`, `defaultAllowTakeOns`. Settings page Privacy tab wired to `POST /settings/privacy`. |
 | Notification settings | `notificationSettings` embedded on User: in-app + email toggles for Comments, Contest Invitations, Contest Updates, Payouts. Settings page Notifications tab wired to `POST /settings/notifications`. |
 | Top-up package names | Packages renamed: Starter → "Chill Vibes", Medium → "After Hours", Hot → "Milky Way", Inferno unchanged. |
+| entryCard script partial | Inline `<script>` block extracted from `entryCard.ejs` to `views/partials/ecScript.ejs`, included once per page from `appEnd.ejs`. Removes the `locals.__ecScript` guard hack; rating label div uses stable fixed height (`h-5 leading-5 overflow-hidden`). |
 
 ### What is not done yet
 - Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
