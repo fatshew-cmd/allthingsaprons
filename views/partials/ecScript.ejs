@@ -3,6 +3,10 @@
   var LABELS = ['','Chopped — What even is this? 🤮','An L — Not even trying 😑','Mid — It\'s just... there 😐','Basic — Standard, pretty boring 🥱','Mid — Just whatever 🫱','Decent — Not bad, actually kind of okay 😉','Fire — This is kind of hot 🔥','Banger — Goddayumm 😍','Ate — I\'m gagged 🌶️','God-tier — That should be illegal 😈'];
   var EMOJIS  = ['','🤮','😑','😐','🥱','🫱','😉','🔥','😍','🌶️','😈'];
 
+  function ecEsc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   function getConfettiOverlay() {
     var overlay = document.getElementById('ec-confetti-overlay');
     if (!overlay) {
@@ -76,10 +80,9 @@
   var _pendingToasts = {};
 
   function lockRatingPanel(eid, confirmedScore) {
+    selectTile(eid, confirmedScore);
     document.querySelectorAll('.ec-rating-tile[data-eid="' + eid + '"]').forEach(function (t) {
-      if (parseInt(t.dataset.score, 10) !== confirmedScore) {
-        t.classList.add('ec-locked');
-      }
+      t.classList.add('ec-locked');
     });
     var lbl = document.querySelector('.ec-rlabel[data-eid="' + eid + '"]');
     if (lbl) lbl.textContent = LABELS[confirmedScore] || '';
@@ -112,6 +115,34 @@
       var avgSpan = document.querySelector('.ec-tab-btn.ec-rat[data-eid="' + eid + '"] span');
       if (avgSpan) avgSpan.textContent = parseFloat(data.ratingAvg).toFixed(1);
       window.showToast('Rating submitted.', 'success');
+
+      var rlist = document.querySelector('.ec-rlist[data-eid="' + eid + '"]');
+      if (rlist) {
+        var empty = rlist.querySelector('.ec-rlist-empty');
+        if (empty) empty.remove();
+        var username    = rlist.dataset.curUsername    || '';
+        var displayName = rlist.dataset.curDisplayname || '';
+        var avatar      = rlist.dataset.curAvatar      || '';
+        if (username) {
+          var dn  = displayName || ('@' + username);
+          var av  = avatar
+            ? '<img src="' + ecEsc(avatar) + '" alt="" class="w-full h-full object-cover">'
+            : '<iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>';
+          var unameSpan = displayName ? '<span class="text-xs text-white/35">@' + ecEsc(username) + '</span>' : '';
+          var html = '<div class="ec-ritem px-3 py-2.5 border-t border-white/6 first:border-t-0 flex items-center gap-2.5">'
+            + '<a href="/' + ecEsc(username) + '" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">' + av + '</a>'
+            + '<div class="flex-1 min-w-0"><div class="flex items-baseline gap-1.5 flex-wrap">'
+            + '<a href="/' + ecEsc(username) + '" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity">' + ecEsc(dn) + '</a>'
+            + unameSpan
+            + '<span class="text-xs text-white/25">just now</span>'
+            + '</div></div>'
+            + '<div class="flex items-center gap-1 shrink-0">'
+            + '<iconify-icon icon="boxicons:star-filled" width="12" class="text-amber-400"></iconify-icon>'
+            + '<span class="text-sm font-bold text-amber-300">' + score + '</span>'
+            + '</div></div>';
+          rlist.insertAdjacentHTML('afterbegin', html);
+        }
+      }
     })
     .catch(function () { window.showToast('Something went wrong.', 'error'); });
   }
@@ -125,7 +156,17 @@
     var reportBtn = e.target.closest('.ec-more-report');
     if (reportBtn) {
       document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
-      if (window.showToast) window.showToast('Report submitted.', 'success');
+      var eid = reportBtn.dataset.eid;
+      fetch('/api/entries/' + eid + '/report', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            if (window.showToast) window.showToast('Report submitted.', 'success');
+          } else {
+            if (window.showToast) window.showToast(data.error || 'Something went wrong.', 'error');
+          }
+        })
+        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); });
       return;
     }
 
@@ -266,10 +307,10 @@
     document.querySelectorAll('.ec-panel[data-panel="rating"][data-user-rating]').forEach(function (panel) {
       lockRatingPanel(panel.dataset.eid, parseInt(panel.dataset.userRating, 10));
     });
-    // Auto-open comments panel on the full entry page
+    // Auto-open comments panel on the full entry page (not feed cards)
     document.querySelectorAll('.ec-panel[data-panel="comments"]').forEach(function (panel) {
       var eid = panel.dataset.eid;
-      if (panel.closest('[data-ec-nav]')) return; // feed card — leave collapsed
+      if (panel.closest('[data-ec-nav]')) return;
       setTab(eid, 'comments');
     });
   });

@@ -23,29 +23,49 @@
       </button>
       <% } else { %>
       <div class="flex items-center gap-2">
-        <a href="/messages/<%= profileUser.username?.value %>"
-           class="inline-flex items-center gap-2 px-4 py-2 border border-white/35 rounded-md text-sm font-semibold text-white hover:bg-white/8 transition-colors cursor-pointer no-underline">
-          <iconify-icon icon="boxicons:message-bubble-dots" width="15"></iconify-icon>
-          Message
-        </a>
-        <button type="button" id="follow-btn"
-          data-username="<%= profileUser.username?.value %>"
-          data-following="<%= isFollowing ? 'true' : 'false' %>"
-          class="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors cursor-pointer <%= isFollowing ? 'border border-white/35 text-white hover:bg-white/8' : 'bg-charm-500 text-white hover:bg-charm-600' %>">
-          <iconify-icon icon="<%= isFollowing ? 'boxicons:user-check' : 'boxicons:user-plus' %>" width="15"></iconify-icon>
-          <span id="follow-btn-label"><%= isFollowing ? 'Following' : 'Follow' %></span>
-        </button>
         <% if (locals.canNominate) { %>
         <button type="button" id="nominate-btn"
           data-nominee-id="<%= profileUser._id %>"
           data-nominee-username="<%= profileUser.username?.value %>"
           data-nominee-display="<%= profileUser.displayName?.value || ('@' + profileUser.username?.value) %>"
           data-nominee-avatar="<%= profileUser.avatar?.value || '' %>"
-          class="inline-flex items-center gap-2 px-4 py-2 border border-white/35 rounded-md text-sm font-semibold text-white hover:bg-white/8 transition-colors cursor-pointer">
-          <iconify-icon icon="boxicons:trophy" width="15"></iconify-icon>
-          Nominate
+          class="w-9 h-9 flex items-center justify-center border border-charm-500/60 rounded-md text-charm-400 hover:bg-charm-500/10 transition-colors cursor-pointer"
+          title="Nominate">
+          <iconify-icon icon="boxicons:git-compare" width="17"></iconify-icon>
         </button>
         <% } %>
+        <button type="button" id="follow-btn"
+          data-username="<%= profileUser.username?.value %>"
+          data-following="<%= isFollowing ? 'true' : 'false' %>"
+          class="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm font-semibold transition-colors cursor-pointer <%= isFollowing ? 'border border-white/35 text-white hover:bg-white/8' : 'bg-charm-500 text-white hover:bg-charm-600' %>">
+          <iconify-icon icon="<%= isFollowing ? 'boxicons:user-check' : 'boxicons:user-plus' %>" width="15"></iconify-icon>
+          <span id="follow-btn-label"><%= isFollowing ? 'Following' : 'Follow' %></span>
+        </button>
+        <!-- More menu -->
+        <div class="relative" id="profile-more-wrap">
+          <button type="button" id="profile-more-btn" class="w-9 h-9 flex items-center justify-center border border-white/35 rounded-md text-white/60 hover:bg-white/8 hover:text-white transition-colors cursor-pointer">
+            <iconify-icon icon="boxicons:dots-horizontal-rounded" width="20"></iconify-icon>
+          </button>
+          <div id="profile-more-menu" class="hidden absolute right-0 top-full mt-1.5 w-52 bg-shark-900 border border-white/10 rounded-md shadow-xl z-50 overflow-hidden py-1">
+            <a href="/messages/<%= profileUser.username?.value %>" class="flex items-center gap-2.5 px-3 py-2 text-sm text-white hover:bg-white/6 transition-colors no-underline">
+              <iconify-icon icon="boxicons:message-bubble-dots" width="15" class="shrink-0 text-white/50"></iconify-icon>
+              Direct Message
+            </a>
+            <button type="button" id="profile-share-btn" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-white hover:bg-white/6 transition-colors cursor-pointer">
+              <iconify-icon icon="boxicons:share" width="15" class="shrink-0 text-white/50"></iconify-icon>
+              Share Profile
+            </button>
+            <div class="my-1 border-t border-white/8"></div>
+            <button type="button" id="profile-block-btn" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-white hover:bg-white/6 transition-colors cursor-pointer">
+              <iconify-icon icon="boxicons:no-entry-filled" width="15" class="shrink-0 text-white/50"></iconify-icon>
+              Block @<%= profileUser.username?.value %>
+            </button>
+            <button type="button" id="profile-report-btn" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-white/6 transition-colors cursor-pointer">
+              <iconify-icon icon="boxicons:flag-alt-2-filled" width="15" class="shrink-0 text-red-400/70"></iconify-icon>
+              Report @<%= profileUser.username?.value %>
+            </button>
+          </div>
+        </div>
       </div>
       <% } %>
     </div>
@@ -1260,8 +1280,8 @@
         </button>
       </div>
 
-      <!-- Nominee 1: pre-filled, locked -->
-      <div class="mb-1">
+      <!-- Nominee 1 block -->
+      <div class="mb-5">
         <p class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-1.5">Nominee 1</p>
         <div id="nom1-badge" class="flex items-center gap-2.5 px-3 py-2 bg-shark-800 border border-white/10 rounded-md">
           <div id="nom1-avatar-wrap" class="w-7 h-7 rounded-full overflow-hidden bg-shark-700 shrink-0 flex items-center justify-center">
@@ -1273,54 +1293,48 @@
           </div>
           <iconify-icon icon="boxicons:lock-alt" width="13" class="text-white/20 ml-auto shrink-0"></iconify-icon>
         </div>
-      </div>
-
-      <!-- Nominee 1 entry picker -->
-      <div id="nom1-entry-section" class="hidden mb-3">
-        <p class="text-xs text-white/35 mb-1.5 pt-1.5">Pick an entry for them <span class="text-white/20">(optional)</span></p>
-        <div id="nom1-entry-grid" class="grid grid-cols-4 gap-1.5"></div>
-        <div id="nom1-entry-selected" class="hidden justify-end mt-1">
-          <button type="button" id="nom1-entry-clear" class="text-white/30 hover:text-white/60 cursor-pointer text-xs">Clear</button>
+        <div id="nom1-entry-section" class="hidden mt-3">
+          <div class="mb-1.5">
+            <p class="text-xs font-medium text-white/70">Pick an entry</p>
+            <p class="text-xs text-white/35">Leave empty to let them pick their own</p>
+          </div>
+          <div id="nom1-entry-grid" class="grid grid-cols-4 gap-1.5"></div>
+          <button type="button" id="nom1-entry-more" class="hidden w-full text-xs text-white/40 hover:text-white/70 py-1.5 mt-1 transition-colors cursor-pointer">Show more</button>
+          <div id="nom1-entry-selected" class="hidden justify-end mt-1">
+            <button type="button" id="nom1-entry-clear" class="text-white/30 hover:text-white/60 cursor-pointer text-xs">Clear</button>
+          </div>
         </div>
       </div>
 
-      <!-- Nominee 2: search field -->
-      <div class="mb-3">
-        <p class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-1.5">Nominee 2</p>
-        <div class="relative">
-          <div id="nom2-selected" class="hidden flex items-center gap-2.5 px-3 py-2 bg-shark-800 border border-charm-600/40 rounded-md">
-            <div id="nom2-avatar-wrap" class="w-7 h-7 rounded-full overflow-hidden bg-shark-700 shrink-0 flex items-center justify-center">
-              <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
-            </div>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span id="nom2-display" class="text-sm font-semibold truncate"></span>
-              <span id="nom2-username" class="text-xs text-white/40 truncate"></span>
-            </div>
-            <button type="button" id="nom2-clear" class="text-white/30 hover:text-white/70 shrink-0 cursor-pointer">
-              <iconify-icon icon="boxicons:x" width="15"></iconify-icon>
-            </button>
-          </div>
+      <!-- Nominee 2 block -->
+      <div class="mb-5">
+        <p class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-1.5">Nominee 2 <span class="font-normal normal-case text-white/30">· up to 3</span></p>
+        <div id="nom2-chips" class="hidden flex flex-wrap gap-1.5 mb-2"></div>
+        <div class="relative" id="nom2-search-wrap">
           <input id="nom2-search" type="text" placeholder="Search by username…" autocomplete="off"
             class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
           <div id="nom2-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 bg-shark-800 border border-white/10 rounded-md shadow-xl z-10 overflow-hidden"></div>
         </div>
         <p id="nom2-error" class="hidden text-xs text-red-400 mt-1.5"></p>
-      </div>
-
-      <!-- Nominee 2 entry picker -->
-      <div id="nom2-entry-section" class="hidden mb-3">
-        <p class="text-xs text-white/35 mb-1.5 pt-1.5">Pick an entry for them <span class="text-white/20">(optional)</span></p>
-        <div id="nom2-entry-grid" class="grid grid-cols-4 gap-1.5"></div>
-        <div id="nom2-entry-selected" class="hidden justify-end mt-1">
-          <button type="button" id="nom2-entry-clear" class="text-white/30 hover:text-white/60 cursor-pointer text-xs">Clear</button>
+        <div id="nom2-entry-section" class="hidden mt-3">
+          <div class="mb-1.5">
+            <p class="text-xs font-medium text-white/70">Pick an entry</p>
+            <p class="text-xs text-white/35">Leave empty to let them pick their own</p>
+          </div>
+          <div id="nom2-entry-grid" class="grid grid-cols-4 gap-1.5"></div>
+          <button type="button" id="nom2-entry-more" class="hidden w-full text-xs text-white/40 hover:text-white/70 py-1.5 mt-1 transition-colors cursor-pointer">Show more</button>
+          <div id="nom2-entry-selected" class="hidden justify-end mt-1">
+            <button type="button" id="nom2-entry-clear" class="text-white/30 hover:text-white/60 cursor-pointer text-xs">Clear</button>
+          </div>
         </div>
       </div>
 
-      <!-- Optional message -->
+      <!-- Optional side note -->
       <div class="mb-4">
-        <p class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-1.5">Message <span class="font-normal normal-case text-white/30">(optional)</span></p>
-        <textarea id="nom-message" rows="2" maxlength="160" placeholder="Add a message to both nominees…"
+        <p class="text-xs font-semibold text-white/50 uppercase tracking-wide mb-1.5">Side Note <span class="font-normal normal-case text-white/30">(optional)</span></p>
+        <textarea id="nom-message" rows="2" maxlength="30" placeholder="Leave a note to nominees…"
           class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"></textarea>
+        <p id="nom-message-counter" class="text-xs mt-1 text-right text-white/30">0/30 · 0/4 words</p>
       </div>
 
       <p id="nominate-modal-error" class="hidden text-xs text-red-400 mb-3"></p>
@@ -1340,21 +1354,19 @@
   var backdrop       = document.getElementById('nominate-modal-backdrop');
   var closeBtn       = document.getElementById('nominate-modal-close');
   var nom2Search     = document.getElementById('nom2-search');
+  var nom2SearchWrap = document.getElementById('nom2-search-wrap');
   var nom2Dropdown   = document.getElementById('nom2-dropdown');
-  var nom2Selected   = document.getElementById('nom2-selected');
-  var nom2Clear      = document.getElementById('nom2-clear');
+  var nom2ChipsEl    = document.getElementById('nom2-chips');
   var nom2ErrorEl    = document.getElementById('nom2-error');
-  var nom2Display    = document.getElementById('nom2-display');
-  var nom2Username   = document.getElementById('nom2-username');
-  var nom2AvatarWrap = document.getElementById('nom2-avatar-wrap');
   var submitBtn      = document.getElementById('nominate-submit-btn');
   var modalErrorEl   = document.getElementById('nominate-modal-error');
   var messageEl      = document.getElementById('nom-message');
+  var msgCounterEl   = document.getElementById('nom-message-counter');
 
   if (!nominateBtn || !modal) return;
 
   var nominee1Id      = '';
-  var nominee2Id      = '';
+  var nominee2Ids     = [];
   var nominee1EntryId = '';
   var nominee2EntryId = '';
   var searchTimer     = null;
@@ -1370,65 +1382,110 @@
 
   // ── Entry picker ────────────────────────────────────────────────────
 
-  function loadEntryPicker(userId, gridEl, sectionEl, onSelect, onClear) {
+  var ENTRY_PAGE = 12;
+
+  function loadEntryPicker(userId, gridEl, sectionEl, onSelect, clearBtn, onClearCb) {
+    var moreBtn = sectionEl.querySelector('[id$="-entry-more"]');
+    gridEl.dataset.loadedCount = '0';
     gridEl.innerHTML = '<p class="col-span-4 text-xs text-white/30 py-1">Loading…</p>';
+    if (moreBtn) moreBtn.classList.add('hidden');
     sectionEl.classList.remove('hidden');
-    fetch('/api/users/' + userId + '/entries')
-      .then(function (r) { return r.json(); })
-      .then(function (entries) {
-        if (!entries.length) {
-          gridEl.innerHTML = '<p class="col-span-4 text-xs text-white/30 py-1">No entries yet.</p>';
-          return;
-        }
-        gridEl.innerHTML = entries.map(function (e) {
-          var thumb = e.mediaType === 'video'
-            ? '<div class="w-full aspect-square bg-shark-700 flex items-center justify-center rounded-md overflow-hidden"><iconify-icon icon="boxicons:play-circle" width="22" class="text-white/40"></iconify-icon></div>'
-            : '<img src="' + escHtml(e.mediaUrl) + '" class="w-full aspect-square object-cover rounded-md" />';
-          return '<button type="button" class="entry-thumb-btn relative rounded-md overflow-hidden ring-2 ring-transparent hover:ring-charm-500/60 transition-all cursor-pointer"'
-            + ' data-entry-id="' + escHtml(e._id) + '">'
-            + thumb
-            + '</button>';
-        }).join('');
-        gridEl.querySelectorAll('.entry-thumb-btn').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            gridEl.querySelectorAll('.entry-thumb-btn').forEach(function (b) {
-              b.classList.remove('ring-charm-500');
-              b.classList.add('ring-transparent');
-            });
-            btn.classList.remove('ring-transparent');
-            btn.classList.add('ring-charm-500');
-            onSelect(btn.dataset.entryId);
+
+    function appendEntries(entries) {
+      if (!entries.length && gridEl.dataset.loadedCount === '0') {
+        gridEl.innerHTML = '<p class="col-span-4 text-xs text-white/30 py-1">No entries yet.</p>';
+        if (moreBtn) moreBtn.classList.add('hidden');
+        return;
+      }
+      entries.forEach(function (e) {
+        var thumb = e.mediaType === 'video'
+          ? '<div class="w-full aspect-square bg-shark-700 flex items-center justify-center rounded-md overflow-hidden"><iconify-icon icon="boxicons:play-circle" width="22" class="text-white/40"></iconify-icon></div>'
+          : '<img src="' + escHtml(e.mediaUrl) + '" class="w-full aspect-square object-cover rounded-md" />';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'entry-thumb-btn relative rounded-md overflow-hidden ring-2 ring-transparent hover:ring-charm-500/60 transition-all cursor-pointer';
+        btn.dataset.entryId = e._id;
+        btn.innerHTML = thumb;
+        btn.addEventListener('click', function () {
+          gridEl.querySelectorAll('.entry-thumb-btn').forEach(function (b) {
+            b.classList.remove('ring-charm-500'); b.classList.add('ring-transparent');
           });
+          btn.classList.remove('ring-transparent'); btn.classList.add('ring-charm-500');
+          onSelect(e._id);
         });
-      })
+        gridEl.appendChild(btn);
+      });
+      var newCount = parseInt(gridEl.dataset.loadedCount || '0') + entries.length;
+      gridEl.dataset.loadedCount = String(newCount);
+      if (moreBtn) {
+        if (entries.length < ENTRY_PAGE) { moreBtn.classList.add('hidden'); }
+        else { moreBtn.classList.remove('hidden'); moreBtn.textContent = 'Show more'; moreBtn.disabled = false; }
+      }
+    }
+
+    fetch('/api/users/' + userId + '/entries?skip=0')
+      .then(function (r) { return r.json(); })
+      .then(function (entries) { gridEl.innerHTML = ''; appendEntries(entries); })
       .catch(function () {
         gridEl.innerHTML = '<p class="col-span-4 text-xs text-red-400 py-1">Could not load entries.</p>';
       });
 
-    onClear.addEventListener('click', function () {
-      nominee1EntryId = '';
-      nominee2EntryId = '';
+    if (moreBtn) {
+      moreBtn.onclick = function () {
+        var skip = parseInt(gridEl.dataset.loadedCount || '0');
+        moreBtn.textContent = 'Loading…';
+        moreBtn.disabled = true;
+        fetch('/api/users/' + userId + '/entries?skip=' + skip)
+          .then(function (r) { return r.json(); })
+          .then(function (entries) { appendEntries(entries); })
+          .catch(function () { moreBtn.textContent = 'Show more'; moreBtn.disabled = false; });
+      };
+    }
+
+    clearBtn.onclick = function () {
+      if (onClearCb) onClearCb();
       gridEl.querySelectorAll('.entry-thumb-btn').forEach(function (b) {
-        b.classList.remove('ring-charm-500');
-        b.classList.add('ring-transparent');
+        b.classList.remove('ring-charm-500'); b.classList.add('ring-transparent');
       });
       var selRow = sectionEl.querySelector('[id$="-entry-selected"]');
       if (selRow) selRow.classList.add('hidden');
-    });
+    };
   }
 
   function showEntrySelectedRow(sectionEl) {
     var selRow = sectionEl.querySelector('[id$="-entry-selected"]');
-    var capEl  = sectionEl.querySelector('[id$="-entry-selected-caption"]');
     if (selRow) selRow.classList.remove('hidden');
-    if (capEl)  capEl.textContent = 'Entry selected';
   }
+
+  // ── Submit button state ─────────────────────────────────────────────
+
+  function updateSubmitBtn() {
+    var hasNom2 = nominee2Ids.length > 0;
+    var words   = messageEl ? messageEl.value.trim().split(/\s+/).filter(Boolean).length : 0;
+    submitBtn.disabled = !hasNom2 || words > 4;
+    var count = nominee2Ids.length;
+    submitBtn.textContent = count > 1 ? 'Send ' + count + ' Nominations' : 'Send Nomination';
+  }
+
+  // ── Message counter ─────────────────────────────────────────────────
+
+  function updateMsgCounter() {
+    if (!messageEl || !msgCounterEl) return;
+    var chars = messageEl.value.length;
+    var words = messageEl.value.trim().split(/\s+/).filter(Boolean).length;
+    msgCounterEl.textContent = chars + '/30 · ' + words + '/4 words';
+    msgCounterEl.className   = 'text-xs mt-1 text-right ' + (words > 4 ? 'text-red-400' : 'text-white/30');
+    updateSubmitBtn();
+  }
+
+  if (messageEl) messageEl.addEventListener('input', updateMsgCounter);
 
   // ── Modal open/close ────────────────────────────────────────────────
 
   function openModal() {
     nominee1Id      = nominateBtn.dataset.nomineeId      || '';
     nominee1EntryId = '';
+    nominee2Ids     = [];
     nominee2EntryId = '';
     var display  = nominateBtn.dataset.nomineeDisplay  || '';
     var username = nominateBtn.dataset.nomineeUsername || '';
@@ -1438,7 +1495,6 @@
     document.getElementById('nom1-username').textContent = '@' + username;
     document.getElementById('nom1-avatar-wrap').innerHTML = avatarHtml(avatar, display, '14');
 
-    // Load nominee 1 entry picker immediately (she's already known)
     var n1Section = document.getElementById('nom1-entry-section');
     var n1Grid    = document.getElementById('nom1-entry-grid');
     var n1Clear   = document.getElementById('nom1-entry-clear');
@@ -1447,11 +1503,12 @@
     loadEntryPicker(nominee1Id, n1Grid, n1Section, function (eid) {
       nominee1EntryId = eid;
       showEntrySelectedRow(n1Section);
-    }, n1Clear);
+    }, n1Clear, function () { nominee1EntryId = ''; });
 
-    clearNominee2();
-    if (messageEl) messageEl.value = '';
+    clearNom2State();
+    if (messageEl) { messageEl.value = ''; updateMsgCounter(); }
     if (modalErrorEl) { modalErrorEl.textContent = ''; modalErrorEl.classList.add('hidden'); }
+    updateSubmitBtn();
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -1468,25 +1525,47 @@
   closeBtn.addEventListener('click', closeModal);
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
 
-  // ── Nominee 2 ───────────────────────────────────────────────────────
+  // ── Nominee 2 (multi-select, up to 3) ──────────────────────────────
 
-  function clearNominee2() {
-    nominee2Id      = '';
+  function clearNom2State() {
+    nominee2Ids     = [];
     nominee2EntryId = '';
-    nom2Selected.classList.add('hidden');
-    nom2Search.classList.remove('hidden');
+    if (nom2ChipsEl)    { nom2ChipsEl.innerHTML = ''; nom2ChipsEl.classList.add('hidden'); }
+    if (nom2SearchWrap)   nom2SearchWrap.classList.remove('hidden');
     nom2Search.value = '';
     nom2Dropdown.classList.add('hidden');
     nom2Dropdown.innerHTML = '';
     if (nom2ErrorEl) { nom2ErrorEl.textContent = ''; nom2ErrorEl.classList.add('hidden'); }
     var n2Section = document.getElementById('nom2-entry-section');
     if (n2Section) n2Section.classList.add('hidden');
-    submitBtn.disabled = true;
   }
 
-  nom2Clear.addEventListener('click', clearNominee2);
+  function removeNominee2(userId) {
+    nominee2Ids = nominee2Ids.filter(function (id) { return id !== userId; });
+    var chip = nom2ChipsEl ? nom2ChipsEl.querySelector('[data-user-id="' + userId + '"]') : null;
+    if (chip) chip.remove();
+    if (nom2ChipsEl && nominee2Ids.length === 0) nom2ChipsEl.classList.add('hidden');
+    if (nom2SearchWrap) nom2SearchWrap.classList.remove('hidden');
 
-  function selectNominee2(user) {
+    var n2Section = document.getElementById('nom2-entry-section');
+    if (nominee2Ids.length === 0) {
+      if (n2Section) n2Section.classList.add('hidden');
+      nominee2EntryId = '';
+    } else if (nominee2Ids.length === 1) {
+      var n2Grid  = document.getElementById('nom2-entry-grid');
+      var n2Clear = document.getElementById('nom2-entry-clear');
+      var n2Sel   = document.getElementById('nom2-entry-selected');
+      if (n2Sel) n2Sel.classList.add('hidden');
+      nominee2EntryId = '';
+      loadEntryPicker(nominee2Ids[0], n2Grid, n2Section, function (eid) {
+        nominee2EntryId = eid;
+        showEntrySelectedRow(n2Section);
+      }, n2Clear, function () { nominee2EntryId = ''; });
+    }
+    updateSubmitBtn();
+  }
+
+  function addNominee2(user) {
     nom2Dropdown.classList.add('hidden');
     nom2Dropdown.innerHTML = '';
     if (nom2ErrorEl) { nom2ErrorEl.textContent = ''; nom2ErrorEl.classList.add('hidden'); }
@@ -1501,25 +1580,41 @@
           }
           return;
         }
-        nominee2Id = user._id;
-        nom2Display.textContent  = user.displayName || ('@' + user.username);
-        nom2Username.textContent = '@' + user.username;
-        nom2AvatarWrap.innerHTML = avatarHtml(user.avatar, user.displayName || user.username, '14');
-        nom2Search.classList.add('hidden');
-        nom2Selected.classList.remove('hidden');
-        submitBtn.disabled = false;
+        if (nominee2Ids.indexOf(user._id) !== -1 || nominee2Ids.length >= 3) return;
+        nominee2Ids.push(user._id);
 
-        // Load nominee 2 entry picker
+        var chip = document.createElement('div');
+        chip.className = 'flex items-center gap-1.5 bg-shark-700 border border-white/10 rounded-full pl-2 pr-1 py-0.5';
+        chip.dataset.userId = user._id;
+        var av = user.avatar
+          ? '<img src="' + escHtml(user.avatar) + '" class="w-4 h-4 rounded-full object-cover shrink-0" />'
+          : '<div class="w-4 h-4 rounded-full bg-shark-600 flex items-center justify-center shrink-0"><iconify-icon icon="boxicons:user" width="9" class="text-white/30"></iconify-icon></div>';
+        chip.innerHTML = av
+          + '<span class="text-xs truncate max-w-[110px]">@' + escHtml(user.username) + '</span>'
+          + '<button type="button" class="nom2-chip-rm text-white/30 hover:text-white/70 cursor-pointer ml-0.5 shrink-0">'
+          + '<iconify-icon icon="boxicons:x" width="12"></iconify-icon></button>';
+        chip.querySelector('.nom2-chip-rm').addEventListener('click', function () { removeNominee2(user._id); });
+        if (nom2ChipsEl) { nom2ChipsEl.appendChild(chip); nom2ChipsEl.classList.remove('hidden'); }
+
+        if (nominee2Ids.length >= 3 && nom2SearchWrap) nom2SearchWrap.classList.add('hidden');
+        nom2Search.value = '';
+
         var n2Section = document.getElementById('nom2-entry-section');
-        var n2Grid    = document.getElementById('nom2-entry-grid');
-        var n2Clear   = document.getElementById('nom2-entry-clear');
-        var n2SelRow  = document.getElementById('nom2-entry-selected');
-        if (n2SelRow) n2SelRow.classList.add('hidden');
-        nominee2EntryId = '';
-        loadEntryPicker(nominee2Id, n2Grid, n2Section, function (eid) {
-          nominee2EntryId = eid;
-          showEntrySelectedRow(n2Section);
-        }, n2Clear);
+        if (nominee2Ids.length === 1) {
+          var n2Grid  = document.getElementById('nom2-entry-grid');
+          var n2Clear = document.getElementById('nom2-entry-clear');
+          var n2Sel   = document.getElementById('nom2-entry-selected');
+          if (n2Sel) n2Sel.classList.add('hidden');
+          nominee2EntryId = '';
+          loadEntryPicker(user._id, n2Grid, n2Section, function (eid) {
+            nominee2EntryId = eid;
+            showEntrySelectedRow(n2Section);
+          }, n2Clear, function () { nominee2EntryId = ''; });
+        } else {
+          if (n2Section) n2Section.classList.add('hidden');
+          nominee2EntryId = '';
+        }
+        updateSubmitBtn();
       })
       .catch(function () {
         if (nom2ErrorEl) {
@@ -1530,8 +1625,11 @@
   }
 
   function showDropdown(users) {
-    if (!users.length) { nom2Dropdown.classList.add('hidden'); return; }
-    nom2Dropdown.innerHTML = users.map(function (u) {
+    var filtered = users.filter(function (u) {
+      return u._id !== nominee1Id && nominee2Ids.indexOf(u._id) === -1;
+    });
+    if (!filtered.length) { nom2Dropdown.classList.add('hidden'); return; }
+    nom2Dropdown.innerHTML = filtered.map(function (u) {
       var av = u.avatar
         ? '<img src="' + escHtml(u.avatar) + '" class="w-7 h-7 rounded-full object-cover shrink-0" />'
         : '<div class="w-7 h-7 rounded-full bg-shark-700 flex items-center justify-center shrink-0"><iconify-icon icon="boxicons:user" width="13" class="text-white/30"></iconify-icon></div>';
@@ -1550,7 +1648,7 @@
   nom2Dropdown.addEventListener('click', function (e) {
     var row = e.target.closest('.nom2-result');
     if (!row) return;
-    selectNominee2({
+    addNominee2({
       _id:         row.dataset.id,
       username:    row.dataset.username,
       displayName: row.dataset.display,
@@ -1559,16 +1657,14 @@
   });
 
   nom2Search.addEventListener('input', function () {
+    if (nominee2Ids.length >= 3) return;
     clearTimeout(searchTimer);
     var val = this.value.trim().replace(/^@/, '');
     if (!val) { nom2Dropdown.classList.add('hidden'); return; }
     searchTimer = setTimeout(function () {
       fetch('/api/users/search?q=' + encodeURIComponent(val))
         .then(function (r) { return r.json(); })
-        .then(function (users) {
-          var filtered = users.filter(function (u) { return u._id !== nominee1Id; });
-          showDropdown(filtered);
-        })
+        .then(function (users) { showDropdown(users); })
         .catch(function () { nom2Dropdown.classList.add('hidden'); });
     }, 200);
   });
@@ -1580,35 +1676,46 @@
   // ── Submit ──────────────────────────────────────────────────────────
 
   submitBtn.addEventListener('click', function () {
-    if (!nominee1Id || !nominee2Id) return;
+    if (!nominee1Id || nominee2Ids.length === 0) return;
+    var message = messageEl ? messageEl.value.trim() : '';
+    var words   = message.split(/\s+/).filter(Boolean).length;
+    if (words > 4) {
+      if (modalErrorEl) {
+        modalErrorEl.textContent = 'Side note must be 4 words or fewer.';
+        modalErrorEl.classList.remove('hidden');
+      }
+      return;
+    }
+
     submitBtn.disabled = true;
     if (modalErrorEl) { modalErrorEl.textContent = ''; modalErrorEl.classList.add('hidden'); }
 
-    var body = {
-      nominee1Id:      nominee1Id,
-      nominee2Id:      nominee2Id,
-      message:         messageEl ? messageEl.value.trim() : '',
-    };
-    if (nominee1EntryId) body.nominee1EntryId = nominee1EntryId;
-    if (nominee2EntryId) body.nominee2EntryId = nominee2EntryId;
+    var singleNom2 = nominee2Ids.length === 1;
+    var requests = nominee2Ids.map(function (nom2Id) {
+      var body = { nominee1Id: nominee1Id, nominee2Id: nom2Id, message: message };
+      if (nominee1EntryId) body.nominee1EntryId = nominee1EntryId;
+      if (singleNom2 && nominee2EntryId) body.nominee2EntryId = nominee2EntryId;
+      return fetch('/api/contests/viewer-nominate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); });
+    });
 
-    fetch('/api/contests/viewer-nominate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-      .then(function (res) {
-        if (!res.ok) {
+    Promise.all(requests)
+      .then(function (results) {
+        var failed = results.filter(function (r) { return !r.ok; });
+        if (failed.length) {
           if (modalErrorEl) {
-            modalErrorEl.textContent = res.data.error || 'Something went wrong.';
+            modalErrorEl.textContent = failed[0].data.error || 'Some nominations failed. Try again.';
             modalErrorEl.classList.remove('hidden');
           }
           submitBtn.disabled = false;
           return;
         }
         closeModal();
-        if (window.showToast) window.showToast('Nomination sent!', 'success');
+        var label = nominee2Ids.length > 1 ? nominee2Ids.length + ' nominations sent!' : 'Nomination sent!';
+        if (window.showToast) window.showToast(label, 'success');
       })
       .catch(function () {
         if (modalErrorEl) {
@@ -1617,6 +1724,50 @@
         }
         submitBtn.disabled = false;
       });
+  });
+}());
+</script>
+<% } %>
+
+<% if (!locals.isOwnProfile) { %>
+<script>
+(function () {
+  var moreBtn  = document.getElementById('profile-more-btn');
+  var moreMenu = document.getElementById('profile-more-menu');
+  if (!moreBtn || !moreMenu) return;
+
+  function closeMenu() { moreMenu.classList.add('hidden'); }
+  function toggleMenu(e) { e.stopPropagation(); moreMenu.classList.toggle('hidden'); }
+
+  moreBtn.addEventListener('click', toggleMenu);
+  document.addEventListener('click', function (e) {
+    if (!moreMenu.classList.contains('hidden') && !moreMenu.contains(e.target)) closeMenu();
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
+
+  // Share
+  document.getElementById('profile-share-btn').addEventListener('click', function () {
+    closeMenu();
+    var url = window.location.href;
+    if (navigator.share) {
+      navigator.share({ title: document.title, url: url });
+    } else {
+      navigator.clipboard.writeText(url).then(function () {
+        if (window.showToast) window.showToast('Profile link copied to clipboard.', 'success');
+      });
+    }
+  });
+
+  // Block (not yet implemented)
+  document.getElementById('profile-block-btn').addEventListener('click', function () {
+    closeMenu();
+    if (window.showToast) window.showToast('Blocking is coming soon.', 'info');
+  });
+
+  // Report (not yet implemented)
+  document.getElementById('profile-report-btn').addEventListener('click', function () {
+    closeMenu();
+    if (window.showToast) window.showToast('User reporting is coming soon.', 'info');
   });
 }());
 </script>

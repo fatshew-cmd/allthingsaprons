@@ -12,7 +12,15 @@ const BannedEmail    = require('../models/BannedEmail');
 const BannedDocHash  = require('../models/BannedDocHash');
 const Announcement   = require('../models/Announcement');
 const AnnouncementDismissal = require('../models/AnnouncementDismissal');
-const PlatformSettings = require('../models/PlatformSettings');
+const PlatformSettings        = require('../models/PlatformSettings');
+const Comment                 = require('../models/Comment');
+const CommentReport           = require('../models/CommentReport');
+const ContestComment          = require('../models/ContestComment');
+const ContestCommentReport    = require('../models/ContestCommentReport');
+const Entry                   = require('../models/Entry');
+const EntryReport             = require('../models/EntryReport');
+const Contest                 = require('../models/Contest');
+const Notification            = require('../models/Notification');
 const upload         = require('../middleware/upload');
 
 router.get('/login', (req, res) => {
@@ -537,8 +545,279 @@ router.get('/audit-log', async (req, res) => {
   }
 });
 
-router.get('/moderation', (req, res) => {
-  res.render('admin/moderation', { title: 'Reported Comments', currentPage: 'moderation' });
+router.get('/moderation', async (req, res) => {
+  try {
+    const rawCommentReports = await CommentReport.find({ status: 'pending' })
+      .populate({ path: 'commentId', populate: [
+        { path: 'userId', select: 'username displayName avatar' },
+        { path: 'entryId', select: 'title _id' },
+      ]})
+      .populate('reportedBy', 'username displayName')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const rawContestReports = await ContestCommentReport.find({ status: 'pending' })
+      .populate({ path: 'contestCommentId', populate: [
+        { path: 'userId', select: 'username displayName avatar' },
+        { path: 'contestId', select: '_id' },
+      ]})
+      .populate('reportedBy', 'username displayName')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const commentMap = {};
+    for (const r of rawCommentReports) {
+      if (!r.commentId) continue;
+      const cid = r.commentId._id.toString();
+      if (!commentMap[cid]) {
+        commentMap[cid] = {
+          commentId: r.commentId._id,
+          body: r.commentId.body,
+          author: r.commentId.userId,
+          context: { type: 'entry', ref: r.commentId.entryId },
+          reporters: [],
+          firstReportedAt: r.createdAt,
+        };
+      }
+      commentMap[cid].reporters.push(r.reportedBy);
+      if (r.createdAt < commentMap[cid].firstReportedAt) commentMap[cid].firstReportedAt = r.createdAt;
+    }
+
+    const contestCommentMap = {};
+    for (const r of rawContestReports) {
+      if (!r.contestCommentId) continue;
+      const cid = r.contestCommentId._id.toString();
+      if (!contestCommentMap[cid]) {
+        contestCommentMap[cid] = {
+          commentId: r.contestCommentId._id,
+          body: r.contestCommentId.body,
+          author: r.contestCommentId.userId,
+          context: { type: 'contest', ref: r.contestCommentId.contestId },
+          reporters: [],
+          firstReportedAt: r.createdAt,
+        };
+      }
+      contestCommentMap[cid].reporters.push(r.reportedBy);
+      if (r.createdAt < contestCommentMap[cid].firstReportedAt) contestCommentMap[cid].firstReportedAt = r.createdAt;
+    }
+
+    const queue = [
+      ...Object.values(commentMap),
+      ...Object.values(contestCommentMap),
+    ].sort((a, b) => b.reporters.length - a.reporters.length || a.firstReportedAt - b.firstReportedAt);
+
+    // Entry queue
+    const rawEntryReports = await EntryReport.find({ status: 'pending' })
+      .select('entryId reportedBy createdAt')
+      .lean();
+
+    const entryReportMap = {};
+    for (const r of rawEntryReports) {
+      const eid = r.entryId.toString();
+      if (!entryReportMap[eid]) entryReportMap[eid] = { reportCount: 0, firstReportedAt: r.createdAt };
+      entryReportMap[eid].reportCount++;
+      if (r.createdAt < entryReportMap[eid].firstReportedAt) entryReportMap[eid].firstReportedAt = r.createdAt;
+    }
+
+    const entryIds = Object.keys(entryReportMap);
+    const hiddenEntries = entryIds.length
+      ? await Entry.find({ _id: { $in: entryIds }, hidden: true })
+          .select('_id mediaUrl mediaType title userId')
+          .populate('userId', 'username displayName avatar')
+          .lean()
+      : [];
+
+    // Find which of those entries are stalling an active contest
+    const stalledContests = hiddenEntries.length
+      ? await Contest.find({
+          status: 'active',
+          stalled: true,
+          'entries.entryId': { $in: hiddenEntries.map(e => e._id) },
+        }).select('entries').lean()
+      : [];
+
+    const stallingEntryIds = new Set();
+    for (const c of stalledContests) {
+      for (const ce of c.entries) stallingEntryIds.add(ce.entryId.toString());
+    }
+
+    const entryQueue = hiddenEntries.map(e => ({
+      entry: e,
+      owner: e.userId,
+      reportCount: entryReportMap[e._id.toString()]?.reportCount || 0,
+      firstReportedAt: entryReportMap[e._id.toString()]?.firstReportedAt,
+      stallingContest: stallingEntryIds.has(e._id.toString()),
+    })).sort((a, b) => b.reportCount - a.reportCount || a.firstReportedAt - b.firstReportedAt);
+
+    const activeTab = req.query.tab === 'entries' ? 'entries' : 'comments';
+
+    res.render('admin/moderation', { title: 'Moderation', currentPage: 'moderation', queue, entryQueue, activeTab });
+  } catch (err) {
+    console.error('Moderation queue error:', err);
+    res.redirect('/admin');
+  }
+});
+
+// ── Comment moderation actions ────────────────────────────────────────────────
+
+router.post('/moderation/comment-reports/:id/approve', async (req, res) => {
+  const { id } = req.params;
+  const isContest = req.body.commentType === 'contest';
+
+  try {
+    if (isContest) {
+      const comment = await ContestComment.findById(id).select('userId contestId').lean();
+      if (!comment) return res.redirect('/admin/moderation');
+
+      await ContestComment.deleteOne({ _id: id });
+
+      const reports = await ContestCommentReport.find({ contestCommentId: id, status: 'pending' }).select('reportedBy').lean();
+      await ContestCommentReport.updateMany({ contestCommentId: id, status: 'pending' }, { $set: { status: 'approved' } });
+
+      const notifs = [
+        { userId: comment.userId, type: 'comment_removed', payload: { contestId: comment.contestId?.toString() }, read: false },
+        ...reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'approved' }, read: false })),
+      ];
+      await Notification.insertMany(notifs, { ordered: false });
+    } else {
+      const comment = await Comment.findById(id).select('userId entryId').lean();
+      if (!comment) return res.redirect('/admin/moderation');
+
+      await Comment.deleteOne({ _id: id });
+      if (comment.entryId) {
+        await Entry.updateOne({ _id: comment.entryId }, { $inc: { commentCount: -1 } });
+      }
+
+      const reports = await CommentReport.find({ commentId: id, status: 'pending' }).select('reportedBy').lean();
+      await CommentReport.updateMany({ commentId: id, status: 'pending' }, { $set: { status: 'approved' } });
+
+      const notifs = [
+        { userId: comment.userId, type: 'comment_removed', payload: { entryId: comment.entryId?.toString() }, read: false },
+        ...reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'approved' }, read: false })),
+      ];
+      await Notification.insertMany(notifs, { ordered: false });
+    }
+  } catch (err) {
+    console.error('Comment approve error:', err);
+  }
+
+  res.redirect('/admin/moderation');
+});
+
+router.post('/moderation/comment-reports/:id/reject', async (req, res) => {
+  const { id } = req.params;
+  const isContest = req.body.commentType === 'contest';
+
+  try {
+    if (isContest) {
+      await ContestComment.updateOne({ _id: id }, { $set: { hidden: false } });
+      const reports = await ContestCommentReport.find({ contestCommentId: id, status: 'pending' }).select('reportedBy').lean();
+      await ContestCommentReport.updateMany({ contestCommentId: id, status: 'pending' }, { $set: { status: 'rejected' } });
+
+      const notifs = reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'rejected' }, read: false }));
+      if (notifs.length) await Notification.insertMany(notifs, { ordered: false });
+    } else {
+      await Comment.updateOne({ _id: id }, { $set: { hidden: false } });
+      const reports = await CommentReport.find({ commentId: id, status: 'pending' }).select('reportedBy').lean();
+      await CommentReport.updateMany({ commentId: id, status: 'pending' }, { $set: { status: 'rejected' } });
+
+      const notifs = reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'rejected' }, read: false }));
+      if (notifs.length) await Notification.insertMany(notifs, { ordered: false });
+    }
+  } catch (err) {
+    console.error('Comment reject error:', err);
+  }
+
+  res.redirect('/admin/moderation');
+});
+
+// ── Entry moderation actions ──────────────────────────────────────────────────
+
+router.post('/moderation/entry-reports/:eid/reject', async (req, res) => {
+  const { eid } = req.params;
+  try {
+    const entry = await Entry.findById(eid).select('_id').lean();
+    if (!entry) return res.redirect('/admin/moderation?tab=entries');
+
+    await Entry.updateOne({ _id: eid }, { $set: { hidden: false } });
+    await EntryReport.updateMany({ entryId: eid, status: 'pending' }, { $set: { status: 'rejected' } });
+
+    // Unstall any active contest that was stalled by this entry
+    const stalledContests = await Contest.find({
+      status: 'active',
+      stalled: true,
+      'entries.entryId': entry._id,
+    }).select('_id entries stalledAt votingDeadline').lean();
+
+    const now = new Date();
+    for (const contest of stalledContests) {
+      const stallDuration = contest.stalledAt ? Math.min(now - contest.stalledAt, 24 * 60 * 60 * 1000) : 0;
+      const newDeadline   = new Date((contest.votingDeadline?.getTime() || now.getTime()) + stallDuration);
+
+      await Contest.updateOne({ _id: contest._id }, {
+        $set: { stalled: false, stalledAt: null, votingDeadline: newDeadline },
+      });
+
+      const contestantUserIds = contest.entries.map(e => e.userId);
+      const payload = { contestId: contest._id.toString(), entryId: eid };
+
+      await Notification.insertMany(
+        contestantUserIds.map(uid => ({ userId: uid, type: 'contest_resumed', payload, read: false })),
+        { ordered: false }
+      );
+      const notifyWatchers = require('../utils/notifyWatchers');
+      await notifyWatchers(contest._id, 'contest_resumed', payload, contestantUserIds);
+    }
+  } catch (err) {
+    console.error('Entry report reject error:', err);
+  }
+
+  res.redirect('/admin/moderation?tab=entries');
+});
+
+router.post('/moderation/entry-reports/:eid/approve', async (req, res) => {
+  const { eid } = req.params;
+  try {
+    const entry = await Entry.findById(eid).select('_id userId title').lean();
+    if (!entry) return res.redirect('/admin/moderation?tab=entries');
+
+    // Void any active contest containing this entry before deleting
+    const activeContests = await Contest.find({
+      status: 'active',
+      'entries.entryId': entry._id,
+    }).select('_id entries').lean();
+
+    const notifyWatchers = require('../utils/notifyWatchers');
+
+    for (const contest of activeContests) {
+      await Contest.updateOne({ _id: contest._id }, {
+        $set: { status: 'void', voidReason: 'entry_removed', stalled: false, stalledAt: null },
+      });
+
+      const contestantUserIds = contest.entries.map(e => e.userId);
+      const payload = { contestId: contest._id.toString(), voidReason: 'entry_removed' };
+
+      await Notification.insertMany(
+        contestantUserIds.map(uid => ({ userId: uid, type: 'contest_voided', payload, read: false })),
+        { ordered: false }
+      );
+      await notifyWatchers(contest._id, 'contest_voided', payload, contestantUserIds);
+    }
+
+    await Entry.deleteOne({ _id: eid });
+    await EntryReport.updateMany({ entryId: eid, status: 'pending' }, { $set: { status: 'approved' } });
+
+    await Notification.create({
+      userId: entry.userId,
+      type: 'entry_removed',
+      payload: { entryTitle: entry.title },
+      read: false,
+    });
+  } catch (err) {
+    console.error('Entry report approve error:', err);
+  }
+
+  res.redirect('/admin/moderation?tab=entries');
 });
 
 router.get('/content', (req, res) => {

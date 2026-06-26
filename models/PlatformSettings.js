@@ -7,6 +7,17 @@ const PlatformSettingsSchema = new mongoose.Schema({
     minRatingCount: { type: Number, default: 250 },
     minWeightedAvg: { type: Number, default: 7.4 },
   },
+  entryReportThresholds: {
+    type: [{
+      count:         { type: Number, required: true },
+      windowMinutes: { type: Number, required: true },
+    }],
+    default: [
+      { count: 3,  windowMinutes: 60  },
+      { count: 5,  windowMinutes: 360 },
+      { count: 10, windowMinutes: 1440 },
+    ],
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('PlatformSettings', PlatformSettingsSchema);

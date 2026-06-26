@@ -90,7 +90,11 @@ What remains: the remaining Phase 6 admin UI pages (content moderation, entries 
 - Forfeit scrub path: nominator cannot currently delete a `void` contest record (the `DELETE /contests/:id` route rejects non-pending contests) — the design's "scrub forfeit record" case is not yet implemented
 - Announcement impressions + click tracking: `AnnouncementDismissal` count is live; impressions and clicks need dedicated log entries or counter fields before the stats page shows real data
 - REVERT BEFORE LAUNCH: re-enable participant vote guard and `status === 'active'` checks in `routes/api.js` and `routes/pages.js`; remove `TEST_BYPASS_USERNAMES` from `utils/contestEligibility.js`
-- Phase 6 admin UI pages: tournament management, content moderation, and entries moderation are placeholder stubs only; admin dashboard, user list/detail, ID verification queue, audit log, platform settings, and announcement detail are done
+- Phase 6 admin UI pages: content moderation (reported comments queue) and entries moderation (reported entries queue) are designed but not yet built — full spec in the Content Moderation section below; admin dashboard, user list/detail, ID verification queue, audit log, platform settings, and announcement detail are done; tournament management and tournament review queue deferred to July
+- `EntryReport` model not yet created; `Entry.hidden`, `Contest.stalled`/`stalledAt`, and `PlatformSettings.entryReportThresholds` fields not yet added
+- Report button on entry card is a fake toast — real `POST /api/entries/:eid/report` route not yet built
+- `/guidelines` page does not exist yet — needed before moderation warning notifications can ship
+- `CommentReport` + `ContestCommentReport` missing `status` field — needed for admin queue actions
 
 ---
 
@@ -449,14 +453,100 @@ The dashboard is served at `/admin` for all roles but renders entirely different
 - [x] **Admin audit log:** append-only `admin_audit_logs` collection, `ATA-YYYYMMDD-XXXXXXXX` ticket refs, actor ID + role, action slug, affected entity, target user, `remarks`, and `metadata` payload. Global log view at `/admin/audit-log` visible to supervisor+; filterable by action, target user, and ticket ref. `utils/auditLog.js` helper used throughout.
 - [x] **Platform Settings page:** `GET /admin/settings` + `POST /admin/settings/contest-eligibility` — founder-only. Configures contest eligibility thresholds (minEntries, minRatingCount, minWeightedAvg). Persisted in `PlatformSettings` collection (key: `'global'`).
 - [x] **Announcement detail/stats page:** `GET /admin/announcements/:id` — dismissal count (live from `AnnouncementDismissal`), impressions/clicks/dismiss-rate placeholders (tracking not yet wired), right-panel card preview, activate/expire/delete actions.
-- [ ] **Tournament management — list:** all tournaments with status filter; entry point for creating a platform-funded tournament
-- [ ] **Tournament management — create:** form to create a platform-funded tournament (name, description, participant cap, time config, prize amounts); starts directly at `open` status
-- [ ] **Tournament management — detail:** participant list, matchup grid, missed reviews counter, prize config; admin override actions
-- [ ] **Tournament review queue:** user-organized tournaments with `reviewStatus: 'pending_review'`; review view showing tournament config and organizer profile; approve / reject action
-- [ ] **Content moderation — reported comments:** queue from `comment_reports`; each item shows the comment in context, who reported it, and when; dismiss / remove actions
-- [ ] **Entries moderation:** browse all entries with search and filter; entry detail with moderation actions (hide, remove)
+- [ ] **Content moderation — reported comments:** queue from `CommentReport` + `ContestCommentReport`; each row shows comment in context, report count, reporter, date; Approve (delete comment + warn author + confirm to reporter) / Reject (reinstate comment + confirm to reporter). See full spec below.
+- [ ] **Entries moderation — reported entries:** threshold-triggered auto-hide with contest stalling; admin Approve (delete entry + void contest) / Reject (reinstate entry + resume contest + extend deadline). See full spec below.
+- ~~**Tournament management — list/create/detail**~~ — deferred to July; no tournament data to manage until the full tournament system is built
+- ~~**Tournament review queue**~~ — deferred to July for the same reason
 
-**Exit criteria:** Admin can manage users, process ID verification queue, create and review tournaments, and action reported comments — all from a dedicated admin-only UI.
+**Exit criteria:** Admin can manage users, process ID verification queue, action reported comments and entries — all from a dedicated admin-only UI.
+
+---
+
+#### Content Moderation — Full Spec (designed June 25)
+
+Covers both comment reports and entry reports. Two separate queues, same admin area.
+
+---
+
+##### Comment Reports
+
+**Reporting**
+- Any user can report any comment they didn't write — entry comments and contest comments both covered
+- `POST /api/entries/:eid/comments/:cid/report` and `POST /api/contests/:id/comments/:cid/report` already exist and work
+- On report: `Comment.hidden → true` immediately (first report, no threshold). Contest comments same behaviour.
+- No notification to the comment author at this stage
+
+**Admin queue** (`GET /admin/moderation`)
+- Pulls all `CommentReport` + `ContestCommentReport` docs with `status: 'pending'`
+- Each row: comment text in context (entry or contest it belongs to), who wrote it, reporter(s), date, total report count for that comment
+- Two actions:
+
+| Action | Effect |
+|---|---|
+| **Approve** | Comment deleted. Report `status → approved`. Warning notif to author (policy link + Dispute button). Confirmation notif to reporter. |
+| **Reject** | `Comment.hidden → false` (reinstated). Report `status → rejected`. Confirmation notif to reporter. |
+
+**Schema additions**
+- `CommentReport` + `ContestCommentReport`: add `status: enum('pending', 'approved', 'rejected')`, default `'pending'`
+
+**New notification types**
+- `comment_removed` (to author on approve) — *"Your comment was removed for violating our community guidelines."* + link to `/guidelines` + Dispute button → `GET /contact/new?topic=moderation&reportId=<id>`
+- `report_reviewed` (to reporter, both outcomes) — different copy: *"Action was taken"* vs *"Comment was not found to be in violation"*
+
+**Prerequisites**
+- `/guidelines` page must exist (even a minimal one) before this ships
+- `/contact` route must handle `topic=moderation&reportId=<id>` to pre-populate a dispute thread
+
+---
+
+##### Entry Reports
+
+**Reporting behaviour**
+- Entry reporting is threshold-based — a single report does not hide an entry
+- On every new report, all three threshold windows are evaluated. Any one crossing triggers auto-hide.
+- Thresholds are configurable by supervisor+ in Platform Settings (stored in `PlatformSettings` alongside contest eligibility config)
+
+**Default thresholds**
+
+| Reports | Window |
+|---|---|
+| 3 | 30 min |
+| 5 | 1 hour |
+| 10 | 6 hours |
+
+**When threshold is crossed**
+- `Entry.hidden → true` — entry disappears from feed, profile, and search immediately
+- If entry is in an active contest: `Contest.stalled → true`, `Contest.stalledAt → now` — voting frozen, countdown frozen
+- Notifications:
+  - All contestants + watchers → `contest_stalled`: *"This contest has been temporarily paused."* (no reason given)
+  - Reported entry owner only → `entry_reported`: their entry is under review
+
+**Admin queue** (entries tab within `/admin/moderation`)
+- Lists all entries with `hidden: true` and at least one `EntryReport` with `status: 'pending'`
+- Each row: entry media thumbnail, owner, report count, first reported at, whether it's stalling an active contest
+- Two actions:
+
+| Action | Effect |
+|---|---|
+| **Cleared** (not in violation) | `Entry.hidden → false`. If contest was stalled: `Contest.stalled → false`, `votingDeadline += min(now − stalledAt, 24h)`. Notification to contestants + watchers: contest resumed. All reports for this entry `status → rejected`. |
+| **Violating** | Entry deleted. If in active contest: contest void (`voidReason: 'entry_removed'`). Notification to contestants + watchers: contest canceled. Warning notif to entry owner (policy link + Dispute button). All reports for this entry `status → approved`. |
+
+**Deadline extension edge case:** if `votingDeadline` has already passed by the time the entry is cleared, set new deadline to `now + min(stalledDuration, 24h)` rather than adding to an already-elapsed deadline.
+
+**Schema additions**
+- New `EntryReport` model — `{ entryId, reportedBy, status: enum('pending','approved','rejected') }`, unique index on `{entryId, reportedBy}`, timestamps
+- `Entry`: add `hidden: Boolean`, default `false`
+- `Contest`: add `stalled: Boolean` default `false`, `stalledAt: Date`
+- `PlatformSettings`: add `entryReportThresholds: [{ count: Number, windowMinutes: Number }]`, default `[{count:3,windowMinutes:30},{count:5,windowMinutes:60},{count:10,windowMinutes:360}]`
+
+**New notification types**
+- `contest_stalled` — sent to contestants + watchers when entry is hidden mid-contest
+- `contest_resumed` — sent to contestants + watchers when entry is cleared and contest restarts
+- `entry_reported` — sent to entry owner when their entry crosses the report threshold
+- `entry_removed` (to entry owner on violating decision) — policy link + Dispute button
+
+**Report button on entry card**
+- Currently wired to a fake toast only — needs a real `POST /api/entries/:eid/report` route behind it
 
 ---
 
@@ -787,7 +877,8 @@ These are defined but deliberately deferred:
 
 | Feature | Reason |
 |---|---|
-| Tournaments | Needs contest system solid and battle-tested first |
+| Tournaments (player-facing system) | Needs contest system solid and battle-tested first |
+| Admin tournament management pages | No tournament data to manage until the full tournament system is built — deferred to July alongside it |
 | CCBill real payment integration | July — fake checkout stub built in Phase 4.7 is the drop-in replacement point |
 | Apron payout system | July — needs real vote volumes to be meaningful |
 | Ratings Challenge (tie-breaker) | Removed from design — replaced by 3-replay chain |

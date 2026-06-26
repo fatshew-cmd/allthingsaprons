@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../partials/head') %></head>
 <body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
@@ -6,24 +6,248 @@
   <%- include('../partials/adminSidebar', { currentPage: 'moderation' }) %>
 
   <div class="flex-1 flex flex-col overflow-hidden">
+    <main class="flex-1 overflow-y-auto p-8">
+      <div class="max-w-5xl mx-auto flex flex-col gap-6">
 
-    <main class="flex-1 overflow-y-auto p-8 flex items-start justify-center">
-      <div class="bg-zinc-900 border border-white/8 rounded-md p-12 max-w-md w-full text-center mt-8">
-        <div class="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-5">
-          <iconify-icon icon="boxicons:flag" width="24" style="color:#f87171;display:block"></iconify-icon>
+        <!-- Header -->
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-bold text-white m-0">Moderation Queue</h1>
+            <p class="text-sm text-zinc-400 m-0 mt-1">Reported content pending review. Sorted by report count.</p>
+          </div>
+          <% var totalPending = queue.length + entryQueue.length; %>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+            <iconify-icon icon="boxicons:flag" width="12" style="display:block"></iconify-icon>
+            <%= totalPending %> pending
+          </span>
         </div>
-        <span class="inline-block px-2.5 py-1 rounded-md text-xs font-bold bg-white/8 text-zinc-500 mb-4">Phase 6</span>
-        <h2 class="text-lg font-bold text-white mt-0 mb-2">Moderation Queue</h2>
-        <p class="text-sm text-zinc-400 mb-6 leading-relaxed">All comments reported by users appear here for review. Each report shows the comment in context, the reporter, and the date.</p>
-        <ul class="text-sm text-zinc-400 text-left flex flex-col gap-2">
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Comment shown in context (entry + thread)</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Who reported it and when</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Dismiss → closes the report, comment stays</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Remove → deletes the comment from the platform</li>
-        </ul>
+
+        <!-- Tabs -->
+        <div class="flex items-center gap-1 border-b border-white/8 -mb-3">
+          <a href="/admin/moderation?tab=comments"
+            class="px-4 py-2.5 text-sm font-semibold no-underline transition-colors border-b-2 -mb-px <%= activeTab === 'comments' ? 'text-white border-violet-500' : 'text-zinc-500 border-transparent hover:text-zinc-300' %>">
+            Comments
+            <% if (queue.length > 0) { %>
+            <span class="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded text-xs font-bold <%= activeTab === 'comments' ? 'bg-red-500/20 text-red-400' : 'bg-white/8 text-zinc-500' %>"><%= queue.length %></span>
+            <% } %>
+          </a>
+          <a href="/admin/moderation?tab=entries"
+            class="px-4 py-2.5 text-sm font-semibold no-underline transition-colors border-b-2 -mb-px <%= activeTab === 'entries' ? 'text-white border-violet-500' : 'text-zinc-500 border-transparent hover:text-zinc-300' %>">
+            Entries
+            <% if (entryQueue.length > 0) { %>
+            <span class="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded text-xs font-bold <%= activeTab === 'entries' ? 'bg-red-500/20 text-red-400' : 'bg-white/8 text-zinc-500' %>"><%= entryQueue.length %></span>
+            <% } %>
+          </a>
+        </div>
+
+        <!-- ── Comments tab ────────────────────────────────────── -->
+        <% if (activeTab === 'comments') { %>
+
+          <% if (queue.length === 0) { %>
+          <div class="bg-zinc-900 border border-white/8 rounded-md p-16 text-center">
+            <div class="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+              <iconify-icon icon="boxicons:check-circle" width="22" style="color:#4ade80;display:block"></iconify-icon>
+            </div>
+            <p class="font-semibold text-white m-0">All caught up</p>
+            <p class="text-sm text-zinc-400 mt-1 mb-0">No comments pending review.</p>
+          </div>
+
+          <% } else { %>
+          <div class="flex flex-col gap-3">
+            <% queue.forEach(function(item) { %>
+            <%
+              var ts = new Date(item.firstReportedAt);
+              var timeStr = ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                + ' ' + ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+              var contextLabel = item.context.type === 'entry'
+                ? (item.context.ref ? item.context.ref.title || 'Entry' : 'Deleted entry')
+                : 'Contest';
+              var contextHref = item.context.type === 'entry'
+                ? (item.context.ref ? '/entry/' + item.context.ref._id : null)
+                : (item.context.ref ? '/contest/' + item.context.ref._id : null);
+            %>
+            <div class="bg-zinc-900 border border-white/8 rounded-md overflow-hidden">
+
+              <!-- Header row -->
+              <div class="flex items-center justify-between gap-4 px-5 py-3 border-b border-white/8">
+                <div class="flex items-center gap-3 min-w-0">
+                  <% if (item.author?.avatar?.value) { %>
+                  <img src="<%= item.author.avatar.value %>" class="w-7 h-7 rounded-full object-cover shrink-0 bg-zinc-800">
+                  <% } else { %>
+                  <div class="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center shrink-0">
+                    <iconify-icon icon="boxicons:user" width="13" style="color:#52525b;display:block"></iconify-icon>
+                  </div>
+                  <% } %>
+                  <span class="text-sm font-semibold text-white truncate">@<%= item.author?.username?.value || 'unknown' %></span>
+                  <span class="text-zinc-600 text-xs shrink-0">in</span>
+                  <% if (contextHref) { %>
+                  <a href="<%= contextHref %>" target="_blank" class="text-xs text-violet-400 hover:text-violet-300 truncate no-underline max-w-xs"><%= contextLabel %></a>
+                  <% } else { %>
+                  <span class="text-xs text-zinc-600 truncate"><%= contextLabel %></span>
+                  <% } %>
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-zinc-800 text-zinc-400 border border-white/8 shrink-0">
+                    <%= item.context.type === 'contest' ? 'Contest' : 'Entry' %>
+                  </span>
+                </div>
+                <span class="text-xs text-zinc-500 shrink-0"><%= timeStr %></span>
+              </div>
+
+              <!-- Comment body -->
+              <div class="px-5 py-4">
+                <p class="text-sm text-white/80 m-0 leading-relaxed" style="white-space:pre-wrap"><%= item.body %></p>
+              </div>
+
+              <!-- Reporters + actions -->
+              <div class="flex items-center justify-between gap-4 px-5 py-3 border-t border-white/8 bg-white/2">
+                <div class="flex items-center gap-2 min-w-0">
+                  <iconify-icon icon="boxicons:flag-alt-2-filled" width="13" style="color:#ef4444;display:block"></iconify-icon>
+                  <span class="text-xs font-semibold text-red-400 shrink-0"><%= item.reporters.length %> report<%= item.reporters.length !== 1 ? 's' : '' %></span>
+                  <span class="text-zinc-700 text-xs">·</span>
+                  <span class="text-xs text-zinc-500 truncate">
+                    <% item.reporters.slice(0, 3).forEach(function(r, i) { %>
+                    <%= r ? '@' + (r.username?.value || '?') : '?' %><%= i < Math.min(item.reporters.length, 3) - 1 ? ', ' : '' %>
+                    <% }); %>
+                    <% if (item.reporters.length > 3) { %><span class="text-zinc-600">+<%= item.reporters.length - 3 %> more</span><% } %>
+                  </span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <form method="POST" action="/admin/moderation/comment-reports/<%= item.commentId %>/reject" style="display:inline">
+                    <input type="hidden" name="commentType" value="<%= item.context.type %>">
+                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white transition-colors cursor-pointer" style="border:none">
+                      Dismiss
+                    </button>
+                  </form>
+                  <form method="POST" action="/admin/moderation/comment-reports/<%= item.commentId %>/approve" style="display:inline">
+                    <input type="hidden" name="commentType" value="<%= item.context.type %>">
+                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors cursor-pointer" style="border-style:solid">
+                      Remove comment
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+            </div>
+            <% }); %>
+          </div>
+          <% } %>
+
+        <% } %>
+
+        <!-- ── Entries tab ─────────────────────────────────────── -->
+        <% if (activeTab === 'entries') { %>
+
+          <% if (entryQueue.length === 0) { %>
+          <div class="bg-zinc-900 border border-white/8 rounded-md p-16 text-center">
+            <div class="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+              <iconify-icon icon="boxicons:check-circle" width="22" style="color:#4ade80;display:block"></iconify-icon>
+            </div>
+            <p class="font-semibold text-white m-0">All caught up</p>
+            <p class="text-sm text-zinc-400 mt-1 mb-0">No entries pending review.</p>
+          </div>
+
+          <% } else { %>
+          <div class="bg-zinc-900 border border-white/8 rounded-md overflow-hidden">
+            <table class="w-full text-sm" style="border-collapse:collapse">
+              <thead>
+                <tr class="border-b border-white/8">
+                  <th class="px-5 py-3 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Entry</th>
+                  <th class="px-5 py-3 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Owner</th>
+                  <th class="px-5 py-3 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Reports</th>
+                  <th class="px-5 py-3 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">First reported</th>
+                  <th class="px-5 py-3 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider"></th>
+                  <th class="px-5 py-3"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/5">
+                <% entryQueue.forEach(function(item) { %>
+                <%
+                  var ts = new Date(item.firstReportedAt);
+                  var timeStr = ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                %>
+                <tr class="hover:bg-white/3 transition-colors">
+
+                  <!-- Thumbnail + title -->
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <% if (item.entry.mediaType === 'video') { %>
+                      <div class="w-12 h-12 rounded-md bg-zinc-800 flex items-center justify-center shrink-0">
+                        <iconify-icon icon="boxicons:video" width="18" style="color:#52525b;display:block"></iconify-icon>
+                      </div>
+                      <% } else { %>
+                      <img src="<%= item.entry.mediaUrl %>" class="w-12 h-12 rounded-md object-cover shrink-0 bg-zinc-800">
+                      <% } %>
+                      <div class="min-w-0">
+                        <p class="text-sm font-semibold text-white m-0 truncate max-w-48"><%= item.entry.title %></p>
+                        <a href="/entry/<%= item.entry._id %>" target="_blank" class="text-xs text-zinc-500 hover:text-zinc-300 no-underline">View entry</a>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Owner -->
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-2">
+                      <% if (item.owner?.avatar?.value) { %>
+                      <img src="<%= item.owner.avatar.value %>" class="w-7 h-7 rounded-full object-cover shrink-0 bg-zinc-800">
+                      <% } else { %>
+                      <div class="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center shrink-0">
+                        <iconify-icon icon="boxicons:user" width="13" style="color:#52525b;display:block"></iconify-icon>
+                      </div>
+                      <% } %>
+                      <span class="text-sm text-white">@<%= item.owner?.username?.value || 'unknown' %></span>
+                    </div>
+                  </td>
+
+                  <!-- Report count -->
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center gap-1 text-xs font-semibold text-red-400">
+                      <iconify-icon icon="boxicons:flag-alt-2-filled" width="12" style="display:block"></iconify-icon>
+                      <%= item.reportCount %>
+                    </span>
+                  </td>
+
+                  <!-- First reported -->
+                  <td class="px-5 py-4">
+                    <span class="text-xs text-zinc-500"><%= timeStr %></span>
+                  </td>
+
+                  <!-- Stall flag -->
+                  <td class="px-5 py-4">
+                    <% if (item.stallingContest) { %>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      <iconify-icon icon="boxicons:pause-circle" width="11" style="display:block"></iconify-icon>
+                      Stalling contest
+                    </span>
+                    <% } %>
+                  </td>
+
+                  <!-- Actions -->
+                  <td class="px-5 py-4 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                      <form method="POST" action="/admin/moderation/entry-reports/<%= item.entry._id %>/reject" style="display:inline">
+                        <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white transition-colors cursor-pointer" style="border:none">
+                          Clear
+                        </button>
+                      </form>
+                      <form method="POST" action="/admin/moderation/entry-reports/<%= item.entry._id %>/approve" style="display:inline">
+                        <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors cursor-pointer" style="border-style:solid">
+                          Remove entry
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+
+                </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+          <% } %>
+
+        <% } %>
+
       </div>
     </main>
-
   </div>
+
 </body>
 </html>

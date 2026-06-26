@@ -6,6 +6,20 @@
     if (now.toDateString() === dt.toDateString()) return 'Today · ' + timeStr;
     return dt.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' + timeStr;
   }
+  function ecTimeAgo(date) {
+    var diff = Math.max(0, Date.now() - new Date(date).getTime());
+    var s = Math.floor(diff / 1000);
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + 'm';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + 'h';
+    var d = Math.floor(h / 24);
+    if (d < 7) return d + 'd';
+    var w = Math.floor(d / 7);
+    if (w < 52) return w + 'w';
+    return Math.floor(d / 365) + 'y';
+  }
   var _eid      = entry._id.toString();
   var _isOwner  = currentUserId && owner && owner._id.toString() === currentUserId;
   var _avg      = entry.ratingCount > 0 ? entry.ratingAvg.toFixed(1) : null;
@@ -18,6 +32,7 @@
   .ec-rating-tile:hover    { background: rgba(245,158,11,0.22); color: #fcd34d; }
   .ec-rating-tile.ec-sel   { background: #f59e0b; color: #000; }
   .ec-rating-tile.ec-locked { opacity: 0.18; cursor: not-allowed; pointer-events: none; }
+  .ec-rating-tile.ec-sel.ec-locked { opacity: 1; }
   @keyframes _ec-burst {
     0%   { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
     40%  { transform: translate(calc(-50% + var(--mx)), calc(-50% + var(--ty) * 0.48)) scale(0.9); opacity: 1; }
@@ -294,22 +309,59 @@
   </div>
 
   <!-- Rating panel -->
-  <div class="ec-panel hidden border-t border-white/8 px-3 py-4" data-eid="<%= _eid %>" data-panel="rating"<% if (locals.userRating) { %> data-user-rating="<%= locals.userRating %>"<% } %>>
+  <div class="ec-panel hidden border-t border-white/8" data-eid="<%= _eid %>" data-panel="rating"<% if (locals.userRating) { %> data-user-rating="<%= locals.userRating %>"<% } %>>
     <% if (_isOwner) { %>
-    <div class="flex flex-col items-center gap-2 text-center py-2">
+    <div class="px-3 py-4 flex flex-col items-center gap-2 text-center">
       <iconify-icon icon="boxicons:lock" width="22" class="text-white/15"></iconify-icon>
       <p class="text-xs text-white/30">You can't rate your own entry</p>
     </div>
     <% } else { %>
-    <p class="text-xs text-white/30 text-center mb-3 tracking-wide uppercase">Rate this entry</p>
-    <div class="flex items-center gap-1">
-      <% for (var _i = 1; _i <= 10; _i++) { %>
-      <button class="ec-rating-tile flex-1 h-9 rounded-md text-sm font-bold transition-all cursor-pointer bg-shark-800 text-white/45" data-score="<%= _i %>" data-eid="<%= _eid %>"><%= _i %></button>
-      <% } %>
+    <div class="px-3 py-4">
+      <p class="text-xs text-white/30 text-center mb-3 tracking-wide uppercase">Rate this entry</p>
+      <div class="flex items-center gap-1">
+        <% for (var _i = 1; _i <= 10; _i++) { %>
+        <button class="ec-rating-tile flex-1 h-9 rounded-md text-sm font-bold transition-all cursor-pointer bg-shark-800 text-white/45" data-score="<%= _i %>" data-eid="<%= _eid %>"><%= _i %></button>
+        <% } %>
+      </div>
+      <div class="ec-rlabel mt-2 text-center text-sm text-amber-400/70 h-5 leading-5 overflow-hidden" data-eid="<%= _eid %>"></div>
     </div>
-    <div class="ec-rlabel mt-2 text-center text-sm text-amber-400/70 h-5 leading-5 overflow-hidden" data-eid="<%= _eid %>"></div>
     <% } %>
+
   </div>
+
+  <!-- Ratings list (always visible on entry detail page) -->
+  <% if (locals.mediaFull && Array.isArray(locals.ratings)) { %>
+  <div class="ec-rlist flex flex-col border-t border-white/8"
+    data-eid="<%= _eid %>"
+    data-cur-username="<%= locals.currentUser ? locals.currentUser.username : '' %>"
+    data-cur-displayname="<%= locals.currentUser ? (locals.currentUser.displayName || '') : '' %>"
+    data-cur-avatar="<%= locals.currentUser && locals.currentUser.avatar && locals.currentUser.avatar.value ? locals.currentUser.avatar.value : (locals.currentUser && locals.currentUser.avatar && typeof locals.currentUser.avatar === 'string' ? locals.currentUser.avatar : '') %>">
+    <% if (!locals.ratings.length) { %>
+    <p class="ec-rlist-empty px-3 py-4 text-sm text-white/25">No ratings yet.</p>
+    <% } %>
+    <% locals.ratings.forEach(function(r) {
+      var rUser = r.userId;
+    %>
+    <div class="ec-ritem px-3 py-2.5 border-t border-white/6 first:border-t-0 flex items-center gap-2.5">
+      <a href="/<%= rUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+        <% if (rUser.avatar?.value) { %><img src="<%= rUser.avatar.value %>" alt="" class="w-full h-full object-cover">
+        <% } else { %><iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon><% } %>
+      </a>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-baseline gap-1.5 flex-wrap">
+          <a href="/<%= rUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= rUser.displayName?.value || ('@' + rUser.username?.value) %></a>
+          <% if (rUser.displayName?.value) { %><span class="text-xs text-white/35">@<%= rUser.username?.value %></span><% } %>
+          <span class="text-xs text-white/25"><%= ecTimeAgo(r.createdAt) %></span>
+        </div>
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        <iconify-icon icon="boxicons:star-filled" width="12" class="text-amber-400"></iconify-icon>
+        <span class="text-sm font-bold text-amber-300"><%= r.score %></span>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+  <% } %>
 
   <!-- Comments panel -->
   <div class="ec-panel hidden" data-eid="<%= _eid %>" data-panel="comments">
@@ -318,6 +370,20 @@
   function ecLinkifyBody(body) {
     var esc = String(body).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     return esc.replace(/@(\w+)/g, '<a href="/$1" class="text-charm-400 hover:opacity-80 transition-opacity">@$1</a>');
+  }
+  function ecTimeAgo(date) {
+    var diff = Math.max(0, Date.now() - new Date(date).getTime());
+    var s = Math.floor(diff / 1000);
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + 'm';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + 'h';
+    var d = Math.floor(h / 24);
+    if (d < 7) return d + 'd';
+    var w = Math.floor(d / 7);
+    if (w < 52) return w + 'w';
+    return Math.floor(d / 365) + 'y';
   }
   %>
 
@@ -373,22 +439,18 @@
       var cUser        = comment.userId;
       var isOwnComment = currentUserId && cUser._id.toString() === currentUserId;
     %>
-    <div class="ec-citem px-3 py-3 border-t border-white/6" data-cid="<%= cid %>">
+    <div class="ec-citem px-3 py-3 border-t border-white/6" data-cid="<%= cid %>" data-username="<%= cUser.username?.value %>">
       <div class="flex gap-2.5">
         <a href="/<%= cUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
           <% if (cUser.avatar?.value) { %><img src="<%= cUser.avatar.value %>" class="w-full h-full object-cover">
           <% } else { %><iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon><% } %>
         </a>
         <div class="flex-1 min-w-0">
-          <div class="flex flex-col">
-            <div class="flex items-baseline gap-1.5">
-              <a href="/<%= cUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= cUser.displayName?.value || ('@' + cUser.username?.value) %></a>
-              <% if (cUser.displayName?.value) { %><span class="text-xs text-white/35">@<%= cUser.username?.value %></span><% } %>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <span class="text-xs text-white/25"><%= new Date(comment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
-              <% if (comment.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
-            </div>
+          <div class="flex items-baseline gap-1.5 flex-wrap">
+            <a href="/<%= cUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= cUser.displayName?.value || ('@' + cUser.username?.value) %></a>
+            <% if (cUser.displayName?.value) { %><span class="text-xs text-white/35">@<%= cUser.username?.value %></span><% } %>
+            <span class="text-xs text-white/25"><%= ecTimeAgo(comment.createdAt) %></span>
+            <% if (comment.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
           </div>
           <p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- ecLinkifyBody(comment.body) %></p>
           <div class="ec-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">
@@ -405,15 +467,19 @@
             <button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Delete</button>
             <% } else if (_isOwner) { %>
             <button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Delete</button>
-            <button type="button" class="ec-creport text-xs text-white/20 hover:text-white/50 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Report</button>
+            <button type="button" class="ec-creport text-xs text-red-400/60 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Report</button>
             <% } else { %>
-            <button type="button" class="ec-creport text-xs text-white/20 hover:text-white/50 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Report</button>
+            <button type="button" class="ec-creport text-xs text-red-400/60 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-eid="<%= _eid %>">Report</button>
+            <% } %>
+            <% if (comment.replies && comment.replies.length) { %>
+            <button type="button" class="ec-replies-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-parent-id="<%= cid %>">Show Replies (<%= comment.replies.length %>)</button>
             <% } %>
           </div>
           <div class="ec-reply-form hidden mt-2.5" data-parent-id="<%= cid %>">
             <div class="border border-white/12 rounded-md bg-white/6 focus-within:border-charm-500/40 transition-colors">
-              <div class="px-3 pt-3">
-                <textarea class="ec-reply-ta w-full bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none" rows="2" placeholder="Reply…"></textarea>
+              <div class="px-3 pt-3 flex items-start gap-1">
+                <span class="ec-reply-mention hidden text-sm text-charm-400 font-medium leading-5.5 shrink-0"></span>
+                <textarea class="ec-reply-ta flex-1 min-w-0 bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none" rows="2" placeholder="Reply…"></textarea>
               </div>
               <div class="flex items-center gap-2 px-3 pb-3">
                 <span class="ec-reply-count text-xs text-white/25 flex-1">0/280</span>
@@ -422,29 +488,24 @@
               </div>
             </div>
           </div>
-          <% if (comment.replies && comment.replies.length) { %>
-          <div class="ec-replies mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="<%= cid %>">
-            <% comment.replies.forEach(function(reply) {
+          <div class="ec-replies hidden mt-3 flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="<%= cid %>">
+            <% (comment.replies || []).forEach(function(reply) {
               var rid       = reply._id.toString();
               var rUser     = reply.userId;
               var isOwnReply = currentUserId && rUser._id.toString() === currentUserId;
             %>
-            <div class="ec-citem" data-cid="<%= rid %>">
+            <div class="ec-citem" data-cid="<%= rid %>" data-username="<%= rUser.username?.value %>">
               <div class="flex gap-2">
                 <a href="/<%= rUser.username?.value %>" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
                   <% if (rUser.avatar?.value) { %><img src="<%= rUser.avatar.value %>" class="w-full h-full object-cover">
                   <% } else { %><iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon><% } %>
                 </a>
                 <div class="flex-1 min-w-0">
-                  <div class="flex flex-col">
-                    <div class="flex items-baseline gap-1.5">
-                      <a href="/<%= rUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= rUser.displayName?.value || ('@' + rUser.username?.value) %></a>
-                      <% if (rUser.displayName?.value) { %><span class="text-xs text-white/35">@<%= rUser.username?.value %></span><% } %>
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                      <span class="text-xs text-white/25"><%= new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
-                      <% if (reply.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
-                    </div>
+                  <div class="flex items-baseline gap-1.5 flex-wrap">
+                    <a href="/<%= rUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= rUser.displayName?.value || ('@' + rUser.username?.value) %></a>
+                    <% if (rUser.displayName?.value) { %><span class="text-xs text-white/35">@<%= rUser.username?.value %></span><% } %>
+                    <span class="text-xs text-white/25"><%= ecTimeAgo(reply.createdAt) %></span>
+                    <% if (reply.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
                   </div>
                   <p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- ecLinkifyBody(reply.body) %></p>
                   <div class="ec-edit-wrap hidden mt-1.5 flex flex-col gap-1.5">
@@ -455,11 +516,12 @@
                     </div>
                   </div>
                   <div class="flex items-center gap-3 mt-1.5">
+                    <button type="button" class="ec-reply-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= rid %>">Reply</button>
                     <% if (isOwnReply) { %>
                     <button type="button" class="ec-edit-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= rid %>">Edit</button>
                     <button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= rid %>" data-eid="<%= _eid %>">Delete</button>
                     <% } else { %>
-                    <button type="button" class="ec-creport text-xs text-white/20 hover:text-white/50 transition-colors cursor-pointer" data-cid="<%= rid %>" data-eid="<%= _eid %>">Report</button>
+                    <button type="button" class="ec-creport text-xs text-red-400/60 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= rid %>" data-eid="<%= _eid %>">Report</button>
                     <% } %>
                   </div>
                 </div>
@@ -467,9 +529,6 @@
             </div>
             <% }); %>
           </div>
-          <% } else { %>
-          <div class="ec-replies hidden mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="<%= cid %>"></div>
-          <% } %>
         </div>
       </div>
     </div>
@@ -495,6 +554,20 @@
   function ecEsc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+  function ecTimeAgo(date) {
+    var diff = Math.max(0, Date.now() - new Date(date).getTime());
+    var s = Math.floor(diff / 1000);
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + 'm';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + 'h';
+    var d = Math.floor(h / 24);
+    if (d < 7) return d + 'd';
+    var w = Math.floor(d / 7);
+    if (w < 52) return w + 'w';
+    return Math.floor(d / 365) + 'y';
+  }
   function ecLinkify(esc) {
     return esc.replace(/@(\w+)/g, '<a href="/$1" class="text-charm-400 hover:opacity-80 transition-opacity">@$1</a>');
   }
@@ -512,7 +585,7 @@
 
   function ecBuildTopHtml(c, eid, isOwner) {
     var dn  = c.user.displayName || ('@' + c.user.username);
-    var dt  = new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    var dt  = ecTimeAgo(c.createdAt);
     var av  = c.user.avatar
       ? '<img src="' + ecEsc(c.user.avatar) + '" class="w-full h-full object-cover">'
       : '<iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>';
@@ -523,11 +596,9 @@
       + '<div class="flex gap-2.5">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'
       + '<div class="flex-1 min-w-0">'
-      + '<div class="flex flex-col">'
-      + '<div class="flex items-baseline gap-1.5">'
+      + '<div class="flex items-baseline gap-1.5 flex-wrap">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity">' + ecEsc(dn) + '</a>'
       + unameSpan
-      + '</div>'
       + '<span class="text-xs text-white/25">' + dt + '</span>'
       + '</div>'
       + '<p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words">' + ecLinkify(ecEsc(c.body)) + '</p>'
@@ -543,34 +614,33 @@
       + '</div>'
       + '<div class="ec-reply-form hidden mt-2.5" data-parent-id="' + c._id + '">'
       + '<div class="border border-white/12 rounded-md bg-white/6 focus-within:border-charm-500/40 transition-colors">'
-      + '<div class="px-3 pt-3">'
-      + '<textarea class="ec-reply-ta w-full bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none" rows="2" placeholder="Reply…"></textarea>'
+      + '<div class="flex items-start gap-1 px-3 pt-3">'
+      + '<span class="ec-reply-mention hidden text-sm text-charm-400 font-medium leading-5.5 shrink-0"></span>'
+      + '<textarea class="ec-reply-ta flex-1 min-w-0 bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none" rows="2" placeholder="Reply…"></textarea>'
       + '</div>'
       + '<div class="flex items-center gap-2 px-3 pb-3">'
       + '<span class="ec-reply-count text-xs text-white/25 flex-1">0/280</span>'
       + '<button type="button" class="ec-reply-cancel h-8 px-4 text-sm rounded-md text-white hover:text-white/60 transition-colors cursor-pointer">Cancel</button>'
       + '<button type="button" class="ec-reply-submit h-8 px-4 text-sm font-semibold rounded-md bg-charm-600 text-charm-100 hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="' + c._id + '" data-eid="' + eid + '">Reply</button>'
       + '</div></div></div>'
-      + '<div class="ec-replies hidden mt-3 flex flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="' + c._id + '"></div>'
+      + '<div class="ec-replies hidden mt-3 flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="' + c._id + '"></div>'
       + '</div></div></div>';
   }
 
   function ecBuildReplyHtml(c, eid) {
     var dn = c.user.displayName || ('@' + c.user.username);
-    var dt = new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    var dt = ecTimeAgo(c.createdAt);
     var av = c.user.avatar
       ? '<img src="' + ecEsc(c.user.avatar) + '" class="w-full h-full object-cover">'
       : '<iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon>';
     var unameSpanR = c.user.displayName ? '<span class="text-xs text-white/35">@' + ecEsc(c.user.username) + '</span>' : '';
-    return '<div class="ec-citem" data-cid="' + c._id + '">'
+    return '<div class="ec-citem" data-cid="' + c._id + '" data-username="' + ecEsc(c.user.username) + '">'
       + '<div class="flex gap-2">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'
       + '<div class="flex-1 min-w-0">'
-      + '<div class="flex flex-col">'
-      + '<div class="flex items-baseline gap-1.5">'
+      + '<div class="flex items-baseline gap-1.5 flex-wrap">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity">' + ecEsc(dn) + '</a>'
       + unameSpanR
-      + '</div>'
       + '<span class="text-xs text-white/25">' + dt + '</span>'
       + '</div>'
       + '<p class="ec-cbody text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words">' + ecLinkify(ecEsc(c.body)) + '</p>'
@@ -581,6 +651,7 @@
       + '<button type="button" class="ec-edit-save h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-cid="' + c._id + '" data-eid="' + eid + '">Save</button>'
       + '</div></div>'
       + '<div class="flex items-center gap-3 mt-1.5">'
+      + '<button type="button" class="ec-reply-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Reply</button>'
       + '<button type="button" class="ec-edit-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Edit</button>'
       + '<button type="button" class="ec-cdelete text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="' + c._id + '" data-eid="' + eid + '">Delete</button>'
       + '</div>'
@@ -630,8 +701,10 @@
     var parentId = form.dataset.parentId;
     var eid      = form.querySelector('.ec-reply-submit')?.dataset.eid;
     if (!ta || !parentId || !eid || ta.dataset.posting) return;
-    var body = ta.value.trim();
-    if (!body) return;
+    var mention = form.querySelector('.ec-reply-mention');
+    var mentionPrefix = (mention && !mention.classList.contains('hidden') && mention.textContent) ? mention.textContent + ' ' : '';
+    var body = mentionPrefix + ta.value.trim();
+    if (!body.trim()) return;
     if (body.replace(/\s/g, '').length > 280) {
       if (window.showToast) window.showToast('Reply cannot exceed 280 characters.', 'error');
       return;
@@ -650,7 +723,24 @@
       var repliesEl = document.querySelector('.ec-replies[data-parent-id="' + parentId + '"]');
       if (repliesEl) {
         repliesEl.classList.remove('hidden');
+        repliesEl.classList.add('flex');
         repliesEl.insertAdjacentHTML('beforeend', ecBuildReplyHtml(data, eid));
+        var replyCount = repliesEl.querySelectorAll(':scope > .ec-citem').length;
+        var toggleBtn = document.querySelector('.ec-replies-toggle[data-parent-id="' + parentId + '"]');
+        if (replyCount >= 1) {
+          if (toggleBtn) {
+            toggleBtn.textContent = 'Hide Replies';
+          } else {
+            var newToggle = document.createElement('button');
+            newToggle.type = 'button';
+            newToggle.className = 'ec-replies-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer';
+            newToggle.dataset.parentId = parentId;
+            newToggle.textContent = 'Hide Replies';
+            var commentItem = document.querySelector('.ec-citem[data-cid="' + parentId + '"]');
+            var actionsRow = commentItem && commentItem.querySelector('.flex.items-center.gap-3');
+            if (actionsRow) actionsRow.appendChild(newToggle);
+          }
+        }
       }
       form.classList.add('hidden');
       ta.value = '';
@@ -709,14 +799,57 @@
       return;
     }
 
+    // Show/Hide replies toggle
+    var repliesToggle = e.target.closest('.ec-replies-toggle');
+    if (repliesToggle) {
+      var parentId = repliesToggle.dataset.parentId;
+      var repliesEl = document.querySelector('.ec-replies[data-parent-id="' + parentId + '"]');
+      if (repliesEl) {
+        var isHidden = repliesEl.classList.contains('hidden');
+        if (isHidden) {
+          repliesEl.classList.remove('hidden');
+          repliesEl.classList.add('flex');
+          repliesToggle.textContent = 'Hide Replies';
+        } else {
+          repliesEl.classList.add('hidden');
+          repliesEl.classList.remove('flex');
+          var replyCount = repliesEl.querySelectorAll(':scope > .ec-citem').length;
+          repliesToggle.textContent = 'Show Replies (' + replyCount + ')';
+        }
+      }
+      return;
+    }
+
     // Toggle reply form
     var replyToggle = e.target.closest('.ec-reply-toggle');
     if (replyToggle) {
       var item = replyToggle.closest('.ec-citem');
       var form = item && item.querySelector('.ec-reply-form');
-      if (form) {
+      var mentionUsername = item && item.dataset.username;
+      if (!form) {
+        // replying to a sub-reply — open the root comment's form
+        var repliesContainer = item && item.closest('.ec-replies');
+        var rootItem = repliesContainer && repliesContainer.closest('.ec-citem');
+        form = rootItem && rootItem.querySelector('.ec-reply-form');
+        if (form) {
+          form.classList.remove('hidden');
+          var mention = form.querySelector('.ec-reply-mention');
+          if (mention && mentionUsername) {
+            mention.textContent = '@' + mentionUsername;
+            mention.classList.remove('hidden');
+          }
+          form.querySelector('.ec-reply-ta').focus();
+        }
+      } else {
         form.classList.toggle('hidden');
-        if (!form.classList.contains('hidden')) form.querySelector('.ec-reply-ta').focus();
+        if (!form.classList.contains('hidden')) {
+          var mention = form.querySelector('.ec-reply-mention');
+          if (mention && mentionUsername) {
+            mention.textContent = '@' + mentionUsername;
+            mention.classList.remove('hidden');
+          }
+          form.querySelector('.ec-reply-ta').focus();
+        }
       }
       return;
     }
@@ -732,6 +865,8 @@
       if (form) {
         form.classList.add('hidden');
         form.querySelector('.ec-reply-ta').value = '';
+        var mention = form.querySelector('.ec-reply-mention');
+        if (mention) { mention.textContent = ''; mention.classList.add('hidden'); }
         var countEl = form.querySelector('.ec-reply-count');
         if (countEl) countEl.textContent = '0/280';
       }

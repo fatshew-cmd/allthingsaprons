@@ -559,6 +559,20 @@
     var esc = String(body).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     return esc.replace(/@(\w+)/g, '<a href="/$1" class="text-charm-400 hover:opacity-80 transition-opacity">@$1</a>');
   }
+  function timeAgo(date) {
+    var diff = Math.max(0, Date.now() - new Date(date).getTime());
+    var s = Math.floor(diff / 1000);
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + 'm';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + 'h';
+    var d = Math.floor(h / 24);
+    if (d < 7) return d + 'd';
+    var w = Math.floor(d / 7);
+    if (w < 52) return w + 'w';
+    return Math.floor(d / 365) + 'y';
+  }
   var _totalComments = comments.reduce(function(n,c){return n+1+c.replies.length;},0);
   var _statusCls = { pending: 'bg-amber-500/15 text-amber-400', active: 'bg-green-500/15 text-green-400', closed: 'bg-white/10 text-white/50' };
   %>
@@ -624,7 +638,7 @@
       var cUser       = comment.userId;
       var isOwnTop    = locals.currentUser && cUser._id.toString() === currentUser._id.toString();
     %>
-    <div class="cc-item px-2 py-3 border-t border-white/6" data-cid="<%= cid %>">
+    <div class="cc-item px-2 py-3 border-t border-white/6" data-cid="<%= cid %>" data-username="<%= cUser.username?.value %>">
       <div class="flex gap-2.5">
         <a href="/<%= cUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
           <% if (cUser.avatar?.value) { %>
@@ -636,7 +650,7 @@
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline gap-1.5 flex-wrap">
             <a href="/<%= cUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= cUser.displayName?.value || ('@' + cUser.username?.value) %></a>
-            <span class="text-xs text-white/25"><%= new Date(comment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+            <span class="text-xs text-white/25"><%= timeAgo(comment.createdAt) %></span>
             <% if (comment.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
           </div>
           <p class="cc-body text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- linkifyCommentBody(comment.body) %></p>
@@ -656,14 +670,20 @@
             <button type="button" class="cc-edit-btn text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= cid %>">Edit</button>
             <button type="button" class="cc-del-btn text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-contest-id="<%= contest._id %>">Delete</button>
             <% } else if (locals.currentUser) { %>
-            <button type="button" class="cc-report-btn text-xs text-white/20 hover:text-white/50 transition-colors cursor-pointer" data-cid="<%= cid %>" data-contest-id="<%= contest._id %>">Report</button>
+            <button type="button" class="cc-report-btn text-xs text-red-400/60 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= cid %>" data-contest-id="<%= contest._id %>">Report</button>
+            <% } %>
+            <% if (comment.replies.length) { %>
+            <button type="button" class="cc-replies-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-parent-id="<%= cid %>">Show Replies (<%= comment.replies.length %>)</button>
             <% } %>
           </div>
           <!-- Reply input (hidden) -->
           <div class="cc-reply-form hidden mt-2.5 flex gap-2" data-parent-id="<%= cid %>">
             <div class="w-px bg-white/10 self-stretch shrink-0 ml-0.5"></div>
             <div class="flex-1 flex flex-col gap-1">
-              <textarea class="cc-reply-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" placeholder="Reply…"></textarea>
+              <div class="flex items-start gap-1 bg-white/6 border border-white/12 rounded-md px-3 py-2 focus-within:border-white/25 transition-colors">
+                <span class="cc-reply-mention hidden text-sm text-charm-400 font-medium leading-5.5 shrink-0"></span>
+                <textarea class="cc-reply-body flex-1 min-w-0 bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none" rows="2" placeholder="Reply…"></textarea>
+              </div>
               <div class="flex items-center justify-end gap-2">
                 <button type="button" class="cc-reply-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer">Cancel</button>
                 <button type="button" class="cc-reply-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="<%= cid %>" data-contest-id="<%= contest._id %>">Reply</button>
@@ -671,16 +691,13 @@
             </div>
           </div>
           <!-- Replies -->
-          <% if (comment.replies.length) { %>
-          <button type="button" class="cc-replies-toggle mt-2 text-xs text-white/40 hover:text-white/60 transition-colors cursor-pointer" data-parent-id="<%= cid %>">Show Replies (<%= comment.replies.length %>)</button>
-          <% } %>
           <div class="cc-replies hidden mt-3 flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="<%= cid %>">
             <% comment.replies.forEach(function(reply) {
               var rid      = reply._id.toString();
               var rUser    = reply.userId;
               var isOwnRep = locals.currentUser && rUser._id.toString() === currentUser._id.toString();
             %>
-            <div class="cc-item" data-cid="<%= rid %>">
+            <div class="cc-item" data-cid="<%= rid %>" data-username="<%= rUser.username?.value %>">
               <div class="flex gap-2">
                 <a href="/<%= rUser.username?.value %>" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
                   <% if (rUser.avatar?.value) { %>
@@ -692,7 +709,7 @@
                 <div class="flex-1 min-w-0">
                   <div class="flex items-baseline gap-1.5 flex-wrap">
                     <a href="/<%= rUser.username?.value %>" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity"><%= rUser.displayName?.value || ('@' + rUser.username?.value) %></a>
-                    <span class="text-xs text-white/25"><%= new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+                    <span class="text-xs text-white/25"><%= timeAgo(reply.createdAt) %></span>
                     <% if (reply.editedAt) { %><span class="text-xs text-white/20 italic">edited</span><% } %>
                   </div>
                   <p class="cc-body text-sm text-white/70 mt-0.5 leading-relaxed whitespace-pre-wrap break-words"><%- linkifyCommentBody(reply.body) %></p>
@@ -705,11 +722,14 @@
                     </div>
                   </div>
                   <div class="flex items-center gap-3 mt-1.5">
+                    <% if (locals.currentUser) { %>
+                    <button type="button" class="cc-reply-btn text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= rid %>">Reply</button>
+                    <% } %>
                     <% if (isOwnRep) { %>
                     <button type="button" class="cc-edit-btn text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="<%= rid %>">Edit</button>
                     <button type="button" class="cc-del-btn text-xs text-white/30 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= rid %>" data-contest-id="<%= contest._id %>">Delete</button>
                     <% } else if (locals.currentUser) { %>
-                    <button type="button" class="cc-report-btn text-xs text-white/20 hover:text-white/50 transition-colors cursor-pointer" data-cid="<%= rid %>" data-contest-id="<%= contest._id %>">Report</button>
+                    <button type="button" class="cc-report-btn text-xs text-red-400/60 hover:text-red-400 transition-colors cursor-pointer" data-cid="<%= rid %>" data-contest-id="<%= contest._id %>">Report</button>
                     <% } %>
                   </div>
                 </div>
@@ -1360,7 +1380,7 @@
 
   function buildCommentHtml(c, isReply) {
     var displayName = c.user.displayName || ('@' + c.user.username);
-    var date = new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    var date = timeAgo(c.createdAt);
     var avatarSz = isReply ? 'sm' : 'md';
     var avatarCls = isReply ? 'w-6 h-6' : 'w-7 h-7';
     var iconSz    = isReply ? '12' : '14';
@@ -1371,13 +1391,11 @@
     var replyBlock = !isReply
       ? '<div class="cc-replies hidden mt-3 flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="' + c._id + '"></div>'
       : '';
-    var replyBtn = !isReply
-      ? '<button type="button" class="cc-reply-btn text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Reply</button>'
-      : '';
+    var replyBtn = '<button type="button" class="cc-reply-btn text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer" data-cid="' + c._id + '">Reply</button>';
     var replyForm = !isReply
-      ? '<div class="cc-reply-form hidden mt-2.5 flex gap-2" data-parent-id="' + c._id + '"><div class="w-px bg-white/10 self-stretch shrink-0 ml-0.5"></div><div class="flex-1 flex flex-col gap-1.5"><textarea class="cc-reply-body w-full bg-white/6 border border-white/12 rounded-md px-3 py-2 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:border-white/25 transition-colors" rows="2" placeholder="Reply…"></textarea><div class="flex items-center justify-end gap-2"><button type="button" class="cc-reply-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer">Cancel</button><button type="button" class="cc-reply-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="' + c._id + '" data-contest-id="' + CONTEST_ID_CC + '">Reply</button></div></div></div>'
+      ? '<div class="cc-reply-form hidden mt-2.5 flex gap-2" data-parent-id="' + c._id + '"><div class="w-px bg-white/10 self-stretch shrink-0 ml-0.5"></div><div class="flex-1 flex flex-col gap-1"><div class="flex items-start gap-1 bg-white/6 border border-white/12 rounded-md px-3 py-2 focus-within:border-white/25 transition-colors"><span class="cc-reply-mention hidden text-sm text-charm-400 font-medium leading-5.5 shrink-0"></span><textarea class="cc-reply-body flex-1 min-w-0 bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none" rows="2" placeholder="Reply…"></textarea></div><div class="flex items-center justify-end gap-2"><button type="button" class="cc-reply-cancel h-7 px-3 text-xs rounded-md border border-white/12 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors cursor-pointer">Cancel</button><button type="button" class="cc-reply-submit h-7 px-3 text-xs font-semibold rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors cursor-pointer" data-parent-id="' + c._id + '" data-contest-id="' + CONTEST_ID_CC + '">Reply</button></div></div></div>'
       : '';
-    return '<div class="cc-item' + (!isReply ? ' px-2 py-3 border-t border-white/6' : '') + '" data-cid="' + c._id + '">'
+    return '<div class="cc-item' + (!isReply ? ' px-2 py-3 border-t border-white/6' : '') + '" data-cid="' + c._id + '" data-username="' + escHtml(c.user.username) + '">'
       + '<div class="flex ' + gap + '">'
       + avatarHtml
       + '<div class="flex-1 min-w-0">'
@@ -1402,6 +1420,21 @@
 
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function timeAgo(date) {
+    var diff = Math.max(0, Date.now() - new Date(date).getTime());
+    var s = Math.floor(diff / 1000);
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + 'm';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + 'h';
+    var d = Math.floor(h / 24);
+    if (d < 7) return d + 'd';
+    var w = Math.floor(d / 7);
+    if (w < 52) return w + 'w';
+    return Math.floor(d / 365) + 'y';
   }
 
   function linkifyMentions(escapedHtml) {
@@ -1571,9 +1604,12 @@
 
   function submitReply(form) {
     var ta       = form.querySelector('.cc-reply-body');
-    var body     = ta.value.trim();
     var parentId = form.dataset.parentId;
-    if (!body || !parentId || ta.dataset.posting) return;
+    if (!parentId || ta.dataset.posting) return;
+    var mention = form.querySelector('.cc-reply-mention');
+    var mentionPrefix = (mention && !mention.classList.contains('hidden') && mention.textContent) ? mention.textContent + ' ' : '';
+    var body     = mentionPrefix + ta.value.trim();
+    if (!body.trim()) return;
     if (body.replace(/\s/g, '').length > 280) {
       if (window.showToast) window.showToast('Comment cannot exceed 280 characters (spaces not counted).', 'error');
       return;
@@ -1602,10 +1638,12 @@
           } else {
             var newToggle = document.createElement('button');
             newToggle.type = 'button';
-            newToggle.className = 'cc-replies-toggle mt-2 text-xs text-white/40 hover:text-white/60 transition-colors cursor-pointer';
+            newToggle.className = 'cc-replies-toggle text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer';
             newToggle.dataset.parentId = parentId;
             newToggle.textContent = 'Hide Replies';
-            repliesEl.parentNode.insertBefore(newToggle, repliesEl);
+            var commentItem = document.querySelector('.cc-item[data-cid="' + parentId + '"]');
+            var actionsRow = commentItem && commentItem.querySelector('.flex.items-center.gap-3');
+            if (actionsRow) actionsRow.appendChild(newToggle);
           }
         }
       }
@@ -1654,9 +1692,31 @@
     if (replyBtn) {
       var item = replyBtn.closest('.cc-item');
       var form = item.querySelector('.cc-reply-form');
-      if (form) {
+      var mentionUsername = item.dataset.username;
+      if (!form) {
+        // replying to a sub-reply — open the root comment's form
+        var repliesContainer = item.closest('.cc-replies');
+        var rootItem = repliesContainer && repliesContainer.closest('.cc-item');
+        form = rootItem && rootItem.querySelector('.cc-reply-form');
+        if (form) {
+          form.classList.remove('hidden');
+          var mention = form.querySelector('.cc-reply-mention');
+          if (mention && mentionUsername) {
+            mention.textContent = '@' + mentionUsername;
+            mention.classList.remove('hidden');
+          }
+          form.querySelector('.cc-reply-body').focus();
+        }
+      } else {
         form.classList.toggle('hidden');
-        if (!form.classList.contains('hidden')) form.querySelector('.cc-reply-body').focus();
+        if (!form.classList.contains('hidden')) {
+          var mention = form.querySelector('.cc-reply-mention');
+          if (mention && mentionUsername) {
+            mention.textContent = '@' + mentionUsername;
+            mention.classList.remove('hidden');
+          }
+          form.querySelector('.cc-reply-body').focus();
+        }
       }
       return;
     }
@@ -1672,7 +1732,12 @@
     var replyCancel = e.target.closest('.cc-reply-cancel');
     if (replyCancel) {
       var form = replyCancel.closest('.cc-reply-form');
-      if (form) { form.classList.add('hidden'); form.querySelector('.cc-reply-body').value = ''; }
+      if (form) {
+        form.classList.add('hidden');
+        form.querySelector('.cc-reply-body').value = '';
+        var mention = form.querySelector('.cc-reply-mention');
+        if (mention) { mention.textContent = ''; mention.classList.add('hidden'); }
+      }
       return;
     }
 

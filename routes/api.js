@@ -21,6 +21,8 @@ const ContestWatch            = require('../models/ContestWatch');
 const ContestContribution     = require('../models/ContestContribution');
 const WalletTransaction       = require('../models/WalletTransaction');
 const notifyWatchers          = require('../utils/notifyWatchers');
+const EntryReport             = require('../models/EntryReport');
+const PlatformSettings        = require('../models/PlatformSettings');
 
 router.get('/me', (req, res) => {
   res.json({ authenticated: !!req.session.userId });
@@ -53,8 +55,10 @@ router.get('/users/search', async (req, res) => {
 router.get('/users/:id/entries', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ID.' });
+  const skip = Math.max(0, parseInt(req.query.skip) || 0);
   const entries = await Entry.find({ userId: req.params.id })
     .sort({ createdAt: -1 })
+    .skip(skip)
     .limit(12)
     .select('mediaUrl mediaType')
     .lean();
@@ -1120,19 +1124,20 @@ router.post('/contests/:id/comments', async (req, res) => {
     return res.status(403).json({ error: 'Not authorized.' });
   }
 
+  let effectiveParentIdCC = null;
   if (parentId) {
     const parent = await ContestComment.findById(parentId).select('contestId parentId').lean().catch(() => null);
     if (!parent || parent.contestId.toString() !== req.params.id) {
       return res.status(400).json({ error: 'Invalid parent comment.' });
     }
-    if (parent.parentId) return res.status(400).json({ error: 'Replies cannot be nested further.' });
+    effectiveParentIdCC = parent.parentId || parent._id;
   }
 
   try {
     const comment = await ContestComment.create({
       contestId: contest._id,
       userId:    req.session.userId,
-      parentId:  parentId || null,
+      parentId:  effectiveParentIdCC,
       body,
     });
 
@@ -1320,19 +1325,20 @@ router.post('/entries/:eid/comments', async (req, res) => {
   }
 
   let parentComment = null;
+  let effectiveParentId = null;
   if (parentId) {
     parentComment = await Comment.findById(parentId).select('entryId parentId userId').lean().catch(() => null);
     if (!parentComment || parentComment.entryId.toString() !== req.params.eid) {
       return res.status(400).json({ error: 'Invalid parent comment.' });
     }
-    if (parentComment.parentId) return res.status(400).json({ error: 'Replies cannot be nested further.' });
+    effectiveParentId = parentComment.parentId || parentComment._id;
   }
 
   try {
     const comment = await Comment.create({
       entryId:  req.params.eid,
       userId:   req.session.userId,
-      parentId: parentId || null,
+      parentId: effectiveParentId,
       body,
     });
     await Entry.updateOne({ _id: req.params.eid }, { $inc: { commentCount: 1 } });
@@ -1458,6 +1464,80 @@ router.post('/entries/:eid/comments/:cid/report', async (req, res) => {
     console.error('Comment report error:', err);
     res.status(500).json({ error: 'Something went wrong.' });
   }
+});
+
+// ── Entry report ──────────────────────────────────────────────────────────────
+router.post('/entries/:eid/report', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.eid)) return res.status(400).json({ error: 'Invalid ID.' });
+
+  const entry = await Entry.findById(req.params.eid).select('userId hidden').lean().catch(() => null);
+  if (!entry) return res.status(404).json({ error: 'Entry not found.' });
+  if (entry.userId.toString() === req.session.userId.toString()) {
+    return res.status(400).json({ error: "You can't report your own entry." });
+  }
+
+  try {
+    await EntryReport.create({ entryId: req.params.eid, reportedBy: req.session.userId });
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: "You've already reported this entry." });
+    console.error('Entry report error:', err);
+    return res.status(500).json({ error: 'Something went wrong.' });
+  }
+
+  // Check thresholds only if entry isn't already hidden
+  if (!entry.hidden) {
+    const settings = await PlatformSettings.findOne({ key: 'global' }).lean();
+    const thresholds = settings?.entryReportThresholds || [
+      { count: 3,  windowMinutes: 60   },
+      { count: 5,  windowMinutes: 360  },
+      { count: 10, windowMinutes: 1440 },
+    ];
+
+    const now = new Date();
+    let shouldHide = false;
+    for (const { count, windowMinutes } of thresholds) {
+      const since = new Date(now - windowMinutes * 60 * 1000);
+      const windowCount = await EntryReport.countDocuments({
+        entryId: req.params.eid,
+        status: 'pending',
+        createdAt: { $gte: since },
+      });
+      if (windowCount >= count) { shouldHide = true; break; }
+    }
+
+    if (shouldHide) {
+      await Entry.updateOne({ _id: req.params.eid }, { $set: { hidden: true } });
+      await Notification.create({
+        userId: entry.userId,
+        type: 'entry_reported',
+        payload: { entryId: req.params.eid },
+      });
+
+      // Stall any active contests containing this entry
+      const stalledContests = await Contest.find({
+        status: 'active',
+        stalled: false,
+        'entries.entryId': new mongoose.Types.ObjectId(req.params.eid),
+      }).select('_id entries').lean();
+
+      for (const contest of stalledContests) {
+        await Contest.updateOne({ _id: contest._id }, { $set: { stalled: true, stalledAt: now } });
+
+        const contestantUserIds = contest.entries.map(e => e.userId);
+        const stalledPayload = { contestId: contest._id.toString(), entryId: req.params.eid };
+
+        await Notification.insertMany(
+          contestantUserIds.map(uid => ({ userId: uid, type: 'contest_stalled', payload: stalledPayload, read: false })),
+          { ordered: false }
+        );
+
+        await notifyWatchers(contest._id, 'contest_stalled', stalledPayload, contestantUserIds);
+      }
+    }
+  }
+
+  res.json({ ok: true });
 });
 
 // ── Announcement dismiss ──────────────────────────────────────────────────────

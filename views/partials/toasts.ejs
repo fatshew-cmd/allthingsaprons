@@ -47,7 +47,7 @@
         '<iconify-icon icon="boxicons:x" width="16"></iconify-icon>' +
       '</button>';
     header.innerHTML = inner;
-    if (!opts.noClose) header.querySelector('button').addEventListener('click', function () { dismiss(el); });
+    if (!opts.noClose && !hasActions) header.querySelector('button').addEventListener('click', function () { dismiss(el); });
     el.appendChild(header);
 
     if (hasActions) {

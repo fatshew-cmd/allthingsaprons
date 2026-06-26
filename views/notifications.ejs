@@ -86,6 +86,22 @@ function notifText(n) {
       var cpaAmt = p.amountCHL ? p.amountCHL.toLocaleString() : '0';
       return 'Your contest earned <strong>' + cpaAmt + ' 🌶️</strong> — added to your balance';
     }
+    case 'comment_removed':
+      return 'Your comment was removed for violating our community guidelines';
+    case 'report_reviewed':
+      return p.outcome === 'approved'
+        ? 'Your report was reviewed — the content has been removed'
+        : 'Your report was reviewed — no violation was found';
+    case 'contest_stalled':
+      return 'Your contest has been paused while a reported entry is under review';
+    case 'contest_resumed':
+      return 'Your contest has resumed — the voting deadline has been extended';
+    case 'entry_reported':
+      return 'Your entry has been flagged for review and is temporarily hidden';
+    case 'entry_removed': {
+      var erTitle = p.entryTitle ? '"' + p.entryTitle + '"' : 'Your entry';
+      return erTitle + ' was removed for violating our community guidelines';
+    }
     default:
       return 'New notification';
   }
@@ -109,6 +125,12 @@ function notifIcon(type) {
     case 'payout_processed':         return 'boxicons:money';
     case 'contest_contribution':     return 'boxicons:coin';
     case 'contest_payout_available': return 'boxicons:wallet';
+    case 'comment_removed':          return 'boxicons:x-circle';
+    case 'entry_removed':            return 'boxicons:x-circle';
+    case 'report_reviewed':          return 'boxicons:check-circle';
+    case 'contest_stalled':          return 'boxicons:pause-circle';
+    case 'contest_resumed':          return 'boxicons:play-circle';
+    case 'entry_reported':           return 'boxicons:flag';
     default:                         return 'boxicons:bell';
   }
 }
@@ -140,8 +162,9 @@ function notifIcon(type) {
     <% notifications.forEach(function(n) { %>
     <% var p = n.payload || {}; %>
     <% var isTakeOnReceived = n.type === 'take_on_received' && p.nominationId; %>
+    <% var isRemovalNotif   = n.type === 'comment_removed' || n.type === 'entry_removed'; %>
     <li data-id="<%= n._id %>" data-url="<%= p.url || '/notifications' %>"
-        class="notif-item px-5 py-4 cursor-pointer transition-colors hover:bg-white/4 <%= n.read ? '' : 'bg-charm-500/8' %> <%= isTakeOnReceived ? 'flex flex-col gap-3' : 'flex items-start gap-3' %>">
+        class="notif-item px-5 py-4 cursor-pointer transition-colors hover:bg-white/4 <%= n.read ? '' : 'bg-charm-500/8' %> <%= (isTakeOnReceived || isRemovalNotif) ? 'flex flex-col gap-3' : 'flex items-start gap-3' %>">
 
       <% if (isTakeOnReceived) { %>
 
@@ -200,6 +223,29 @@ function notifIcon(type) {
           data-nom-id="<%= p.nominationId %>" data-contest-id="<%= p.contestId %>">
           Decline
         </button>
+      </div>
+
+      <% } else if (isRemovalNotif) { %>
+
+      <!-- Removal notification: text row + policy/dispute row -->
+      <div class="flex items-start gap-3">
+        <div class="shrink-0 mt-0.5">
+          <div class="w-9 h-9 rounded-full bg-red-500/10 flex items-center justify-center">
+            <iconify-icon icon="boxicons:x-circle" width="18" class="text-red-400"></iconify-icon>
+          </div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-white/80 leading-snug"><%- notifText(n) %></p>
+          <p class="text-xs text-white/25 mt-1"><%= fmtNotifTime(n.createdAt) %></p>
+        </div>
+        <div class="shrink-0 mt-2">
+          <% if (!n.read) { %><span class="unread-dot w-2 h-2 rounded-full bg-charm-400 block"></span><% } else { %><span class="w-2 h-2 block"></span><% } %>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 pl-12">
+        <a href="/guidelines" class="text-xs text-white/35 hover:text-white/60 transition-colors no-underline">Community guidelines</a>
+        <span class="text-white/15 text-xs">·</span>
+        <a href="/contact?topic=moderation" class="text-xs text-charm-400 hover:text-charm-300 font-semibold transition-colors no-underline">Dispute this decision</a>
       </div>
 
       <% } else { %>

@@ -312,7 +312,7 @@ router.get('/notifications', (req, res) => {
 // ── Entry page ────────────────────────────────────────────────────
 
 router.get('/entry/:id', async (req, res) => {
-  const entry = await Entry.findById(req.params.id).populate('userId', 'username displayName avatar').catch(() => null);
+const entry = await Entry.findById(req.params.id).populate('userId', 'username displayName avatar').catch(() => null);
   if (!entry) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
   const ownerId = entry.userId._id;
   const isOwn = ownerId.toString() === req.session.userId;
@@ -410,8 +410,14 @@ router.get('/entry/:id', async (req, res) => {
 
   const topLevelComments = await Comment.find({ entryId: entry._id, parentId: null, hidden: false })
     .populate('userId', 'username displayName avatar')
-    .sort({ createdAt: 1 })
+    .sort({ createdAt: -1 })
     .lean();
+
+  const ratingDocs = await Rating.find({ entryId: entry._id }).sort({ createdAt: -1 }).lean();
+  const raterIds = ratingDocs.map(r => r.userId);
+  const raterUsers = await User.find({ _id: { $in: raterIds } }).select('username displayName avatar').lean();
+  const raterMap = Object.fromEntries(raterUsers.map(u => [u._id.toString(), u]));
+  const entryRatings = ratingDocs.map(r => ({ ...r, userId: raterMap[r.userId.toString()] || null }));
 
   const topLevelIds = topLevelComments.map(c => c._id);
   const replies = topLevelIds.length
@@ -446,6 +452,7 @@ router.get('/entry/:id', async (req, res) => {
     })(),
     nominees,
     comments,
+    ratings: entryRatings,
   });
 });
 
@@ -1230,7 +1237,7 @@ router.get('/contest/:id', async (req, res) => {
 
   const topLevelComments = await ContestComment.find({ contestId: contest._id, parentId: null, hidden: false })
     .populate('userId', 'username displayName avatar')
-    .sort({ createdAt: 1 })
+    .sort({ createdAt: -1 })
     .lean()
     .catch(() => []);
 
