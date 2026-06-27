@@ -126,9 +126,109 @@
         </div>
         <% } %>
 
+        <% if (granterRole === 'moderator' || granterRole === 'supervisor') { %>
+        <div class="bg-zinc-900 rounded-md border border-white/8 overflow-hidden">
+          <div class="px-5 py-3 border-b border-white/8">
+            <p class="text-xs font-bold text-zinc-400 uppercase tracking-wider m-0">Set password</p>
+          </div>
+          <div class="px-5 pt-4 pb-2 flex items-end gap-3">
+            <div class="flex flex-col gap-1.5 flex-1">
+              <label class="text-xs text-zinc-400 font-medium">New password</label>
+              <input type="password" id="pw-input" class="bg-zinc-800 border border-white/10 text-white text-sm rounded-md px-3 py-1.5 outline-none focus:border-white/25 w-64" placeholder="Min. 12 characters">
+            </div>
+            <button type="button" id="pw-btn" class="text-xs font-semibold bg-zinc-700 hover:bg-zinc-600 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Set password</button>
+          </div>
+          <div id="pw-reqs" class="hidden px-5 pb-3 flex-wrap gap-1.5">
+            <span id="pr-length"  class="text-xs px-2 py-0.5 rounded border border-white/10 text-zinc-500">12+ chars</span>
+            <span id="pr-lower"   class="text-xs px-2 py-0.5 rounded border border-white/10 text-zinc-500">3+ lowercase</span>
+            <span id="pr-upper"   class="text-xs px-2 py-0.5 rounded border border-white/10 text-zinc-500">3+ uppercase</span>
+            <span id="pr-digit"   class="text-xs px-2 py-0.5 rounded border border-white/10 text-zinc-500">3+ digits</span>
+            <span id="pr-special" class="text-xs px-2 py-0.5 rounded border border-white/10 text-zinc-500">3+ special</span>
+          </div>
+          <p id="pw-error"   class="text-xs text-red-400 px-5 pb-3 m-0 hidden"></p>
+          <p id="pw-success" class="text-xs text-green-400 px-5 pb-3 m-0 hidden"></p>
+        </div>
+        <% } %>
+
       </div>
     </main>
   </div>
+
+<% if (granterRole === 'moderator' || granterRole === 'supervisor') { %>
+<script>
+(function () {
+  var btn     = document.getElementById('pw-btn');
+  var input   = document.getElementById('pw-input');
+  var reqsEl  = document.getElementById('pw-reqs');
+  var errEl   = document.getElementById('pw-error');
+  var okEl    = document.getElementById('pw-success');
+  if (!btn) return;
+
+  var pills = {
+    length:  document.getElementById('pr-length'),
+    lower:   document.getElementById('pr-lower'),
+    upper:   document.getElementById('pr-upper'),
+    digit:   document.getElementById('pr-digit'),
+    special: document.getElementById('pr-special'),
+  };
+
+  function setPill(el, met) {
+    el.style.color        = met ? '#4ade80' : '';
+    el.style.borderColor  = met ? 'rgba(74,222,128,0.22)' : '';
+  }
+
+  function checkReqs(pw) {
+    var met = {
+      length:  pw.length >= 12,
+      lower:   (pw.match(/[a-z]/g) || []).length >= 3,
+      upper:   (pw.match(/[A-Z]/g) || []).length >= 3,
+      digit:   (pw.match(/[0-9]/g) || []).length >= 3,
+      special: (pw.match(/[^a-zA-Z0-9]/g) || []).length >= 3,
+    };
+    reqsEl.style.display = pw.length === 0 ? 'none' : 'flex';
+    Object.keys(met).forEach(function (k) { setPill(pills[k], met[k]); });
+    return met.length && met.lower && met.upper && met.digit && met.special;
+  }
+
+  input.addEventListener('input', function () { checkReqs(this.value); });
+
+  btn.addEventListener('click', function () {
+    var pw = input.value;
+    errEl.classList.add('hidden');
+    okEl.classList.add('hidden');
+    if (!checkReqs(pw)) {
+      errEl.textContent = 'Password does not meet the requirements.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    btn.disabled = true;
+    fetch('/admin/users/<%= user._id %>/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        okEl.textContent = 'Password updated successfully.';
+        okEl.classList.remove('hidden');
+        input.value = '';
+        reqsEl.style.display = 'none';
+        Object.keys(pills).forEach(function (k) { setPill(pills[k], false); });
+      } else {
+        errEl.textContent = data.error || 'Something went wrong.';
+        errEl.classList.remove('hidden');
+      }
+    })
+    .catch(function () {
+      errEl.textContent = 'Request failed.';
+      errEl.classList.remove('hidden');
+    })
+    .finally(function () { btn.disabled = false; });
+  });
+}());
+</script>
+<% } %>
 
 </body>
 </html>

@@ -185,7 +185,7 @@ router.get('/users', async (req, res) => {
 router.get('/users/:id', async (req, res) => {
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).send('User not found');
-  res.render('admin/users/detail', { title: user.email?.value, currentPage: 'users', user });
+  res.render('admin/users/detail', { title: user.email?.value, currentPage: 'users', user, granterRole: req.session.roleOverride || req.session.adminRole });
 });
 
 // ── Admin Accounts ────────────────────────────────────────────────
@@ -249,6 +249,43 @@ router.post('/users/:id/role', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update role' });
+  }
+});
+
+router.post('/users/:id/password', async (req, res) => {
+  const granterRole = req.session.roleOverride || req.session.adminRole;
+  if (granterRole !== 'moderator' && granterRole !== 'supervisor') {
+    return res.status(403).json({ error: 'Access denied.' });
+  }
+  const { password } = req.body;
+  const pwLower   = (password?.match(/[a-z]/g) || []).length;
+  const pwUpper   = (password?.match(/[A-Z]/g) || []).length;
+  const pwDigit   = (password?.match(/[0-9]/g) || []).length;
+  const pwSpecial = (password?.match(/[^a-zA-Z0-9]/g) || []).length;
+  if (!password || password.length < 12 || pwLower < 3 || pwUpper < 3 || pwDigit < 3 || pwSpecial < 3) {
+    return res.status(400).json({ error: 'Password must be at least 12 characters with 3+ uppercase, 3+ lowercase, 3+ digits, and 3+ special characters.' });
+  }
+  try {
+    const target = await User.findById(req.params.id).select('role');
+    if (!target) return res.status(404).json({ error: 'User not found.' });
+    if (target.role !== 'user') {
+      return res.status(403).json({ error: 'Password reset is only available for regular users.' });
+    }
+    const hashed = await bcrypt.hash(password, 12);
+    await User.findByIdAndUpdate(req.params.id, { password: hashed });
+    logAuditEvent({
+      actorId:      req.session.adminId,
+      actorRole:    req.session.adminRole,
+      action:       'admin_password_reset',
+      entityType:   'user',
+      entityId:     target._id,
+      targetUserId: target._id,
+      metadata:     { targetRole: target.role },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update password.' });
   }
 });
 
@@ -666,7 +703,7 @@ router.post('/moderation/comment-reports/:id/approve', async (req, res) => {
 
   try {
     if (isContest) {
-      const comment = await ContestComment.findById(id).select('userId contestId').lean();
+      const comment = await ContestComment.findById(id).select('userId contestId body').lean();
       if (!comment) return res.redirect('/admin/moderation');
 
       await ContestComment.deleteOne({ _id: id });
@@ -674,13 +711,15 @@ router.post('/moderation/comment-reports/:id/approve', async (req, res) => {
       const reports = await ContestCommentReport.find({ contestCommentId: id, status: 'pending' }).select('reportedBy').lean();
       await ContestCommentReport.updateMany({ contestCommentId: id, status: 'pending' }, { $set: { status: 'approved' } });
 
+      const ccSnippet = (comment.body || '').slice(0, 60) + ((comment.body || '').length > 60 ? '…' : '');
+      const ccUrl     = comment.contestId ? `/contests/${comment.contestId}` : '/notifications';
       const notifs = [
         { userId: comment.userId, type: 'comment_removed', payload: { contestId: comment.contestId?.toString() }, read: false },
-        ...reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'approved' }, read: false })),
+        ...reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'approved', snippet: ccSnippet, url: ccUrl }, read: false })),
       ];
       await Notification.insertMany(notifs, { ordered: false });
     } else {
-      const comment = await Comment.findById(id).select('userId entryId').lean();
+      const comment = await Comment.findById(id).select('userId entryId body').lean();
       if (!comment) return res.redirect('/admin/moderation');
 
       await Comment.deleteOne({ _id: id });
@@ -691,9 +730,11 @@ router.post('/moderation/comment-reports/:id/approve', async (req, res) => {
       const reports = await CommentReport.find({ commentId: id, status: 'pending' }).select('reportedBy').lean();
       await CommentReport.updateMany({ commentId: id, status: 'pending' }, { $set: { status: 'approved' } });
 
+      const ecSnippet = (comment.body || '').slice(0, 60) + ((comment.body || '').length > 60 ? '…' : '');
+      const ecUrl     = comment.entryId ? `/entries/${comment.entryId}` : '/notifications';
       const notifs = [
         { userId: comment.userId, type: 'comment_removed', payload: { entryId: comment.entryId?.toString() }, read: false },
-        ...reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'approved' }, read: false })),
+        ...reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'approved', snippet: ecSnippet, url: ecUrl }, read: false })),
       ];
       await Notification.insertMany(notifs, { ordered: false });
     }
@@ -710,18 +751,24 @@ router.post('/moderation/comment-reports/:id/reject', async (req, res) => {
 
   try {
     if (isContest) {
+      const ccRej = await ContestComment.findById(id).select('contestId body').lean();
       await ContestComment.updateOne({ _id: id }, { $set: { hidden: false } });
       const reports = await ContestCommentReport.find({ contestCommentId: id, status: 'pending' }).select('reportedBy').lean();
       await ContestCommentReport.updateMany({ contestCommentId: id, status: 'pending' }, { $set: { status: 'rejected' } });
 
-      const notifs = reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'rejected' }, read: false }));
+      const ccRejSnippet = (ccRej?.body || '').slice(0, 60) + ((ccRej?.body || '').length > 60 ? '…' : '');
+      const ccRejUrl     = ccRej?.contestId ? `/contests/${ccRej.contestId}` : '/notifications';
+      const notifs = reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'rejected', snippet: ccRejSnippet, url: ccRejUrl }, read: false }));
       if (notifs.length) await Notification.insertMany(notifs, { ordered: false });
     } else {
+      const ecRej = await Comment.findById(id).select('entryId body').lean();
       await Comment.updateOne({ _id: id }, { $set: { hidden: false } });
       const reports = await CommentReport.find({ commentId: id, status: 'pending' }).select('reportedBy').lean();
       await CommentReport.updateMany({ commentId: id, status: 'pending' }, { $set: { status: 'rejected' } });
 
-      const notifs = reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'rejected' }, read: false }));
+      const ecRejSnippet = (ecRej?.body || '').slice(0, 60) + ((ecRej?.body || '').length > 60 ? '…' : '');
+      const ecRejUrl     = ecRej?.entryId ? `/entries/${ecRej.entryId}` : '/notifications';
+      const notifs = reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'rejected', snippet: ecRejSnippet, url: ecRejUrl }, read: false }));
       if (notifs.length) await Notification.insertMany(notifs, { ordered: false });
     }
   } catch (err) {
@@ -988,16 +1035,18 @@ router.post('/announcements/:id/delete', async (req, res) => {
 
 // ── Platform Settings (superadmin + founder) ──────────────────────────────────
 
-const SETTINGS_ROLES = ['superadmin', 'founder'];
+const SETTINGS_ROLES   = ['superadmin', 'founder'];
+const THRESHOLD_ROLES  = ['supervisor', 'superadmin', 'founder'];
 
 router.get('/settings', async (req, res) => {
   const role = req.session.roleOverride || req.session.adminRole;
-  if (!SETTINGS_ROLES.includes(role)) return res.redirect('/admin');
+  if (!THRESHOLD_ROLES.includes(role)) return res.redirect('/admin');
   const settings = await PlatformSettings.findOne({ key: 'global' }).lean();
   res.render('admin/settings', {
     title:       'Platform Settings',
     currentPage: 'settings',
     settings,
+    adminRole:   role,
     flash:       req.query.flash || null,
   });
 });
@@ -1011,6 +1060,31 @@ router.post('/settings/contest-eligibility', async (req, res) => {
   await PlatformSettings.findOneAndUpdate(
     { key: 'global' },
     { $set: { 'contestEligibility.minEntries': minEntries, 'contestEligibility.minRatingCount': minRatingCount, 'contestEligibility.minWeightedAvg': minWeightedAvg } },
+    { upsert: true }
+  );
+  res.redirect('/admin/settings?flash=saved');
+});
+
+router.post('/settings/entry-report-thresholds', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (!THRESHOLD_ROLES.includes(role)) return res.status(403).end();
+
+  const counts  = [].concat(req.body.count  || []);
+  const windows = [].concat(req.body.windowMinutes || []);
+
+  const thresholds = counts
+    .map((c, i) => ({
+      count:         Math.max(1, parseInt(c, 10) || 1),
+      windowMinutes: Math.max(1, parseInt(windows[i], 10) || 60),
+    }))
+    .filter(t => !isNaN(t.count) && !isNaN(t.windowMinutes))
+    .slice(0, 5);
+
+  if (!thresholds.length) return res.redirect('/admin/settings?flash=error');
+
+  await PlatformSettings.findOneAndUpdate(
+    { key: 'global' },
+    { $set: { entryReportThresholds: thresholds } },
     { upsert: true }
   );
   res.redirect('/admin/settings?flash=saved');

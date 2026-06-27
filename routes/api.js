@@ -1227,6 +1227,15 @@ router.post('/contests/:id/comments/:cid/report', async (req, res) => {
     return res.status(400).json({ error: "You can't report your own comment." });
   }
 
+  const existingCC = await ContestCommentReport.findOne({ contestCommentId: comment._id, reportedBy: req.session.userId }).lean();
+  if (existingCC) {
+    if (existingCC.status !== 'rejected') return res.status(409).json({ error: "You've already reported this comment." });
+    // Admin dismissed the previous report — allow re-report
+    await ContestCommentReport.updateOne({ _id: existingCC._id }, { $set: { status: 'pending' } });
+    await ContestComment.updateOne({ _id: comment._id }, { $set: { hidden: true } });
+    return res.json({ ok: true });
+  }
+
   try {
     await ContestCommentReport.create({
       contestCommentId: comment._id,
@@ -1239,6 +1248,34 @@ router.post('/contests/:id/comments/:cid/report', async (req, res) => {
     console.error('Contest comment report error:', err);
     res.status(500).json({ error: 'Something went wrong.' });
   }
+});
+
+router.post('/contests/:id/comments/:cid/react', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.cid)) {
+    return res.status(400).json({ error: 'Invalid ID.' });
+  }
+  const { type } = req.body;
+  if (!['like', 'dislike'].includes(type)) return res.status(400).json({ error: 'Invalid type.' });
+  const comment = await ContestComment.findById(req.params.cid).select('contestId likes dislikes').catch(() => null);
+  if (!comment || comment.contestId.toString() !== req.params.id) return res.status(404).json({ error: 'Comment not found.' });
+  const uid = req.session.userId.toString();
+  const hasLiked    = comment.likes.some(id => id.toString() === uid);
+  const hasDisliked = comment.dislikes.some(id => id.toString() === uid);
+  let update;
+  if (type === 'like') {
+    if (hasLiked)         update = { $pull: { likes: req.session.userId } };
+    else if (hasDisliked) update = { $pull: { dislikes: req.session.userId }, $addToSet: { likes: req.session.userId } };
+    else                  update = { $addToSet: { likes: req.session.userId } };
+  } else {
+    if (hasDisliked)   update = { $pull: { dislikes: req.session.userId } };
+    else if (hasLiked) update = { $pull: { likes: req.session.userId }, $addToSet: { dislikes: req.session.userId } };
+    else               update = { $addToSet: { dislikes: req.session.userId } };
+  }
+  const updated = await ContestComment.findByIdAndUpdate(comment._id, update, { new: true }).select('likes dislikes');
+  const userLiked    = updated.likes.some(id => id.toString() === uid);
+  const userDisliked = updated.dislikes.some(id => id.toString() === uid);
+  res.json({ likes: updated.likes.length, dislikes: updated.dislikes.length, userLiked, userDisliked });
 });
 
 // GET /api/similar-accounts/:username — followers + following of the profile, for follow suggestions
@@ -1455,8 +1492,21 @@ router.post('/entries/:eid/comments/:cid/report', async (req, res) => {
   if (!comment || comment.entryId.toString() !== req.params.eid) return res.status(404).json({ error: 'Comment not found.' });
   if (comment.userId.toString() === req.session.userId.toString()) return res.status(400).json({ error: "You can't report your own comment." });
 
+  const reasons = Array.isArray(req.body.reasons)
+    ? req.body.reasons.filter(r => typeof r === 'string').slice(0, 10)
+    : [];
+
+  const existing = await CommentReport.findOne({ commentId: comment._id, reportedBy: req.session.userId }).lean();
+  if (existing) {
+    if (existing.status !== 'rejected') return res.status(409).json({ error: "You've already reported this comment." });
+    // Admin dismissed the previous report — allow re-report
+    await CommentReport.updateOne({ _id: existing._id }, { $set: { status: 'pending', reasons } });
+    await Comment.updateOne({ _id: comment._id }, { $set: { hidden: true } });
+    return res.json({ ok: true });
+  }
+
   try {
-    await CommentReport.create({ commentId: comment._id, reportedBy: req.session.userId });
+    await CommentReport.create({ commentId: comment._id, reportedBy: req.session.userId, reasons });
     await Comment.updateOne({ _id: comment._id }, { $set: { hidden: true } });
     res.json({ ok: true });
   } catch (err) {
@@ -1464,6 +1514,58 @@ router.post('/entries/:eid/comments/:cid/report', async (req, res) => {
     console.error('Comment report error:', err);
     res.status(500).json({ error: 'Something went wrong.' });
   }
+});
+
+router.post('/entries/:eid/comments/:cid/pin', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.eid) || !mongoose.isValidObjectId(req.params.cid)) {
+    return res.status(400).json({ error: 'Invalid ID.' });
+  }
+  const entry = await Entry.findById(req.params.eid).select('userId').lean().catch(() => null);
+  if (!entry) return res.status(404).json({ error: 'Entry not found.' });
+  if (entry.userId.toString() !== req.session.userId.toString()) {
+    return res.status(403).json({ error: 'Only the entry owner can pin comments.' });
+  }
+  const comment = await Comment.findById(req.params.cid).select('entryId pinnedAt').catch(() => null);
+  if (!comment || comment.entryId.toString() !== req.params.eid) {
+    return res.status(404).json({ error: 'Comment not found.' });
+  }
+  if (comment.pinnedAt) {
+    await Comment.updateOne({ _id: comment._id }, { $set: { pinnedAt: null } });
+    return res.json({ pinned: false });
+  }
+  const pinnedCount = await Comment.countDocuments({ entryId: comment.entryId, pinnedAt: { $ne: null } });
+  if (pinnedCount >= 2) return res.status(400).json({ error: 'You can only pin up to 2 comments.' });
+  await Comment.updateOne({ _id: comment._id }, { $set: { pinnedAt: new Date() } });
+  res.json({ pinned: true });
+});
+
+router.post('/entries/:eid/comments/:cid/react', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.eid) || !mongoose.isValidObjectId(req.params.cid)) {
+    return res.status(400).json({ error: 'Invalid ID.' });
+  }
+  const { type } = req.body;
+  if (!['like', 'dislike'].includes(type)) return res.status(400).json({ error: 'Invalid type.' });
+  const comment = await Comment.findById(req.params.cid).select('entryId likes dislikes').catch(() => null);
+  if (!comment || comment.entryId.toString() !== req.params.eid) return res.status(404).json({ error: 'Comment not found.' });
+  const uid = req.session.userId.toString();
+  const hasLiked    = comment.likes.some(id => id.toString() === uid);
+  const hasDisliked = comment.dislikes.some(id => id.toString() === uid);
+  let update;
+  if (type === 'like') {
+    if (hasLiked)         update = { $pull: { likes: req.session.userId } };
+    else if (hasDisliked) update = { $pull: { dislikes: req.session.userId }, $addToSet: { likes: req.session.userId } };
+    else                  update = { $addToSet: { likes: req.session.userId } };
+  } else {
+    if (hasDisliked)   update = { $pull: { dislikes: req.session.userId } };
+    else if (hasLiked) update = { $pull: { likes: req.session.userId }, $addToSet: { dislikes: req.session.userId } };
+    else               update = { $addToSet: { dislikes: req.session.userId } };
+  }
+  const updated = await Comment.findByIdAndUpdate(comment._id, update, { new: true }).select('likes dislikes');
+  const userLiked    = updated.likes.some(id => id.toString() === uid);
+  const userDisliked = updated.dislikes.some(id => id.toString() === uid);
+  res.json({ likes: updated.likes.length, dislikes: updated.dislikes.length, userLiked, userDisliked });
 });
 
 // ── Entry report ──────────────────────────────────────────────────────────────

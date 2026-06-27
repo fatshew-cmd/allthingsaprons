@@ -9,10 +9,10 @@ function fmtNotifTime(d) {
   const diffMin = Math.floor(diffMs / 60000);
   const diffH   = Math.floor(diffMs / 3600000);
   const diffD   = Math.floor(diffMs / 86400000);
-  if (diffMin < 1)  return 'now';
-  if (diffMin < 60) return diffMin + 'm ago';
-  if (diffH   < 24) return diffH   + 'h ago';
-  if (diffD   <  7) return diffD   + 'd ago';
+  if (diffMin < 1)  return 'Just now';
+  if (diffMin < 60) return diffMin + 'm';
+  if (diffH   < 24) return diffH   + 'h';
+  if (diffD   <  7) return diffD   + 'd';
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -88,10 +88,12 @@ function notifText(n) {
     }
     case 'comment_removed':
       return 'Your comment was removed for violating our community guidelines';
-    case 'report_reviewed':
+    case 'report_reviewed': {
+      var rrSnip = p.snippet ? ' — “' + p.snippet + '”' : '';
       return p.outcome === 'approved'
-        ? 'Your report was reviewed — the content has been removed'
-        : 'Your report was reviewed — no violation was found';
+        ? 'Comment removed' + rrSnip
+        : 'No violation found' + rrSnip;
+    }
     case 'contest_stalled':
       return 'Your contest has been paused while a reported entry is under review';
     case 'contest_resumed':
@@ -245,7 +247,7 @@ function notifIcon(type) {
       <div class="flex items-center gap-3 pl-12">
         <a href="/guidelines" class="text-xs text-white/35 hover:text-white/60 transition-colors no-underline">Community guidelines</a>
         <span class="text-white/15 text-xs">·</span>
-        <a href="/contact?topic=moderation" class="text-xs text-charm-400 hover:text-charm-300 font-semibold transition-colors no-underline">Dispute this decision</a>
+        <a href="/contact/new?topic=moderation&contentType=<%= n.type === 'entry_removed' ? 'entry' : 'comment' %>" class="text-xs text-charm-400 hover:text-charm-300 font-semibold transition-colors no-underline">Dispute this decision</a>
       </div>
 
       <% } else { %>

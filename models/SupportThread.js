@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
 
-const TOPICS = ['general', 'id_verification', 'billing'];
+const TOPICS = ['general', 'id_verification', 'billing', 'moderation'];
 
 const TOPIC_LABELS = {
   general:         'General',
   id_verification: 'Identity Verification',
   billing:         'Billing & Transactions',
+  moderation:      'Moderation Dispute',
 };
 
 const supportThreadSchema = new mongoose.Schema({

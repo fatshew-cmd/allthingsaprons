@@ -7,6 +7,8 @@ const contestCommentSchema = new mongoose.Schema({
   body:      { type: String, required: true, maxlength: 1000 },
   hidden:    { type: Boolean, default: false },
   editedAt:  { type: Date, default: null },
+  likes:     [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  dislikes:  [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
 contestCommentSchema.index({ contestId: 1 });

@@ -57,6 +57,7 @@ router.get('/new', async (req, res) => {
     const validTopics = SupportThread.schema.path('topic').enumValues;
     const topic = validTopics.includes(req.query.topic) ? req.query.topic : 'general';
     const txId  = req.query.txId || null;
+    const contentType = req.query.contentType || null;
 
     let thread = await SupportThread.findOne({
       userId: req.session.userId,
@@ -67,6 +68,21 @@ router.get('/new', async (req, res) => {
     const isNew = !thread;
     if (!thread) {
       thread = await SupportThread.create({ userId: req.session.userId, topic });
+    }
+
+    // Auto-post a reference message for moderation disputes
+    if (isNew && topic === 'moderation') {
+      const label = contentType === 'entry' ? 'entry' : contentType === 'comment' ? 'comment' : 'content';
+      const body  = `I'd like to dispute a moderation decision.\n\nThe ${label} was removed and I believe it did not violate the community guidelines. Please review this decision.`;
+      await SupportMessage.create({
+        threadId:      thread._id,
+        userId:        req.session.userId,
+        from:          'user',
+        body,
+        readBySupport: false,
+        readByUser:    true,
+      });
+      await SupportThread.findByIdAndUpdate(thread._id, { updatedAt: new Date() });
     }
 
     // Auto-post a reference message when opening a billing dispute from a transaction page

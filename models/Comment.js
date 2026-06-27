@@ -7,6 +7,9 @@ const commentSchema = new mongoose.Schema({
   body:     { type: String, required: true },
   hidden:   { type: Boolean, default: false },
   editedAt: { type: Date, default: null },
+  likes:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  dislikes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  pinnedAt: { type: Date, default: null },
 }, { timestamps: true });
 
 commentSchema.index({ entryId: 1 });

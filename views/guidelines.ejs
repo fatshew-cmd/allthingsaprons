@@ -1,0 +1,72 @@
+<%- include('partials/appStart', { title: title, activePage: '' }) %>
+
+<div class="pb-20 md:pb-0">
+
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <h1 class="font-black text-xl tracking-tight">Community Guidelines</h1>
+  </header>
+
+  <div class="px-5 py-8 max-w-2xl flex flex-col gap-8">
+
+    <p class="text-sm text-white/60 leading-relaxed">
+      All Things Aprons is built on fair competition and mutual respect. These guidelines apply to all content and conduct on the platform. Violations may result in content removal, account restriction, or permanent ban.
+    </p>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="text-base font-bold text-white">1. Entries</h2>
+      <ul class="flex flex-col gap-2 text-sm text-white/60 leading-relaxed list-none">
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>Submit only original content you own or have rights to.</li>
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>No sexually explicit, violent, or hateful imagery.</li>
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>Mark mature content accurately using the mature flag on submission.</li>
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>Do not submit spam, duplicates, or content designed to game the rating system.</li>
+      </ul>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="text-base font-bold text-white">2. Ratings &amp; Voting</h2>
+      <ul class="flex flex-col gap-2 text-sm text-white/60 leading-relaxed list-none">
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>Rate and vote honestly — coordinated manipulation is a ban-level offense.</li>
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>You cannot rate or vote for your own entries.</li>
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>Do not pressure or incentivize others to vote a specific way.</li>
+      </ul>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="text-base font-bold text-white">3. Comments</h2>
+      <ul class="flex flex-col gap-2 text-sm text-white/60 leading-relaxed list-none">
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>No harassment, hate speech, or personal attacks.</li>
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>No spam, self-promotion, or off-topic solicitation.</li>
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>Constructive criticism is welcome; malicious targeting is not.</li>
+      </ul>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="text-base font-bold text-white">4. Contests &amp; Tournaments</h2>
+      <ul class="flex flex-col gap-2 text-sm text-white/60 leading-relaxed list-none">
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>Compete in good faith. Forfeiting without cause is penalized.</li>
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>Do not collude with opponents or judges.</li>
+        <li class="flex gap-2"><span class="text-white/20 shrink-0">—</span>Prize tournaments require ID verification — no exceptions.</li>
+      </ul>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="text-base font-bold text-white">5. Enforcement</h2>
+      <p class="text-sm text-white/60 leading-relaxed">
+        Reports are reviewed by our moderation team. Decisions can be disputed within 30 days via the support channel. We aim to respond within 3 business days.
+      </p>
+      <% if (typeof currentUser !== 'undefined' && currentUser) { %>
+      <div class="mt-1">
+        <a href="/contact/new?topic=moderation"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors no-underline">
+          <iconify-icon icon="boxicons:support" width="15" style="display:block"></iconify-icon>
+          Open a moderation dispute
+        </a>
+      </div>
+      <% } %>
+    </section>
+
+  </div>
+
+</div>
+
+<%- include('partials/appEnd') %>

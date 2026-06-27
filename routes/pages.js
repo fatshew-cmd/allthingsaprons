@@ -28,6 +28,10 @@ const requireAuth   = require('../middleware/requireAuth');
 const requireApproved = require('../middleware/requireApproved');
 const upload        = require('../middleware/upload');
 
+router.get('/guidelines', (req, res) => {
+  res.render('guidelines', { title: 'Community Guidelines' });
+});
+
 router.use(requireAuth);
 router.use(requireApproved);
 
@@ -417,7 +421,16 @@ const entry = await Entry.findById(req.params.id).populate('userId', 'username d
   const raterIds = ratingDocs.map(r => r.userId);
   const raterUsers = await User.find({ _id: { $in: raterIds } }).select('username displayName avatar').lean();
   const raterMap = Object.fromEntries(raterUsers.map(u => [u._id.toString(), u]));
-  const entryRatings = ratingDocs.map(r => ({ ...r, userId: raterMap[r.userId.toString()] || null }));
+  const raterFollowSet = new Set();
+  if (req.session.userId && raterIds.length) {
+    const myFollows = await Follow.find({ followerId: req.session.userId, followingId: { $in: raterIds } }).select('followingId').lean();
+    myFollows.forEach(f => raterFollowSet.add(f.followingId.toString()));
+  }
+  const entryRatings = ratingDocs.map(r => ({
+    ...r,
+    userId: raterMap[r.userId.toString()] || null,
+    isFollowing: raterFollowSet.has(r.userId.toString()),
+  }));
 
   const topLevelIds = topLevelComments.map(c => c._id);
   const replies = topLevelIds.length
@@ -434,6 +447,23 @@ const entry = await Entry.findById(req.params.id).populate('userId', 'username d
     replyMap[pid].push(r);
   }
   const comments = topLevelComments.map(c => ({ ...c, replies: replyMap[c._id.toString()] || [] }));
+
+  const _now = Date.now();
+  const _scoreComment = c => {
+    const ownNet     = (c.likes?.length || 0) - (c.dislikes?.length || 0);
+    const hoursOld   = (_now - new Date(c.createdAt).getTime()) / 3600000;
+    const recency    = 1 / Math.pow(hoursOld + 2, 1.5);
+    const replyBoost = (c.replies || []).reduce((sum, r) => {
+      const rNet   = (r.likes?.length || 0) - (r.dislikes?.length || 0);
+      const rHours = (_now - new Date(r.createdAt).getTime()) / 3600000;
+      return sum + rNet * (1 / Math.pow(rHours + 2, 1.5));
+    }, 0);
+    return ownNet + replyBoost * 0.25 + recency;
+  };
+  comments.sort((a, b) => _scoreComment(b) - _scoreComment(a));
+  const _pinned   = comments.filter(c => c.pinnedAt).sort((a, b) => new Date(a.pinnedAt) - new Date(b.pinnedAt));
+  const _unpinned = comments.filter(c => !c.pinnedAt);
+  comments.splice(0, comments.length, ..._pinned, ..._unpinned);
 
   res.render('entry', {
     title:       entry.title || entry.caption?.slice(0, 60) || 'Entry',
@@ -1257,6 +1287,20 @@ router.get('/contest/:id', async (req, res) => {
     replyMap[pid].push(r);
   }
   const comments = topLevelComments.map(c => ({ ...c, replies: replyMap[c._id.toString()] || [] }));
+
+  const _nowCC = Date.now();
+  const _scoreCC = c => {
+    const ownNet     = (c.likes?.length || 0) - (c.dislikes?.length || 0);
+    const hoursOld   = (_nowCC - new Date(c.createdAt).getTime()) / 3600000;
+    const recency    = 1 / Math.pow(hoursOld + 2, 1.5);
+    const replyBoost = (c.replies || []).reduce((sum, r) => {
+      const rNet   = (r.likes?.length || 0) - (r.dislikes?.length || 0);
+      const rHours = (_nowCC - new Date(r.createdAt).getTime()) / 3600000;
+      return sum + rNet * (1 / Math.pow(rHours + 2, 1.5));
+    }, 0);
+    return ownNet + replyBoost * 0.25 + recency;
+  };
+  comments.sort((a, b) => _scoreCC(b) - _scoreCC(a));
 
   const participantIds = [left?.userId, right?.userId].filter(Boolean);
   const relatedContests = participantIds.length
