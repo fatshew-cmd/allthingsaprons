@@ -1,0 +1,158 @@
+<%- include('partials/appStart', { title: 'Explore', activePage: 'explore' }) %>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+<% if (!sections || sections.length === 0) { %>
+    <div class="flex flex-col items-center justify-center py-20 gap-3 text-center">
+      <iconify-icon icon="boxicons:compass" width="40" class="text-white/15"></iconify-icon>
+      <p class="text-sm text-white/30">Nothing to explore. Check back later.</p>
+    </div>
+  <% } else { %>
+
+    <% sections.forEach(function(section) { %>
+
+      <% if (section.type === 'entries') { %>
+        <!-- ── Entry cards block ────────────────────────────────────── -->
+        <% section.entries.forEach(function(fe) { %>
+          <%- include('partials/entryCard', {
+            entry:         fe,
+            owner:         fe.owner,
+            currentUserId: currentUser._id.toString(),
+            isFollowing:   fe.isFollowing || false,
+            userRating:    fe.userRating,
+            nominees:      [],
+            contestInfo:   null,
+            isBookmarked:  false,
+          }) %>
+        <% }) %>
+
+      <% } else if (section.type === 'stains') { %>
+        <!-- ── Trending stains block ─────────────────────────────────── -->
+        <div class="px-4 py-5 border-t border-white/8">
+          <p class="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Trending Stains</p>
+          <div class="flex flex-wrap gap-2">
+            <% section.stains.forEach(function(s) { %>
+              <a
+                href="/search?q=<%= encodeURIComponent('#' + s.tag) %>"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/5 border border-white/8 hover:border-charm-500/40 hover:bg-charm-600/8 transition-colors text-sm text-white/70 hover:text-white no-underline"
+              >
+                <span class="text-charm-400 font-medium">#</span><%= s.tag %>
+              </a>
+            <% }) %>
+          </div>
+        </div>
+
+      <% } else if (section.type === 'people') { %>
+        <!-- ── People sub-section ────────────────────────────────────── -->
+        <div class="px-4 py-5 border-t border-white/8">
+          <div class="flex items-center justify-between mb-4">
+            <p class="text-xs font-bold text-white/40 uppercase tracking-wider m-0"><%= section.label %></p>
+            <% if (section.allCount > 3) { %>
+              <a
+                href="/search?category=people&filter=<%= section.key %>"
+                class="text-xs text-charm-400 hover:text-charm-300 transition-colors no-underline"
+              >Show more</a>
+            <% } %>
+          </div>
+
+          <div class="flex flex-col gap-4">
+            <% section.users.forEach(function(u) { %>
+              <div class="flex items-center gap-3" data-explore-person="<%= u.username?.value %>">
+                <a href="/<%= u.username?.value %>" class="shrink-0">
+                  <img
+                    src="<%= u.avatar?.value || '/img/default-avatar.png' %>"
+                    class="w-10 h-10 rounded-full object-cover bg-white/5"
+                    alt=""
+                    loading="lazy"
+                  />
+                </a>
+                <div class="flex-1 min-w-0">
+                  <a href="/<%= u.username?.value %>" class="text-sm font-semibold text-white hover:text-charm-300 transition-colors block truncate no-underline">
+                    <%= u.displayName?.value || u.username?.value %>
+                  </a>
+                  <p class="text-xs text-white/40 truncate m-0">@<%= u.username?.value %></p>
+                </div>
+                <button
+                  class="text-xs font-semibold text-charm-400 hover:text-charm-300 transition-colors shrink-0 explore-follow-btn"
+                  data-username="<%= u.username?.value %>"
+                >Follow</button>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+
+      <% } %>
+
+    <% }) %>
+
+    <!-- Infinite scroll sentinel -->
+    <div id="explore-sentinel" class="flex justify-center py-8">
+      <iconify-icon icon="boxicons:loader-circle" width="20" class="text-white/20 hidden animate-spin" id="explore-spinner"></iconify-icon>
+    </div>
+
+  <% } %>
+
+</div>
+
+<script>
+(function () {
+  function wireFollowBtns(root) {
+    (root || document).querySelectorAll('.explore-follow-btn').forEach(function (btn) {
+      if (btn.dataset.wired) return;
+      btn.dataset.wired = '1';
+      btn.addEventListener('click', function () {
+        fetch('/follow/' + btn.dataset.username, { method: 'POST' })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.following) {
+              btn.textContent = 'Following';
+              btn.classList.replace('text-charm-400', 'text-white/40');
+              btn.disabled = true;
+            }
+          })
+          .catch(function () {});
+      });
+    });
+  }
+
+  wireFollowBtns();
+
+  var explorePage     = 1;
+  var exploreLoading  = false;
+  var exploreExhausted = false;
+  var sentinel        = document.getElementById('explore-sentinel');
+  var spinner         = document.getElementById('explore-spinner');
+  var feed            = sentinel?.parentElement;
+
+  if (sentinel && typeof IntersectionObserver !== 'undefined') {
+    var observer = new IntersectionObserver(function (entries) {
+      if (!entries[0].isIntersecting || exploreLoading || exploreExhausted) return;
+      exploreLoading = true;
+      spinner?.classList.remove('hidden');
+
+      fetch('/api/explore/entries?page=' + explorePage)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.html) {
+            sentinel.insertAdjacentHTML('beforebegin', data.html);
+            wireFollowBtns();
+            explorePage++;
+          }
+          if (!data.hasMore) {
+            exploreExhausted = true;
+            sentinel.remove();
+          }
+        })
+        .catch(function () {})
+        .finally(function () {
+          exploreLoading = false;
+          spinner?.classList.add('hidden');
+        });
+    }, { rootMargin: '300px' });
+
+    observer.observe(sentinel);
+  }
+})();
+</script>
+
+<%- include('partials/appEnd') %>

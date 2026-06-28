@@ -110,6 +110,7 @@ What remains in Phase 6: tournament management pages (deferred to July).
 | Admin user detail — password reset | `POST /admin/users/:id/password` — moderator/supervisor can reset a regular user's password with strict complexity rules. Audit-logged. |
 
 ### What is not done yet
+- **Admin hidden user parameters** — superadmin+ can attach hidden labels/tags to any user profile. Not visible to the user or to viewers — admin-facing only. Functions like admin-added stains on a user (e.g. internal flags, behavioral notes, content categories). Stored as a separate field on User, rendered only in the admin user detail page. Settable and removable by superadmin and founder only.
 - Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
 - ~~Fake credits admin action~~ — dropped; the fake `/wallet/topup` stub already lets any user acquire chillies without real payment, making a separate admin grant redundant
 - `Retag` model is scaffolded (`models/Retag.js`) but not yet wired into any route or UI

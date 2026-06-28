@@ -52,12 +52,21 @@
   </div>
   <% } %>
 
-  <!-- User row -->
-  <div class="px-3 pt-3">
-    <div class="flex items-center gap-3">
-      <!-- Left group: avatar + names + follow (all close together) -->
-      <div class="flex items-center gap-3 min-w-0 flex-1">
-        <!-- Avatar -->
+  <!-- Two-column layout on feed; full-width on entry detail page -->
+  <div class="<%= locals.mediaFull ? '' : 'flex gap-3 ' %>px-3 pt-3">
+    <% if (!locals.mediaFull) { %>
+    <a href="/<%= owner.username?.value %>" class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
+      <% if (owner.avatar?.value) { %>
+      <img src="<%= owner.avatar.value %>" alt="<%= owner.username?.value %>" class="w-full h-full object-cover">
+      <% } else { %>
+      <iconify-icon icon="boxicons:user" width="18" class="text-white/30"></iconify-icon>
+      <% } %>
+    </a>
+    <% } %>
+    <div class="<%= locals.mediaFull ? '' : 'flex-1 ' %>min-w-0">
+      <!-- Names + follow + more menu -->
+      <div class="flex items-center gap-2">
+        <% if (locals.mediaFull) { %>
         <a href="/<%= owner.username?.value %>" class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
           <% if (owner.avatar?.value) { %>
           <img src="<%= owner.avatar.value %>" alt="<%= owner.username?.value %>" class="w-full h-full object-cover">
@@ -65,58 +74,54 @@
           <iconify-icon icon="boxicons:user" width="18" class="text-white/30"></iconify-icon>
           <% } %>
         </a>
-        <!-- Names -->
-        <div class="min-w-0">
-          <a href="/<%= owner.username?.value %>" class="block text-sm font-semibold text-white truncate leading-tight hover:text-charm-300 transition-colors">
-            <%= owner.displayName?.value || ('@' + owner.username?.value) %>
-          </a>
-          <a href="/<%= owner.username?.value %>" class="block text-xs text-white/40 truncate leading-tight mt-0.5">@<%= owner.username?.value %></a>
+        <% } %>
+        <div class="min-w-0 flex-1 flex items-center gap-3">
+          <div class="min-w-0">
+            <a href="/<%= owner.username?.value %>" class="block text-sm font-semibold text-white truncate leading-tight hover:text-charm-300 transition-colors"><%= owner.displayName?.value || ('@' + owner.username?.value) %></a>
+            <a href="/<%= owner.username?.value %>" class="block text-xs text-white/40 truncate leading-tight mt-0.5">@<%= owner.username?.value %></a>
+          </div>
+          <% if (!_isOwner && isFollowing) { %>
+          <button class="ec-follow text-xs font-semibold rounded-md px-2.5 py-1 border border-white/30 text-white/50 hover:bg-white/8 transition-colors cursor-pointer shrink-0" data-username="<%= owner.username?.value %>" data-following="true">Following</button>
+          <% } else if (!_isOwner) { %>
+          <button class="ec-follow text-xs font-semibold rounded-md px-2.5 py-1 border border-charm-500/40 text-charm-400 hover:bg-charm-500/10 transition-colors cursor-pointer shrink-0" data-username="<%= owner.username?.value %>" data-following="false">Follow</button>
+          <% } %>
+          <span class="text-xs text-white/35 shrink-0"><%= _ecDate(entry.createdAt) %></span>
         </div>
-        <!-- Follow button immediately after names -->
-        <% if (!_isOwner && isFollowing) { %>
-        <button class="ec-follow text-xs font-semibold rounded-md px-2.5 py-1 border border-white/30 text-white/50 hover:bg-white/8 transition-colors cursor-pointer shrink-0 ml-3" data-username="<%= owner.username?.value %>" data-following="true">Following</button>
-        <% } else if (!_isOwner) { %>
-        <button class="ec-follow text-xs font-semibold rounded-md px-2.5 py-1 border border-charm-500/40 text-charm-400 hover:bg-charm-500/10 transition-colors cursor-pointer shrink-0 ml-3" data-username="<%= owner.username?.value %>" data-following="false">Follow</button>
+        <!-- More menu -->
+        <% if (!_isOwner) { %>
+        <div class="relative shrink-0">
+          <button class="ec-more-btn w-8 h-8 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition-colors cursor-pointer" onclick="ecToggleMore(this,event)">
+            <iconify-icon icon="boxicons:dots-horizontal-rounded" width="20"></iconify-icon>
+          </button>
+          <div class="ec-more-menu hidden absolute right-0 top-9 z-50 w-52 bg-shark-900 border border-white/10 rounded-md shadow-xl overflow-hidden" data-eid="<%= _eid %>">
+            <button class="ec-more-report w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white/65 hover:bg-white/8 hover:text-white transition-colors cursor-pointer text-left" data-eid="<%= _eid %>">
+              <iconify-icon icon="boxicons:flag-alt-2" width="15" class="shrink-0 text-white/35"></iconify-icon>
+              <span>Report this post</span>
+            </button>
+            <button class="ec-more-block w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white/65 hover:bg-white/8 hover:text-white transition-colors cursor-pointer text-left" data-username="<%= owner.username?.value %>">
+              <iconify-icon icon="boxicons:block-filled" width="15" class="shrink-0 text-white/35"></iconify-icon>
+              <span>Block @<%= owner.username?.value %></span>
+            </button>
+            <button class="ec-more-notinterested w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white/65 hover:bg-white/8 hover:text-white transition-colors cursor-pointer text-left" data-eid="<%= _eid %>">
+              <iconify-icon icon="boxicons:sad-filled" width="15" class="shrink-0 text-white/35"></iconify-icon>
+              <span>Not interested in this post</span>
+            </button>
+          </div>
+        </div>
         <% } %>
       </div>
-      <!-- More menu pinned to far right -->
-      <% if (!_isOwner) { %>
-      <div class="relative shrink-0">
-        <button class="ec-more-btn w-8 h-8 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition-colors cursor-pointer" onclick="ecToggleMore(this,event)">
-          <iconify-icon icon="boxicons:dots-horizontal-rounded" width="20"></iconify-icon>
-        </button>
-        <div class="ec-more-menu hidden absolute right-0 top-9 z-50 w-52 bg-shark-900 border border-white/10 rounded-md shadow-xl overflow-hidden" data-eid="<%= _eid %>">
-          <button class="ec-more-report w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white/65 hover:bg-white/8 hover:text-white transition-colors cursor-pointer text-left" data-eid="<%= _eid %>">
-            <iconify-icon icon="boxicons:flag-alt-2" width="15" class="shrink-0 text-white/35"></iconify-icon>
-            <span>Report this post</span>
-          </button>
-          <button class="ec-more-block w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white/65 hover:bg-white/8 hover:text-white transition-colors cursor-pointer text-left" data-username="<%= owner.username?.value %>">
-            <iconify-icon icon="boxicons:block-filled" width="15" class="shrink-0 text-white/35"></iconify-icon>
-            <span>Block @<%= owner.username?.value %></span>
-          </button>
-          <button class="ec-more-notinterested w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white/65 hover:bg-white/8 hover:text-white transition-colors cursor-pointer text-left" data-eid="<%= _eid %>">
-            <iconify-icon icon="boxicons:sad-filled" width="15" class="shrink-0 text-white/35"></iconify-icon>
-            <span>Not interested in this post</span>
-          </button>
-        </div>
-      </div>
-      <% } %>
-    </div>
-    <!-- Timestamp below the full top row -->
-    <p class="text-xs text-white/35 mt-2"><%= _ecDate(entry.createdAt) %></p>
-  </div>
 
   <!-- Title + Caption -->
   <% if (entry.title) { %>
-  <p class="px-3 pt-2.5 text-base font-bold text-white leading-snug"><%= entry.title %></p>
+  <p class="pt-2.5 text-base font-bold text-white leading-snug"><%= entry.title %></p>
   <% } %>
   <% if (entry.caption) { %>
-  <p class="px-3 <%= entry.title ? 'pt-1' : 'pt-2.5' %> text-sm leading-relaxed text-white/55"><%= entry.caption %></p>
+  <p class="<%= entry.title ? 'pt-1' : 'pt-2.5' %> text-sm leading-relaxed text-white/55"><%= entry.caption %></p>
   <% } %>
 
   <!-- Tags -->
   <% if (entry.tags && entry.tags.length > 0) { %>
-  <div class="px-3 pt-2 flex flex-wrap gap-x-2 gap-y-0.5">
+  <div class="pt-2 flex flex-wrap gap-x-2 gap-y-0.5">
     <% entry.tags.forEach(function(t) { %><span class="text-xs text-charm-400/50">#<%= t %></span><% }); %>
   </div>
   <% } %>
@@ -221,7 +226,7 @@
 
   <!-- Nominees -->
   <% if (locals.nominees && locals.nominees.length) { %>
-  <div class="px-3 pt-3 flex flex-col gap-1.5">
+  <div class="pt-3 flex flex-col gap-1.5">
     <p class="text-xs font-semibold text-white/35 uppercase tracking-wide">Head to Head</p>
     <div class="flex flex-wrap gap-1.5">
       <% locals.nominees.forEach(function(n) {
@@ -282,7 +287,7 @@
   <% } %>
 
   <!-- CTAs -->
-  <div class="px-2 pt-3 pb-1.5 flex items-center gap-0.5" id="ec-ctas-<%= _eid %>">
+  <div class="-ml-2 pt-3 pb-1.5 flex items-center gap-0.5" id="ec-ctas-<%= _eid %>">
     <span class="flex items-center gap-1.5 px-3 py-2 text-white/50">
       <iconify-icon icon="boxicons:bar-chart" width="18" class="shrink-0"></iconify-icon>
       <span class="text-sm font-medium"><%= (entry.viewCount || 0).toLocaleString() %></span>
@@ -311,11 +316,20 @@
       <iconify-icon icon="boxicons:pencil" width="17"></iconify-icon>
     </a>
     <% } %>
-    <button class="w-9 h-9 flex items-center justify-center rounded-md text-white/35 hover:bg-white/8 hover:text-white transition-colors cursor-pointer">
-      <iconify-icon icon="boxicons:bookmark" width="18"></iconify-icon>
+    <% if (_isOwner) { %>
+    <span class="flex items-center gap-1.5 px-3 py-2 text-white/25 select-none">
+      <iconify-icon icon="boxicons:bookmark" width="16" class="shrink-0"></iconify-icon>
+      <span class="text-sm font-medium"><%= entry.bookmarkCount || 0 %></span>
+    </span>
+    <% } else { %>
+    <button class="ec-bookmark-btn flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors cursor-pointer <%= locals.isBookmarked ? 'text-charm-400' : 'text-white/35 hover:bg-white/8 hover:text-white' %>" data-eid="<%= _eid %>" data-bookmarked="<%= locals.isBookmarked ? 'true' : 'false' %>" title="<%= locals.isBookmarked ? 'Remove bookmark' : 'Bookmark' %>">
+      <iconify-icon icon="<%= locals.isBookmarked ? 'boxicons:bookmark-filled' : 'boxicons:bookmark' %>" width="16" class="shrink-0"></iconify-icon>
+      <span class="text-sm font-medium"><%= entry.bookmarkCount || 0 %></span>
     </button>
-    <button class="w-9 h-9 flex items-center justify-center rounded-md text-white/35 hover:bg-white/8 hover:text-white transition-colors cursor-pointer">
-      <iconify-icon icon="boxicons:share" width="18"></iconify-icon>
+    <% } %>
+    <button class="ec-share-btn flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-white/35 hover:bg-white/8 hover:text-white cursor-pointer" data-eid="<%= _eid %>">
+      <iconify-icon icon="boxicons:share" width="16" class="shrink-0"></iconify-icon>
+      <span class="text-sm font-medium"><%= entry.shareCount || 0 %></span>
     </button>
   </div>
 
@@ -602,7 +616,8 @@
   <% } %>
   </div>
 
-
+    </div><!-- /content column -->
+  </div><!-- /two-column wrapper -->
 </div>
 
 <%# ecScript.ejs is included once by appEnd — nothing to emit here %>

@@ -23,7 +23,9 @@ const WalletTransaction     = require('../models/WalletTransaction');
 const ContestPayout         = require('../models/ContestPayout');
 const MonthlySnapshot       = require('../models/MonthlySnapshot');
 const ContestContribution   = require('../models/ContestContribution');
-const { computeEffectiveAffinity, buildFeedPage } = require('../utils/feedScorer');
+const EntryBookmark         = require('../models/EntryBookmark');
+const { buildFeedPage }                        = require('../utils/feedScorer');
+const { updateAffinity, updateCreatorAffinity } = require('../utils/affinityUpdater');
 const requireAuth   = require('../middleware/requireAuth');
 const requireApproved = require('../middleware/requireApproved');
 const upload        = require('../middleware/upload');
@@ -32,68 +34,80 @@ router.get('/guidelines', (req, res) => {
   res.render('guidelines', { title: 'Community Guidelines' });
 });
 
+router.get('/s/:id', async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.redirect('/');
+  await Entry.findByIdAndUpdate(req.params.id, { $inc: { shareCount: 1 } }).catch(() => {});
+  res.redirect('/entry/' + req.params.id);
+});
+
 router.use(requireAuth);
 router.use(requireApproved);
 
 router.get('/', (req, res) => res.redirect('/feed'));
 
-router.get('/feed', async (req, res) => {
-  const currentUserId = req.session.userId;
+const FEED_CANDIDATE_POOL = 150;
 
-  const candidates = await Entry.find({ userId: { $ne: currentUserId } })
-    .sort({ createdAt: -1 })
-    .limit(150)
-    .populate('userId', 'username displayName avatar')
-    .lean();
-
-  if (!candidates.length) {
-    return res.render('feed', {
-      title: 'Feed', activePage: 'feed', currentUser: req.currentUser, feedEntries: [],
-    });
-  }
-
+async function buildFeedScoringContext(currentUserId, candidates, follows, affinityDoc) {
   const ids         = candidates.map(e => e._id);
-  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+  const sixHoursAgo = new Date(Date.now() - 6  * 60 * 60 * 1000);
+  const oneDayAgo   = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [myRatings, follows, velocityAgg, activeContests, affinityDoc] = await Promise.all([
+  const followingSet = new Set(follows.map(f => f.followingId.toString()));
+
+  const [myRatings, ratingVelocityAgg, commentVelocityAgg, activity24hAgg, activeContests] = await Promise.all([
     Rating.find({ userId: currentUserId, entryId: { $in: ids } }).select('entryId score').lean(),
-    Follow.find({ followerId: currentUserId }).select('followingId').lean(),
     Rating.aggregate([
       { $match: { entryId: { $in: ids }, createdAt: { $gte: sixHoursAgo } } },
       { $group: { _id: '$entryId', count: { $sum: 1 } } },
     ]),
+    Comment.aggregate([
+      { $match: { entryId: { $in: ids }, createdAt: { $gte: sixHoursAgo } } },
+      { $group: { _id: '$entryId', count: { $sum: 1 } } },
+    ]),
+    Promise.all([
+      Rating.aggregate([
+        { $match: { entryId: { $in: ids }, createdAt: { $gte: oneDayAgo } } },
+        { $group: { _id: '$entryId', count: { $sum: 1 } } },
+      ]),
+      Comment.aggregate([
+        { $match: { entryId: { $in: ids }, createdAt: { $gte: oneDayAgo } } },
+        { $group: { _id: '$entryId', count: { $sum: 1 } } },
+      ]),
+    ]),
     Contest.find({ 'entries.entryId': { $in: ids }, status: 'active' }).select('entries').lean(),
-    UserAffinity.findOne({ userId: currentUserId }).lean(),
   ]);
 
   const ratedMap = {};
   for (const r of myRatings) ratedMap[r.entryId.toString()] = r.score;
 
-  const followingSet = new Set(follows.map(f => f.followingId.toString()));
+  const ratingVelocityMap = {};
+  for (const v of ratingVelocityAgg) ratingVelocityMap[v._id.toString()] = v.count;
 
-  const velocityMap = {};
-  for (const v of velocityAgg) velocityMap[v._id.toString()] = v.count;
+  const commentVelocityMap = {};
+  for (const v of commentVelocityAgg) commentVelocityMap[v._id.toString()] = v.count;
+
+  const activity24hMap = {};
+  const [ratings24h, comments24h] = activity24hAgg;
+  for (const v of ratings24h)  activity24hMap[v._id.toString()] = (activity24hMap[v._id.toString()] || 0) + v.count;
+  for (const v of comments24h) activity24hMap[v._id.toString()] = (activity24hMap[v._id.toString()] || 0) + v.count;
 
   const inActiveContestSet = new Set();
   for (const c of activeContests) {
     for (const e of c.entries) inActiveContestSet.add(e.entryId.toString());
   }
 
-  const affinity = computeEffectiveAffinity(affinityDoc?.history || []);
+  const stainScores   = affinityDoc?.stainScores   instanceof Map ? affinityDoc.stainScores   : new Map(Object.entries(affinityDoc?.stainScores   || {}));
+  const creatorScores = affinityDoc?.creatorScores instanceof Map ? affinityDoc.creatorScores : new Map(Object.entries(affinityDoc?.creatorScores || {}));
 
-  const feedEntries = buildFeedPage(candidates, {
-    followingSet,
-    ratedMap,
-    velocityMap,
-    inActiveContestSet,
-    affinity,
-  });
+  return { followingSet, ratedMap, ratingVelocityMap, commentVelocityMap, activity24hMap, inActiveContestSet, stainScores, creatorScores };
+}
 
+async function buildFeedAnnotations(feedEntries, currentUserId) {
   const feedIds = feedEntries.map(e => e._id);
-  const feedContests = feedIds.length
-    ? await Contest.find({ 'entries.entryId': { $in: feedIds } })
-        .select('entries status votingDeadline winnerEntryId voidReason').lean()
-    : [];
+  if (!feedIds.length) return { nomineesMap: {}, contestInfoMap: {}, bookmarkedIds: new Set() };
+
+  const feedContests = await Contest.find({ 'entries.entryId': { $in: feedIds } })
+    .select('entries status votingDeadline winnerEntryId voidReason').lean();
 
   const feedContestIds = feedContests.map(c => c._id);
   const feedNominations = feedContestIds.length
@@ -154,6 +168,35 @@ router.get('/feed', async (req, res) => {
     nomineesMap[eid].sort((a, b) => chipRankFeed(a.contestStatus) - chipRankFeed(b.contestStatus));
   }
 
+  const feedBookmarks = await EntryBookmark.find({ userId: currentUserId, entryId: { $in: feedIds } }).select('entryId').lean();
+  const bookmarkedIds = new Set(feedBookmarks.map(b => b.entryId.toString()));
+
+  return { nomineesMap, contestInfoMap, bookmarkedIds };
+}
+
+router.get('/feed', async (req, res) => {
+  const currentUserId = req.session.userId;
+
+  const [candidates, follows, affinityDoc] = await Promise.all([
+    Entry.find({ userId: { $ne: currentUserId } })
+      .sort({ createdAt: -1 })
+      .limit(FEED_CANDIDATE_POOL)
+      .populate('userId', 'username displayName avatar')
+      .lean(),
+    Follow.find({ followerId: currentUserId }).select('followingId').lean(),
+    UserAffinity.findOne({ userId: currentUserId }).lean(),
+  ]);
+
+  if (!candidates.length) {
+    return res.render('feed', {
+      title: 'Feed', activePage: 'feed', currentUser: req.currentUser, feedEntries: [],
+    });
+  }
+
+  const scoringContext = await buildFeedScoringContext(currentUserId, candidates, follows, affinityDoc);
+  const feedEntries    = buildFeedPage(candidates, scoringContext, req.currentUser);
+  const { nomineesMap, contestInfoMap, bookmarkedIds } = await buildFeedAnnotations(feedEntries, currentUserId);
+
   res.render('feed', {
     title:      'Feed',
     activePage: 'feed',
@@ -161,6 +204,7 @@ router.get('/feed', async (req, res) => {
     feedEntries,
     nomineesMap,
     contestInfoMap,
+    bookmarkedIds,
   });
 });
 
@@ -320,7 +364,7 @@ const entry = await Entry.findById(req.params.id).populate('userId', 'username d
   if (!entry) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
   const ownerId = entry.userId._id;
   const isOwn = ownerId.toString() === req.session.userId;
-  const [followDoc, activeContest, rawEntryContests, myRating, takeOnNomContestIds] = await Promise.all([
+  const [followDoc, activeContest, rawEntryContests, myRating, takeOnNomContestIds, entryBookmarkDoc] = await Promise.all([
     (!isOwn && req.session.userId)
       ? Follow.findOne({ followerId: req.session.userId, followingId: ownerId }).lean()
       : Promise.resolve(null),
@@ -332,6 +376,9 @@ const entry = await Entry.findById(req.params.id).populate('userId', 'username d
       : Promise.resolve(null),
     // Take-on contests where this entry is the nominee but not yet in contest.entries
     Nomination.find({ nomineeEntryId: entry._id, type: 'take_on' }).select('contestId').lean().catch(() => []),
+    req.session.userId
+      ? EntryBookmark.findOne({ entryId: entry._id, userId: req.session.userId }).select('_id').lean()
+      : Promise.resolve(null),
   ]);
 
   const existingContestIds = new Set(rawEntryContests.map(c => c._id.toString()));
@@ -471,6 +518,7 @@ const entry = await Entry.findById(req.params.id).populate('userId', 'username d
     currentUser: req.currentUser,
     entry,
     isFollowing:    !!followDoc,
+    isBookmarked:   !!entryBookmarkDoc,
     currentUserId:  req.session.userId || null,
     userRating:     myRating?.score || null,
     contestInfo: (() => {
@@ -484,6 +532,11 @@ const entry = await Entry.findById(req.params.id).populate('userId', 'username d
     comments,
     ratings: entryRatings,
   });
+
+  // Fire-and-forget visit signal — only for other users' entries
+  if (!isOwn && req.session.userId) {
+    updateAffinity(req.session.userId, entry, { signal: 0.1 }).catch(() => {});
+  }
 });
 
 // ── Entry edit page ───────────────────────────────────────────────
@@ -594,7 +647,7 @@ router.get('/settings', async (req, res) => {
     currentUser: req.currentUser,
     user,
     nominationSettings: user?.nominationSettings || { allow: true, whoCanNominate: 'everyone' },
-    privacySettings: user?.privacySettings || { whoCanDm: 'everyone', whoCanComment: 'everyone', showMatureContent: true, showAiContent: true, defaultAllowTakeOns: true },
+    privacySettings: user?.privacySettings || { whoCanDm: 'everyone', whoCanComment: 'everyone', showMatureContent: true, showAiContent: true, defaultAllowTakeOns: true, bookmarksPrivate: false },
     notifSettings: user?.notificationSettings || { inAppComments: true, inAppNominations: true, inAppContests: true, inAppPayouts: true, emailComments: true, emailNominations: true, emailContests: true, emailPayouts: true },
     wallet: {
       purchasedCHL:     user?.wallet?.purchasedCHL || 0,
@@ -1135,6 +1188,7 @@ router.post('/settings/privacy', async (req, res) => {
       'privacySettings.showMatureContent':   req.body.showMatureContent   === 'true',
       'privacySettings.showAiContent':       req.body.showAiContent       === 'true',
       'privacySettings.defaultAllowTakeOns': req.body.defaultAllowTakeOns === 'true',
+      'privacySettings.bookmarksPrivate':    req.body.bookmarksPrivate    === 'true',
     },
   });
   res.redirect('/settings?tab=privacy&saved=privacy');
@@ -1405,7 +1459,7 @@ router.get('/contest/:id', async (req, res) => {
 
 router.get('/:username', async (req, res) => {
   const user = await User.findOne({ 'username.value': req.params.username.toLowerCase() })
-    .select('username displayName bio avatar banner location sex birthdate url createdAt nominationSettings wallet pinnedEntryId');
+    .select('username displayName bio avatar banner location sex birthdate url createdAt nominationSettings privacySettings wallet pinnedEntryId');
 
   if (!user) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
 
@@ -1420,7 +1474,9 @@ router.get('/:username', async (req, res) => {
 
   const entryIds = entries.map(e => e._id);
 
-  const [followerCount, followingCount, nominationsAccepted, firstPrizes, secondPrizes, thirdPrizes, userContests, userTournamentEntries, followDoc] = await Promise.all([
+  const showBookmarksTab = isOwn || !(user.privacySettings?.bookmarksPrivate);
+
+  const [followerCount, followingCount, nominationsAccepted, firstPrizes, secondPrizes, thirdPrizes, userContests, userTournamentEntries, followDoc, viewerBookmarkDocs, profileBookmarkDocs] = await Promise.all([
     Follow.countDocuments({ followingId: user._id }),
     Follow.countDocuments({ followerId: user._id }),
     Nomination.countDocuments({ nomineeId: user._id, status: 'accepted' }),
@@ -1430,9 +1486,13 @@ router.get('/:username', async (req, res) => {
     Contest.find({ 'entries.userId': user._id }).sort({ createdAt: -1 }).select('_id status entries votingDeadline winnerEntryId createdAt').populate('entries.entryId', 'mediaUrl caption').lean(),
     TournamentEntry.find({ userId: user._id }).sort({ submittedAt: -1 }).populate('tournamentId', 'name status type prizes').populate('entryId', 'mediaUrl caption').lean(),
     (!isOwn && req.session.userId) ? Follow.findOne({ followerId: req.session.userId, followingId: user._id }).lean() : Promise.resolve(null),
+    (entryIds.length && req.session.userId) ? EntryBookmark.find({ userId: req.session.userId, entryId: { $in: entryIds } }).select('entryId').lean() : Promise.resolve([]),
+    showBookmarksTab ? EntryBookmark.find({ userId: user._id }).sort({ createdAt: -1 }).populate('entryId', 'mediaUrl mediaType ratingAvg ratingCount').lean() : Promise.resolve([]),
   ]);
 
   const isFollowing = !!followDoc;
+  const viewerBookmarkedIdSet = new Set(viewerBookmarkDocs.map(b => b.entryId.toString()));
+  const bookmarkedEntries = profileBookmarkDocs.filter(b => b.entryId).map(b => b.entryId);
 
   const contestStatusPriority = { active: 0, pending: 1, closed: 2, void: 3 };
   userContests.sort((a, b) => {
@@ -1617,7 +1677,51 @@ router.get('/:username', async (req, res) => {
     contestMap,
     nomineesMap,
     pinnedEntryId,
+    showBookmarksTab,
+    bookmarkedEntries,
+    viewerBookmarkedIdSet,
     editError: typeof req.query.editError === 'string' ? req.query.editError : null,
+  });
+
+  // Fire-and-forget creator affinity signal — viewing someone else's profile
+  if (!isOwn && req.session.userId) {
+    updateCreatorAffinity(req.session.userId, user._id, 0.05).catch(() => {});
+  }
+});
+
+router.get('/api/feed/entries', async (req, res) => {
+  const page          = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const currentUserId = req.session.userId;
+
+  const [candidates, follows, affinityDoc] = await Promise.all([
+    Entry.find({ userId: { $ne: currentUserId } })
+      .sort({ createdAt: -1 })
+      .skip(page * FEED_CANDIDATE_POOL)
+      .limit(FEED_CANDIDATE_POOL)
+      .populate('userId', 'username displayName avatar')
+      .lean(),
+    Follow.find({ followerId: currentUserId }).select('followingId').lean(),
+    UserAffinity.findOne({ userId: currentUserId }).lean(),
+  ]);
+
+  if (!candidates.length) return res.json({ html: '', hasMore: false });
+
+  const scoringContext = await buildFeedScoringContext(currentUserId, candidates, follows, affinityDoc);
+  const feedEntries    = buildFeedPage(candidates, scoringContext, req.currentUser);
+
+  if (!feedEntries.length) return res.json({ html: '', hasMore: false });
+
+  const { nomineesMap, contestInfoMap, bookmarkedIds } = await buildFeedAnnotations(feedEntries, currentUserId);
+
+  res.render('partials/feedEntryBlock', {
+    entries: feedEntries,
+    nomineesMap,
+    contestInfoMap,
+    bookmarkedIds,
+    currentUser: req.currentUser,
+  }, (err, html) => {
+    if (err) return res.json({ html: '', hasMore: false });
+    res.json({ html, hasMore: candidates.length >= FEED_CANDIDATE_POOL });
   });
 });
 

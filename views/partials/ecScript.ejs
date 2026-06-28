@@ -235,6 +235,23 @@
       document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
     }
 
+    var shareBtn = e.target.closest('.ec-share-btn');
+    if (shareBtn) {
+      e.stopPropagation();
+      var eid = shareBtn.dataset.eid;
+      var url = window.location.origin + '/s/' + eid;
+      if (navigator.share) {
+        navigator.share({ url: url }).catch(function () {});
+      } else {
+        navigator.clipboard.writeText(url).then(function () {
+          if (window.showToast) window.showToast('Link copied!', 'success');
+        }).catch(function () {
+          if (window.showToast) window.showToast('Could not copy link.', 'error');
+        });
+      }
+      return;
+    }
+
     var reportBtn = e.target.closest('.ec-more-report');
     if (reportBtn) {
       document.querySelectorAll('.ec-more-menu').forEach(function (m) { m.classList.add('hidden'); });
@@ -356,6 +373,30 @@
         })
         .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
         .finally(function () { pinBtn.disabled = false; });
+      return;
+    }
+
+    var bookmarkBtn = e.target.closest('.ec-bookmark-btn');
+    if (bookmarkBtn) {
+      var eid = bookmarkBtn.dataset.eid;
+      bookmarkBtn.disabled = true;
+      fetch('/api/entries/' + eid + '/bookmark', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
+          var on = data.bookmarked;
+          bookmarkBtn.dataset.bookmarked = on ? 'true' : 'false';
+          bookmarkBtn.title = on ? 'Remove bookmark' : 'Bookmark';
+          bookmarkBtn.className = 'ec-bookmark-btn flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors cursor-pointer '
+            + (on ? 'text-charm-400' : 'text-white/35 hover:bg-white/8 hover:text-white');
+          var icon = bookmarkBtn.querySelector('iconify-icon');
+          if (icon) icon.setAttribute('icon', on ? 'boxicons:bookmark-filled' : 'boxicons:bookmark');
+          var countEl = bookmarkBtn.querySelector('span');
+          if (countEl) countEl.textContent = Math.max(0, (parseInt(countEl.textContent, 10) || 0) + (on ? 1 : -1));
+          if (window.showToast) window.showToast(on ? 'Bookmarked.' : 'Bookmark removed.', 'success');
+        })
+        .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
+        .finally(function () { bookmarkBtn.disabled = false; });
       return;
     }
 

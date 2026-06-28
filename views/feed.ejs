@@ -1,6 +1,6 @@
 ﻿<%- include('partials/appStart', { title: 'Feed', activePage: 'feed' }) %>
 
-<div class="flex flex-col pb-20 md:pb-0">
+<div class="flex flex-col pb-20 md:pb-0" id="feed-container">
 
   <% if (locals.feedEntries && feedEntries.length > 0) { %>
     <% feedEntries.forEach(function(fe) { %>
@@ -12,8 +12,14 @@
         userRating:    fe.userRating,
         nominees:      nomineesMap[fe._id.toString()] || [],
         contestInfo:   contestInfoMap[fe._id.toString()] || null,
+        isBookmarked:  !!(locals.bookmarkedIds && locals.bookmarkedIds.has(fe._id.toString())),
       }) %>
     <% }) %>
+
+    <!-- Infinite scroll sentinel -->
+    <div id="feed-sentinel" class="flex justify-center py-8">
+      <iconify-icon icon="boxicons:loader-circle" width="20" class="text-white/20 hidden animate-spin" id="feed-spinner"></iconify-icon>
+    </div>
   <% } else { %>
   <div class="flex flex-col items-center justify-center py-20 gap-3 text-center">
     <iconify-icon icon="boxicons:photo-album" width="40" class="text-white/15"></iconify-icon>
@@ -22,5 +28,43 @@
   <% } %>
 
 </div>
+
+<script>
+(function () {
+  var feedPage      = 1;
+  var feedLoading   = false;
+  var feedExhausted = false;
+  var sentinel      = document.getElementById('feed-sentinel');
+  var spinner       = document.getElementById('feed-spinner');
+
+  if (sentinel && typeof IntersectionObserver !== 'undefined') {
+    var observer = new IntersectionObserver(function (entries) {
+      if (!entries[0].isIntersecting || feedLoading || feedExhausted) return;
+      feedLoading = true;
+      spinner?.classList.remove('hidden');
+
+      fetch('/api/feed/entries?page=' + feedPage)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.html) {
+            sentinel.insertAdjacentHTML('beforebegin', data.html);
+            feedPage++;
+          }
+          if (!data.hasMore) {
+            feedExhausted = true;
+            sentinel.remove();
+          }
+        })
+        .catch(function () {})
+        .finally(function () {
+          feedLoading = false;
+          spinner?.classList.add('hidden');
+        });
+    }, { rootMargin: '300px' });
+
+    observer.observe(sentinel);
+  }
+})();
+</script>
 
 <%- include('partials/appEnd') %>

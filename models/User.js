@@ -137,6 +137,7 @@ const userSchema = new mongoose.Schema({
     showMatureContent:   { type: Boolean, default: true },
     showAiContent:       { type: Boolean, default: true },
     defaultAllowTakeOns: { type: Boolean, default: true },
+    bookmarksPrivate:    { type: Boolean, default: false },
   },
 
   notificationSettings: {

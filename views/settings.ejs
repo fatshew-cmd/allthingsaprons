@@ -175,6 +175,24 @@
           </div>
         </div>
 
+        <!-- Bookmarks -->
+        <div>
+          <h2 class="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">Bookmarks</h2>
+          <div class="bg-shark-900 border border-white/8 rounded-md overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-3.5">
+              <div>
+                <p class="text-sm font-medium">Make my bookmarks private</p>
+                <p class="text-xs text-white/40 mt-0.5">Only you can see the entries you've bookmarked</p>
+              </div>
+              <button type="button" id="toggle-bookmarksPrivate" data-on="<%- privacySettings.bookmarksPrivate ? 'true' : 'false' %>"
+                class="relative w-14 h-7 rounded-full transition-colors cursor-pointer shrink-0 <%- privacySettings.bookmarksPrivate ? 'bg-charm-600' : 'bg-shark-700' %>">
+                <span id="thumb-bookmarksPrivate" class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%- privacySettings.bookmarksPrivate ? 'translate-x-7' : '' %>"></span>
+              </button>
+              <input type="hidden" id="input-bookmarksPrivate" name="bookmarksPrivate" value="<%- privacySettings.bookmarksPrivate ? 'true' : 'false' %>">
+            </div>
+          </div>
+        </div>
+
         <div>
           <button type="submit"
             class="px-6 py-2.5 bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold rounded-md transition-colors cursor-pointer">
@@ -876,6 +894,7 @@
   makeToggle('toggle-showMatureContent',   'thumb-showMatureContent',   'input-showMatureContent');
   makeToggle('toggle-showAiContent',       'thumb-showAiContent',       'input-showAiContent');
   makeToggle('toggle-defaultAllowTakeOns', 'thumb-defaultAllowTakeOns', 'input-defaultAllowTakeOns');
+  makeToggle('toggle-bookmarksPrivate',    'thumb-bookmarksPrivate',    'input-bookmarksPrivate');
 
   // ── Nomination allow toggle ──────────────────────────────────────
   (function () {

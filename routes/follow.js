@@ -4,6 +4,7 @@ const User         = require('../models/User');
 const Follow       = require('../models/Follow');
 const requireAuth  = require('../middleware/requireAuth');
 const requireApproved = require('../middleware/requireApproved');
+const { updateCreatorAffinity } = require('../utils/affinityUpdater');
 
 router.use(requireAuth);
 router.use(requireApproved);
@@ -26,6 +27,8 @@ router.post('/follow/:username', async (req, res) => {
 
     const followerCount = await Follow.countDocuments({ followingId });
     res.json({ following: true, followerCount });
+
+    updateCreatorAffinity(followerId, followingId, 0.8).catch(() => {});
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -43,6 +46,8 @@ router.post('/unfollow/:username', async (req, res) => {
 
     const followerCount = await Follow.countDocuments({ followingId });
     res.json({ following: false, followerCount });
+
+    updateCreatorAffinity(followerId, followingId, 0).catch(() => {});
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }

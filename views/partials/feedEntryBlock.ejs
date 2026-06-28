@@ -1,0 +1,12 @@
+<% entries.forEach(function(fe) { %>
+  <%- include('entryCard', {
+    entry:         fe,
+    owner:         fe.owner,
+    currentUserId: currentUser._id.toString(),
+    isFollowing:   false,
+    userRating:    fe.userRating,
+    nominees:      nomineesMap[fe._id.toString()] || [],
+    contestInfo:   contestInfoMap[fe._id.toString()] || null,
+    isBookmarked:  bookmarkedIds.has(fe._id.toString()),
+  }) %>
+<% }) %>

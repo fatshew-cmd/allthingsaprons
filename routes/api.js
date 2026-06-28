@@ -22,7 +22,9 @@ const ContestContribution     = require('../models/ContestContribution');
 const WalletTransaction       = require('../models/WalletTransaction');
 const notifyWatchers          = require('../utils/notifyWatchers');
 const EntryReport             = require('../models/EntryReport');
+const EntryBookmark           = require('../models/EntryBookmark');
 const PlatformSettings        = require('../models/PlatformSettings');
+const { updateAffinity }      = require('../utils/affinityUpdater');
 
 router.get('/me', (req, res) => {
   res.json({ authenticated: !!req.session.userId });
@@ -842,7 +844,7 @@ router.post('/entries/:eid/rate', async (req, res) => {
   if (isNaN(score) || score < 1 || score > 10) return res.status(400).json({ error: 'Score must be between 1 and 10' });
 
   try {
-    const entry = await Entry.findById(eid).select('userId ratingCount ratingAvg').lean();
+    const entry = await Entry.findById(eid).select('userId ratingCount ratingAvg tags').lean();
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
     if (entry.userId.toString() === req.session.userId.toString()) {
       return res.status(400).json({ error: "You can't rate your own entry" });
@@ -858,6 +860,9 @@ router.post('/entries/:eid/rate', async (req, res) => {
     await Entry.updateOne({ _id: eid }, { ratingAvg: stats.avg, ratingCount: stats.count });
 
     res.json({ ratingAvg: stats.avg, ratingCount: stats.count });
+
+    const _source = ['search', 'share', 'feed'].includes(req.body.source) ? req.body.source : 'feed';
+    updateAffinity(req.session.userId, entry, { signal: score / 10, source: _source }).catch(() => {});
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ error: "You've already rated this entry" });
     console.error('Rate entry error:', err);
@@ -895,6 +900,18 @@ router.post('/contests/:id/vote', async (req, res) => {
     let total = 0;
     for (const r of agg) { voteCounts[r._id.toString()] = r.count; total += r.count; }
     res.json({ ok: true, votedFor: entryId, voteCounts, total });
+
+    // Fire-and-forget affinity signals — voted-for entry (0.9), voted-against (0.1)
+    const otherEntry = contest.entries.find(e => e.entryId.toString() !== entryId);
+    if (otherEntry) {
+      Promise.all([
+        Entry.findById(entryId).select('tags userId').lean(),
+        Entry.findById(otherEntry.entryId).select('tags userId').lean(),
+      ]).then(([eFor, eAgainst]) => {
+        if (eFor)     updateAffinity(req.session.userId, eFor,     { signal: 0.9 }).catch(() => {});
+        if (eAgainst) updateAffinity(req.session.userId, eAgainst, { signal: 0.1 }).catch(() => {});
+      }).catch(() => {});
+    }
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ error: "You've already voted in this contest." });
     console.error('Contest vote error:', err);
@@ -1115,8 +1132,43 @@ router.post('/contests/:id/watch', async (req, res) => {
     return res.json({ watching: false });
   }
 
-  await ContestWatch.create({ contestId: req.params.id, userId: req.session.userId });
+  const [, contest] = await Promise.all([
+    ContestWatch.create({ contestId: req.params.id, userId: req.session.userId }),
+    Contest.findById(req.params.id).select('entries').lean(),
+  ]);
   res.json({ watching: true });
+
+  // Fire-and-forget creator affinity for both contestants — watching signals interest in the creators
+  if (contest?.entries?.length) {
+    for (const e of contest.entries) {
+      updateCreatorAffinity(req.session.userId, e.userId, 0.3).catch(() => {});
+    }
+  }
+});
+
+// ── Entry bookmark ────────────────────────────────────────────────
+
+router.post('/entries/:id/bookmark', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ID.' });
+
+  const entry = await Entry.findById(req.params.id).select('userId tags').lean();
+  if (!entry) return res.status(404).json({ error: 'Entry not found.' });
+  if (entry.userId.toString() === req.session.userId) return res.status(403).json({ error: 'You cannot bookmark your own entry.' });
+
+  const existing = await EntryBookmark.findOne({ entryId: req.params.id, userId: req.session.userId });
+  if (existing) {
+    await existing.deleteOne();
+    await Entry.findByIdAndUpdate(req.params.id, { $inc: { bookmarkCount: -1 } });
+    return res.json({ bookmarked: false });
+  }
+
+  await EntryBookmark.create({ entryId: req.params.id, userId: req.session.userId });
+  await Entry.findByIdAndUpdate(req.params.id, { $inc: { bookmarkCount: 1 } });
+  res.json({ bookmarked: true });
+
+  const _source = ['search', 'share', 'feed'].includes(req.body.source) ? req.body.source : 'feed';
+  updateAffinity(req.session.userId, entry, { signal: 1.0, source: _source }).catch(() => {});
 });
 
 // ── Contest comments ──────────────────────────────────────────────
@@ -1358,7 +1410,7 @@ router.post('/entries/:eid/comments', async (req, res) => {
   const parentId = req.body.parentId || null;
   if (parentId && !mongoose.isValidObjectId(parentId)) return res.status(400).json({ error: 'Invalid parentId.' });
 
-  const entry = await Entry.findById(req.params.eid).select('userId commentsEnabled').lean().catch(() => null);
+  const entry = await Entry.findById(req.params.eid).select('userId commentsEnabled tags').lean().catch(() => null);
   if (!entry) return res.status(404).json({ error: 'Entry not found.' });
   if (!entry.commentsEnabled) return res.status(403).json({ error: 'Comments are disabled for this entry.' });
 
@@ -1445,6 +1497,11 @@ router.post('/entries/:eid/comments', async (req, res) => {
         avatar:      user.avatar?.value || null,
       },
     });
+
+    if (entry.userId.toString() !== req.session.userId.toString()) {
+      const _source = ['search', 'share', 'feed'].includes(req.body.source) ? req.body.source : 'feed';
+      updateAffinity(req.session.userId, entry, { signal: 0.7, source: _source }).catch(() => {});
+    }
   } catch (err) {
     console.error('Entry comment create error:', err);
     res.status(500).json({ error: 'Something went wrong.' });
@@ -1837,6 +1894,11 @@ router.post('/contests/:id/contribute', async (req, res) => {
   for (const r of agg) { grossByEntry[r._id.toString()] = r.totalCHL; }
 
   res.json({ ok: true, newBalance: balanceAfter, grossByEntry, myAmountCHL: amountCHL });
+
+  // Fire-and-forget affinity signal — financial backing = strong creator + stain endorsement
+  Entry.findById(entryId).select('tags userId').lean()
+    .then(e => { if (e) updateAffinity(req.session.userId, e, { signal: 0.6 }).catch(() => {}); })
+    .catch(() => {});
 });
 
 // PATCH /api/contests/:id/contribute/:entryId — adjust contribution amount

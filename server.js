@@ -16,6 +16,7 @@ const followRouter     = require('./routes/follow');
 const messagesRouter   = require('./routes/messages');
 const notificationsRouter = require('./routes/notifications');
 const walletRouter     = require('./routes/wallet');
+const exploreRouter    = require('./routes/explore');
 const injectNotificationCount = require('./middleware/injectNotificationCount');
 const injectRightPanelData    = require('./middleware/injectRightPanelData');
 
@@ -46,6 +47,7 @@ app.use('/', followRouter);
 app.use('/wallet', injectNotificationCount, injectRightPanelData, walletRouter);
 app.use('/messages', injectNotificationCount, injectRightPanelData, messagesRouter);
 app.use('/notifications', injectNotificationCount, injectRightPanelData, notificationsRouter);
+app.use('/', injectNotificationCount, injectRightPanelData, exploreRouter);
 app.use('/', injectNotificationCount, injectRightPanelData, pagesRouter);
 app.use('/api', apiRouter);
 

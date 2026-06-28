@@ -1,6 +1,7 @@
 ﻿<aside class="hidden xl:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-l border-white/10 overflow-y-auto">
 
   <!-- ── 0. Search ────────────────────────────────────────────────────────── -->
+  <% if (!(typeof hideRightPanelSearch !== 'undefined' && hideRightPanelSearch)) { %>
   <div class="p-4 border-b border-white/10">
     <form action="/search" method="GET" class="relative">
       <iconify-icon icon="boxicons:search" width="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" style="display:block"></iconify-icon>
@@ -12,6 +13,7 @@
       >
     </form>
   </div>
+  <% } %>
 
   <!-- ── 1. Pending Nominations ───────────────────────────────────────────── -->
   <% if (typeof panelPendingNominations !== 'undefined' && panelPendingNominations.length) { %>

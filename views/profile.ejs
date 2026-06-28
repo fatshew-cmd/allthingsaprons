@@ -270,6 +270,11 @@
     <button data-tab="tournaments" class="tab-btn flex-1 py-3 px-2 text-sm font-semibold border-b-2 transition-colors text-white/45 border-transparent cursor-pointer">
       Tournaments
     </button>
+    <% if (locals.showBookmarksTab) { %>
+    <button data-tab="bookmarks" class="tab-btn flex-1 py-3 px-2 text-sm font-semibold border-b-2 transition-colors text-white/45 border-transparent cursor-pointer">
+      Bookmarks
+    </button>
+    <% } %>
   </div>
 
   <!-- Entries panel -->
@@ -282,7 +287,7 @@
     <% } else { %>
     <div id="entries-grid" class="grid grid-cols-1 gap-3 px-3 pb-3">
       <% entries.slice(0, 12).forEach(function(entry) { %>
-      <%- include('partials/entryCard', { entry: entry, owner: profileUser, currentUserId: currentUser ? currentUser._id.toString() : null, isFollowing: isFollowing, contestInfo: contestMap[entry._id.toString()] || null, nominees: nomineesMap[entry._id.toString()] || [], isPinned: !!(pinnedEntryId && entry._id.toString() === pinnedEntryId) }) %>
+      <%- include('partials/entryCard', { entry: entry, owner: profileUser, currentUserId: currentUser ? currentUser._id.toString() : null, isFollowing: isFollowing, contestInfo: contestMap[entry._id.toString()] || null, nominees: nomineesMap[entry._id.toString()] || [], isPinned: !!(pinnedEntryId && entry._id.toString() === pinnedEntryId), isBookmarked: !!(locals.viewerBookmarkedIdSet && locals.viewerBookmarkedIdSet.has(entry._id.toString())) }) %>
       <% }); %>
     </div>
     <div id="entries-sentinel"></div>
@@ -460,6 +465,38 @@
     <% }); %>
     <% } %>
   </div>
+
+  <!-- Bookmarks panel -->
+  <% if (locals.showBookmarksTab) { %>
+  <div id="tab-bookmarks" class="tab-panel hidden">
+    <% if (!bookmarkedEntries || !bookmarkedEntries.length) { %>
+    <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
+      <iconify-icon icon="boxicons:bookmark" width="36" class="text-white/15 mb-3"></iconify-icon>
+      <p class="text-white/40 text-sm"><% if (isOwn) { %>You haven't bookmarked any entries yet<% } else { %>No bookmarks yet<% } %></p>
+    </div>
+    <% } else { %>
+    <div class="grid grid-cols-3">
+      <% bookmarkedEntries.forEach(function(be) { var beid = be._id.toString(); %>
+      <a href="/entry/<%= beid %>" class="relative overflow-hidden bg-shark-900 group" style="aspect-ratio:1">
+        <% if (be.mediaType === 'video') { %>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <iconify-icon icon="boxicons:play-circle" width="32" class="text-white/60"></iconify-icon>
+        </div>
+        <% } else { %>
+        <img src="<%= be.mediaUrl %>" alt="" class="absolute inset-0 w-full h-full object-cover group-hover:opacity-85 transition-opacity">
+        <% } %>
+        <% if (be.ratingCount > 0) { %>
+        <div class="absolute bottom-1.5 left-1.5 flex items-center gap-0.5 bg-shark-950/80 rounded-md px-1.5 py-0.5">
+          <iconify-icon icon="boxicons:star-filled" width="10" class="text-amber-400"></iconify-icon>
+          <span class="text-xs font-semibold text-white ml-0.5"><%= be.ratingAvg.toFixed(1) %></span>
+        </div>
+        <% } %>
+      </a>
+      <% }); %>
+    </div>
+    <% } %>
+  </div>
+  <% } %>
 
   <% if (isOwn) { %>
   <%
@@ -993,7 +1030,7 @@
 (function () {
   var tabs   = document.querySelectorAll('.tab-btn');
   var panels = document.querySelectorAll('.tab-panel');
-  var validTabs = ['entries', 'h2h', 'tournaments'];
+  var validTabs = ['entries', 'h2h', 'tournaments', 'bookmarks'];
 
   function activate(tabId) {
     tabs.forEach(function (btn) {
