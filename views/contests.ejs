@@ -2,6 +2,16 @@
 
 <div class="flex flex-col pb-20 md:pb-0">
 
+  <header class="sticky top-0 z-10 flex items-center justify-center border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <button id="tab-hth"  onclick="switchTab('hth')"
+            class="tab-btn tab-active text-sm font-semibold px-6 h-10 flex items-center transition-all cursor-pointer">Head to Head</button>
+    <button id="tab-tour" onclick="switchTab('tour')"
+            class="tab-btn tab-inactive text-sm font-semibold px-6 h-10 flex items-center transition-all cursor-pointer">Tournaments</button>
+  </header>
+
+  <!-- Head to Head tab -->
+  <div id="panel-hth">
+
   <!-- Watching -->
   <% if (typeof watchedContests !== 'undefined' && watchedContests.length) { %>
   <section class="pt-5 pb-1 border-b border-white/8">
@@ -290,7 +300,35 @@
   </div>
   <% } %>
 
+  </div><!-- /panel-hth -->
+
+  <!-- Tournaments tab -->
+  <div id="panel-tour" class="hidden">
+    <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
+      <div class="w-16 h-16 rounded-md bg-white/5 flex items-center justify-center mb-4">
+        <iconify-icon icon="boxicons:trophy" width="32" height="32" class="text-white/20"></iconify-icon>
+      </div>
+      <p class="text-white/40 text-sm">Tournaments coming soon</p>
+      <p class="text-white/20 text-xs mt-1">Check back when the tournament system launches</p>
+    </div>
+  </div>
+
 </div>
+
+<style>
+  .tab-active   { color: #ffffff; border-bottom: 2px solid #dd6890; margin-bottom: -1px; }
+  .tab-inactive { color: rgba(255,255,255,0.35); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+</style>
+
+<script>
+  var BASE_BTN = 'tab-btn text-sm font-semibold px-6 h-10 flex items-center transition-all cursor-pointer ';
+  function switchTab(tab) {
+    document.getElementById('tab-hth').className  = BASE_BTN + (tab === 'hth'  ? 'tab-active' : 'tab-inactive');
+    document.getElementById('tab-tour').className = BASE_BTN + (tab === 'tour' ? 'tab-active' : 'tab-inactive');
+    document.getElementById('panel-hth').classList.toggle('hidden',  tab !== 'hth');
+    document.getElementById('panel-tour').classList.toggle('hidden', tab !== 'tour');
+  }
+</script>
 
 <% if (typeof panelPendingNominations !== 'undefined' && panelPendingNominations.length) { %>
 <script>

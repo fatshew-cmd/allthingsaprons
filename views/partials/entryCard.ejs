@@ -44,6 +44,14 @@
 
 <div class="flex flex-col border-b border-white/10<% if (!locals.mediaFull) { %> cursor-pointer<% } %>" id="ec-<%= _eid %>"<% if (!locals.mediaFull) { %> data-ec-nav="/entry/<%= _eid %>"<% } %>>
 
+  <!-- Pinned badge (only rendered when actually pinned) -->
+  <% if (locals.isPinned) { %>
+  <div class="ec-pin-badge self-start flex items-center gap-1 ml-3 mt-2.5 px-2 py-0.5 rounded-md bg-charm-500/15 border border-charm-500/25">
+    <iconify-icon icon="boxicons:pin-alt-filled" width="11" class="text-charm-400"></iconify-icon>
+    <span class="text-xs font-semibold text-charm-400">Pinned</span>
+  </div>
+  <% } %>
+
   <!-- User row -->
   <div class="px-3 pt-3">
     <div class="flex items-center gap-3">
@@ -296,6 +304,9 @@
 
     <div class="flex-1"></div>
     <% if (_isOwner && !locals.mediaFull) { %>
+    <button type="button" class="ec-pin-btn w-9 h-9 flex items-center justify-center rounded-md transition-colors cursor-pointer <%= locals.isPinned ? 'text-charm-400' : 'text-white/35 hover:bg-white/8 hover:text-white' %>" data-eid="<%= _eid %>" data-pinned="<%= locals.isPinned ? 'true' : 'false' %>" title="<%= locals.isPinned ? 'Unpin from profile' : 'Pin to profile' %>">
+      <iconify-icon icon="<%= locals.isPinned ? 'boxicons:pin-alt-filled' : 'boxicons:pin-alt' %>" width="17"></iconify-icon>
+    </button>
     <a href="/entry/<%= _eid %>/edit" class="w-9 h-9 flex items-center justify-center rounded-md text-white/35 hover:bg-white/8 hover:text-white transition-colors">
       <iconify-icon icon="boxicons:pencil" width="17"></iconify-icon>
     </a>

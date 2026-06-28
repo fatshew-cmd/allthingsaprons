@@ -120,6 +120,8 @@ const userSchema = new mongoose.Schema({
   isTemporary:       { type: Boolean, default: false },
   temporaryUntil:    { type: Date },
 
+  pinnedEntryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entry', default: null },
+
   nominationSettings: {
     allow:          { type: Boolean, default: true },
     whoCanNominate: {

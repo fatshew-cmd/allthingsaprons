@@ -282,7 +282,7 @@
     <% } else { %>
     <div id="entries-grid" class="grid grid-cols-1 gap-3 px-3 pb-3">
       <% entries.slice(0, 12).forEach(function(entry) { %>
-      <%- include('partials/entryCard', { entry: entry, owner: profileUser, currentUserId: currentUser ? currentUser._id.toString() : null, isFollowing: isFollowing, contestInfo: contestMap[entry._id.toString()] || null, nominees: nomineesMap[entry._id.toString()] || [] }) %>
+      <%- include('partials/entryCard', { entry: entry, owner: profileUser, currentUserId: currentUser ? currentUser._id.toString() : null, isFollowing: isFollowing, contestInfo: contestMap[entry._id.toString()] || null, nominees: nomineesMap[entry._id.toString()] || [], isPinned: !!(pinnedEntryId && entry._id.toString() === pinnedEntryId) }) %>
       <% }); %>
     </div>
     <div id="entries-sentinel"></div>

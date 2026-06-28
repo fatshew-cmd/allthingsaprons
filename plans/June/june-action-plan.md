@@ -1,6 +1,6 @@
 # June Action Plan
 
-## Current State (June 25)
+## Current State (June 27)
 
 Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, private contests, and withdrawal/forfeit — is now substantially complete. Void deadline state is normalized at read time via Mongoose post-hooks (bridge until Phase 5 background jobs land); UI correctly shows "Timed out" / "No response" states across entryCard, edit-entry, and the contest page. Entry comments and replies are fully implemented. The notification system is live. The right panel is fully built. Nomination notification redirect is fixed.
 
@@ -28,7 +28,23 @@ The **Take On feature** is now fully implemented. Initiator clicks Take On on an
 
 **Top-up package names updated:** Starter → "Chill Vibes", Medium → "After Hours", Hot → "Milky Way", Inferno stays.
 
-What remains: the remaining Phase 6 admin UI pages (content moderation, entries moderation, tournament management).
+**Content Moderation (Phase 6) is now fully implemented.** The admin moderation queue at `/admin/moderation` is live with two tabbed views — Comments and Entries — both with real data and actions. Comment reports: pulls all `CommentReport` + `ContestCommentReport` docs with `status: 'pending'`, groups by comment, shows reporter list and context; Approve deletes the comment and fires `comment_removed` (author) + `report_reviewed` (reporters) notifications; Reject reinstates the comment (`hidden: false`) and fires `report_reviewed`. Entry reports: `POST /api/entries/:eid/report` is wired with threshold logic (configurable via admin settings) — when a threshold is crossed, `Entry.hidden → true` and any active contests containing that entry are stalled (`Contest.stalled: true`, `Contest.stalledAt: now`); entry owner receives `entry_reported` notification, contestants + watchers receive `contest_stalled`. Admin Approve (clear) reinstates the entry, extends the voting deadline by the stall duration (capped at 24h), and fires `contest_resumed`. Admin Approve (violating) deletes the entry, voids any active contest with `voidReason: 'entry_removed'`, and fires `entry_removed` to entry owner.
+
+**Schema additions shipped:** `EntryReport` model (new), `Entry.hidden: Boolean`, `Contest.stalled: Boolean`, `Contest.stalledAt: Date`, `Contest.voidReason` enum extended with `'entry_removed'`, `PlatformSettings.entryReportThresholds` array (default: 3/60min, 5/360min, 10/1440min), `CommentReport.status` + `reasons` fields, `ContestCommentReport.status` field, `Comment.likes`, `Comment.dislikes`, `Comment.pinnedAt`, `ContestComment.likes`, `ContestComment.dislikes`.
+
+**All 6 new notification types render in `/notifications`:** `comment_removed`, `report_reviewed`, `contest_stalled`, `contest_resumed`, `entry_reported`, `entry_removed`. Removal notifications (`comment_removed`, `entry_removed`) use a two-row layout with "Community guidelines" link and "Dispute this decision" button → `/contact/new?topic=moderation&contentType=<entry|comment>`.
+
+**`/guidelines` page is live** — community guidelines view at `views/guidelines.ejs` + `GET /guidelines` route.
+
+**Comment enhancements:** Like/dislike reactions wired on entry comments and replies via `POST /entries/:eid/comments/:cid/react` and `POST /contests/:id/comments/:cid/react`. Comment pinning for entry owners via `POST /entries/:eid/comments/:cid/pin`. Comments on both entry and contest pages are now sorted by score (net likes − dislikes + recency decay), with pinned comments always first. Entry card comment section renders like/dislike buttons and pin button (owner only). Report button on entry card is now wired to the real `POST /api/entries/:eid/report` route (was a fake toast).
+
+**Entry page — raters list:** Entry page now shows the list of users who rated the entry, with follow state for the viewer, pulled via `GET /entry/:id`.
+
+**Profile page UI refactor:** Message button moved into a "More" dropdown (`···` icon button). Nominate button condensed to a compact icon (`boxicons:git-compare`). More menu includes: Direct Message, Share Profile (stub), Block (stub), Report user (stub).
+
+**Admin user detail — password reset:** `POST /admin/users/:id/password` allows moderators/supervisors to reset a regular user's password. Enforces strict password rules (12+ chars, 3+ each of upper/lower/digit/special). Admin-only; rejects non-`user` role targets.
+
+What remains in Phase 6: tournament management pages (deferred to July).
 
 ### What is done
 | Asset | Status |
@@ -82,6 +98,16 @@ What remains: the remaining Phase 6 admin UI pages (content moderation, entries 
 | Notification settings | `notificationSettings` embedded on User: in-app + email toggles for Comments, Contest Invitations, Contest Updates, Payouts. Settings page Notifications tab wired to `POST /settings/notifications`. |
 | Top-up package names | Packages renamed: Starter → "Chill Vibes", Medium → "After Hours", Hot → "Milky Way", Inferno unchanged. |
 | entryCard script partial | Inline `<script>` block extracted from `entryCard.ejs` to `views/partials/ecScript.ejs`, included once per page from `appEnd.ejs`. Removes the `locals.__ecScript` guard hack; rating label div uses stable fixed height (`h-5 leading-5 overflow-hidden`). |
+| Content moderation — comment reports | Admin queue at `GET /admin/moderation` (Comments tab). Groups `CommentReport` + `ContestCommentReport` by comment, sorted by report count. Approve: deletes comment, fires `comment_removed` + `report_reviewed` notifications. Reject: reinstates (`hidden: false`), fires `report_reviewed`. `CommentReport.status` + `reasons` and `ContestCommentReport.status` fields added. |
+| Content moderation — entry reports | `POST /api/entries/:eid/report` with configurable threshold logic. Crossing a threshold: `Entry.hidden → true`, stalls active contests (`Contest.stalled: true`, `stalledAt`), fires `entry_reported` + `contest_stalled` notifications. Admin Entries tab: Clear (reinstates entry, extends deadline, fires `contest_resumed`) and Remove (deletes entry, voids contest `entry_removed`, fires `entry_removed` notification). |
+| Entry report schema | `EntryReport` model. `Entry.hidden`, `Contest.stalled`, `Contest.stalledAt`, `Contest.voidReason: 'entry_removed'`. `PlatformSettings.entryReportThresholds` (default: 3/60min, 5/360min, 10/1440min). |
+| Moderation notification types | 6 new types render in `/notifications`: `comment_removed`, `report_reviewed`, `contest_stalled`, `contest_resumed`, `entry_reported`, `entry_removed`. Removal types use two-row layout with "Community guidelines" link + "Dispute this decision" CTA. |
+| `/guidelines` page | `views/guidelines.ejs` + `GET /guidelines` route — community guidelines content live. |
+| Comment reactions + pinning | `Comment.likes`, `Comment.dislikes`, `Comment.pinnedAt` added. `ContestComment.likes`, `ContestComment.dislikes` added. Like/dislike via `POST /entries/:eid/comments/:cid/react` and `POST /contests/:id/comments/:cid/react`. Pin/unpin via `POST /entries/:eid/comments/:cid/pin` (entry owner only). Comments sorted by score (net likes + recency), pinned first. entryCard renders reactions + pin button. |
+| Entry card report wired | Report button on entry card now calls real `POST /api/entries/:eid/report` (was fake toast). |
+| Entry page — raters list | Entry page shows users who rated the entry, with per-viewer follow state. |
+| Profile page — More menu | "More" dropdown added: Direct Message (functional), Share Profile (stub), Block (stub), Report user (stub). Message button moved into menu. Nominate button condensed to compact icon. |
+| Admin user detail — password reset | `POST /admin/users/:id/password` — moderator/supervisor can reset a regular user's password with strict complexity rules. Audit-logged. |
 
 ### What is not done yet
 - Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
@@ -90,11 +116,8 @@ What remains: the remaining Phase 6 admin UI pages (content moderation, entries 
 - Forfeit scrub path: nominator cannot currently delete a `void` contest record (the `DELETE /contests/:id` route rejects non-pending contests) — the design's "scrub forfeit record" case is not yet implemented
 - Announcement impressions + click tracking: `AnnouncementDismissal` count is live; impressions and clicks need dedicated log entries or counter fields before the stats page shows real data
 - REVERT BEFORE LAUNCH: re-enable participant vote guard and `status === 'active'` checks in `routes/api.js` and `routes/pages.js`; remove `TEST_BYPASS_USERNAMES` from `utils/contestEligibility.js`
-- Phase 6 admin UI pages: content moderation (reported comments queue) and entries moderation (reported entries queue) are designed but not yet built — full spec in the Content Moderation section below; admin dashboard, user list/detail, ID verification queue, audit log, platform settings, and announcement detail are done; tournament management and tournament review queue deferred to July
-- `EntryReport` model not yet created; `Entry.hidden`, `Contest.stalled`/`stalledAt`, and `PlatformSettings.entryReportThresholds` fields not yet added
-- Report button on entry card is a fake toast — real `POST /api/entries/:eid/report` route not yet built
-- `/guidelines` page does not exist yet — needed before moderation warning notifications can ship
-- `CommentReport` + `ContestCommentReport` missing `status` field — needed for admin queue actions
+- Phase 6 admin UI: content moderation and entry moderation queues are now done; tournament management and tournament review queue deferred to July
+- Profile More menu: Share Profile, Block, and Report user are UI stubs — no backend routes wired yet
 
 ---
 
@@ -453,8 +476,8 @@ The dashboard is served at `/admin` for all roles but renders entirely different
 - [x] **Admin audit log:** append-only `admin_audit_logs` collection, `ATA-YYYYMMDD-XXXXXXXX` ticket refs, actor ID + role, action slug, affected entity, target user, `remarks`, and `metadata` payload. Global log view at `/admin/audit-log` visible to supervisor+; filterable by action, target user, and ticket ref. `utils/auditLog.js` helper used throughout.
 - [x] **Platform Settings page:** `GET /admin/settings` + `POST /admin/settings/contest-eligibility` — founder-only. Configures contest eligibility thresholds (minEntries, minRatingCount, minWeightedAvg). Persisted in `PlatformSettings` collection (key: `'global'`).
 - [x] **Announcement detail/stats page:** `GET /admin/announcements/:id` — dismissal count (live from `AnnouncementDismissal`), impressions/clicks/dismiss-rate placeholders (tracking not yet wired), right-panel card preview, activate/expire/delete actions.
-- [ ] **Content moderation — reported comments:** queue from `CommentReport` + `ContestCommentReport`; each row shows comment in context, report count, reporter, date; Approve (delete comment + warn author + confirm to reporter) / Reject (reinstate comment + confirm to reporter). See full spec below.
-- [ ] **Entries moderation — reported entries:** threshold-triggered auto-hide with contest stalling; admin Approve (delete entry + void contest) / Reject (reinstate entry + resume contest + extend deadline). See full spec below.
+- [x] **Content moderation — reported comments:** queue from `CommentReport` + `ContestCommentReport`; each row shows comment in context, report count, reporter, date; Approve (delete comment + warn author + confirm to reporter) / Reject (reinstate comment + confirm to reporter). `comment_removed` + `report_reviewed` notifications wired.
+- [x] **Entries moderation — reported entries:** threshold-triggered auto-hide with contest stalling; admin Approve (clear) reinstates entry, extends voting deadline; admin Approve (violating) deletes entry + voids contest. `entry_reported`, `contest_stalled`, `contest_resumed`, `entry_removed` notifications wired.
 - ~~**Tournament management — list/create/detail**~~ — deferred to July; no tournament data to manage until the full tournament system is built
 - ~~**Tournament review queue**~~ — deferred to July for the same reason
 
@@ -494,8 +517,8 @@ Covers both comment reports and entry reports. Two separate queues, same admin a
 - `report_reviewed` (to reporter, both outcomes) — different copy: *"Action was taken"* vs *"Comment was not found to be in violation"*
 
 **Prerequisites**
-- `/guidelines` page must exist (even a minimal one) before this ships
-- `/contact` route must handle `topic=moderation&reportId=<id>` to pre-populate a dispute thread
+- ~~`/guidelines` page must exist~~ — done: `views/guidelines.ejs` + `GET /guidelines` live
+- `/contact` route must handle `topic=moderation&contentType=<entry|comment>` to pre-populate a dispute thread — dispute link is wired in notifications; contact route auto-population not yet implemented
 
 ---
 
@@ -546,7 +569,7 @@ Covers both comment reports and entry reports. Two separate queues, same admin a
 - `entry_removed` (to entry owner on violating decision) — policy link + Dispute button
 
 **Report button on entry card**
-- Currently wired to a fake toast only — needs a real `POST /api/entries/:eid/report` route behind it
+- ~~Currently wired to a fake toast only~~ — `POST /api/entries/:eid/report` is now live; entry card report button calls it directly
 
 ---
 

@@ -1405,12 +1405,18 @@ router.get('/contest/:id', async (req, res) => {
 
 router.get('/:username', async (req, res) => {
   const user = await User.findOne({ 'username.value': req.params.username.toLowerCase() })
-    .select('username displayName bio avatar banner location sex birthdate url createdAt nominationSettings wallet');
+    .select('username displayName bio avatar banner location sex birthdate url createdAt nominationSettings wallet pinnedEntryId');
 
   if (!user) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
 
   const isOwn   = user._id.toString() === req.session.userId;
   const entries = await Entry.find({ userId: user._id }).sort({ createdAt: -1 });
+
+  const pinnedEntryId = user.pinnedEntryId?.toString() || null;
+  if (pinnedEntryId) {
+    const idx = entries.findIndex(e => e._id.toString() === pinnedEntryId);
+    if (idx > 0) entries.unshift(entries.splice(idx, 1)[0]);
+  }
 
   const entryIds = entries.map(e => e._id);
 
@@ -1610,6 +1616,7 @@ router.get('/:username', async (req, res) => {
     userTournamentEntries,
     contestMap,
     nomineesMap,
+    pinnedEntryId,
     editError: typeof req.query.editError === 'string' ? req.query.editError : null,
   });
 });

@@ -771,6 +771,28 @@ router.get('/profile/:username/entries', async (req, res) => {
   }
 });
 
+router.post('/entries/:id/pin', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Entry not found' });
+
+  try {
+    const entry = await Entry.findById(req.params.id).select('userId').lean();
+    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+    if (entry.userId.toString() !== req.session.userId.toString()) {
+      return res.status(403).json({ error: 'Not your entry' });
+    }
+
+    const user = await User.findById(req.session.userId).select('pinnedEntryId');
+    const alreadyPinned = user.pinnedEntryId?.toString() === req.params.id;
+    user.pinnedEntryId = alreadyPinned ? null : new mongoose.Types.ObjectId(req.params.id);
+    await user.save();
+
+    res.json({ ok: true, pinned: !alreadyPinned });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.patch('/entries/:id', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Entry not found' });
