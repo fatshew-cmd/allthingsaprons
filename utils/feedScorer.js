@@ -72,11 +72,11 @@ function scoreT2Entry(entry, context) {
   return baseScore * surgeMultiplier * unratedBoost * coldStartBoost * contestBoost;
 }
 
-function addToPage(e, page, creatorCount, ratedMap) {
+function addToPage(e, page, creatorCount, ratedMap, isFollowing = false) {
   const ownerId = (e.userId._id ?? e.userId).toString();
   creatorCount[ownerId] = (creatorCount[ownerId] || 0) + 1;
   if (creatorCount[ownerId] > MAX_PER_CREATOR) return false;
-  page.push({ ...e, owner: e.userId, userRating: ratedMap[e._id.toString()] || null });
+  page.push({ ...e, owner: e.userId, userRating: ratedMap[e._id.toString()] || null, _isFollowing: isFollowing });
   return true;
 }
 
@@ -134,11 +134,11 @@ function buildFeedPage(candidates, context, currentUser) {
 
   for (const e of t1Scored) {
     if (page.length >= PAGE_SIZE) break;
-    addToPage(e, page, creatorCount, ratedMap);
+    addToPage(e, page, creatorCount, ratedMap, true);
   }
   for (const e of t2Scored) {
     if (page.length >= PAGE_SIZE) break;
-    addToPage(e, page, creatorCount, ratedMap);
+    addToPage(e, page, creatorCount, ratedMap, false);
   }
 
   return page;

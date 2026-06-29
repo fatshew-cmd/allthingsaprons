@@ -8,7 +8,7 @@
         entry:         fe,
         owner:         fe.owner,
         currentUserId: currentUser._id.toString(),
-        isFollowing:   false,
+        isFollowing:   fe._isFollowing || false,
         userRating:    fe.userRating,
         nominees:      nomineesMap[fe._id.toString()] || [],
         contestInfo:   contestInfoMap[fe._id.toString()] || null,

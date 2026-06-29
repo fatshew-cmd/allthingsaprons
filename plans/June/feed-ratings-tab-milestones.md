@@ -21,11 +21,9 @@ Implemented in `/feed` handler in `routes/pages.js`. Queries up to 150 entries (
 
 ---
 
-## Milestone 4 — Load more
-**Status: Not started**
+## Milestone 4 — Infinite scroll
+**Status: Done**
 
-- Add `GET /api/feed?page=N` — returns JSON: entries with owner info, `userRating` per entry, `hasMore` flag
-- Client side: on "Load more" button click, fetch next page, build card HTML from a JS template function, append to `#feed-ratings`
-- Disable/hide the button when `hasMore` is false
+`GET /api/feed/entries?page=N` returns server-rendered HTML via `partials/feedEntryBlock.ejs` (not JSON) plus a `hasMore` flag. Client side uses `IntersectionObserver` on a sentinel element at the bottom of `#feed-container`; when it enters the viewport, the next page is fetched and inserted before the sentinel. Spinner shown during load. Sentinel removed when `hasMore` is false. Page counter is session-local (no mid-session recompute).
 
-> Milestones 1–3 are complete. Milestone 4 is lower priority — starting with a single page of entries is acceptable for now.
+> All four milestones complete.

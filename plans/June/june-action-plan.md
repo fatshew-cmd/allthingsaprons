@@ -1,6 +1,6 @@
 # June Action Plan
 
-## Current State (June 27)
+## Current State (June 28)
 
 Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, private contests, and withdrawal/forfeit — is now substantially complete. Void deadline state is normalized at read time via Mongoose post-hooks (bridge until Phase 5 background jobs land); UI correctly shows "Timed out" / "No response" states across entryCard, edit-entry, and the contest page. Entry comments and replies are fully implemented. The notification system is live. The right panel is fully built. Nomination notification redirect is fixed.
 
@@ -43,6 +43,16 @@ The **Take On feature** is now fully implemented. Initiator clicks Take On on an
 **Profile page UI refactor:** Message button moved into a "More" dropdown (`···` icon button). Nominate button condensed to a compact icon (`boxicons:git-compare`). More menu includes: Direct Message, Share Profile (stub), Block (stub), Report user (stub).
 
 **Admin user detail — password reset:** `POST /admin/users/:id/password` allows moderators/supervisors to reset a regular user's password. Enforces strict password rules (12+ chars, 3+ each of upper/lower/digit/special). Admin-only; rejects non-`user` role targets.
+
+**Contact route — moderation dispute auto-message:** `GET /contact/new?topic=moderation&contentType=<entry|comment>` now auto-creates a support thread and pre-posts a boilerplate dispute message (e.g. *"I'd like to dispute a moderation decision. The entry/comment was removed and I believe it did not violate the community guidelines."*). Previously documented as "not yet implemented" — now done.
+
+**Feed v2 algorithm + infinite scroll:** `utils/feedScorer.js` completely rewritten. New two-tier system: T1 (followed creators — stain affinity as a selector, ranked by recency decay + ratingAvg + ratingVelocity) vs T2 (discovery — full weighted scoring including stainAffinity, creatorAffinity, ratingVelocity, commentVelocity, surge multiplier). Cold-start fallback for new users. Privacy pre-filters (mature, AI) applied before scoring. Infinite scroll implemented via `GET /api/feed/entries?page=N` — returns server-rendered HTML blocks via `views/partials/feedEntryBlock.ejs` with an `IntersectionObserver` sentinel on the client. Milestone 4 (load more) is complete.
+
+**UserAffinity overhaul + AffinityUpdater:** `models/UserAffinity.js` updated — `stainScores` and `creatorScores` now stored as Maps; added `cumulativeSessionHours`, `lastRefreshedAt`, and a `history` snapshot array. New `utils/affinityUpdater.js` exposes `updateAffinity(userId, entry, { signal, source })` and `updateCreatorAffinity(userId, creatorId, signal)` — called asynchronously (fire-and-forget) from all relevant user actions: rating (`signal = score/10`), contest vote (winner `0.9`, loser `0.1`), comment (`0.3`), bookmark (`0.7`), entry page view (`0.1`), profile view (`0.05`), follow (`updateCreatorAffinity` with `0.3`). Session snapshots auto-written to `history` after 3 cumulative hours of activity. Source multipliers applied (`search: 1.3x`, `share: 1.15x`, `feed: 1.0x`). Full algorithm documented in `plans/feed-algo.md`.
+
+**Explore page:** `GET /explore` + `GET /api/explore/entries` (infinite scroll). Served from `routes/explore.js`. Multi-section layout interleaves 8-entry blocks with trending stains and people sub-sections in a repeating pattern. Discovery-first (T2 leads, T1 backfills — inverse of the feed). Pre-filters: zero-stain entries excluded, already-interacted entries excluded, already-followed creators excluded, privacy filters applied. Scoring: same T2 formula as feed but with ratingVelocity weighted above creatorAffinity on explore (trending content surfaces higher). Trending stains sourced from `utils/stainPopularity.js` (weighted recent rating activity on stain-tagged entries). People sections pull suggested users by follow category (e.g. followed-by people you follow). Algorithm documented in `plans/explore-algo.md`.
+
+**Entry bookmarks:** `models/EntryBookmark.js` (new, unique index on `{entryId, userId}`). `Entry.bookmarkCount` counter (denormalized). `POST /api/entries/:id/bookmark` toggles bookmark state. Bookmark icon added to `entryCard` (filled/charm when bookmarked, muted when not; cannot bookmark own entry). `bookmarkCount` displayed on card. Feed and explore pass `isBookmarked` to entryCard via `bookmarkedIds` set. Profile page gains a **Bookmarks tab** (shows bookmarked entries as cards; tab is hidden from viewers if `privacySettings.bookmarksPrivate === true`). `bookmarksPrivate` and `whoCanComment` fields added to `privacySettings` on User; Settings Privacy tab updated.
 
 What remains in Phase 6: tournament management pages (deferred to July).
 
@@ -108,10 +118,17 @@ What remains in Phase 6: tournament management pages (deferred to July).
 | Entry page — raters list | Entry page shows users who rated the entry, with per-viewer follow state. |
 | Profile page — More menu | "More" dropdown added: Direct Message (functional), Share Profile (stub), Block (stub), Report user (stub). Message button moved into menu. Nominate button condensed to compact icon. |
 | Admin user detail — password reset | `POST /admin/users/:id/password` — moderator/supervisor can reset a regular user's password with strict complexity rules. Audit-logged. |
+| Feed v2 algorithm | `utils/feedScorer.js` rewritten — T1 (followed, stain-filtered) vs T2 (discovery, full weighted scoring). Cold-start fallback. Privacy pre-filters. Surge multiplier via `utils/surgeScorer.js`. Full spec in `plans/feed-algo.md`. |
+| Feed infinite scroll | `GET /api/feed/entries?page=N` returns rendered HTML (`views/partials/feedEntryBlock.ejs`). `IntersectionObserver` sentinel at bottom of feed. Spinner, exhaustion detection, per-session page counter. |
+| UserAffinity + AffinityUpdater | `utils/affinityUpdater.js` — `updateAffinity` (stain + creator signal) and `updateCreatorAffinity` (creator only). Wired to: rating, contest vote, comment, bookmark, entry page view, profile view, follow. Source multipliers applied. Session snapshots written to `UserAffinity.history` after 3h cumulative activity. |
+| Explore page | `GET /explore` + infinite scroll via `GET /api/explore/entries`. Discovery-first (T2 leads, T1 backfills). Interleaved sections: 8 entry cards → trending stains → 8 entry cards → people suggestions → repeat. `utils/stainPopularity.js` drives trending stains. Pre-filters: zero-stain entries, already-interacted content, and already-followed creators excluded. Full spec in `plans/explore-algo.md`. |
+| Entry bookmarks | `models/EntryBookmark.js` + `Entry.bookmarkCount`. `POST /api/entries/:id/bookmark` toggle. Bookmark icon on entryCard. Profile Bookmarks tab (hidden from viewers if `bookmarksPrivate === true`). Feed and explore inject `isBookmarked`. |
+| Privacy settings additions | `bookmarksPrivate: Boolean` and `whoCanComment: enum('everyone', 'followers_only', 'contributors_only')` added to `User.privacySettings`. Settings Privacy tab updated. |
+| Contact moderation dispute auto-message | `GET /contact/new?topic=moderation&contentType=<entry|comment>` auto-creates a support thread and pre-posts a boilerplate dispute message. |
 
 ### What is not done yet
 - **Admin hidden user parameters** — superadmin+ can attach hidden labels/tags to any user profile. Not visible to the user or to viewers — admin-facing only. Functions like admin-added stains on a user (e.g. internal flags, behavioral notes, content categories). Stored as a separate field on User, rendered only in the admin user detail page. Settable and removable by superadmin and founder only.
-- Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done)
+- Feed — Head To Head and Tournaments tabs (empty; Ratings tab is done; explore is now a separate page)
 - ~~Fake credits admin action~~ — dropped; the fake `/wallet/topup` stub already lets any user acquire chillies without real payment, making a separate admin grant redundant
 - `Retag` model is scaffolded (`models/Retag.js`) but not yet wired into any route or UI
 - Forfeit scrub path: nominator cannot currently delete a `void` contest record (the `DELETE /contests/:id` route rejects non-pending contests) — the design's "scrub forfeit record" case is not yet implemented
@@ -119,6 +136,7 @@ What remains in Phase 6: tournament management pages (deferred to July).
 - REVERT BEFORE LAUNCH: re-enable participant vote guard and `status === 'active'` checks in `routes/api.js` and `routes/pages.js`; remove `TEST_BYPASS_USERNAMES` from `utils/contestEligibility.js`
 - Phase 6 admin UI: content moderation and entry moderation queues are now done; tournament management and tournament review queue deferred to July
 - Profile More menu: Share Profile, Block, and Report user are UI stubs — no backend routes wired yet
+- `whoCanComment` privacy setting: enforcement is live in `routes/api.js` `POST /entries/:eid/comments` (lines 1420–1436) ✅
 
 ---
 
