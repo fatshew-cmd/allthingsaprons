@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../../partials/head') %></head>
 <body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
@@ -6,24 +6,366 @@
   <%- include('../../partials/adminSidebar', { currentPage: 'content' }) %>
 
   <div class="flex-1 flex flex-col overflow-hidden">
+    <main class="flex-1 overflow-y-auto p-5">
+      <div class="flex flex-col gap-6">
 
-    <main class="flex-1 overflow-y-auto p-8 flex items-start justify-center">
-      <div class="bg-zinc-900 border border-white/8 rounded-md p-12 max-w-md w-full text-center mt-8">
-        <div class="w-14 h-14 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-5">
-          <iconify-icon icon="boxicons:image" width="24" style="color:#60a5fa;display:block"></iconify-icon>
+        <!-- Filters -->
+        <form method="GET" action="/admin/content" class="flex items-center gap-3 flex-wrap">
+          <div class="flex flex-1 min-w-64">
+            <!-- Scope dropdown (attached to search input) -->
+            <div class="custom-dropdown relative shrink-0" id="scope-dropdown" style="width:90px">
+              <input type="hidden" name="scope" id="scope-value" value="<%= scope %>">
+              <button type="button" data-dropdown-trigger
+                class="w-full bg-zinc-900 border border-white/10 border-r-0 rounded-l-md px-3 h-12 text-sm text-left flex items-center justify-between gap-1 focus:outline-none transition-colors cursor-pointer">
+                <span class="dropdown-label text-zinc-300 truncate" id="scope-label"><%=
+                  scope === 'title' ? 'Title' : scope === 'stain' ? 'Stain' : scope === 'user' ? 'User' : 'All'
+                %></span>
+                <iconify-icon data-chevron icon="boxicons:chevron-down" width="12" style="color:rgba(255,255,255,0.3);flex-shrink:0;transition:transform 0.15s ease;display:block"></iconify-icon>
+              </button>
+              <div class="dropdown-panel absolute z-30 w-36 mt-1 bg-zinc-800 border border-white/10 rounded-md shadow-xl overflow-hidden" style="display:none">
+                <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer text-zinc-300" data-value="all" data-placeholder="Search title, caption, tags, or user…">
+                  <span class="opt-label">All</span>
+                  <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:<%= scope === 'all' ? 'block' : 'none' %>;color:#a78bfa;flex-shrink:0"></iconify-icon>
+                </button>
+                <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer text-zinc-300" data-value="title" data-placeholder="Search by title…">
+                  <span class="opt-label">Title</span>
+                  <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:<%= scope === 'title' ? 'block' : 'none' %>;color:#a78bfa;flex-shrink:0"></iconify-icon>
+                </button>
+                <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer text-zinc-300" data-value="stain" data-placeholder="Search by stain (exact tag)…">
+                  <span class="opt-label">Stain</span>
+                  <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:<%= scope === 'stain' ? 'block' : 'none' %>;color:#a78bfa;flex-shrink:0"></iconify-icon>
+                </button>
+                <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer text-zinc-300" data-value="user" data-placeholder="Search by username or display name…">
+                  <span class="opt-label">User</span>
+                  <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:<%= scope === 'user' ? 'block' : 'none' %>;color:#a78bfa;flex-shrink:0"></iconify-icon>
+                </button>
+              </div>
+            </div>
+            <div class="relative flex-1">
+              <iconify-icon icon="boxicons:search" width="14" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#71717a;display:block;pointer-events:none"></iconify-icon>
+              <input
+                type="text"
+                name="q"
+                id="search-input"
+                value="<%= q %>"
+                placeholder="<%=
+                  scope === 'title' ? 'Search by title…' :
+                  scope === 'stain' ? 'Search by stain (exact tag)…' :
+                  scope === 'user'  ? 'Search by username or display name…' :
+                  'Search title, caption, tags, or user…'
+                %>"
+                class="w-full bg-zinc-900 border border-white/10 rounded-r-md pl-9 pr-4 h-12 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500/60"
+              >
+            </div>
+          </div>
+          <!-- Type dropdown -->
+          <div class="custom-dropdown relative" id="type-dropdown" style="min-width:130px">
+            <input type="hidden" name="type" id="type-value" value="<%= typeFilter %>">
+            <button type="button" data-dropdown-trigger
+              class="w-full bg-zinc-900 border border-white/10 rounded-md px-3 h-12 text-sm text-left flex items-center justify-between gap-3 focus:outline-none transition-colors cursor-pointer">
+              <span class="dropdown-label text-zinc-300" id="type-label"><%=
+                typeFilter === 'photo' ? 'Photo' : typeFilter === 'video' ? 'Video' : 'All types'
+              %></span>
+              <iconify-icon data-chevron icon="boxicons:chevron-down" width="14" style="color:rgba(255,255,255,0.3);flex-shrink:0;transition:transform 0.15s ease;display:block"></iconify-icon>
+            </button>
+            <div class="dropdown-panel absolute z-30 w-full mt-1 bg-zinc-800 border border-white/10 rounded-md shadow-xl overflow-hidden" style="display:none">
+              <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer text-zinc-300" data-value="all">
+                <span class="opt-label">All types</span>
+                <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:<%= typeFilter === 'all' ? 'block' : 'none' %>;color:#a78bfa;flex-shrink:0"></iconify-icon>
+              </button>
+              <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer text-zinc-300" data-value="photo">
+                <span class="opt-label">Photo</span>
+                <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:<%= typeFilter === 'photo' ? 'block' : 'none' %>;color:#a78bfa;flex-shrink:0"></iconify-icon>
+              </button>
+              <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer text-zinc-300" data-value="video">
+                <span class="opt-label">Video</span>
+                <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:<%= typeFilter === 'video' ? 'block' : 'none' %>;color:#a78bfa;flex-shrink:0"></iconify-icon>
+              </button>
+            </div>
+          </div>
+
+          <!-- Visibility dropdown -->
+          <div class="custom-dropdown relative" id="vis-dropdown" style="min-width:145px">
+            <input type="hidden" name="visibility" id="vis-value" value="<%= visFilter %>">
+            <button type="button" data-dropdown-trigger
+              class="w-full bg-zinc-900 border border-white/10 rounded-md px-3 h-12 text-sm text-left flex items-center justify-between gap-3 focus:outline-none transition-colors cursor-pointer">
+              <span class="dropdown-label text-zinc-300" id="vis-label"><%=
+                visFilter === 'visible' ? 'Visible only' : visFilter === 'hidden' ? 'Hidden only' : 'All visibility'
+              %></span>
+              <iconify-icon data-chevron icon="boxicons:chevron-down" width="14" style="color:rgba(255,255,255,0.3);flex-shrink:0;transition:transform 0.15s ease;display:block"></iconify-icon>
+            </button>
+            <div class="dropdown-panel absolute z-30 w-full mt-1 bg-zinc-800 border border-white/10 rounded-md shadow-xl overflow-hidden" style="display:none">
+              <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer text-zinc-300" data-value="all">
+                <span class="opt-label">All visibility</span>
+                <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:<%= visFilter === 'all' ? 'block' : 'none' %>;color:#a78bfa;flex-shrink:0"></iconify-icon>
+              </button>
+              <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer text-zinc-300" data-value="visible">
+                <span class="opt-label">Visible only</span>
+                <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:<%= visFilter === 'visible' ? 'block' : 'none' %>;color:#a78bfa;flex-shrink:0"></iconify-icon>
+              </button>
+              <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer text-zinc-300" data-value="hidden">
+                <span class="opt-label">Hidden only</span>
+                <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:<%= visFilter === 'hidden' ? 'block' : 'none' %>;color:#a78bfa;flex-shrink:0"></iconify-icon>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold rounded-md transition-colors">Filter</button>
+          <% if (q || scope !== 'all' || typeFilter !== 'all' || visFilter !== 'all') { %>
+          <a href="/admin/content" class="px-3 py-2 text-sm text-zinc-400 hover:text-white transition-colors no-underline">Clear</a>
+          <% } %>
+        </form>
+
+        <!-- Table -->
+        <% if (!entries.length) { %>
+        <div class="bg-zinc-900 border border-white/8 rounded-md p-16 text-center">
+          <iconify-icon icon="boxicons:image" width="28" style="color:#3f3f46;display:block;margin:0 auto 12px"></iconify-icon>
+          <p class="font-semibold text-zinc-500 m-0">No entries found</p>
+          <% if (q || scope !== 'all' || typeFilter !== 'all' || visFilter !== 'all') { %>
+          <p class="text-sm text-zinc-600 mt-1 mb-0">Try adjusting your filters.</p>
+          <% } %>
         </div>
-        <span class="inline-block px-2.5 py-1 rounded-md text-xs font-bold bg-white/8 text-zinc-500 mb-4">Phase 6</span>
-        <h2 class="text-lg font-bold text-white mt-0 mb-2">Entries Moderation</h2>
-        <p class="text-sm text-zinc-400 mb-6 leading-relaxed">Browse every entry submitted to the platform with search and filter controls. Take moderation actions on individual entries.</p>
-        <ul class="text-sm text-zinc-400 text-left flex flex-col gap-2">
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Search by username, caption, or tags</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Filter by media type (photo / video)</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Entry detail with rating history and contest participation</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Hide or remove entries from the platform</li>
-        </ul>
+
+        <% } else { %>
+        <div class="bg-zinc-900 border border-white/8 rounded-md overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-white/8 text-left">
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider" style="width:52px"></th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Entry</th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">User</th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Type</th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Rating</th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Status</th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Submitted</th>
+                <th class="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+              <% entries.forEach(function(entry) {
+                var owner = entry.userId;
+                var dateStr = new Date(entry.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              %>
+              <tr class="hover:bg-white/4 transition-colors">
+
+                <!-- Thumbnail -->
+                <td class="pl-5 pr-0 py-3">
+                  <div class="w-10 h-10 rounded-md overflow-hidden bg-zinc-800 shrink-0 relative">
+                    <% if (entry.mediaType === 'video') { %>
+                    <div class="w-full h-full flex items-center justify-center">
+                      <iconify-icon icon="boxicons:play-circle" width="20" style="color:#52525b;display:block"></iconify-icon>
+                    </div>
+                    <% } else { %>
+                    <img src="<%= entry.mediaUrl %>" alt="" class="w-full h-full object-cover" loading="lazy">
+                    <% } %>
+                  </div>
+                </td>
+
+                <!-- Title / caption -->
+                <td class="px-5 py-3 max-w-xs">
+                  <p class="font-semibold text-white m-0 truncate"><%= entry.title %></p>
+                  <% if (entry.caption) { %>
+                  <p class="text-xs text-zinc-500 m-0 truncate mt-0.5"><%= entry.caption %></p>
+                  <% } %>
+                </td>
+
+                <!-- User -->
+                <td class="px-5 py-3">
+                  <% if (owner) { %>
+                  <a href="/admin/users/<%= owner._id %>" class="flex items-center gap-2 no-underline group">
+                    <% if (owner.avatar?.value) { %>
+                    <img src="<%= owner.avatar.value %>" alt="" class="w-6 h-6 rounded-md object-cover bg-zinc-800 shrink-0">
+                    <% } else { %>
+                    <div class="w-6 h-6 rounded-md bg-zinc-800 shrink-0 flex items-center justify-center">
+                      <iconify-icon icon="boxicons:user" width="11" style="color:#52525b;display:block"></iconify-icon>
+                    </div>
+                    <% } %>
+                    <span class="text-zinc-300 group-hover:text-white transition-colors text-sm">@<%= owner.username?.value || '—' %></span>
+                  </a>
+                  <% } else { %>
+                  <span class="text-zinc-600">—</span>
+                  <% } %>
+                </td>
+
+                <!-- Media type -->
+                <td class="px-5 py-3">
+                  <% if (entry.mediaType === 'photo') { %>
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-500/10 text-blue-400">
+                    <iconify-icon icon="boxicons:image" width="11" style="display:block"></iconify-icon>Photo
+                  </span>
+                  <% } else { %>
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-purple-500/10 text-purple-400">
+                    <iconify-icon icon="boxicons:play" width="11" style="display:block"></iconify-icon>Video
+                  </span>
+                  <% } %>
+                </td>
+
+                <!-- Rating -->
+                <td class="px-5 py-3">
+                  <% if (entry.ratingCount > 0) { %>
+                  <span class="text-white font-semibold"><%= entry.ratingAvg.toFixed(1) %></span>
+                  <span class="text-zinc-500 text-xs ml-1">(<%= entry.ratingCount %>)</span>
+                  <% } else { %>
+                  <span class="text-zinc-600 text-xs">No ratings</span>
+                  <% } %>
+                </td>
+
+                <!-- Hidden status -->
+                <td class="px-5 py-3">
+                  <% if (entry.hidden) { %>
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/15">
+                    <iconify-icon icon="boxicons:hide" width="11" style="display:block"></iconify-icon>Hidden
+                  </span>
+                  <% } else { %>
+                  <span class="inline-flex items-center gap-1 text-xs text-zinc-500">
+                    <iconify-icon icon="boxicons:show" width="11" style="display:block"></iconify-icon>Visible
+                  </span>
+                  <% } %>
+                </td>
+
+                <!-- Date -->
+                <td class="px-5 py-3 text-zinc-500 text-sm whitespace-nowrap"><%= dateStr %></td>
+
+                <!-- Actions -->
+                <td class="px-5 py-3">
+                  <div class="flex items-center gap-2 justify-end">
+                    <a href="/entry/<%= entry._id %>" target="_blank" class="inline-flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-white transition-colors no-underline">
+                      View
+                      <iconify-icon icon="boxicons:link-external" width="10" style="display:block"></iconify-icon>
+                    </a>
+                    <% if (entry.hidden) { %>
+                    <form method="POST" action="/admin/content/<%= entry._id %>/unhide">
+                      <button type="submit" class="inline-flex items-center gap-1 text-xs font-semibold text-green-400 hover:text-green-300 transition-colors bg-transparent border-0 cursor-pointer p-0">
+                        <iconify-icon icon="boxicons:show" width="11" style="display:block"></iconify-icon>Unhide
+                      </button>
+                    </form>
+                    <% } else { %>
+                    <form method="POST" action="/admin/content/<%= entry._id %>/hide">
+                      <button type="submit" class="inline-flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-red-400 transition-colors bg-transparent border-0 cursor-pointer p-0">
+                        <iconify-icon icon="boxicons:hide" width="11" style="display:block"></iconify-icon>Hide
+                      </button>
+                    </form>
+                    <% } %>
+                  </div>
+                </td>
+
+              </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+
+        <% } %>
+
       </div>
     </main>
 
+    <!-- Bottom bar -->
+    <div class="shrink-0 border-t border-white/8 bg-zinc-950 px-5 h-12 flex items-center justify-between gap-6">
+
+      <!-- Left: showing range -->
+      <div class="text-xs text-zinc-500">
+        <% if (entries.length > 0) { %>
+        Showing <strong class="text-zinc-300 font-semibold"><%= ((page - 1) * pageSize + 1).toLocaleString() %> – <%= Math.min(page * pageSize, total).toLocaleString() %></strong> out of <strong class="text-zinc-300 font-semibold"><%= platformTotal.toLocaleString() %></strong>
+        <% } else { %>
+        No entries found
+        <% } %>
+      </div>
+
+      <!-- Right: page navigation -->
+      <div class="flex items-center gap-1 text-xs">
+        <% if (page > 1) { %>
+        <a href="/admin/content?<%= new URLSearchParams({ q, scope, type: typeFilter, visibility: visFilter, page: page - 1 }).toString() %>"
+          class="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-white hover:bg-white/8 transition-colors no-underline">
+          <iconify-icon icon="boxicons:chevron-left" width="14" style="display:block"></iconify-icon>
+        </a>
+        <% } else { %>
+        <span class="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-700 cursor-not-allowed">
+          <iconify-icon icon="boxicons:chevron-left" width="14" style="display:block"></iconify-icon>
+        </span>
+        <% } %>
+
+        <span class="px-3 text-zinc-400">Page <strong class="text-white font-semibold"><%= page %></strong> of <strong class="text-white font-semibold"><%= totalPages || 1 %></strong></span>
+
+        <% if (page < totalPages) { %>
+        <a href="/admin/content?<%= new URLSearchParams({ q, scope, type: typeFilter, visibility: visFilter, page: page + 1 }).toString() %>"
+          class="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-white hover:bg-white/8 transition-colors no-underline">
+          <iconify-icon icon="boxicons:chevron-right" width="14" style="display:block"></iconify-icon>
+        </a>
+        <% } else { %>
+        <span class="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-700 cursor-not-allowed">
+          <iconify-icon icon="boxicons:chevron-right" width="14" style="display:block"></iconify-icon>
+        </span>
+        <% } %>
+      </div>
+
+    </div>
   </div>
+
+<script>
+  (function () {
+    var closers = [];
+
+    function initDropdown(containerId) {
+      var container = document.getElementById(containerId);
+      if (!container) return;
+      var trigger = container.querySelector('[data-dropdown-trigger]');
+      var panel   = container.querySelector('.dropdown-panel');
+      var label   = container.querySelector('.dropdown-label');
+      var chevron = container.querySelector('[data-chevron]');
+      var hidden  = container.querySelector('input[type="hidden"]');
+      var options = container.querySelectorAll('.dropdown-option');
+      var isOpen  = false;
+
+      function open() {
+        closers.forEach(function (fn) { fn(); });
+        panel.style.display = 'block';
+        chevron.style.transform = 'rotate(180deg)';
+        trigger.style.borderColor = 'rgba(139,92,246,0.5)';
+        isOpen = true;
+      }
+      function close() {
+        panel.style.display = 'none';
+        chevron.style.transform = '';
+        trigger.style.borderColor = '';
+        isOpen = false;
+      }
+      closers.push(close);
+
+      trigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        isOpen ? close() : open();
+      });
+
+      options.forEach(function (opt) {
+        opt.addEventListener('click', function () {
+          var val = opt.getAttribute('data-value');
+          hidden.value = val;
+          label.textContent = opt.querySelector('.opt-label').textContent;
+          options.forEach(function (o) {
+            o.querySelector('.check-icon').style.display = 'none';
+          });
+          opt.querySelector('.check-icon').style.display = 'block';
+          close();
+        });
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!container.contains(e.target)) close();
+      });
+    }
+
+    initDropdown('type-dropdown');
+    initDropdown('vis-dropdown');
+    initDropdown('scope-dropdown');
+
+    var scopeOptions = document.querySelectorAll('#scope-dropdown .dropdown-option');
+    var searchInput  = document.getElementById('search-input');
+    scopeOptions.forEach(function (opt) {
+      opt.addEventListener('click', function () {
+        if (searchInput) searchInput.placeholder = opt.getAttribute('data-placeholder');
+      });
+    });
+  })();
+</script>
 </body>
 </html>

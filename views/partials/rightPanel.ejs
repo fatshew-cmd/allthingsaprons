@@ -85,7 +85,8 @@
           <% panelAnnouncements.forEach((ann, i) => { %>
             <div class="w-full shrink-0 rounded-md bg-white/5 border border-white/8 overflow-hidden relative <%= ann.redirectUrl ? 'cursor-pointer hover:border-white/15 transition-colors' : '' %>"
                  data-ann-id="<%= ann._id %>"
-                 <% if (ann.redirectUrl) { %>data-redirect-url="<%= ann.redirectUrl %>"<% } %>>
+                 data-stain="<%= ann.stain || '' %>"
+                 <% if (ann.redirectUrl) { %>data-redirect-url="<%= ann.redirectUrl %>" tabindex="0" role="link"<% } %>>
 
               <button
                 class="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-colors ann-dismiss-btn"
@@ -253,7 +254,13 @@
       if (!btn) return;
       btn.addEventListener('click', async function () {
         var id = card.dataset.annId;
-        try { await fetch('/api/announcements/' + id + '/dismiss', { method: 'POST' }); } catch {}
+        try {
+          await fetch('/api/announcements/' + id + '/dismiss', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ stain: card.dataset.stain || null }),
+          });
+        } catch {}
 
         var idx = cards.indexOf(card);
         cards.splice(idx, 1);
@@ -270,19 +277,28 @@
           return;
         }
         if (dotsWrap && cards.length <= 1) dotsWrap.style.display = 'none';
-        goTo(Math.min(current, cards.length - 1));
+        goTo(idx < current ? current - 1 : Math.min(current, cards.length - 1));
         startAuto();
       });
     });
 
-    // Card-level click → navigate + track (dismiss button is excluded via guard)
+    // Card-level click/keydown → navigate + track (dismiss button is excluded via guard)
     cards.forEach(function (card) {
       var url = card.dataset.redirectUrl;
       if (!url) return;
-      card.addEventListener('click', function (e) {
+      function activate(e) {
         if (e.target.closest('.ann-dismiss-btn')) return;
-        fetch('/api/announcements/' + card.dataset.annId + '/click', { method: 'POST' }).catch(function () {});
+        fetch('/api/announcements/' + card.dataset.annId + '/click', {
+          method:    'POST',
+          headers:   { 'Content-Type': 'application/json' },
+          body:      JSON.stringify({ stain: card.dataset.stain || null }),
+          keepalive: true,
+        }).catch(function () {});
         window.location.href = url;
+      }
+      card.addEventListener('click', activate);
+      card.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(e); }
       });
     });
 

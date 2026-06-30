@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema({
   },
 
   displayName: {
-    value:   { type: String, trim: true, maxlength: 50 },
+    value:   { type: String, trim: true, maxlength: 50, index: true },
     history: [historyEntry],
   },
 

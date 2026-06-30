@@ -6,6 +6,7 @@ const announcementSchema = new mongoose.Schema({
   description:  { type: String, trim: true },
   thumbnailUrl: { type: String },
   redirectUrl:  { type: String },
+  stain:        { type: String, trim: true },
   filters: {
     sex:                  { type: String },
     ageMin:               { type: Number },

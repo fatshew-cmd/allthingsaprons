@@ -3,6 +3,8 @@ const UserAffinity = require('../models/UserAffinity');
 const LEARNING_RATE            = 0.3;
 const SESSION_INACTIVITY_HOURS = 6;
 const SESSION_REFRESH_HOURS    = 3;
+const SIGNAL_ANNOUNCEMENT_DISMISS = 0.1;
+const SIGNAL_ANNOUNCEMENT_CLICK   = 0.7;
 
 const SOURCE_MULTIPLIERS = {
   search: 1.3,
@@ -69,10 +71,7 @@ async function updateAffinity(userId, entry, { signal, source = 'feed' }) {
   await doc.save();
 }
 
-// Updates only creatorScores — used when no entry context is available (e.g. follow action)
-async function updateCreatorAffinity(userId, creatorId, signal) {
-  if (signal === undefined || signal === null) return;
-
+async function _updateSingleScore(userId, mapName, key, signal) {
   const effectiveSignal = clamp01(signal);
   const now             = new Date();
 
@@ -81,12 +80,22 @@ async function updateCreatorAffinity(userId, creatorId, signal) {
 
   _accumulateSession(doc, now);
 
-  const current = doc.creatorScores.get(creatorId.toString()) || 0;
-  doc.creatorScores.set(creatorId.toString(), clamp01(lerp(current, effectiveSignal, LEARNING_RATE)));
+  const current = doc[mapName].get(key) || 0;
+  doc[mapName].set(key, clamp01(lerp(current, effectiveSignal, LEARNING_RATE)));
 
   doc.lastActivityAt = now;
-  doc.markModified('creatorScores');
+  doc.markModified(mapName);
   await doc.save();
 }
 
-module.exports = { updateAffinity, updateCreatorAffinity, LEARNING_RATE };
+async function updateStainAffinity(userId, stain, signal) {
+  if (!stain || signal == null) return;
+  return _updateSingleScore(userId, 'stainScores', stain, signal);
+}
+
+async function updateCreatorAffinity(userId, creatorId, signal) {
+  if (signal == null) return;
+  return _updateSingleScore(userId, 'creatorScores', creatorId.toString(), signal);
+}
+
+module.exports = { updateAffinity, updateCreatorAffinity, updateStainAffinity, LEARNING_RATE, SIGNAL_ANNOUNCEMENT_DISMISS, SIGNAL_ANNOUNCEMENT_CLICK };

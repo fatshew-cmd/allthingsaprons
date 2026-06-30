@@ -22,5 +22,7 @@ const entrySchema = new mongoose.Schema({
 }, { timestamps: true });
 
 entrySchema.index({ userId: 1 });
+entrySchema.index({ tags: 1 });
+entrySchema.index({ title: 'text', caption: 'text' });
 
 module.exports = mongoose.model('Entry', entrySchema);

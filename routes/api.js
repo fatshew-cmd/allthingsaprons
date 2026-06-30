@@ -30,7 +30,7 @@ const UserBlock               = require('../models/UserBlock');
 const UserReport              = require('../models/UserReport');
 const ProfileShare            = require('../models/ProfileShare');
 const ProfileShareView        = require('../models/ProfileShareView');
-const { updateAffinity, updateCreatorAffinity } = require('../utils/affinityUpdater');
+const { updateAffinity, updateCreatorAffinity, updateStainAffinity, SIGNAL_ANNOUNCEMENT_DISMISS, SIGNAL_ANNOUNCEMENT_CLICK } = require('../utils/affinityUpdater');
 
 router.get('/me', (req, res) => {
   res.json({ authenticated: !!req.session.userId });
@@ -1900,9 +1900,14 @@ router.post('/announcements/:id/dismiss', async (req, res) => {
     // Already dismissed — continue to find next
   }
 
+  // Stain affinity: dismissal = low interest signal
+  const userId = req.session.userId;
+  const { stain } = req.body;
+  if (stain) updateStainAffinity(userId, stain, SIGNAL_ANNOUNCEMENT_DISMISS).catch(() => {});
+
   // Return next matching, non-dismissed announcement
   const now = new Date();
-  const dismissed = await AnnouncementDismissal.distinct('announcementId', { userId: req.session.userId });
+  const dismissed = await AnnouncementDismissal.distinct('announcementId', { userId });
   const candidates = await Announcement.find({
     status: 'active',
     _id: { $nin: dismissed },
@@ -1936,8 +1941,13 @@ router.post('/announcements/:id/click', async (req, res) => {
   try {
     await AnnouncementClick.create({ announcementId: id, userId: req.session.userId });
   } catch (err) {
-    console.error('Click error:', err);
+    if (err.code !== 11000) console.error('Click error:', err);
   }
+
+  // Stain affinity: click = strong positive interest signal
+  const { stain: clickStain } = req.body;
+  if (clickStain) updateStainAffinity(req.session.userId, clickStain, SIGNAL_ANNOUNCEMENT_CLICK).catch(() => {});
+
   res.json({ ok: true });
 });
 

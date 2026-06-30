@@ -1,12 +1,12 @@
 # June Action Plan
 
-## Current State (June 28)
+## Current State (June 30)
 
 Phase 1 (schema alignment), Phase 2 (auth + user foundation), and Phase 3 (entries + ratings) are complete. Phase 6 admin infrastructure — role system, staff hiring flow, audit log, support chat, and admin profile — was pulled forward and is also done. Follow/unfollow and direct messaging are now complete. The leaderboard is also fully wired. The contest system — creation, nomination, acceptance, voting, result display, contest comments, private contests, and withdrawal/forfeit — is now substantially complete. Void deadline state is normalized at read time via Mongoose post-hooks (bridge until Phase 5 background jobs land); UI correctly shows "Timed out" / "No response" states across entryCard, edit-entry, and the contest page. Entry comments and replies are fully implemented. The notification system is live. The right panel is fully built. Nomination notification redirect is fixed.
 
 **entryCard script extracted to partial.** The large inline `<script>` block that was previously embedded in `views/partials/entryCard.ejs` (guarded by `locals.__ecScript`) has been extracted to its own partial `views/partials/ecScript.ejs`. It is now included once per page via `views/partials/appEnd.ejs`. This removes the guard hack and ensures the script loads exactly once regardless of how many cards are on the page. Minor fix: the rating label element uses `h-5 leading-5 overflow-hidden` instead of `min-h-4` to prevent layout shifts.
 
-A **contest eligibility gate** is now wired: before a user can create a contest or accept a nomination, `utils/contestEligibility.js` checks their entries against configurable thresholds (`minEntries`, `minRatingCount`, `minWeightedAvg`) stored in the `PlatformSettings` collection. The admin **Platform Settings page** (`/admin/settings`) lets the founder adjust these thresholds live. The **announcement detail/stats page** is implemented — shows dismissal count, placeholder rows for impressions/clicks (tracking not yet wired), a right-panel card preview, and activate/expire/delete actions.
+A **contest eligibility gate** is now wired: before a user can create a contest or accept a nomination, `utils/contestEligibility.js` checks their entries against configurable thresholds (`minEntries`, `minRatingCount`, `minWeightedAvg`) stored in the `PlatformSettings` collection. The admin **Platform Settings page** (`/admin/settings`) lets the founder adjust these thresholds live. The **announcement detail/stats page** is fully wired — shows live dismissal count, impression count, click count, CTR, and dismiss rate (all real data). Activate/expire/delete actions included. Announcement deletion cascades to `AnnouncementImpression`, `AnnouncementClick`, and `AnnouncementDismissal` docs.
 
 The **entryCard HTH contest badges** now have full visual differentiation across all contest states: pending (amber), accepted/waiting-to-go-live (charm), active/live (green), won (yellow), lost (muted/dimmed), void (greyed with reason label). Won/lost dim vote count values accordingly. The old `contestInfo` overlay badge on card media was removed — state is conveyed entirely through the badges section below the media.
 
@@ -138,7 +138,9 @@ What remains in Phase 6: tournament management pages (deferred to July).
 | User report | `UserReport` model. `POST /api/users/:username/report` with multi-reason modal. Admin moderation "Users" tab groups reports per user. `POST /admin/moderation/user-reports/:uid/dismiss` marks all pending reports rejected. |
 | Profile share tracking | `ProfileShare` + `ProfileShareView` models. `POST /api/users/:username/share` records method (clipboard/native). Share URLs include `?ref=share`; profile route records `ProfileShareView` on visit. Share Profile in More menu fully wired with native-share/clipboard fallback and toast. |
 | Admin hidden user flags | `User.adminFlags` array (`key`, `setBy`, `setAt`). `POST /admin/users/:id/flags` adds a flag (sanitized to alphanumeric + underscores, max 64 chars); `DELETE /admin/users/:id/flags/:key` removes one. Superadmin and founder only — gated server-side and in the view. Rendered in the admin user detail page as amber pill tags with inline remove buttons and an add-flag input. All actions audit-logged (`user_flag_set`, `user_flag_removed`). Not visible to the flagged user or any viewer. |
-| Announcement impression + click tracking | `AnnouncementImpression` model (records per-user unique impression on right-panel card show). `AnnouncementClick` model (records click on announcement redirect link). `POST /api/announcements/:id/impression` fires from the right panel carousel JS when a card becomes visible (deduplicated per session by the client). `POST /api/announcements/:id/click` fires when the announcement link is clicked. Admin announcement detail page now shows live impression count, click count, CTR (clicks/impressions ×100), dismissal count, and dismiss rate — all real data, no more placeholders. |
+| Announcement impression + click tracking | `AnnouncementImpression` model (records per-user unique impression on right-panel card show). `AnnouncementClick` model (records click on announcement redirect link, unique index on `{announcementId, userId}` — deduplicates clicks per user). `POST /api/announcements/:id/impression` fires from the right panel carousel JS when a card becomes visible (deduplicated per session by the client). `POST /api/announcements/:id/click` fires when the announcement link is clicked (uses `keepalive: true` so the request completes even during navigation). Admin announcement detail page now shows live impression count, click count, CTR (clicks/impressions ×100), dismissal count, and dismiss rate — all real data, no more placeholders. |
+| Announcement stain affinity | `Announcement.stain` optional field (stored lowercase). When set, clicking or dismissing a right-panel announcement card fires `updateStainAffinity` with the stain as the key — click sends `SIGNAL_ANNOUNCEMENT_CLICK` (0.7), dismiss sends `SIGNAL_ANNOUNCEMENT_DISMISS` (0.1). `updateStainAffinity` exported from `utils/affinityUpdater.js`; `updateCreatorAffinity` refactored to share a `_updateSingleScore` helper. Stain field available in create + edit admin forms. Announcement deletion now cascades to `AnnouncementImpression` and `AnnouncementClick` docs in addition to `AnnouncementDismissal`. Redirect URL made optional (removed from "Publish Now" required-field gate). |
+| Right panel carousel fixes | Dismissing a card before the current slide no longer incorrectly shifts the active index (was `Math.min(current, cards.length-1)`, now `idx < current ? current - 1 : Math.min(current, cards.length-1)`). Clickable announcement cards get `tabindex="0"` and `role="link"` plus Enter/Space keydown handler for keyboard accessibility. |
 | Forfeit scrub path | `DELETE /contests/:id` extended to handle `void` (forfeited) contests in addition to `pending` ones. For void contests: caller must be a participant (not necessarily the creator). Any `active` contributions are refunded to contributors' `purchasedCHL` with `WalletTransaction` audit records, then the `Contest` and related `Nomination` doc are deleted. Pending contests retain the original cancel path (creator only, no refund needed). |
 
 ### What is not done yet
@@ -450,7 +452,7 @@ Menus are **non-inclusive**. Higher roles do not inherit lower-role menus. Each 
 | Team | Applications | Review admin job applications |
 | Platform | Settings | Global platform configuration |
 | Platform | Financials | Prize payouts and transaction history |
-| Platform | Analytics | Usage and engagement stats |
+| Platform | Analytics | Usage and engagement stats — **deferred to July** |
 
 **Role → menu assignment (non-cumulative):**
 
@@ -470,7 +472,7 @@ Menus are **non-inclusive**. Higher roles do not inherit lower-role menus. Each 
 | Applications | ✓ | | | | |
 | Settings | ✓ | | | | |
 | Financials | ✓ | | | | |
-| Analytics | ✓ | ✓ | | | |
+| Analytics | ✓ | ✓ | | | | *(July)* |
 
 Key decisions:
 - Founder sees nothing operational — no moderation, no entries, no user management. They own the org, not the day-to-day.
@@ -608,9 +610,13 @@ Covers both comment reports and entry reports. Two separate queues, same admin a
 The detail/stats page at `GET /admin/announcements/:id` is fully live with real data across all metrics.
 
 - **Impressions** — `AnnouncementImpression` model + `POST /api/announcements/:id/impression`. Right panel carousel fires this when a card first becomes visible (client-side deduplication per session; server also deduplicates per user per announcement).
-- **Clicks** — `AnnouncementClick` model + `POST /api/announcements/:id/click`. Right panel fires this on link click before navigating.
+- **Clicks** — `AnnouncementClick` model + `POST /api/announcements/:id/click`. Right panel fires this on link click before navigating (uses `keepalive: true` so the request fires even as the browser navigates away). Unique index on `{announcementId, userId}` — one click event stored per user per announcement.
 - **CTR** — computed server-side as `clicks / impressions × 100`, shown on the stats page.
 - **Dismiss rate** — computed server-side as `dismissals / impressions × 100`, shown on the stats page.
+- **Stain tag** — optional `stain` field on `Announcement`. When set, clicking fires `updateStainAffinity(userId, stain, 0.7)` and dismissing fires `updateStainAffinity(userId, stain, 0.1)`. Both signals flow into `UserAffinity.stainScores` via `utils/affinityUpdater.js`. Admin create + edit forms expose a "Stain tag" text input (stored lowercase). Stain shown in the detail view as a violet pill.
+- **Deletion cascade** — deleting an announcement now removes associated `AnnouncementImpression`, `AnnouncementClick`, and `AnnouncementDismissal` docs.
+- **Redirect URL optional** — removed from the "Publish Now" required-field gate (was previously required alongside title, description, and thumbnail).
+- **Right panel carousel fixes** — dismissing a card before the current slide no longer incorrectly shifts the active index. Clickable cards get `tabindex="0"` and `role="link"` with Enter/Space keydown for keyboard accessibility.
 - **Reach by filter segment** — not yet implemented (requires impression logging by segment at write time).
 
 ---

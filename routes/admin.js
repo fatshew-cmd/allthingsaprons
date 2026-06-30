@@ -132,6 +132,7 @@ router.use(async (req, res, next) => {
 });
 
 router.use('/verification', requireDomain('content'));
+router.use('/content',      requireDomain('content'));
 router.use('/profile',      require('./adminProfile'));
 router.use('/support',      requireDomain('support'), require('./adminSupport'));
 router.use('/admins',       requireDomain(null));
@@ -980,8 +981,129 @@ router.post('/moderation/user-reports/:uid/dismiss', async (req, res) => {
   res.redirect('/admin/moderation?tab=users');
 });
 
-router.get('/content', (req, res) => {
-  res.render('admin/content/index', { title: 'Entries', currentPage: 'content' });
+router.get('/content', async (req, res) => {
+  const PAGE_SIZE = 50;
+  const page      = Math.max(1, parseInt(req.query.page) || 1);
+  const q         = (req.query.q || '').trim();
+  const scope     = ['title', 'stain', 'user'].includes(req.query.scope) ? req.query.scope : 'all';
+  const typeFilter = req.query.type || 'all';
+  const visFilter  = req.query.visibility || 'all';
+
+  try {
+    const entryFilter = {};
+    if (typeFilter !== 'all') entryFilter.mediaType = typeFilter;
+    if (visFilter === 'hidden')  entryFilter.hidden = true;
+    else if (visFilter === 'visible') entryFilter.hidden = false;
+
+    let useTextScore = false;
+
+    if (q) {
+      if (scope === 'title') {
+        // Word-indexed search via the text index on title/caption — fast at scale, but
+        // matches whole words rather than arbitrary substrings.
+        entryFilter.$text = { $search: q };
+        useTextScore = true;
+      } else if (scope === 'stain') {
+        // Tags are stored lowercased/trimmed on save, so an exact match hits the {tags:1} index.
+        entryFilter.tags = q.toLowerCase();
+      } else if (scope === 'user') {
+        const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const matchingUsers = await User.find({
+          $or: [
+            { 'username.value':    { $regex: '^' + escaped, $options: 'i' } },
+            { 'displayName.value': { $regex: '^' + escaped, $options: 'i' } },
+          ],
+        }).select('_id').lean();
+        entryFilter.userId = { $in: matchingUsers.map(u => u._id) };
+      } else {
+        const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        const matchingUsers = await User.find({
+          $or: [{ 'username.value': regex }, { 'displayName.value': regex }],
+        }).select('_id').lean();
+        const userIds = matchingUsers.map(u => u._id);
+        entryFilter.$or = [
+          { title: regex },
+          { caption: regex },
+          { tags: regex },
+          ...(userIds.length ? [{ userId: { $in: userIds } }] : []),
+        ];
+      }
+    }
+
+    const [total, platformTotal] = await Promise.all([
+      Entry.countDocuments(entryFilter),
+      Entry.countDocuments({}),
+    ]);
+    let entriesQuery = Entry.find(entryFilter).populate('userId', 'username displayName avatar');
+    entriesQuery = useTextScore
+      ? entriesQuery.select({ score: { $meta: 'textScore' } }).sort({ score: { $meta: 'textScore' } })
+      : entriesQuery.sort({ createdAt: -1 });
+    const entries = await entriesQuery
+      .skip((page - 1) * PAGE_SIZE)
+      .limit(PAGE_SIZE)
+      .lean();
+
+    res.render('admin/content/index', {
+      title: 'All Entries',
+      currentPage: 'content',
+      entries,
+      total,
+      platformTotal,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages: Math.ceil(total / PAGE_SIZE),
+      q,
+      scope,
+      typeFilter,
+      visFilter,
+    });
+  } catch (err) {
+    console.error('Content browse error:', err);
+    res.redirect('/admin');
+  }
+});
+
+router.post('/content/:id/hide', async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) return res.redirect('/admin/content');
+  try {
+    await Entry.updateOne({ _id: id }, { $set: { hidden: true } });
+    await Contest.updateMany(
+      { status: 'active', stalled: false, 'entries.entryId': id },
+      { $set: { stalled: true, stalledAt: new Date() } }
+    );
+  } catch (err) {
+    console.error('Content hide error:', err);
+  }
+  const back = req.get('Referer') || '/admin/content';
+  res.redirect(back);
+});
+
+router.post('/content/:id/unhide', async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) return res.redirect('/admin/content');
+  try {
+    const entry = await Entry.findById(id).select('_id').lean();
+    if (entry) {
+      await Entry.updateOne({ _id: id }, { $set: { hidden: false } });
+      const stalledContests = await Contest.find({
+        status: 'active', stalled: true, 'entries.entryId': entry._id,
+      }).select('_id entries stalledAt votingDeadline').lean();
+
+      const now = new Date();
+      for (const contest of stalledContests) {
+        const stallDuration = contest.stalledAt ? Math.min(now - contest.stalledAt, 24 * 60 * 60 * 1000) : 0;
+        const newDeadline   = new Date((contest.votingDeadline?.getTime() || now.getTime()) + stallDuration);
+        await Contest.updateOne({ _id: contest._id }, {
+          $set: { stalled: false, stalledAt: null, votingDeadline: newDeadline },
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Content unhide error:', err);
+  }
+  const back = req.get('Referer') || '/admin/content';
+  res.redirect(back);
 });
 
 // ── Announcements (superadmin + founder) ─────────────────────────────────────
@@ -1014,7 +1136,7 @@ router.post('/announcements', upload.thumbnail.single('thumbnail'), async (req, 
   const role = req.session.roleOverride || req.session.adminRole;
   if (!ANNOUNCEMENT_ROLES.includes(role)) return res.status(403).json({ error: 'Forbidden' });
 
-  const { title, description, redirectUrl, publishedAt, expiresAt, publish, filters } = req.body;
+  const { title, description, redirectUrl, stain, publishedAt, expiresAt, publish, filters } = req.body;
   if (!title?.trim()) return res.redirect('/admin/announcements?flash=title-required');
 
   try {
@@ -1026,6 +1148,7 @@ router.post('/announcements', upload.thumbnail.single('thumbnail'), async (req, 
       description: description?.trim() || undefined,
       thumbnailUrl,
       redirectUrl:  redirectUrl?.trim() || undefined,
+      stain:        stain?.trim().toLowerCase() || undefined,
       publishedAt:  publishedAt ? new Date(publishedAt) : (status === 'active' ? new Date() : undefined),
       expiresAt:    expiresAt ? new Date(expiresAt) : undefined,
       status,
@@ -1093,7 +1216,7 @@ router.post('/announcements/:id/edit', upload.thumbnail.single('thumbnail'), asy
   const role = req.session.roleOverride || req.session.adminRole;
   if (!ANNOUNCEMENT_ROLES.includes(role)) return res.status(403).end();
 
-  const { title, description, redirectUrl, publishedAt, expiresAt, removeThumbnail, filters } = req.body;
+  const { title, description, redirectUrl, stain, publishedAt, expiresAt, removeThumbnail, filters } = req.body;
   if (!title?.trim()) return res.redirect(`/admin/announcements/${req.params.id}/edit?flash=title-required`);
 
   try {
@@ -1112,6 +1235,7 @@ router.post('/announcements/:id/edit', upload.thumbnail.single('thumbnail'), asy
       description:  description?.trim() || undefined,
       thumbnailUrl,
       redirectUrl:  redirectUrl?.trim() || undefined,
+      stain:        stain?.trim().toLowerCase() || undefined,
       publishedAt:  publishedAt ? new Date(publishedAt) : null,
       expiresAt:    expiresAt ? new Date(expiresAt) : null,
       filters: {
@@ -1147,8 +1271,13 @@ router.post('/announcements/:id/delete', async (req, res) => {
   const role = req.session.roleOverride || req.session.adminRole;
   if (!ANNOUNCEMENT_ROLES.includes(role)) return res.status(403).end();
 
-  await Announcement.findByIdAndDelete(req.params.id);
-  await AnnouncementDismissal.deleteMany({ announcementId: req.params.id });
+  const annId = req.params.id;
+  await Announcement.findByIdAndDelete(annId);
+  await Promise.all([
+    AnnouncementDismissal.deleteMany({ announcementId: annId }),
+    AnnouncementImpression.deleteMany({ announcementId: annId }),
+    AnnouncementClick.deleteMany({ announcementId: annId }),
+  ]);
   res.redirect('/admin/announcements');
 });
 

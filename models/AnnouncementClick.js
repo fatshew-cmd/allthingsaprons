@@ -6,6 +6,6 @@ const schema = new mongoose.Schema({
   clickedAt:      { type: Date, default: Date.now },
 });
 
-schema.index({ announcementId: 1 });
+schema.index({ announcementId: 1, userId: 1 }, { unique: true });
 
 module.exports = mongoose.model('AnnouncementClick', schema);
