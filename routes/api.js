@@ -14,7 +14,9 @@ const Comment       = require('../models/Comment');
 const CommentReport = require('../models/CommentReport');
 const Notification  = require('../models/Notification');
 const Announcement  = require('../models/Announcement');
-const AnnouncementDismissal = require('../models/AnnouncementDismissal');
+const AnnouncementDismissal   = require('../models/AnnouncementDismissal');
+const AnnouncementImpression  = require('../models/AnnouncementImpression');
+const AnnouncementClick       = require('../models/AnnouncementClick');
 const upload                  = require('../middleware/upload');
 const checkContestEligibility = require('../utils/contestEligibility');
 const ContestWatch            = require('../models/ContestWatch');
@@ -24,7 +26,11 @@ const notifyWatchers          = require('../utils/notifyWatchers');
 const EntryReport             = require('../models/EntryReport');
 const EntryBookmark           = require('../models/EntryBookmark');
 const PlatformSettings        = require('../models/PlatformSettings');
-const { updateAffinity }      = require('../utils/affinityUpdater');
+const UserBlock               = require('../models/UserBlock');
+const UserReport              = require('../models/UserReport');
+const ProfileShare            = require('../models/ProfileShare');
+const ProfileShareView        = require('../models/ProfileShareView');
+const { updateAffinity, updateCreatorAffinity } = require('../utils/affinityUpdater');
 
 router.get('/me', (req, res) => {
   res.json({ authenticated: !!req.session.userId });
@@ -922,15 +928,93 @@ router.post('/contests/:id/vote', async (req, res) => {
 router.delete('/contests/:id', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ID.' });
-  const contest = await Contest.findById(req.params.id).select('status createdBy').lean().catch(() => null);
+  const contest = await Contest.findById(req.params.id).select('status createdBy entries').lean().catch(() => null);
   if (!contest) return res.status(404).json({ error: 'Contest not found.' });
-  if (contest.createdBy.toString() !== req.session.userId.toString()) return res.status(403).json({ error: 'Not your contest.' });
-  if (contest.status !== 'pending') return res.status(409).json({ error: 'Contest can only be voided while pending.' });
-  await Promise.all([
-    Contest.findByIdAndUpdate(req.params.id, { $set: { status: 'void', voidReason: 'canceled' } }),
-    Nomination.findOneAndUpdate({ contestId: req.params.id, status: 'pending' }, { $set: { status: 'void' } }),
-  ]);
-  res.json({ ok: true });
+
+  const uid = req.session.userId.toString();
+
+  if (contest.status === 'pending') {
+    if (contest.createdBy.toString() !== uid) return res.status(403).json({ error: 'Not your contest.' });
+    await Promise.all([
+      Contest.findByIdAndUpdate(req.params.id, { $set: { status: 'void', voidReason: 'canceled' } }),
+      Nomination.findOneAndUpdate({ contestId: req.params.id, status: 'pending' }, { $set: { status: 'void' } }),
+    ]);
+    return res.json({ ok: true });
+  }
+
+  if (contest.status === 'void') {
+    const isParticipant = contest.entries.some(e => e.userId.toString() === uid);
+    if (!isParticipant) return res.status(403).json({ error: 'Not a participant in this contest.' });
+
+    const cid = req.params.id;
+
+    // Refund any unsettled active contributions before wiping records.
+    // Credit wallets first — if that fails, contributions stay 'active' and retry is clean.
+    // Mark withdrawn only after all credits succeed, so a retry cannot double-credit.
+    const activeContribs = await ContestContribution.find({ contestId: cid, status: 'active' }).lean();
+    if (activeContribs.length > 0) {
+      const refundByContributor = {};
+      for (const c of activeContribs) {
+        const cuid = c.contributorId.toString();
+        refundByContributor[cuid] = (refundByContributor[cuid] || 0) + c.amountCHL;
+      }
+
+      try {
+        await Promise.all(Object.entries(refundByContributor).map(async ([cuid, amount]) => {
+          const updatedUser = await User.findByIdAndUpdate(
+            cuid,
+            { $inc: { 'wallet.purchasedCHL': amount }, $set: { 'wallet.updatedAt': new Date() } },
+            { new: true, select: 'wallet' },
+          );
+          if (!updatedUser) return;
+          const balanceAfter  = (updatedUser.wallet.purchasedCHL || 0) + (updatedUser.wallet.earnedCHL || 0);
+          const balanceBefore = balanceAfter - amount;
+          await WalletTransaction.create({
+            userId:        cuid,
+            type:          'contribution_withdrawal',
+            direction:     'credit',
+            amountCHL:     amount,
+            amountUSD:     +(amount * EXCHANGE_RATE).toFixed(2),
+            exchangeRate:  EXCHANGE_RATE,
+            balanceBefore,
+            balanceAfter,
+            status:        'completed',
+            source:        'system',
+            referenceId:   new mongoose.Types.ObjectId(cid),
+            referenceType: 'Contest',
+          });
+        }));
+        await ContestContribution.updateMany(
+          { contestId: cid, status: 'active' },
+          { $set: { status: 'withdrawn' } },
+        );
+      } catch (err) {
+        console.error('Contest scrub: contribution refund failed:', err);
+        return res.status(500).json({ error: 'Could not refund contributions. Please try again.' });
+      }
+    }
+
+    try {
+      const commentIds = await ContestComment.find({ contestId: cid }, '_id').lean().then(docs => docs.map(d => d._id));
+      await Promise.all([
+        Contest.deleteOne({ _id: cid }),
+        Nomination.deleteMany({ contestId: cid }),
+        ContestVote.deleteMany({ contestId: cid }),
+        ContestWatch.deleteMany({ contestId: cid }),
+        ContestComment.deleteMany({ contestId: cid }),
+        ContestContribution.deleteMany({ contestId: cid }),
+        commentIds.length > 0
+          ? ContestCommentReport.deleteMany({ contestCommentId: { $in: commentIds } })
+          : Promise.resolve(),
+      ]);
+    } catch (err) {
+      console.error('Contest scrub: delete phase failed:', err);
+      return res.status(500).json({ error: 'Could not remove the contest. Please try again.' });
+    }
+    return res.json({ ok: true, deleted: true });
+  }
+
+  return res.status(409).json({ error: 'Contest can only be canceled while pending, or removed when voided.' });
 });
 
 router.delete('/contests/:id/vote', async (req, res) => {
@@ -1721,6 +1805,84 @@ router.post('/entries/:eid/report', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── User block / report ───────────────────────────────────────────────────────
+router.post('/users/:username/block', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const target = await User.findOne({ 'username.value': req.params.username.toLowerCase() }).select('_id').lean();
+  if (!target) return res.status(404).json({ error: 'User not found' });
+
+  if (target._id.toString() === req.session.userId) {
+    return res.status(400).json({ error: 'Cannot block yourself' });
+  }
+
+  const existing = await UserBlock.findOne({ blockerId: req.session.userId, blockedId: target._id }).lean();
+  if (existing) {
+    await UserBlock.deleteOne({ _id: existing._id });
+    return res.json({ blocked: false });
+  }
+
+  try {
+    await UserBlock.create({ blockerId: req.session.userId, blockedId: target._id });
+  } catch (err) {
+    if (err.code === 11000) return res.json({ blocked: true });
+    return res.status(500).json({ error: 'Something went wrong.' });
+  }
+
+  // Silently remove any follow relationship in both directions
+  await Promise.all([
+    Follow.deleteOne({ followerId: req.session.userId, followingId: target._id }),
+    Follow.deleteOne({ followerId: target._id, followingId: req.session.userId }),
+  ]);
+
+  return res.json({ blocked: true });
+});
+
+router.post('/users/:username/report', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const target = await User.findOne({ 'username.value': req.params.username.toLowerCase() }).select('_id').lean();
+  if (!target) return res.status(404).json({ error: 'User not found' });
+
+  if (target._id.toString() === req.session.userId) {
+    return res.status(400).json({ error: "You can't report yourself." });
+  }
+
+  const reasons = Array.isArray(req.body.reasons)
+    ? req.body.reasons.filter(r => typeof r === 'string').slice(0, 10)
+    : [];
+
+  try {
+    await UserReport.create({ reportedUserId: target._id, reportedBy: req.session.userId, reasons });
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: "You've already reported this user." });
+    console.error('User report error:', err);
+    return res.status(500).json({ error: 'Something went wrong.' });
+  }
+
+  res.json({ ok: true });
+});
+
+// ── Profile share tracking ────────────────────────────────────────────────────
+router.post('/users/:username/share', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const target = await User.findOne({ 'username.value': req.params.username.toLowerCase() }).select('_id').lean();
+  if (!target) return res.status(404).json({ error: 'User not found' });
+
+  const method = req.body.method === 'native' ? 'native' : 'clipboard';
+  const userAgent = req.headers['user-agent'] || '';
+
+  ProfileShare.create({
+    sharerId:      req.session.userId,
+    profileUserId: target._id,
+    method,
+    userAgent,
+  }).catch(() => {});
+
+  res.json({ ok: true });
+});
+
 // ── Announcement dismiss ──────────────────────────────────────────────────────
 router.post('/announcements/:id/dismiss', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
@@ -1750,6 +1912,33 @@ router.post('/announcements/:id/dismiss', async (req, res) => {
   // Basic filter pass — same logic as middleware (filters requiring missing User fields skipped)
   const next = candidates[0] || null;
   res.json({ next });
+});
+
+// ── Announcement impression ───────────────────────────────────────────────────
+router.post('/announcements/:id/impression', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).end();
+  try {
+    await AnnouncementImpression.create({ announcementId: id, userId: req.session.userId });
+  } catch (err) {
+    if (err.code !== 11000) console.error('Impression error:', err);
+    // 11000 = already logged for this user — silently ignore
+  }
+  res.json({ ok: true });
+});
+
+// ── Announcement click ────────────────────────────────────────────────────────
+router.post('/announcements/:id/click', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).end();
+  try {
+    await AnnouncementClick.create({ announcementId: id, userId: req.session.userId });
+  } catch (err) {
+    console.error('Click error:', err);
+  }
+  res.json({ ok: true });
 });
 
 // ── Contest Contributions ──────────────────────────────────────────

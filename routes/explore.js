@@ -6,6 +6,7 @@ const Comment             = require('../models/Comment');
 const Contest             = require('../models/Contest');
 const Follow              = require('../models/Follow');
 const User                = require('../models/User');
+const UserBlock           = require('../models/UserBlock');
 const UserAffinity        = require('../models/UserAffinity');
 const TournamentEntry     = require('../models/TournamentEntry');
 const ContestContribution = require('../models/ContestContribution');
@@ -177,21 +178,28 @@ async function getPeopleSubSections(currentUserId, followingSet) {
 router.get('/explore', async (req, res) => {
   const currentUserId = req.session.userId;
 
-  const [candidates, follows, affinityDoc] = await Promise.all([
-    Entry.find({ userId: { $ne: currentUserId }, hidden: false })
-      .sort({ createdAt: -1 })
-      .limit(CANDIDATE_POOL)
-      .populate('userId', 'username displayName avatar')
-      .lean(),
+  const [blockDocs, follows, affinityDoc] = await Promise.all([
+    UserBlock.find({ blockerId: currentUserId }).select('blockedId').lean(),
     Follow.find({ followerId: currentUserId }).select('followingId').lean(),
     UserAffinity.findOne({ userId: currentUserId }).lean(),
   ]);
 
+  const blockedIds  = blockDocs.map(b => b.blockedId);
+  const blockedSet  = new Set(blockedIds.map(id => id.toString()));
+
+  const candidates = await Entry.find({ userId: { $ne: currentUserId, $nin: blockedIds }, hidden: false })
+    .sort({ createdAt: -1 })
+    .limit(CANDIDATE_POOL)
+    .populate('userId', 'username displayName avatar')
+    .lean();
+
   const scoringContext = await buildScoringContext(currentUserId, candidates, follows, affinityDoc);
+
+  const excludeSet = new Set([...scoringContext.followingSet, ...blockedSet]);
 
   const [trendingStains, peopleSections] = await Promise.all([
     getTrendingStains({ limit: 30 }),
-    getPeopleSubSections(currentUserId, scoringContext.followingSet),
+    getPeopleSubSections(currentUserId, excludeSet),
   ]);
 
   const servedIds   = new Set();
@@ -230,16 +238,20 @@ router.get('/api/explore/entries', async (req, res) => {
   const page          = Math.max(1, parseInt(req.query.page, 10) || 1);
   const currentUserId = req.session.userId;
 
-  const [candidates, follows, affinityDoc] = await Promise.all([
-    Entry.find({ userId: { $ne: currentUserId }, hidden: false })
-      .sort({ createdAt: -1 })
-      .skip(page * CANDIDATE_POOL)
-      .limit(CANDIDATE_POOL)
-      .populate('userId', 'username displayName avatar')
-      .lean(),
+  const [blockDocs, follows, affinityDoc] = await Promise.all([
+    UserBlock.find({ blockerId: currentUserId }).select('blockedId').lean(),
     Follow.find({ followerId: currentUserId }).select('followingId').lean(),
     UserAffinity.findOne({ userId: currentUserId }).lean(),
   ]);
+
+  const blockedIds = blockDocs.map(b => b.blockedId);
+
+  const candidates = await Entry.find({ userId: { $ne: currentUserId, $nin: blockedIds }, hidden: false })
+    .sort({ createdAt: -1 })
+    .skip(page * CANDIDATE_POOL)
+    .limit(CANDIDATE_POOL)
+    .populate('userId', 'username displayName avatar')
+    .lean();
 
   if (!candidates.length) return res.json({ html: '', hasMore: false });
 

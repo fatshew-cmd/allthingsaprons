@@ -24,6 +24,8 @@ const ContestPayout         = require('../models/ContestPayout');
 const MonthlySnapshot       = require('../models/MonthlySnapshot');
 const ContestContribution   = require('../models/ContestContribution');
 const EntryBookmark         = require('../models/EntryBookmark');
+const UserBlock             = require('../models/UserBlock');
+const ProfileShareView      = require('../models/ProfileShareView');
 const { buildFeedPage }                        = require('../utils/feedScorer');
 const { updateAffinity, updateCreatorAffinity } = require('../utils/affinityUpdater');
 const requireAuth   = require('../middleware/requireAuth');
@@ -177,15 +179,19 @@ async function buildFeedAnnotations(feedEntries, currentUserId) {
 router.get('/feed', async (req, res) => {
   const currentUserId = req.session.userId;
 
-  const [candidates, follows, affinityDoc] = await Promise.all([
-    Entry.find({ userId: { $ne: currentUserId } })
-      .sort({ createdAt: -1 })
-      .limit(FEED_CANDIDATE_POOL)
-      .populate('userId', 'username displayName avatar')
-      .lean(),
+  const [blockDocs, follows, affinityDoc] = await Promise.all([
+    UserBlock.find({ blockerId: currentUserId }).select('blockedId').lean(),
     Follow.find({ followerId: currentUserId }).select('followingId').lean(),
     UserAffinity.findOne({ userId: currentUserId }).lean(),
   ]);
+
+  const blockedIds = blockDocs.map(b => b.blockedId);
+
+  const candidates = await Entry.find({ userId: { $ne: currentUserId, $nin: blockedIds } })
+    .sort({ createdAt: -1 })
+    .limit(FEED_CANDIDATE_POOL)
+    .populate('userId', 'username displayName avatar')
+    .lean();
 
   if (!candidates.length) {
     return res.render('feed', {
@@ -1476,21 +1482,23 @@ router.get('/:username', async (req, res) => {
 
   const showBookmarksTab = isOwn || !(user.privacySettings?.bookmarksPrivate);
 
-  const [followerCount, followingCount, nominationsAccepted, firstPrizes, secondPrizes, thirdPrizes, userContests, userTournamentEntries, followDoc, viewerBookmarkDocs, profileBookmarkDocs] = await Promise.all([
+  const [followerCount, followingCount, nominationsAccepted, firstPrizes, secondPrizes, thirdPrizes, userContests, userTournamentEntries, followDoc, blockDoc, viewerBookmarkDocs, profileBookmarkDocs] = await Promise.all([
     Follow.countDocuments({ followingId: user._id }),
     Follow.countDocuments({ followerId: user._id }),
     Nomination.countDocuments({ nomineeId: user._id, status: 'accepted' }),
     entryIds.length ? Tournament.countDocuments({ 'prizes.first.entryId': { $in: entryIds }, status: 'closed' }) : Promise.resolve(0),
     entryIds.length ? Tournament.countDocuments({ 'prizes.second.entryId': { $in: entryIds }, status: 'closed' }) : Promise.resolve(0),
     entryIds.length ? Tournament.countDocuments({ 'prizes.third.entryId': { $in: entryIds }, status: 'closed' }) : Promise.resolve(0),
-    Contest.find({ 'entries.userId': user._id }).sort({ createdAt: -1 }).select('_id status entries votingDeadline winnerEntryId createdAt').populate('entries.entryId', 'mediaUrl caption').lean(),
+    Contest.find({ 'entries.userId': user._id }).sort({ createdAt: -1 }).select('_id status voidReason entries votingDeadline winnerEntryId createdAt').populate('entries.entryId', 'mediaUrl caption').populate('entries.userId', 'username displayName avatar').lean(),
     TournamentEntry.find({ userId: user._id }).sort({ submittedAt: -1 }).populate('tournamentId', 'name status type prizes').populate('entryId', 'mediaUrl caption').lean(),
     (!isOwn && req.session.userId) ? Follow.findOne({ followerId: req.session.userId, followingId: user._id }).lean() : Promise.resolve(null),
+    (!isOwn && req.session.userId) ? UserBlock.findOne({ blockerId: req.session.userId, blockedId: user._id }).lean() : Promise.resolve(null),
     (entryIds.length && req.session.userId) ? EntryBookmark.find({ userId: req.session.userId, entryId: { $in: entryIds } }).select('entryId').lean() : Promise.resolve([]),
     showBookmarksTab ? EntryBookmark.find({ userId: user._id }).sort({ createdAt: -1 }).populate('entryId', 'mediaUrl mediaType ratingAvg ratingCount').lean() : Promise.resolve([]),
   ]);
 
   const isFollowing = !!followDoc;
+  const isBlocked   = !!blockDoc;
   const viewerBookmarkedIdSet = new Set(viewerBookmarkDocs.map(b => b.entryId.toString()));
   const bookmarkedEntries = profileBookmarkDocs.filter(b => b.entryId).map(b => b.entryId);
 
@@ -1500,6 +1508,24 @@ router.get('/:username', async (req, res) => {
     const pb = contestStatusPriority[b.status] ?? 3;
     return pa !== pb ? pa - pb : new Date(b.createdAt) - new Date(a.createdAt);
   });
+
+  // Build a follow-status set for H2H opponent users
+  let h2hFollowedIdSet = new Set();
+  if (req.session.userId) {
+    const oppIds = [];
+    for (const c of userContests) {
+      const opp = c.entries.find(e => {
+        const uid = e.userId?._id ? e.userId._id.toString() : e.userId?.toString();
+        return uid !== user._id.toString();
+      });
+      const oppId = opp?.userId?._id ?? opp?.userId;
+      if (oppId) oppIds.push(oppId);
+    }
+    if (oppIds.length) {
+      const h2hFollowDocs = await Follow.find({ followerId: req.session.userId, followingId: { $in: oppIds } }).select('followingId').lean();
+      h2hFollowedIdSet = new Set(h2hFollowDocs.map(f => f.followingId.toString()));
+    }
+  }
 
   const contestMap = {};
   for (const c of userContests) {
@@ -1518,7 +1544,7 @@ router.get('/:username', async (req, res) => {
   for (const c of userContests) {
     for (const ce of c.entries) {
       const eid = ce.entryId?._id?.toString();
-      const uid = ce.userId?.toString();
+      const uid = ce.userId?._id?.toString() ?? ce.userId?.toString();
       if (eid && uid === user._id.toString()) contestToEntryId[c._id.toString()] = eid;
     }
   }
@@ -1559,6 +1585,19 @@ router.get('/:username', async (req, res) => {
     const cid = a._id.contestId.toString();
     if (!profileVoteMap[cid]) profileVoteMap[cid] = {};
     profileVoteMap[cid][a._id.entryId.toString()] = a.count;
+  }
+
+  const profileContribAggs = profileLiveCIds.length
+    ? await ContestContribution.aggregate([
+        { $match: { contestId: { $in: profileLiveCIds }, status: { $ne: 'withdrawn' } } },
+        { $group: { _id: { contestId: '$contestId', entryId: '$entryId' }, total: { $sum: '$amountCHL' } } },
+      ])
+    : [];
+  const profileContribMap = {};
+  for (const a of profileContribAggs) {
+    const cid = a._id.contestId.toString();
+    if (!profileContribMap[cid]) profileContribMap[cid] = {};
+    profileContribMap[cid][a._id.entryId.toString()] = a.total;
   }
 
   const nomineesMap = {};
@@ -1637,7 +1676,7 @@ router.get('/:username', async (req, res) => {
     : `@${user.username.value} on AllThingsAprons.com`;
 
   let canNominate = false;
-  if (!isOwn && req.session.userId) {
+  if (!isOwn && req.session.userId && !isBlocked) {
     const ns  = user.nominationSettings;
     const who = ns?.whoCanNominate || 'everyone';
     if (ns?.allow !== false) {
@@ -1653,6 +1692,15 @@ router.get('/:username', async (req, res) => {
         canNominate = isFollowing && !!rev;
       }
     }
+  }
+
+  if (!isOwn && req.session.userId && req.query.ref === 'share') {
+    ProfileShareView.create({
+      viewerId:      req.session.userId,
+      profileUserId: user._id,
+      referer:       req.headers.referer || req.headers.referrer || '',
+      userAgent:     req.headers['user-agent'] || '',
+    }).catch(() => {});
   }
 
   res.render('profile', {
@@ -1671,8 +1719,12 @@ router.get('/:username', async (req, res) => {
     totalRatingCount,
     isOwn,
     isFollowing,
+    isBlocked,
     canNominate,
     userContests,
+    h2hFollowedIdSet: [...h2hFollowedIdSet],
+    profileVoteMap,
+    profileContribMap,
     userTournamentEntries,
     contestMap,
     nomineesMap,
@@ -1693,16 +1745,20 @@ router.get('/api/feed/entries', async (req, res) => {
   const page          = Math.max(1, parseInt(req.query.page, 10) || 1);
   const currentUserId = req.session.userId;
 
-  const [candidates, follows, affinityDoc] = await Promise.all([
-    Entry.find({ userId: { $ne: currentUserId } })
-      .sort({ createdAt: -1 })
-      .skip(page * FEED_CANDIDATE_POOL)
-      .limit(FEED_CANDIDATE_POOL)
-      .populate('userId', 'username displayName avatar')
-      .lean(),
+  const [blockDocs, follows, affinityDoc] = await Promise.all([
+    UserBlock.find({ blockerId: currentUserId }).select('blockedId').lean(),
     Follow.find({ followerId: currentUserId }).select('followingId').lean(),
     UserAffinity.findOne({ userId: currentUserId }).lean(),
   ]);
+
+  const blockedIds = blockDocs.map(b => b.blockedId);
+
+  const candidates = await Entry.find({ userId: { $ne: currentUserId, $nin: blockedIds } })
+    .sort({ createdAt: -1 })
+    .skip(page * FEED_CANDIDATE_POOL)
+    .limit(FEED_CANDIDATE_POOL)
+    .populate('userId', 'username displayName avatar')
+    .lean();
 
   if (!candidates.length) return res.json({ html: '', hasMore: false });
 

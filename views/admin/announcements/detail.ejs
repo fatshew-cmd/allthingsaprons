@@ -59,30 +59,38 @@
           </div>
 
           <!-- Stats grid -->
+          <%
+            const dismissRate = impressionCount > 0 ? Math.round((dismissalCount / impressionCount) * 100) : null;
+            const ctr = impressionCount > 0 ? Math.round((clickCount / impressionCount) * 100) : null;
+          %>
           <div class="grid grid-cols-4 gap-4">
 
             <div class="bg-zinc-900 border border-white/8 rounded-md p-4">
+              <p class="text-xs text-zinc-500 mb-1">Impressions</p>
+              <p class="text-2xl font-bold text-white m-0"><%= impressionCount.toLocaleString() %></p>
+              <p class="text-[11px] text-zinc-600 mt-1">unique users who saw this</p>
+            </div>
+
+            <div class="bg-zinc-900 border border-white/8 rounded-md p-4">
+              <p class="text-xs text-zinc-500 mb-1">Clicks</p>
+              <p class="text-2xl font-bold text-white m-0"><%= clickCount.toLocaleString() %></p>
+              <p class="text-[11px] text-zinc-600 mt-1"><%= ctr !== null ? ctr + '% CTR' : 'no impressions yet' %></p>
+            </div>
+
+            <div class="bg-zinc-900 border border-white/8 rounded-md p-4">
               <p class="text-xs text-zinc-500 mb-1">Dismissals</p>
-              <p class="text-2xl font-bold text-white m-0"><%= dismissalCount %></p>
+              <p class="text-2xl font-bold text-white m-0"><%= dismissalCount.toLocaleString() %></p>
               <p class="text-[11px] text-zinc-600 mt-1">users dismissed this card</p>
             </div>
 
-            <div class="bg-zinc-900 border border-white/8 rounded-md p-4 opacity-50">
-              <p class="text-xs text-zinc-500 mb-1">Impressions</p>
-              <p class="text-2xl font-bold text-zinc-600 m-0">—</p>
-              <p class="text-[11px] text-zinc-600 mt-1">tracking not yet wired</p>
-            </div>
-
-            <div class="bg-zinc-900 border border-white/8 rounded-md p-4 opacity-50">
-              <p class="text-xs text-zinc-500 mb-1">Clicks</p>
-              <p class="text-2xl font-bold text-zinc-600 m-0">—</p>
-              <p class="text-[11px] text-zinc-600 mt-1">tracking not yet wired</p>
-            </div>
-
-            <div class="bg-zinc-900 border border-white/8 rounded-md p-4 opacity-50">
+            <div class="bg-zinc-900 border border-white/8 rounded-md p-4">
               <p class="text-xs text-zinc-500 mb-1">Dismiss rate</p>
-              <p class="text-2xl font-bold text-zinc-600 m-0">—</p>
-              <p class="text-[11px] text-zinc-600 mt-1">needs impressions data</p>
+              <% if (dismissRate !== null) { %>
+                <p class="text-2xl font-bold text-white m-0"><%= dismissRate %>%</p>
+              <% } else { %>
+                <p class="text-2xl font-bold text-zinc-600 m-0">—</p>
+              <% } %>
+              <p class="text-[11px] text-zinc-600 mt-1"><%= dismissRate !== null ? 'of viewers dismissed' : 'no impressions yet' %></p>
             </div>
 
           </div>

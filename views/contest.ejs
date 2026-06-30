@@ -89,7 +89,14 @@
   %>
   <div class="px-4 py-3 border-b border-white/10 flex items-center gap-2.5">
     <iconify-icon icon="boxicons:x-circle" width="15" class="text-white/30 shrink-0"></iconify-icon>
-    <span class="text-sm text-white/40"><%- voidBannerText %></span>
+    <span class="text-sm text-white/40 flex-1"><%- voidBannerText %></span>
+    <% if (locals.isNominator || locals.isNominee) { %>
+    <button id="cv-void-btn" type="button" data-contest-id="<%= contest._id %>"
+      class="shrink-0 text-xs font-medium text-white/30 hover:text-red-400 transition-colors cursor-pointer"
+      title="Remove this contest record">
+      Remove
+    </button>
+    <% } %>
   </div>
   <% } %>
 
@@ -1219,7 +1226,11 @@
             voidBtn.style.opacity = '';
             return;
           }
-          window.location.reload();
+          if (data.deleted) {
+            window.location.href = '/profile';
+          } else {
+            window.location.reload();
+          }
         })
         .catch(function () {
           if (window.showToast) window.showToast('Something went wrong.', 'error');

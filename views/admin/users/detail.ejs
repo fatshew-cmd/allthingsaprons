@@ -126,6 +126,43 @@
         </div>
         <% } %>
 
+        <!-- Internal flags — superadmin+ only -->
+        <% if (granterRole === 'superadmin' || granterRole === 'founder') { %>
+        <div class="bg-zinc-900 rounded-md border border-white/8 overflow-hidden" id="flags-card">
+          <div class="px-5 py-3 border-b border-white/8 flex items-center justify-between">
+            <p class="text-xs font-bold text-zinc-400 uppercase tracking-wider m-0">Internal flags</p>
+            <span class="text-xs text-zinc-600">Not visible to user</span>
+          </div>
+
+          <!-- Existing flags -->
+          <div id="flags-list" class="px-5 py-4 flex flex-wrap gap-2 min-h-12">
+            <% if (!user.adminFlags || user.adminFlags.length === 0) { %>
+            <span id="flags-empty" class="text-xs text-zinc-600 italic">No flags set.</span>
+            <% } else { %>
+            <% user.adminFlags.forEach(function(flag) { %>
+            <span class="flag-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20" data-key="<%= flag.key %>">
+              <span class="font-semibold"><%= flag.key %></span>
+              <button type="button" class="flag-remove-btn ml-0.5 text-amber-400/50 hover:text-amber-300 transition-colors cursor-pointer leading-none" data-key="<%= flag.key %>" aria-label="Remove flag">
+                <iconify-icon icon="boxicons:x" width="11" style="display:block"></iconify-icon>
+              </button>
+            </span>
+            <% }) %>
+            <% } %>
+          </div>
+
+          <!-- Add flag form -->
+          <div class="px-5 pb-4 flex items-end gap-2 border-t border-white/5 pt-3">
+            <input type="text" id="flag-key-input" placeholder="e.g. fraud_watch" maxlength="64"
+              class="bg-zinc-800 border border-white/10 text-white text-xs font-mono rounded-md px-2.5 py-1.5 outline-none focus:border-amber-500/40 w-48">
+            <button type="button" id="flag-add-btn"
+              class="text-xs font-semibold bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/25 px-3 py-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+              Add flag
+            </button>
+          </div>
+          <p id="flag-error" class="text-xs text-red-400 px-5 pb-3 m-0 hidden"></p>
+        </div>
+        <% } %>
+
         <% if (granterRole === 'moderator' || granterRole === 'supervisor') { %>
         <div class="bg-zinc-900 rounded-md border border-white/8 overflow-hidden">
           <div class="px-5 py-3 border-b border-white/8">
@@ -226,6 +263,93 @@
     })
     .finally(function () { btn.disabled = false; });
   });
+}());
+</script>
+<% } %>
+
+<% if (granterRole === 'superadmin' || granterRole === 'founder') { %>
+<script>
+(function () {
+  var userId   = '<%= user._id %>';
+  var listEl   = document.getElementById('flags-list');
+  var keyInput = document.getElementById('flag-key-input');
+  var addBtn   = document.getElementById('flag-add-btn');
+  var errEl    = document.getElementById('flag-error');
+  if (!listEl) return;
+
+  function showError(msg) {
+    errEl.textContent = msg;
+    errEl.classList.remove('hidden');
+    setTimeout(function () { errEl.classList.add('hidden'); }, 4000);
+  }
+
+  function renderFlags(flags) {
+    listEl.innerHTML = '';
+    if (!flags || flags.length === 0) {
+      listEl.innerHTML = '<span class="text-xs text-zinc-600 italic">No flags set.</span>';
+      return;
+    }
+    flags.forEach(function (flag) {
+      var pill = document.createElement('span');
+      pill.className = 'flag-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20';
+      pill.dataset.key = flag.key;
+
+      var keySpan = document.createElement('span');
+      keySpan.className = 'font-semibold';
+      keySpan.textContent = flag.key;
+      pill.appendChild(keySpan);
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'flag-remove-btn ml-0.5 text-amber-400/50 hover:text-amber-300 transition-colors cursor-pointer leading-none';
+      removeBtn.dataset.key = flag.key;
+      removeBtn.setAttribute('aria-label', 'Remove flag');
+      removeBtn.innerHTML = '<iconify-icon icon="boxicons:x" width="11" style="display:block"></iconify-icon>';
+      pill.appendChild(removeBtn);
+
+      listEl.appendChild(pill);
+    });
+    bindRemoveButtons();
+  }
+
+  function bindRemoveButtons() {
+    listEl.querySelectorAll('.flag-remove-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.dataset.key;
+        btn.disabled = true;
+        fetch('/admin/users/' + userId + '/flags/' + encodeURIComponent(key), { method: 'DELETE' })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.error) { showError(data.error); btn.disabled = false; return; }
+            renderFlags(data.flags);
+          })
+          .catch(function () { showError('Request failed.'); btn.disabled = false; });
+      });
+    });
+  }
+
+  bindRemoveButtons();
+
+  addBtn.addEventListener('click', function () {
+    var key = keyInput.value.trim();
+    if (!key) { showError('Flag name is required.'); keyInput.focus(); return; }
+    addBtn.disabled = true;
+    fetch('/admin/users/' + userId + '/flags', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ key: key }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { showError(data.error); return; }
+        keyInput.value = '';
+        renderFlags(data.flags);
+      })
+      .catch(function () { showError('Request failed.'); })
+      .finally(function () { addBtn.disabled = false; });
+  });
+
+  keyInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') addBtn.click(); });
 }());
 </script>
 <% } %>

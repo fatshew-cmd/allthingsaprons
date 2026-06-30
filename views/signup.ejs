@@ -9,23 +9,128 @@
     <div class="flex items-center gap-1.5 text-sm">
       <div class="flex items-center gap-2">
         <div id="step-1-num" class="w-6 h-6 rounded-md bg-charm-600 text-white text-xs font-bold flex items-center justify-center transition-colors">1</div>
-        <span id="step-1-label" class="text-white/60 hidden lg:inline transition-colors">Profile Creation</span>
+        <span id="step-1-label" class="text-white/60 hidden lg:inline transition-colors">Account</span>
       </div>
       <div class="w-6 h-px bg-white/15"></div>
       <div class="flex items-center gap-2">
         <div id="step-2-num" class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center transition-colors">2</div>
-        <span id="step-2-label" class="text-white/30 hidden lg:inline transition-colors">Email Verification</span>
+        <span id="step-2-label" class="text-white/30 hidden lg:inline transition-colors">About You</span>
+      </div>
+      <div class="w-6 h-px bg-white/15"></div>
+      <div class="flex items-center gap-2">
+        <div id="step-3-num" class="w-6 h-6 rounded-md bg-shark-700 text-white/35 text-xs font-bold flex items-center justify-center transition-colors">3</div>
+        <span id="step-3-label" class="text-white/30 hidden lg:inline transition-colors">Verify Email</span>
       </div>
     </div>
-    <a href="/login" class="text-sm text-white/35 hover:text-white/60 transition-colors">Log in</a>
+    <a href="/login" class="text-sm transition-colors"><span class="text-white">Already have an account?</span><span class="text-charm-400 hover:text-charm-300 ml-2">Log In</span></a>
   </header>
 
   <div class="flex justify-center px-4 py-10 pb-20">
     <form id="signup-form" action="/signup" method="POST" enctype="multipart/form-data" novalidate class="w-full">
       <input type="hidden" name="otp" id="otp-hidden">
 
-      <!-- ── STEP 1 ── -->
-      <div id="step-1-content" class="max-w-2xl mx-auto">
+      <!-- ── STEP 1: Account ── -->
+      <div id="step-1-content" class="max-w-lg mx-auto">
+        <div class="bg-shark-900 border border-white/8 rounded-md p-6 flex flex-col gap-5">
+
+          <!-- Username -->
+          <div class="flex flex-col gap-1.5">
+            <label for="username" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+              Username <span class="text-charm-500">*</span>
+            </label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
+              <input id="username" name="username" type="text" placeholder="yourhandle"
+                autocomplete="off" spellcheck="false" maxlength="15"
+                class="w-full bg-shark-800 border border-white/10 rounded-md pl-7 pr-9 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+              <span id="username-status" class="absolute right-3 top-1/2 -translate-y-1/2 hidden"></span>
+            </div>
+            <p id="username-hint" class="text-xs text-white/25">Letters &amp; digits only. Must start with a letter. 3–15 chars.</p>
+            <p id="username-error" class="text-xs text-red-400 hidden"></p>
+          </div>
+
+          <!-- Email -->
+          <div class="flex flex-col gap-1.5">
+            <label for="email" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+              Email <span class="text-charm-500">*</span>
+            </label>
+            <div class="relative">
+              <input id="email" name="email" type="email" placeholder="you@email.com" autocomplete="email"
+                class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-9 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+              <span id="email-status" class="absolute right-3 top-1/2 -translate-y-1/2 hidden"></span>
+            </div>
+            <p id="email-error" class="text-xs text-red-400 hidden"></p>
+          </div>
+
+          <!-- Password -->
+          <div class="flex flex-col gap-1.5">
+            <label for="password" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+              Password <span class="text-charm-500">*</span>
+            </label>
+            <div class="relative">
+              <input id="password" name="password" type="password" placeholder="Min. 12 characters"
+                autocomplete="new-password"
+                class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-9 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+              <button type="button" id="toggle-password"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors cursor-pointer">
+                <iconify-icon id="pw-eye-icon" icon="boxicons:eye" width="17"></iconify-icon>
+              </button>
+            </div>
+            <!-- Password requirement pills -->
+            <div id="password-reqs" class="grid grid-cols-2 gap-2 mt-1.5" style="display:none">
+              <div id="req-lower" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
+                <iconify-icon id="req-lower-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
+                3 lowercase
+              </div>
+              <div id="req-upper" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
+                <iconify-icon id="req-upper-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
+                3 uppercase
+              </div>
+              <div id="req-digit" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
+                <iconify-icon id="req-digit-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
+                3 digits
+              </div>
+              <div id="req-special" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
+                <iconify-icon id="req-special-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
+                3 special chars
+              </div>
+              <div id="req-length" class="col-span-2 flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
+                <iconify-icon id="req-length-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
+                12+ characters
+              </div>
+            </div>
+          </div>
+
+          <!-- Confirm Password -->
+          <div class="flex flex-col gap-1.5">
+            <label for="confirm-password" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
+              Confirm Password <span class="text-charm-500">*</span>
+            </label>
+            <div class="relative">
+              <input id="confirm-password" name="confirmPassword" type="password" placeholder="Repeat password"
+                autocomplete="new-password"
+                class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-9 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
+              <button type="button" id="toggle-confirm-password"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors cursor-pointer">
+                <iconify-icon id="confirm-pw-eye-icon" icon="boxicons:eye" width="17"></iconify-icon>
+              </button>
+            </div>
+            <p id="confirm-password-error" class="text-xs text-red-400 hidden"></p>
+          </div>
+
+          <button type="button" id="next-btn" disabled
+            class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-35 disabled:hover:bg-charm-600 text-white font-bold rounded-md py-3 text-sm transition-colors flex items-center justify-center gap-2" style="cursor:not-allowed">
+            Next
+            <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>
+          </button>
+
+          <p class="text-center text-xs text-white">Already have an account?<a href="/login" class="text-charm-400 hover:text-charm-300 transition-colors ml-2">Log In</a></p>
+
+        </div>
+      </div><!-- /step-1 -->
+
+      <!-- ── STEP 2: About You ── -->
+      <div id="step-2-content" class="hidden max-w-2xl mx-auto">
         <div class="flex flex-col sm:flex-row gap-5 items-start">
 
           <!-- Avatar column -->
@@ -46,24 +151,8 @@
             <p class="text-center mt-2 text-xs text-white/40 leading-relaxed">JPG, PNG, JPEG<br>Max 5 MB</p>
           </div>
 
-          <!-- Form card -->
+          <!-- Profile card -->
           <div class="flex-1 min-w-0 bg-shark-900 border border-white/8 rounded-md p-6 flex flex-col gap-5">
-
-            <!-- Username -->
-            <div class="flex flex-col gap-1.5">
-              <label for="username" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-                Username <span class="text-charm-500">*</span>
-              </label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
-                <input id="username" name="username" type="text" placeholder="yourhandle"
-                  autocomplete="off" spellcheck="false" maxlength="15"
-                  class="w-full bg-shark-800 border border-white/10 rounded-md pl-7 pr-9 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
-                <span id="username-status" class="absolute right-3 top-1/2 -translate-y-1/2 hidden"></span>
-              </div>
-              <p id="username-hint" class="text-xs text-white/25">Letters &amp; digits only. Must start with a letter. 3–15 chars.</p>
-              <p id="username-error" class="text-xs text-red-400 hidden"></p>
-            </div>
 
             <!-- Display Name -->
             <div class="flex flex-col gap-1.5">
@@ -80,72 +169,6 @@
               <p id="display-name-error" class="text-xs text-red-400 hidden"></p>
             </div>
 
-            <!-- Email -->
-            <div class="flex flex-col gap-1.5">
-              <label for="email" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-                Email <span class="text-charm-500">*</span>
-              </label>
-              <input id="email" name="email" type="email" placeholder="you@email.com" autocomplete="email"
-                class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
-              <p id="email-error" class="text-xs text-red-400 hidden"></p>
-            </div>
-
-            <!-- Password -->
-            <div class="flex flex-col gap-1.5">
-              <label for="password" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-                Password <span class="text-charm-500">*</span>
-              </label>
-              <div class="relative">
-                <input id="password" name="password" type="password" placeholder="Min. 12 characters"
-                  autocomplete="new-password"
-                  class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-9 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
-                <button type="button" id="toggle-password"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors cursor-pointer">
-                  <iconify-icon id="pw-eye-icon" icon="boxicons:eye" width="17"></iconify-icon>
-                </button>
-              </div>
-              <!-- Password requirement pills -->
-              <div id="password-reqs" class="grid grid-cols-2 gap-2 mt-1.5" style="display:none">
-                <div id="req-lower" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
-                  <iconify-icon id="req-lower-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
-                  3 lowercase
-                </div>
-                <div id="req-upper" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
-                  <iconify-icon id="req-upper-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
-                  3 uppercase
-                </div>
-                <div id="req-digit" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
-                  <iconify-icon id="req-digit-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
-                  3 digits
-                </div>
-                <div id="req-special" class="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
-                  <iconify-icon id="req-special-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
-                  3 special chars
-                </div>
-                <div id="req-length" class="col-span-2 flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 text-xs transition-colors" style="border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4)">
-                  <iconify-icon id="req-length-icon" icon="boxicons:x" width="12" style="display:block;flex-shrink:0"></iconify-icon>
-                  12+ characters
-                </div>
-              </div>
-            </div>
-
-            <!-- Confirm Password -->
-            <div class="flex flex-col gap-1.5">
-              <label for="confirm-password" class="text-xs font-semibold text-white/50 uppercase tracking-wide">
-                Confirm Password <span class="text-charm-500">*</span>
-              </label>
-              <div class="relative">
-                <input id="confirm-password" name="confirmPassword" type="password" placeholder="Repeat password"
-                  autocomplete="new-password"
-                  class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 pr-9 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
-                <button type="button" id="toggle-confirm-password"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors cursor-pointer">
-                  <iconify-icon id="confirm-pw-eye-icon" icon="boxicons:eye" width="17"></iconify-icon>
-                </button>
-              </div>
-              <p id="confirm-password-error" class="text-xs text-red-400 hidden"></p>
-            </div>
-
             <!-- Bio -->
             <div class="flex flex-col gap-1.5">
               <div class="flex items-center justify-between">
@@ -153,7 +176,7 @@
                 <span id="bio-counter" class="text-xs" style="color:rgba(255,255,255,0.3)">0 / 220</span>
               </div>
               <textarea id="bio" name="bio" rows="3"
-                placeholder="Tell people about yourself and your passion for aprons..."
+                placeholder="Tell people about yourself"
                 class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors resize-none"></textarea>
               <p id="bio-error" class="text-xs text-red-400 hidden"></p>
             </div>
@@ -236,7 +259,7 @@
               </div>
             </div>
 
-            <!-- Location (own row) -->
+            <!-- Location -->
             <div class="flex flex-col gap-1.5">
               <label for="location" class="text-xs font-semibold text-white/50 uppercase tracking-wide">Location</label>
               <input id="location" name="location" type="text" placeholder="City, Country"
@@ -255,8 +278,6 @@
                 class="w-full bg-shark-800 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white focus:outline-none focus:border-charm-600/50 focus:ring-1 focus:ring-charm-600/25 transition-colors" />
               <p id="birthdate-error" class="text-xs text-red-400 hidden"></p>
             </div>
-
-            <p id="step1-general-error" class="text-sm text-red-400 hidden"></p>
 
             <!-- Consent checkboxes -->
             <div class="flex flex-col gap-3">
@@ -290,20 +311,24 @@
               </label>
             </div>
 
-            <button type="button" id="next-btn" disabled
-              class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-charm-600 text-white font-bold rounded-md py-3 text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer">
+            <p id="step2-general-error" class="text-sm text-red-400 hidden"></p>
+
+            <button type="button" id="continue-btn" disabled
+              class="w-full bg-charm-600 hover:bg-charm-500 disabled:opacity-35 disabled:hover:bg-charm-600 text-white font-bold rounded-md py-3 text-sm transition-colors flex items-center justify-center gap-2" style="cursor:not-allowed">
               Continue
               <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>
             </button>
 
-            <p class="text-center text-xs text-white/30">Already have an account? <a href="/login" class="text-charm-400 hover:text-charm-300 transition-colors">Log in</a></p>
+            <p class="text-center text-xs text-white/60">
+              <button type="button" id="back-to-step1-btn" class="text-charm-400 hover:text-charm-300 transition-colors cursor-pointer">← Back to Account</button>
+            </p>
 
-          </div><!-- /form card -->
+          </div><!-- /profile card -->
         </div><!-- /flex row -->
-      </div><!-- /step-1 -->
+      </div><!-- /step-2 -->
 
-      <!-- ── STEP 2: OTP Verification ── -->
-      <div id="step-2-content" class="hidden max-w-sm mx-auto">
+      <!-- ── STEP 3: OTP Verification ── -->
+      <div id="step-3-content" class="hidden max-w-sm mx-auto">
 
         <div class="text-center mb-8">
           <h2 class="text-2xl font-black">Check your email</h2>
@@ -341,7 +366,7 @@
 
         </div>
 
-      </div><!-- /step-2 -->
+      </div><!-- /step-3 -->
 
     </form>
   </div>
@@ -350,6 +375,7 @@
 
   // ── State ──────────────────────────────────────────────────
   var usernameStatus     = 'unknown';
+  var emailStatus        = 'unknown';
   var allPasswordReqsMet = false;
   var currentStep        = 1;
   var STORAGE_KEY        = 'atap_signup';
@@ -441,40 +467,29 @@
     });
   }
 
-  initDropdown('sex-dropdown', function () { checkContinueEnabled(); saveSignupState(); });
+  initDropdown('sex-dropdown',         function () { checkStep2Enabled(); saveSignupState(); });
   initDropdown('orientation-dropdown', function () { saveSignupState(); });
 
   // ── Step navigation ────────────────────────────────────────
   function showStep(n) {
     currentStep = n;
     saveSignupState();
-    var s1 = document.getElementById('step-1-content');
-    var s2 = document.getElementById('step-2-content');
-    var n1 = document.getElementById('step-1-num');
-    var l1 = document.getElementById('step-1-label');
-    var n2 = document.getElementById('step-2-num');
-    var l2 = document.getElementById('step-2-label');
-    var active   = 'bg-charm-600 text-white';
-    var inactive = 'bg-shark-700 text-white/35';
-    if (n === 1) {
-      s1.classList.remove('hidden'); s2.classList.add('hidden');
-      n1.className = n1.className.replace(inactive, active);
-      n2.className = n2.className.replace(active, inactive);
-      l1.className = l1.className.replace('text-white/30', 'text-white/60');
-      l2.className = l2.className.replace('text-white/60', 'text-white/30');
-    } else {
-      s1.classList.add('hidden'); s2.classList.remove('hidden');
-      n2.className = n2.className.replace(inactive, active);
-      n1.className = n1.className.replace(active, inactive);
-      l2.className = l2.className.replace('text-white/30', 'text-white/60');
-      l1.className = l1.className.replace('text-white/60', 'text-white/30');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('step-1-content').classList.toggle('hidden', n !== 1);
+    document.getElementById('step-2-content').classList.toggle('hidden', n !== 2);
+    document.getElementById('step-3-content').classList.toggle('hidden', n !== 3);
+    for (var i = 1; i <= 3; i++) {
+      var num = document.getElementById('step-' + i + '-num');
+      var lbl = document.getElementById('step-' + i + '-label');
+      var active = i === n;
+      num.className = 'w-6 h-6 rounded-md text-xs font-bold flex items-center justify-center transition-colors ' +
+        (active ? 'bg-charm-600 text-white' : 'bg-shark-700 text-white/35');
+      if (lbl) lbl.className = 'hidden lg:inline transition-colors ' + (active ? 'text-white/60' : 'text-white/30');
     }
+    if (n > 1) window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-
   <% if (typeof error !== 'undefined' && error) { %>
-  showStep(2);
+  showStep(3);
   <% } %>
 
   // ── Avatar preview ─────────────────────────────────────────
@@ -540,14 +555,14 @@
       clearErr('confirm-password-error');
       if (this.value !== confirm) showErr('confirm-password-error', 'Passwords do not match');
     }
-    checkContinueEnabled();
+    checkStep1Enabled();
   });
 
   document.getElementById('confirm-password').addEventListener('input', function () {
     var pw = document.getElementById('password').value;
     clearErr('confirm-password-error');
     if (this.value && this.value !== pw) showErr('confirm-password-error', 'Passwords do not match');
-    checkContinueEnabled();
+    checkStep1Enabled();
   });
 
   // ── Bio counter ────────────────────────────────────────────
@@ -561,7 +576,7 @@
     else                 counter.style.color = '#4ade80';
     clearErr('bio-error');
     if (len > 0 && len < 20) showErr('bio-error', len + ' / 20 minimum characters reached');
-    checkContinueEnabled();
+    checkStep2Enabled();
   });
 
   // ── Display name validation ────────────────────────────────
@@ -574,7 +589,7 @@
     counter.style.color = val.length === 0 ? 'rgba(255,255,255,0.3)' : val.length > 45 ? '#fbbf24' : '#4ade80';
     clearErr('display-name-error');
     if (words > 3) showErr('display-name-error', 'Display name can be at most 3 words');
-    checkContinueEnabled();
+    checkStep2Enabled();
   });
 
   // ── Username availability ──────────────────────────────────
@@ -587,18 +602,18 @@
     var val      = this.value.trim();
     var statusEl = document.getElementById('username-status');
     statusEl.classList.add('hidden');
-    if (val.length === 0) { usernameStatus = 'unknown'; checkContinueEnabled(); return; }
+    if (val.length === 0) { usernameStatus = 'unknown'; checkStep1Enabled(); return; }
     if (!USERNAME_RE.test(val)) {
       statusEl.innerHTML = mkIcon('boxicons:x-circle', '#f87171');
       statusEl.classList.remove('hidden');
       usernameStatus = 'invalid';
-      checkContinueEnabled();
+      checkStep1Enabled();
       return;
     }
     usernameStatus = 'checking';
     statusEl.innerHTML = mkIcon('boxicons:loader-alt', 'rgba(255,255,255,0.3)');
     statusEl.classList.remove('hidden');
-    checkContinueEnabled();
+    checkStep1Enabled();
     usernameTimer = setTimeout(function () {
       fetch('/api/check-signup?username=' + encodeURIComponent(val.toLowerCase()))
         .then(function (r) { return r.json(); })
@@ -611,9 +626,9 @@
             showErr('username-error', 'Username already taken');
             usernameStatus = 'taken';
           }
-          checkContinueEnabled();
+          checkStep1Enabled();
         })
-        .catch(function () { statusEl.classList.add('hidden'); usernameStatus = 'unknown'; checkContinueEnabled(); });
+        .catch(function () { statusEl.classList.add('hidden'); usernameStatus = 'unknown'; checkStep1Enabled(); });
     }, 450);
   });
 
@@ -621,41 +636,89 @@
     return '<iconify-icon icon="' + name + '" width="15" style="color:' + color + ';display:block"></iconify-icon>';
   }
 
-  // ── Enable / disable Continue ──────────────────────────────
-  function checkContinueEnabled() {
-    var username    = document.getElementById('username').value.trim();
-    var displayName = document.getElementById('display-name').value.trim();
-    var displayNameWords = displayName.length ? displayName.split(/\s+/).filter(Boolean).length : 0;
-    var email     = document.getElementById('email').value.trim();
-    var password  = document.getElementById('password').value;
-    var confirm   = document.getElementById('confirm-password').value;
-    var sex       = document.getElementById('sex').value;
-    var birthdate = document.getElementById('birthdate').value;
-    var bio       = document.getElementById('bio').value.replace(/\s/g, '');
-    var terms     = document.getElementById('agree-terms').checked;
-    var ageAck    = document.getElementById('age-acknowledged').checked;
-    var adultAck  = document.getElementById('adult-content-acknowledged').checked;
-    var passwordOk = allPasswordReqsMet && confirm.length > 0 && password === confirm;
+  // ── Step 1 enable/disable ──────────────────────────────────
+  function checkStep1Enabled() {
+    var username = document.getElementById('username').value.trim();
+    var email    = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+    var confirm  = document.getElementById('confirm-password').value;
     var ok = (
       USERNAME_RE.test(username) &&
       usernameStatus !== 'taken' && usernameStatus !== 'invalid' &&
+      EMAIL_RE.test(email) &&
+      emailStatus !== 'taken' && emailStatus !== 'checking' &&
+      allPasswordReqsMet && confirm.length > 0 && password === confirm
+    );
+    var btn = document.getElementById('next-btn');
+    btn.disabled = !ok;
+    btn.style.cursor = ok ? 'pointer' : 'not-allowed';
+  }
+
+  // ── Step 2 enable/disable ──────────────────────────────────
+  function checkStep2Enabled() {
+    var displayName = document.getElementById('display-name').value.trim();
+    var displayNameWords = displayName.length ? displayName.split(/\s+/).filter(Boolean).length : 0;
+    var sex      = document.getElementById('sex').value;
+    var birthdate = document.getElementById('birthdate').value;
+    var bio      = document.getElementById('bio').value.replace(/\s/g, '');
+    var terms    = document.getElementById('agree-terms').checked;
+    var ageAck   = document.getElementById('age-acknowledged').checked;
+    var adultAck = document.getElementById('adult-content-acknowledged').checked;
+    var ok = (
       displayName.length > 0 && displayName.length <= 50 && displayNameWords <= 3 &&
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) &&
-      passwordOk &&
       sex !== '' &&
       birthdate !== '' &&
       (bio.length === 0 || bio.length >= 20) &&
-      terms &&
-      ageAck &&
-      adultAck
+      terms && ageAck && adultAck
     );
-    document.getElementById('next-btn').disabled = !ok;
+    var btn = document.getElementById('continue-btn');
+    btn.disabled = !ok;
+    btn.style.cursor = ok ? 'pointer' : 'not-allowed';
   }
 
-  ['email', 'birthdate'].forEach(function (id) {
-    document.getElementById(id).addEventListener('input',  checkContinueEnabled);
-    document.getElementById(id).addEventListener('change', checkContinueEnabled);
+  // ── Email availability ─────────────────────────────────────
+  var emailTimer = null;
+  var EMAIL_RE   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  document.getElementById('email').addEventListener('input', function () {
+    clearTimeout(emailTimer);
+    clearErr('email-error');
+    var val      = this.value.trim();
+    var statusEl = document.getElementById('email-status');
+    statusEl.classList.add('hidden');
+    if (val.length === 0) { emailStatus = 'unknown'; checkStep1Enabled(); return; }
+    if (!EMAIL_RE.test(val)) {
+      emailStatus = 'invalid';
+      checkStep1Enabled();
+      return;
+    }
+    emailStatus = 'checking';
+    statusEl.innerHTML = mkIcon('boxicons:loader-alt', 'rgba(255,255,255,0.3)');
+    statusEl.classList.remove('hidden');
+    checkStep1Enabled();
+    emailTimer = setTimeout(function () {
+      fetch('/api/check-signup?email=' + encodeURIComponent(val.toLowerCase()))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.emailAvailable) {
+            statusEl.innerHTML = mkIcon('boxicons:check-circle', '#4ade80');
+            emailStatus = 'available';
+          } else {
+            statusEl.innerHTML = mkIcon('boxicons:x-circle', '#f87171');
+            showErr('email-error', 'An account with this email already exists');
+            emailStatus = 'taken';
+          }
+          checkStep1Enabled();
+        })
+        .catch(function () { statusEl.classList.add('hidden'); emailStatus = 'unknown'; checkStep1Enabled(); });
+    }, 450);
   });
+
+  ['birthdate'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input',  checkStep2Enabled);
+    document.getElementById(id).addEventListener('change', checkStep2Enabled);
+  });
+
   function initCheckboxIcon(inputId, iconId, onChange) {
     var input = document.getElementById(inputId);
     var icon  = document.getElementById(iconId);
@@ -665,38 +728,56 @@
       if (onChange) onChange();
     });
   }
-  initCheckboxIcon('agree-terms',              'agree-terms-icon',              checkContinueEnabled);
-  initCheckboxIcon('agree-marketing',          'agree-marketing-icon');
-  initCheckboxIcon('age-acknowledged',         'age-acknowledged-icon',         checkContinueEnabled);
-  initCheckboxIcon('adult-content-acknowledged','adult-content-acknowledged-icon', checkContinueEnabled);
+  initCheckboxIcon('agree-terms',               'agree-terms-icon',               checkStep2Enabled);
+  initCheckboxIcon('agree-marketing',           'agree-marketing-icon');
+  initCheckboxIcon('age-acknowledged',          'age-acknowledged-icon',          checkStep2Enabled);
+  initCheckboxIcon('adult-content-acknowledged','adult-content-acknowledged-icon', checkStep2Enabled);
 
-  // ── Step 1 final validation ────────────────────────────────
+  // ── Step 1 validation ──────────────────────────────────────
   function validateStep1() {
-    var valid    = true;
-    var username    = document.getElementById('username').value.trim();
-    var displayName = document.getElementById('display-name').value.trim();
-    var email     = document.getElementById('email').value.trim();
-    var password  = document.getElementById('password').value;
-    var confirm   = document.getElementById('confirm-password').value;
-    var sex       = document.getElementById('sex').value;
-    var birthdate = document.getElementById('birthdate').value;
-    var bio       = document.getElementById('bio').value.replace(/\s/g, '');
+    var valid   = true;
+    var username = document.getElementById('username').value.trim();
+    var email    = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+    var confirm  = document.getElementById('confirm-password').value;
     if (!USERNAME_RE.test(username)) { showErr('username-error', 'Must start with a letter, letters & digits only, 3–15 chars'); valid = false; }
-    if (!displayName) { showErr('display-name-error', 'Display name is required'); valid = false; }
-    else if (displayName.split(/\s+/).filter(Boolean).length > 3) { showErr('display-name-error', 'Display name can be at most 3 words'); valid = false; }
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('email-error', 'A valid email is required'); valid = false; }
+    if (!email || !EMAIL_RE.test(email)) { showErr('email-error', 'A valid email is required'); valid = false; }
+    else if (emailStatus === 'taken') { showErr('email-error', 'An account with this email already exists'); valid = false; }
     if (!allPasswordReqsMet) { valid = false; }
     if (!confirm || password !== confirm) { showErr('confirm-password-error', 'Passwords do not match'); valid = false; }
+    return valid;
+  }
+
+  // ── Step 2 validation ──────────────────────────────────────
+  function validateStep2() {
+    var valid       = true;
+    var displayName = document.getElementById('display-name').value.trim();
+    var sex         = document.getElementById('sex').value;
+    var birthdate   = document.getElementById('birthdate').value;
+    var bio         = document.getElementById('bio').value.replace(/\s/g, '');
+    if (!displayName) { showErr('display-name-error', 'Display name is required'); valid = false; }
+    else if (displayName.split(/\s+/).filter(Boolean).length > 3) { showErr('display-name-error', 'Display name can be at most 3 words'); valid = false; }
     if (!sex) { showErr('sex-error', 'Please select your sex'); valid = false; }
     if (!birthdate) { showErr('birthdate-error', 'Date of birth is required'); valid = false; }
     if (bio.length > 0 && bio.length < 20) { showErr('bio-error', 'Bio must be at least 20 characters'); valid = false; }
     return valid;
   }
 
-  // ── Continue button — confirmation toast then OTP ─────────
+  // ── Step 1 Next button ─────────────────────────────────────
   document.getElementById('next-btn').addEventListener('click', function () {
     if (!validateStep1()) return;
-    var btn = document.getElementById('next-btn');
+    showStep(2);
+  });
+
+  // ── Step 2 Back button ─────────────────────────────────────
+  document.getElementById('back-to-step1-btn').addEventListener('click', function () {
+    showStep(1);
+  });
+
+  // ── Step 2 Continue button — confirmation toast then OTP ───
+  document.getElementById('continue-btn').addEventListener('click', function () {
+    if (!validateStep2()) return;
+    var btn = document.getElementById('continue-btn');
 
     window.showToast(
       'Once you proceed, you\'ll receive a verification code by email. Make sure your email address is correct before continuing.',
@@ -720,9 +801,7 @@
               });
               var data = await res.json();
               if (!data.ok) {
-                if (data.field === 'email')    showErr('email-error',    data.message);
-                if (data.field === 'username') showErr('username-error', data.message);
-                showErr('step1-general-error', data.message || 'Could not send code. Please try again.');
+                showErr('step2-general-error', data.message || 'Could not send code. Please try again.');
                 btn.disabled = false;
                 btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
               } else {
@@ -735,12 +814,12 @@
                 } else {
                   document.getElementById('otp-sent-to').textContent = 'We sent a 6-digit code to ' + email + '.';
                 }
-                showStep(2);
+                showStep(3);
                 btn.disabled = false;
                 btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
               }
             } catch (e) {
-              showErr('step1-general-error', 'Could not send code. Please try again.');
+              showErr('step2-general-error', 'Could not send code. Please try again.');
               btn.disabled = false;
               btn.innerHTML = 'Continue <iconify-icon icon="boxicons:right-arrow-alt" width="20"></iconify-icon>';
             }
@@ -773,7 +852,6 @@
     var btn = this;
     setTimeout(function () { btn.textContent = 'Resend code'; btn.disabled = false; }, 3000);
   });
-
 
   // ── Persist & restore state ────────────────────────────────
   function saveSignupState() {
@@ -829,14 +907,17 @@
     if (s.orientation) selectDropdown('orientation-dropdown', s.orientation);
     if (s.username)    document.getElementById('username').dispatchEvent(new Event('input'));
 
-    checkContinueEnabled();
+    checkStep1Enabled();
+    checkStep2Enabled();
 
     if (s.step === 2) {
+      showStep(2);
+    } else if (s.step === 3) {
       if (s.otpInput) {
         document.getElementById('otp-input').value  = s.otpInput;
         document.getElementById('otp-hidden').value = s.otpInput;
       }
-      showStep(2);
+      showStep(3);
       var email = s.email || '';
       document.getElementById('otp-sent-to').textContent = email
         ? 'We sent a 6-digit code to ' + email + '.'

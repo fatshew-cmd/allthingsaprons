@@ -83,7 +83,9 @@
       <div class="relative overflow-hidden rounded-md" id="ann-track-wrap">
         <div class="flex transition-transform duration-400" id="ann-track" style="will-change:transform">
           <% panelAnnouncements.forEach((ann, i) => { %>
-            <div class="w-full shrink-0 rounded-md bg-white/5 border border-white/8 overflow-hidden relative" data-ann-id="<%= ann._id %>">
+            <div class="w-full shrink-0 rounded-md bg-white/5 border border-white/8 overflow-hidden relative <%= ann.redirectUrl ? 'cursor-pointer hover:border-white/15 transition-colors' : '' %>"
+                 data-ann-id="<%= ann._id %>"
+                 <% if (ann.redirectUrl) { %>data-redirect-url="<%= ann.redirectUrl %>"<% } %>>
 
               <button
                 class="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-colors ann-dismiss-btn"
@@ -99,13 +101,7 @@
               <% } %>
 
               <div class="p-3">
-                <% if (ann.redirectUrl) { %>
-                  <a href="<%= ann.redirectUrl %>" class="text-sm font-semibold text-white hover:text-charm-300 transition-colors block leading-snug">
-                    <%= ann.title %>
-                  </a>
-                <% } else { %>
-                  <p class="text-sm font-semibold text-white leading-snug m-0"><%= ann.title %></p>
-                <% } %>
+                <p class="text-sm font-semibold text-white leading-snug m-0"><%= ann.title %></p>
                 <% if (ann.description) { %>
                   <p class="text-xs text-white/50 leading-relaxed line-clamp-3 mt-1 mb-0"><%= ann.description %></p>
                 <% } %>
@@ -214,6 +210,13 @@
     var dots  = dotsWrap ? Array.from(dotsWrap.querySelectorAll('.ann-dot')) : [];
     var current = 0;
     var autoTimer;
+    var impressedIds = new Set();
+
+    function fireImpression(id) {
+      if (!id || impressedIds.has(id)) return;
+      impressedIds.add(id);
+      fetch('/api/announcements/' + id + '/impression', { method: 'POST' }).catch(function () {});
+    }
 
     function goTo(idx) {
       current = idx;
@@ -223,6 +226,7 @@
         d.classList.toggle('scale-125', i === current);
         d.classList.toggle('bg-white/30', i !== current);
       });
+      if (cards[idx]) fireImpression(cards[idx].dataset.annId);
     }
 
     function advance() {
@@ -270,6 +274,20 @@
         startAuto();
       });
     });
+
+    // Card-level click → navigate + track (dismiss button is excluded via guard)
+    cards.forEach(function (card) {
+      var url = card.dataset.redirectUrl;
+      if (!url) return;
+      card.addEventListener('click', function (e) {
+        if (e.target.closest('.ann-dismiss-btn')) return;
+        fetch('/api/announcements/' + card.dataset.annId + '/click', { method: 'POST' }).catch(function () {});
+        window.location.href = url;
+      });
+    });
+
+    // Fire impression for the initially visible card
+    if (cards.length) fireImpression(cards[0].dataset.annId);
 
     startAuto();
   }

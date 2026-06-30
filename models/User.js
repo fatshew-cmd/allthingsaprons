@@ -150,6 +150,16 @@ const userSchema = new mongoose.Schema({
     emailContests:    { type: Boolean, default: true },
     emailPayouts:     { type: Boolean, default: true },
   },
+
+  adminFlags: {
+    type: [{
+      _id:   false,
+      key:   { type: String, required: true, trim: true },
+      setBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      setAt: { type: Date, default: Date.now },
+    }],
+    default: [],
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

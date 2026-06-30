@@ -34,6 +34,7 @@
           <iconify-icon icon="boxicons:git-compare" width="17"></iconify-icon>
         </button>
         <% } %>
+        <% if (!isBlocked) { %>
         <button type="button" id="follow-btn"
           data-username="<%= profileUser.username?.value %>"
           data-following="<%= isFollowing ? 'true' : 'false' %>"
@@ -41,26 +42,29 @@
           <iconify-icon icon="<%= isFollowing ? 'boxicons:user-check' : 'boxicons:user-plus' %>" width="15"></iconify-icon>
           <span id="follow-btn-label"><%= isFollowing ? 'Following' : 'Follow' %></span>
         </button>
+        <% } %>
         <!-- More menu -->
         <div class="relative" id="profile-more-wrap">
           <button type="button" id="profile-more-btn" class="w-9 h-9 flex items-center justify-center border border-white/35 rounded-md text-white/60 hover:bg-white/8 hover:text-white transition-colors cursor-pointer">
             <iconify-icon icon="boxicons:dots-horizontal-rounded" width="20"></iconify-icon>
           </button>
           <div id="profile-more-menu" class="hidden absolute right-0 top-full mt-1.5 w-52 bg-shark-900 border border-white/10 rounded-md shadow-xl z-50 overflow-hidden py-1">
+            <% if (!isBlocked) { %>
             <a href="/messages/<%= profileUser.username?.value %>" class="flex items-center gap-2.5 px-3 py-2 text-sm text-white hover:bg-white/6 transition-colors no-underline">
               <iconify-icon icon="boxicons:message-bubble-dots" width="15" class="shrink-0 text-white/50"></iconify-icon>
               Direct Message
             </a>
+            <% } %>
             <button type="button" id="profile-share-btn" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-white hover:bg-white/6 transition-colors cursor-pointer">
               <iconify-icon icon="boxicons:share" width="15" class="shrink-0 text-white/50"></iconify-icon>
               Share Profile
             </button>
             <div class="my-1 border-t border-white/8"></div>
-            <button type="button" id="profile-block-btn" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-white hover:bg-white/6 transition-colors cursor-pointer">
+            <button type="button" id="profile-block-btn" data-blocked="<%= isBlocked ? 'true' : 'false' %>" data-username="<%= profileUser.username?.value %>" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-white hover:bg-white/6 transition-colors cursor-pointer">
               <iconify-icon icon="boxicons:no-entry-filled" width="15" class="shrink-0 text-white/50"></iconify-icon>
-              Block @<%= profileUser.username?.value %>
+              <span><%= isBlocked ? 'Unblock' : 'Block' %> @<%= profileUser.username?.value %></span>
             </button>
-            <button type="button" id="profile-report-btn" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-white/6 transition-colors cursor-pointer">
+            <button type="button" id="profile-report-btn" data-username="<%= profileUser.username?.value %>" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-white/6 transition-colors cursor-pointer">
               <iconify-icon icon="boxicons:flag-alt-2-filled" width="15" class="shrink-0 text-red-400/70"></iconify-icon>
               Report @<%= profileUser.username?.value %>
             </button>
@@ -259,6 +263,16 @@
     }
   %>
 
+  <% if (isBlocked) { %>
+  <div class="flex flex-col items-center justify-center py-24 px-5 text-center">
+    <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
+      <iconify-icon icon="boxicons:no-entry-filled" width="22" class="text-white/25"></iconify-icon>
+    </div>
+    <p class="text-white/60 font-semibold text-sm m-0">You've blocked this user</p>
+    <p class="text-white/30 text-xs mt-1 mb-0">Their content is hidden. Unblock from the menu above to see it.</p>
+  </div>
+  <% } else { %>
+
   <!-- Tab bar -->
   <div class="border-b border-white/10 flex sticky top-0 bg-shark-950 z-20 mb-4">
     <button data-tab="entries" class="tab-btn flex-1 py-3 px-2 text-sm font-semibold border-b-2 transition-colors text-white border-charm-500 cursor-pointer">
@@ -311,77 +325,223 @@
       <p class="text-white/40 text-sm">No head to head contests yet</p>
     </div>
     <% } else { %>
+    <%
+      const h2hFollowSet = new Set(locals.h2hFollowedIdSet || []);
+      function h2hUid(ref) { if (!ref) return null; if (ref._id) return ref._id.toString(); return ref.toString(); }
+      const h2hProfId = profileUser._id.toString();
+    %>
+    <div class="px-3 pb-3 space-y-3">
     <% userContests.forEach(function(contest) { %>
     <%
-      const myEntry  = contest.entries.find(function(e) { return e.userId && e.userId.toString() === profileUser._id.toString(); });
-      const oppEntry = contest.entries.find(function(e) { return !e.userId || e.userId.toString() !== profileUser._id.toString(); });
+      const profId   = h2hProfId;
+      const myEntry  = contest.entries.find(function(e) { return h2hUid(e.userId) === profId; });
+      const oppEntry = contest.entries.find(function(e) { return h2hUid(e.userId) !== profId; });
+      const effStatus = (contest.status === 'active' && contest.votingDeadline && new Date(contest.votingDeadline) < new Date()) ? 'closed' : contest.status;
       const voidLabelMap = { expired: 'No Response', declined: 'Rejected', canceled: 'Canceled', nominee_forfeit: 'Forfeited', nominator_forfeit: 'Forfeit Win' };
-      const statusLabel = contest.status === 'void'
+      const statusLabel = effStatus === 'void'
         ? (voidLabelMap[contest.voidReason] || 'No Response')
-        : ({ pending: 'Pending', active: 'Active', closed: 'Closed' }[contest.status] || contest.status);
+        : ({ pending: 'Pending', active: 'Active', closed: 'Closed' }[effStatus] || effStatus);
       const statusClass = {
         pending: 'bg-amber-500/15 text-amber-400',
         active:  'bg-green-500/15 text-green-400',
         void:    'bg-white/10 text-white/40',
         closed:  'bg-white/10 text-white/50',
-      }[contest.status] || 'bg-white/10 text-white/40';
+      }[effStatus] || 'bg-white/10 text-white/40';
       const myEntryId  = myEntry  && myEntry.entryId  ? myEntry.entryId._id.toString()  : null;
       const oppEntryId = oppEntry && oppEntry.entryId ? oppEntry.entryId._id.toString() : null;
       const winnerId   = contest.winnerEntryId ? contest.winnerEntryId.toString() : null;
       const iWon  = !!(winnerId && myEntryId  && winnerId === myEntryId);
       const iLost = !!(winnerId && oppEntryId && winnerId === oppEntryId);
+      const cVotes   = (locals.profileVoteMap && locals.profileVoteMap[contest._id.toString()]) || {};
+      const myVotes  = myEntryId  ? (cVotes[myEntryId]  || 0) : 0;
+      const oppVotes = oppEntryId ? (cVotes[oppEntryId] || 0) : 0;
+      const totalVotes = myVotes + oppVotes;
+      const showVotes  = (effStatus === 'active' || effStatus === 'closed') && totalVotes > 0;
+      const myPct  = totalVotes ? Math.round(myVotes  / totalVotes * 100) : 50;
+      const oppPct = 100 - myPct;
+      const cContribs  = (locals.profileContribMap && locals.profileContribMap[contest._id.toString()]) || {};
+      const myContrib  = myEntryId  ? (cContribs[myEntryId]  || 0) : 0;
+      const oppContrib = oppEntryId ? (cContribs[oppEntryId] || 0) : 0;
+      const showStats      = effStatus === 'active' || effStatus === 'closed';
+      const isClosed       = effStatus === 'closed';
+      const myVotesWon     = isClosed && myVotes > oppVotes;
+      const oppVotesWon    = isClosed && oppVotes > myVotes;
+      const myContribWon   = isClosed && myContrib > oppContrib;
+      const oppContribWon  = isClosed && oppContrib > myContrib;
+      const oppUser        = oppEntry && oppEntry.userId && oppEntry.userId._id ? oppEntry.userId : null;
+      const oppUid         = oppUser ? oppUser._id.toString() : null;
+      const oppUsername    = oppUser ? (oppUser.username?.value    || '') : '';
+      const oppDisplayName = oppUser ? (oppUser.displayName?.value || '') : '';
+      const oppAvatar      = oppUser ? (oppUser.avatar?.value      || '') : '';
+      const isViewerFollowingOpp = !!(oppUid && h2hFollowSet.has(oppUid));
+      const myUsername     = profileUser.username?.value    || '';
+      const myDisplayName  = profileUser.displayName?.value || '';
+      const myAvatar       = profileUser.avatar?.value      || '';
     %>
-    <div class="border-b border-white/10 last:border-0">
-      <div class="flex h-36">
-        <!-- My entry -->
-        <div class="flex-1 relative overflow-hidden bg-shark-900">
+    <a href="/contest/<%= contest._id %>" class="block bg-shark-900 rounded-md overflow-hidden hover:bg-shark-800/70 transition-colors group">
+      <!-- Image strip -->
+      <div class="flex relative" style="aspect-ratio:2/1">
+        <!-- Profile user's entry -->
+        <div class="flex-1 relative overflow-hidden bg-shark-800">
           <% if (myEntry && myEntry.entryId && myEntry.entryId.mediaUrl) { %>
           <img src="<%= myEntry.entryId.mediaUrl %>" alt="" class="w-full h-full object-cover">
           <% } else { %>
-          <div class="w-full h-full flex items-center justify-center text-white/15">
+          <div class="w-full h-full flex items-center justify-center text-white/10">
             <iconify-icon icon="boxicons:image" width="28"></iconify-icon>
           </div>
           <% } %>
           <% if (iWon) { %>
-          <div class="absolute inset-0 ring-2 ring-inset ring-charm-500 pointer-events-none"></div>
-          <div class="absolute top-1.5 left-1.5 bg-charm-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md">W</div>
+          <div class="absolute inset-0 ring-2 ring-inset ring-charm-500/70 pointer-events-none"></div>
           <% } else if (iLost) { %>
-          <div class="absolute inset-0 bg-shark-950/40 pointer-events-none"></div>
+          <div class="absolute inset-0 bg-shark-950/55 pointer-events-none"></div>
+          <% } %>
+          <% if (isClosed && (myVotesWon || myContribWon)) { %>
+          <div class="absolute top-2 right-2 flex flex-col items-center gap-1.5 pointer-events-none">
+            <% if (myVotesWon) { %>
+            <div class="w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center shadow-md">
+              <iconify-icon icon="boxicons:thumb-up-filled" width="14" class="text-black"></iconify-icon>
+            </div>
+            <% } %>
+            <% if (myContribWon) { %>
+            <div class="w-7 h-7 rounded-full bg-charm-600 flex items-center justify-center shadow-md">
+              <iconify-icon icon="boxicons:dollar-circle-stars-filled" width="14" class="text-white"></iconify-icon>
+            </div>
+            <% } %>
+          </div>
           <% } %>
         </div>
-        <!-- VS divider -->
-        <div class="w-9 flex items-center justify-center bg-shark-950 shrink-0">
-          <span class="text-[10px] font-bold text-white/25 tracking-widest">VS</span>
+        <!-- VS pill -->
+        <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-shark-950 border border-white/10 flex items-center justify-center shadow-lg">
+          <span class="text-[9px] font-bold text-white/30 tracking-wider">VS</span>
         </div>
-        <!-- Nominee's entry -->
-        <div class="flex-1 relative overflow-hidden bg-shark-900">
+        <!-- Opponent's entry -->
+        <div class="flex-1 relative overflow-hidden bg-shark-800">
           <% if (oppEntry && oppEntry.entryId && oppEntry.entryId.mediaUrl) { %>
           <img src="<%= oppEntry.entryId.mediaUrl %>" alt="" class="w-full h-full object-cover">
           <% } else if (contest.status === 'pending') { %>
-          <div class="w-full h-full flex flex-col items-center justify-center text-white/15 gap-1.5">
-            <iconify-icon icon="boxicons:user-plus" width="24"></iconify-icon>
-            <span class="text-xs text-white/20">Awaiting</span>
+          <div class="w-full h-full flex flex-col items-center justify-center gap-1.5 text-white/10">
+            <iconify-icon icon="boxicons:time" width="26"></iconify-icon>
+            <span class="text-[11px] text-white/20 font-medium">Awaiting</span>
           </div>
           <% } else { %>
-          <div class="w-full h-full flex items-center justify-center text-white/15">
+          <div class="w-full h-full flex items-center justify-center text-white/10">
             <iconify-icon icon="boxicons:image" width="28"></iconify-icon>
           </div>
           <% } %>
           <% if (iLost) { %>
-          <div class="absolute inset-0 ring-2 ring-inset ring-charm-500 pointer-events-none"></div>
-          <div class="absolute top-1.5 right-1.5 bg-charm-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-md">W</div>
+          <div class="absolute inset-0 ring-2 ring-inset ring-charm-500/70 pointer-events-none"></div>
           <% } else if (iWon) { %>
-          <div class="absolute inset-0 bg-shark-950/40 pointer-events-none"></div>
+          <div class="absolute inset-0 bg-shark-950/55 pointer-events-none"></div>
+          <% } %>
+          <% if (isClosed && (oppVotesWon || oppContribWon)) { %>
+          <div class="absolute top-2 right-2 flex flex-col items-center gap-1.5 pointer-events-none">
+            <% if (oppVotesWon) { %>
+            <div class="w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center shadow-md">
+              <iconify-icon icon="boxicons:thumb-up-filled" width="14" class="text-black"></iconify-icon>
+            </div>
+            <% } %>
+            <% if (oppContribWon) { %>
+            <div class="w-7 h-7 rounded-full bg-charm-600 flex items-center justify-center shadow-md">
+              <iconify-icon icon="boxicons:dollar-circle-stars-filled" width="14" class="text-white"></iconify-icon>
+            </div>
+            <% } %>
+          </div>
           <% } %>
         </div>
       </div>
-      <!-- Meta row -->
-      <div class="px-4 py-2.5 flex items-center justify-between">
-        <span class="text-xs font-semibold px-2 py-0.5 rounded-md <%= statusClass %>"><%= statusLabel %></span>
-        <span class="text-xs text-white/30"><%= formatRelativeDate(contest.createdAt) %></span>
+      <!-- Participants row -->
+      <div class="flex items-center px-3 py-3 gap-2 border-b border-white/[0.05]">
+        <!-- Profile user -->
+        <div class="flex items-center gap-2.5 flex-1 min-w-0">
+          <% if (!isOwn) { %>
+          <button type="button"
+            data-username="<%= myUsername %>"
+            data-following="<%= isFollowing ? 'true' : 'false' %>"
+            onclick="event.preventDefault();event.stopPropagation();h2hFollowToggle(this)"
+            class="h2h-follow-btn shrink-0 w-9 h-9 flex items-center justify-center rounded-md border transition-colors cursor-pointer <%= isFollowing ? 'border-white/20 text-white/40 hover:bg-white/8' : 'border-charm-500/50 text-charm-400 hover:bg-charm-500/10' %>">
+            <iconify-icon icon="<%= isFollowing ? 'boxicons:user-check' : 'boxicons:user-plus' %>" width="17"></iconify-icon>
+          </button>
+          <% } %>
+          <% if (myAvatar) { %>
+          <img src="<%= myAvatar %>" alt="" class="w-9 h-9 rounded-full object-cover shrink-0">
+          <% } else { %>
+          <div class="w-9 h-9 rounded-full bg-shark-700 shrink-0 flex items-center justify-center">
+            <iconify-icon icon="boxicons:user" width="16" class="text-white/30"></iconify-icon>
+          </div>
+          <% } %>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-white/80 truncate leading-tight"><%= myDisplayName || ('@' + myUsername) %></p>
+            <% if (myDisplayName) { %><p class="text-xs text-white/35 truncate leading-tight">@<%= myUsername %></p><% } %>
+          </div>
+        </div>
+        <!-- Opponent -->
+        <div class="flex items-center gap-2.5 flex-1 min-w-0 justify-end">
+          <% if (oppUsername) { %>
+          <div class="min-w-0 text-right">
+            <p class="text-sm font-semibold text-white/80 truncate leading-tight"><%= oppDisplayName || ('@' + oppUsername) %></p>
+            <% if (oppDisplayName) { %><p class="text-xs text-white/35 truncate leading-tight">@<%= oppUsername %></p><% } %>
+          </div>
+          <% if (oppAvatar) { %>
+          <img src="<%= oppAvatar %>" alt="" class="w-9 h-9 rounded-full object-cover shrink-0">
+          <% } else { %>
+          <div class="w-9 h-9 rounded-full bg-shark-700 shrink-0 flex items-center justify-center">
+            <iconify-icon icon="boxicons:user" width="16" class="text-white/30"></iconify-icon>
+          </div>
+          <% } %>
+          <% if (!locals.currentUser || locals.currentUser.username !== oppUsername) { %>
+          <button type="button"
+            data-username="<%= oppUsername %>"
+            data-following="<%= isViewerFollowingOpp ? 'true' : 'false' %>"
+            onclick="event.preventDefault();event.stopPropagation();h2hFollowToggle(this)"
+            class="h2h-follow-btn shrink-0 w-9 h-9 flex items-center justify-center rounded-md border transition-colors cursor-pointer <%= isViewerFollowingOpp ? 'border-white/20 text-white/40 hover:bg-white/8' : 'border-charm-500/50 text-charm-400 hover:bg-charm-500/10' %>">
+            <iconify-icon icon="<%= isViewerFollowingOpp ? 'boxicons:user-check' : 'boxicons:user-plus' %>" width="17"></iconify-icon>
+          </button>
+          <% } %>
+          <% } else if (contest.status === 'pending') { %>
+          <span class="text-sm text-white/25 italic">Awaiting opponent</span>
+          <% } %>
+        </div>
       </div>
-    </div>
+      <!-- Stats + vote bar -->
+      <% if (showStats) { %>
+      <div class="px-3 pt-2.5 pb-2.5">
+        <!-- Per-side stats -->
+        <div class="flex justify-between mb-2">
+          <div class="flex items-center gap-3">
+            <span class="flex items-center gap-1.5 text-sm font-semibold text-white/50">
+              <iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon>
+              <%= myVotes %>
+            </span>
+            <span class="text-sm font-semibold text-white/50">🌶️ <%= myContrib.toLocaleString() %></span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-semibold text-white/50"><%= oppContrib.toLocaleString() %> 🌶️</span>
+            <span class="flex items-center gap-1.5 text-sm font-semibold text-white/50">
+              <%= oppVotes %>
+              <iconify-icon icon="boxicons:thumb-up" width="16"></iconify-icon>
+            </span>
+          </div>
+        </div>
+        <!-- Vote distribution bar -->
+        <% if (showVotes) { %>
+        <div class="flex rounded-full overflow-hidden h-1.5">
+          <div class="bg-charm-500" style="width:<%= myPct %>%"></div>
+          <div class="bg-white/15" style="width:<%= oppPct %>%"></div>
+        </div>
+        <% } %>
+      </div>
+      <% } %>
+      <!-- Footer -->
+      <div class="px-3 py-2.5 flex items-center justify-between">
+        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md <%= statusClass %>"><%= statusLabel %></span>
+        <div class="flex items-center gap-1 text-white/25 group-hover:text-white/45 transition-colors">
+          <span class="text-[11px]"><%= formatRelativeDate(contest.createdAt) %></span>
+          <iconify-icon icon="boxicons:chevron-right" width="13"></iconify-icon>
+        </div>
+      </div>
+    </a>
     <% }); %>
+    </div>
     <% } %>
   </div>
 
@@ -497,6 +657,8 @@
     <% } %>
   </div>
   <% } %>
+
+  <% } %> <%# end isBlocked else %>
 
   <% if (isOwn) { %>
   <%
@@ -1299,9 +1461,55 @@
         btn.disabled = false;
       });
   });
+
 }());
 </script>
 <% } %>
+<script>
+window.h2hFollowToggle = function (btn) {
+  var following = btn.dataset.following === 'true';
+  var username  = btn.dataset.username;
+  var endpoint  = following ? '/unfollow/' + username : '/follow/' + username;
+  btn.disabled  = true;
+  fetch(endpoint, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var now = data.following;
+      // Sync every H2H card button for this username
+      document.querySelectorAll('.h2h-follow-btn[data-username="' + username + '"]').forEach(function (b) {
+        b.dataset.following = now ? 'true' : 'false';
+        var ic = b.querySelector('iconify-icon');
+        if (now) {
+          b.classList.remove('border-charm-500/50', 'text-charm-400', 'hover:bg-charm-500/10');
+          b.classList.add('border-white/20', 'text-white/40', 'hover:bg-white/8');
+          if (ic) ic.setAttribute('icon', 'boxicons:user-check');
+        } else {
+          b.classList.remove('border-white/20', 'text-white/40', 'hover:bg-white/8');
+          b.classList.add('border-charm-500/50', 'text-charm-400', 'hover:bg-charm-500/10');
+          if (ic) ic.setAttribute('icon', 'boxicons:user-plus');
+        }
+      });
+      // Also sync the main profile follow button if it targets the same user
+      var mainBtn = document.getElementById('follow-btn');
+      if (mainBtn && mainBtn.dataset.username === username) {
+        mainBtn.dataset.following = now ? 'true' : 'false';
+        var mainIcon  = mainBtn.querySelector('iconify-icon');
+        var mainLabel = mainBtn.querySelector('#follow-btn-label');
+        if (now) {
+          mainBtn.className = 'inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm font-semibold transition-colors cursor-pointer border border-white/35 text-white hover:bg-white/8';
+          if (mainIcon)  mainIcon.setAttribute('icon', 'boxicons:user-check');
+          if (mainLabel) mainLabel.textContent = 'Following';
+        } else {
+          mainBtn.className = 'inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm font-semibold transition-colors cursor-pointer bg-charm-500 text-white hover:bg-charm-600';
+          if (mainIcon)  mainIcon.setAttribute('icon', 'boxicons:user-plus');
+          if (mainLabel) mainLabel.textContent = 'Follow';
+        }
+      }
+    })
+    .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
+    .finally(function () { btn.disabled = false; });
+};
+</script>
 
 <% if (locals.canNominate) { %>
 
@@ -1766,7 +1974,7 @@
 </script>
 <% } %>
 
-<% if (!locals.isOwnProfile) { %>
+<% if (!isOwn) { %>
 <script>
 (function () {
   var moreBtn  = document.getElementById('profile-more-btn');
@@ -1785,27 +1993,182 @@
   // Share
   document.getElementById('profile-share-btn').addEventListener('click', function () {
     closeMenu();
-    var url = window.location.href;
+    var baseUrl = window.location.origin + window.location.pathname;
+    var shareUrl = baseUrl + '?ref=share';
+    var username = '<%= profileUser.username.value %>';
+
+    fetch('/api/users/' + username + '/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: navigator.share ? 'native' : 'clipboard' }),
+    }).catch(function () {});
+
     if (navigator.share) {
-      navigator.share({ title: document.title, url: url });
+      navigator.share({ title: document.title, url: shareUrl });
     } else {
-      navigator.clipboard.writeText(url).then(function () {
+      navigator.clipboard.writeText(shareUrl).then(function () {
         if (window.showToast) window.showToast('Profile link copied to clipboard.', 'success');
       });
     }
   });
 
-  // Block (not yet implemented)
-  document.getElementById('profile-block-btn').addEventListener('click', function () {
+  // Block / Unblock
+  var blockBtn = document.getElementById('profile-block-btn');
+  blockBtn.addEventListener('click', function () {
     closeMenu();
-    if (window.showToast) window.showToast('Blocking is coming soon.', 'info');
+    var username = blockBtn.dataset.username;
+    blockBtn.disabled = true;
+    fetch('/api/users/' + username + '/block', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); blockBtn.disabled = false; return; }
+        blockBtn.dataset.blocked = data.blocked ? 'true' : 'false';
+        var span = blockBtn.querySelector('span');
+        if (span) span.textContent = (data.blocked ? 'Unblock' : 'Block') + ' @' + username;
+        if (window.showToast) window.showToast(data.blocked ? 'User blocked.' : 'User unblocked.', 'success');
+        setTimeout(function () { window.location.reload(); }, 800);
+      })
+      .catch(function () {
+        if (window.showToast) window.showToast('Something went wrong.', 'error');
+        blockBtn.disabled = false;
+      });
   });
 
-  // Report (not yet implemented)
-  document.getElementById('profile-report-btn').addEventListener('click', function () {
+  // Report — modal
+  var reportBtn  = document.getElementById('profile-report-btn');
+  var _urModal   = null;
+
+  var USER_REPORT_REASONS = [
+    'Spam or self-promotion',
+    'Harassment or bullying',
+    'Hate speech or discrimination',
+    'Impersonation',
+    'Underage user',
+    'Other',
+  ];
+
+  function getReportModal() {
+    if (_urModal) return _urModal;
+
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.65);display:none;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(2px);';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#18181b;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:1.5rem;max-width:380px;width:100%;font-family:inherit;';
+
+    var title = document.createElement('p');
+    title.style.cssText = 'font-size:1rem;font-weight:700;color:#fff;margin:0 0 0.25rem;';
+    title.textContent = 'Report this user';
+    card.appendChild(title);
+
+    var sub = document.createElement('p');
+    sub.style.cssText = 'font-size:0.8125rem;color:rgba(255,255,255,0.4);margin:0 0 1.25rem;';
+    sub.textContent = "What’s wrong with this account?";
+    card.appendChild(sub);
+
+    var checkboxes = [];
+    USER_REPORT_REASONS.forEach(function (label) {
+      var row = document.createElement('label');
+      row.style.cssText = 'display:flex;align-items:center;gap:0.625rem;padding:0.5rem 0;cursor:pointer;';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = label;
+      cb.style.cssText = 'width:15px;height:15px;accent-color:#e11d48;cursor:pointer;flex-shrink:0;';
+      var span = document.createElement('span');
+      span.style.cssText = 'font-size:0.875rem;color:rgba(255,255,255,0.7);';
+      span.textContent = label;
+      row.appendChild(cb);
+      row.appendChild(span);
+      card.appendChild(row);
+      checkboxes.push(cb);
+      cb.addEventListener('change', updateSubmit);
+    });
+
+    var divider = document.createElement('div');
+    divider.style.cssText = 'border-top:1px solid rgba(255,255,255,0.08);margin:1rem 0 0.75rem;';
+    card.appendChild(divider);
+
+    var btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:0.5rem;';
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.cssText = 'padding:0.375rem 0.875rem;border-radius:6px;font-size:0.8125rem;font-weight:600;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);border:none;cursor:pointer;font-family:inherit;';
+    cancelBtn.addEventListener('click', closeModal);
+
+    var submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.textContent = 'Submit report';
+    submitBtn.disabled = true;
+    submitBtn.style.cssText = 'padding:0.375rem 0.875rem;border-radius:6px;font-size:0.8125rem;font-weight:600;background:#e11d48;color:#fff;border:none;cursor:pointer;font-family:inherit;opacity:0.4;transition:opacity 0.15s;';
+    submitBtn.addEventListener('click', submitReport);
+
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(submitBtn);
+    card.appendChild(btnRow);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && overlay.style.display !== 'none') closeModal(); });
+
+    _urModal = { overlay: overlay, checkboxes: checkboxes, submitBtn: submitBtn };
+
+    function updateSubmit() {
+      var any = checkboxes.some(function (cb) { return cb.checked; });
+      submitBtn.disabled = !any;
+      submitBtn.style.opacity = any ? '1' : '0.4';
+      submitBtn.style.cursor  = any ? 'pointer' : 'default';
+    }
+
+    function closeModal() {
+      overlay.style.display = 'none';
+      checkboxes.forEach(function (cb) { cb.checked = false; });
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submit report';
+      submitBtn.style.opacity = '0.4';
+    }
+
+    function submitReport() {
+      var selected = checkboxes.filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
+      if (!selected.length) return;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting…';
+      var username = reportBtn.dataset.username;
+      var capturedStatus;
+      fetch('/api/users/' + username + '/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reasons: selected }),
+      })
+      .then(function (r) { capturedStatus = r.status; return r.json(); })
+      .then(function (data) {
+        closeModal();
+        if (capturedStatus === 409) {
+          if (window.showToast) window.showToast(data.error, 'info');
+          return;
+        }
+        if (data.error) { if (window.showToast) window.showToast(data.error, 'error'); return; }
+        if (window.showToast) window.showToast('Report submitted. Thank you.', 'success');
+        reportBtn.disabled = true;
+        reportBtn.style.opacity = '0.4';
+      })
+      .catch(function () {
+        closeModal();
+        if (window.showToast) window.showToast('Something went wrong.', 'error');
+      });
+    }
+
+    return _urModal;
+  }
+
+  reportBtn.addEventListener('click', function () {
     closeMenu();
-    if (window.showToast) window.showToast('User reporting is coming soon.', 'info');
+    var modal = getReportModal();
+    modal.overlay.style.display = 'flex';
   });
+
 }());
 </script>
 <% } %>

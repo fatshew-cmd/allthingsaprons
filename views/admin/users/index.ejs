@@ -31,7 +31,7 @@
           </thead>
           <tbody class="divide-y divide-white/5">
             <% users.forEach(function(user) { %>
-            <tr class="hover:bg-white/5 transition-colors">
+            <tr class="hover:bg-white/5 transition-colors cursor-pointer" onclick="window.location='/admin/users/<%= user._id %>'">
 
               <td class="px-5 py-3.5">
                 <div class="flex items-center gap-2.5">

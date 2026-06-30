@@ -1,5 +1,6 @@
 const express        = require('express');
 const router         = express.Router();
+const mongoose       = require('mongoose');
 const crypto         = require('crypto');
 const bcrypt         = require('bcrypt');
 const User           = require('../models/User');
@@ -10,8 +11,10 @@ const requireDomain  = require('../middleware/requireDomain');
 const logAuditEvent  = require('../utils/auditLog');
 const BannedEmail    = require('../models/BannedEmail');
 const BannedDocHash  = require('../models/BannedDocHash');
-const Announcement   = require('../models/Announcement');
-const AnnouncementDismissal = require('../models/AnnouncementDismissal');
+const Announcement            = require('../models/Announcement');
+const AnnouncementDismissal   = require('../models/AnnouncementDismissal');
+const AnnouncementImpression  = require('../models/AnnouncementImpression');
+const AnnouncementClick       = require('../models/AnnouncementClick');
 const PlatformSettings        = require('../models/PlatformSettings');
 const Comment                 = require('../models/Comment');
 const CommentReport           = require('../models/CommentReport');
@@ -19,6 +22,7 @@ const ContestComment          = require('../models/ContestComment');
 const ContestCommentReport    = require('../models/ContestCommentReport');
 const Entry                   = require('../models/Entry');
 const EntryReport             = require('../models/EntryReport');
+const UserReport              = require('../models/UserReport');
 const Contest                 = require('../models/Contest');
 const Notification            = require('../models/Notification');
 const upload         = require('../middleware/upload');
@@ -186,6 +190,75 @@ router.get('/users/:id', async (req, res) => {
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).send('User not found');
   res.render('admin/users/detail', { title: user.email?.value, currentPage: 'users', user, granterRole: req.session.roleOverride || req.session.adminRole });
+});
+
+router.post('/users/:id/flags', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (role !== 'superadmin' && role !== 'founder') return res.status(403).json({ error: 'Forbidden' });
+
+  const { key } = req.body;
+  if (!key || typeof key !== 'string' || !key.trim()) return res.status(400).json({ error: 'Key is required.' });
+
+  const sanitizedKey = key.trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '_').slice(0, 64);
+
+  const user = await User.findById(req.params.id).select('adminFlags');
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const existing = user.adminFlags.find(f => f.key === sanitizedKey);
+  if (existing) {
+    existing.setBy = req.session.adminId;
+    existing.setAt = new Date();
+  } else {
+    user.adminFlags.push({ key: sanitizedKey, setBy: req.session.adminId, setAt: new Date() });
+  }
+  try {
+    await user.save();
+  } catch (err) {
+    console.error('Flag save error:', err);
+    return res.status(500).json({ error: 'Failed to save flag.' });
+  }
+
+  logAuditEvent({
+    actorId:      req.session.adminId,
+    actorRole:    req.session.adminRole,
+    action:       'user_flag_set',
+    entityType:   'user',
+    entityId:     user._id,
+    targetUserId: user._id,
+    metadata:     { key: sanitizedKey },
+  });
+
+  res.json({ ok: true, flags: user.adminFlags });
+});
+
+router.delete('/users/:id/flags/:key', async (req, res) => {
+  const role = req.session.roleOverride || req.session.adminRole;
+  if (role !== 'superadmin' && role !== 'founder') return res.status(403).json({ error: 'Forbidden' });
+
+  const user = await User.findById(req.params.id).select('adminFlags');
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const before = user.adminFlags.length;
+  user.adminFlags = user.adminFlags.filter(f => f.key !== req.params.key);
+  if (user.adminFlags.length === before) return res.status(404).json({ error: 'Flag not found' });
+  try {
+    await user.save();
+  } catch (err) {
+    console.error('Flag remove error:', err);
+    return res.status(500).json({ error: 'Failed to remove flag.' });
+  }
+
+  logAuditEvent({
+    actorId:      req.session.adminId,
+    actorRole:    req.session.adminRole,
+    action:       'user_flag_removed',
+    entityType:   'user',
+    entityId:     user._id,
+    targetUserId: user._id,
+    metadata:     { key: req.params.key },
+  });
+
+  res.json({ ok: true, flags: user.adminFlags });
 });
 
 // ── Admin Accounts ────────────────────────────────────────────────
@@ -686,9 +759,36 @@ router.get('/moderation', async (req, res) => {
       stallingContest: stallingEntryIds.has(e._id.toString()),
     })).sort((a, b) => b.reportCount - a.reportCount || a.firstReportedAt - b.firstReportedAt);
 
-    const activeTab = req.query.tab === 'entries' ? 'entries' : 'comments';
+    // User report queue
+    const rawUserReports = await UserReport.find({ status: 'pending' })
+      .populate('reportedUserId', 'username displayName avatar')
+      .populate('reportedBy', 'username')
+      .sort({ createdAt: 1 })
+      .lean();
 
-    res.render('admin/moderation', { title: 'Moderation', currentPage: 'moderation', queue, entryQueue, activeTab });
+    const userReportMap = {};
+    for (const r of rawUserReports) {
+      if (!r.reportedUserId) continue;
+      const uid = r.reportedUserId._id.toString();
+      if (!userReportMap[uid]) {
+        userReportMap[uid] = {
+          reportedUser: r.reportedUserId,
+          reporters: [],
+          reasons: [],
+          firstReportedAt: r.createdAt,
+        };
+      }
+      userReportMap[uid].reporters.push(r.reportedBy);
+      if (r.reasons?.length) userReportMap[uid].reasons.push(...r.reasons);
+      if (r.createdAt < userReportMap[uid].firstReportedAt) userReportMap[uid].firstReportedAt = r.createdAt;
+    }
+
+    const userQueue = Object.values(userReportMap)
+      .sort((a, b) => b.reporters.length - a.reporters.length || a.firstReportedAt - b.firstReportedAt);
+
+    const activeTab = ['entries', 'users'].includes(req.query.tab) ? req.query.tab : 'comments';
+
+    res.render('admin/moderation', { title: 'Moderation', currentPage: 'moderation', queue, entryQueue, userQueue, activeTab });
   } catch (err) {
     console.error('Moderation queue error:', err);
     res.redirect('/admin');
@@ -867,6 +967,19 @@ router.post('/moderation/entry-reports/:eid/approve', async (req, res) => {
   res.redirect('/admin/moderation?tab=entries');
 });
 
+// ── User report moderation actions ───────────────────────────────────────────
+
+router.post('/moderation/user-reports/:uid/dismiss', async (req, res) => {
+  const { uid } = req.params;
+  if (!mongoose.isValidObjectId(uid)) return res.redirect('/admin/moderation?tab=users');
+  try {
+    await UserReport.updateMany({ reportedUserId: uid, status: 'pending' }, { $set: { status: 'rejected' } });
+  } catch (err) {
+    console.error('User report dismiss error:', err);
+  }
+  res.redirect('/admin/moderation?tab=users');
+});
+
 router.get('/content', (req, res) => {
   res.render('admin/content/index', { title: 'Entries', currentPage: 'content' });
 });
@@ -939,13 +1052,19 @@ router.get('/announcements/:id', async (req, res) => {
 
     if (ann.status === 'active' && ann.expiresAt && ann.expiresAt < new Date()) ann.status = 'expired';
 
-    const dismissalCount = await AnnouncementDismissal.countDocuments({ announcementId: req.params.id });
+    const [dismissalCount, impressionCount, clickCount] = await Promise.all([
+      AnnouncementDismissal.countDocuments({ announcementId: req.params.id }),
+      AnnouncementImpression.countDocuments({ announcementId: req.params.id }),
+      AnnouncementClick.countDocuments({ announcementId: req.params.id }),
+    ]);
 
     res.render('admin/announcements/detail', {
       title: ann.title,
       currentPage: 'announcements',
       ann,
       dismissalCount,
+      impressionCount,
+      clickCount,
     });
   } catch {
     res.redirect('/admin/announcements');
