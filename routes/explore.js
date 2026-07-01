@@ -83,7 +83,7 @@ async function buildScoringContext(currentUserId, candidates, follows, affinityD
   };
 }
 
-async function getPeopleSubSections(currentUserId, followingSet) {
+async function getPeopleSubSections(currentUserId, followingSet, previewSize = 3) {
   const twoDaysAgo  = new Date(Date.now() - 48 * 60 * 60 * 1000);
   const excludeSet  = new Set([currentUserId.toString(), ...followingSet]);
   const FETCH_LIMIT = 20;
@@ -167,7 +167,7 @@ async function getPeopleSubSections(currentUserId, followingSet) {
       .map(id => userMap[id]);
 
     if (sectionUsers.length >= MIN_SECTION_USERS) {
-      sections.push({ ...section, users: sectionUsers.slice(0, 3), allCount: sectionUsers.length });
+      sections.push({ ...section, users: sectionUsers.slice(0, previewSize), allCount: sectionUsers.length });
     }
   }
 
@@ -267,3 +267,4 @@ router.get('/api/explore/entries', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.getPeopleSubSections = getPeopleSubSections;

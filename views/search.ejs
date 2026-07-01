@@ -1,4 +1,4 @@
-﻿<%- include('partials/appStart', { title: title, activePage: 'search' }) %>
+<%- include('partials/appStart', { title: title, activePage: 'search' }) %>
 
 <div class="flex flex-col pb-20 md:pb-0">
 
@@ -6,68 +6,178 @@
   <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
     <h1 class="font-black text-xl tracking-tight mb-3">Search</h1>
     <div class="relative">
-      <input type="text" placeholder="Search items, creators, tags…"
+      <input id="searchInput" type="text" placeholder="Search items, creators, tags…" autocomplete="off"
+             value="<%= initialQuery %>"
              class="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2.5 pl-10 text-sm placeholder-white/30 focus:outline-none focus:border-yellow-400/50 transition-colors" />
       <iconify-icon icon="boxicons:search" width="16" height="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30"></iconify-icon>
     </div>
   </header>
 
-  <!-- Contests -->
-  <% if (typeof contests !== 'undefined' && contests.length) { %>
-  <section class="px-5 pt-6 pb-2">
-    <h2 class="text-sm font-bold text-white/50 uppercase tracking-wider mb-4">Contests</h2>
-    <div class="grid grid-cols-3 gap-3">
-      <% contests.forEach(comp => { %>
-        <div class="flex flex-col rounded-md bg-white/5 border border-white/10 overflow-hidden hover:bg-white/8 transition-colors cursor-pointer">
-          <!-- Cover image -->
-          <div class="w-full aspect-square bg-white/10 shrink-0">
-            <img src="<%= comp.coverUrl %>" class="w-full h-full object-cover" alt="<%= comp.title %>" loading="lazy" />
-          </div>
-          <!-- Body -->
-          <div class="flex flex-col flex-1 p-3">
-            <div class="flex items-start justify-between gap-1 mb-1">
-              <p class="text-sm font-bold leading-tight"><%= comp.title %></p>
-              <% if (comp.status === 'active') { %>
-                <span class="text-[9px] font-semibold uppercase tracking-wide text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded-md shrink-0">Live</span>
-              <% } else { %>
-                <span class="text-[9px] font-semibold uppercase tracking-wide text-yellow-400/80 bg-yellow-400/10 px-1.5 py-0.5 rounded-md shrink-0">Soon</span>
-              <% } %>
-            </div>
-            <p class="text-[11px] text-white/40 mb-1 leading-tight"><%= comp.theme %></p>
-            <p class="text-[11px] text-white/30 mb-2">by <%= comp.organizer %></p>
-            <div class="text-[11px] text-white/40 flex items-center gap-2 mb-3">
-              <% if (comp.status === 'active') { %>
-                <span class="text-green-400 font-medium"><%= comp.daysLeft %>d left</span>
-              <% } else { %>
-                <span class="text-yellow-400/70 font-medium">In <%= comp.daysLeft %>d</span>
-              <% } %>
-              <span>·</span>
-              <span><%= comp.submissionCount %> entries</span>
-            </div>
-            <!-- Enter button pinned to bottom -->
-            <div class="mt-auto">
-              <% if (comp.status === 'active') { %>
-                <button class="w-full py-2 rounded-md bg-charm-500/15 text-charm-400 text-xs font-semibold hover:bg-charm-500/25 transition-colors cursor-pointer">Enter</button>
-              <% } else { %>
-                <button class="w-full py-2 rounded-md bg-white/5 text-white/25 text-xs font-semibold cursor-default">Coming soon</button>
-              <% } %>
-            </div>
-          </div>
-        </div>
-      <% }) %>
-    </div>
-  </section>
-  <% } %>
-
-  <!-- Empty state -->
-  <div class="flex flex-col items-center justify-center py-16 px-5 text-center">
+  <!-- Idle state -->
+  <div id="searchIdle" class="flex flex-col items-center justify-center py-16 px-5 text-center">
     <div class="w-16 h-16 rounded-md bg-white/5 flex items-center justify-center mb-4">
       <iconify-icon icon="boxicons:search" width="32" height="32" class="text-white/20"></iconify-icon>
     </div>
-    <p class="text-white/40 text-sm">Full search coming soon</p>
-    <p class="text-white/20 text-xs mt-1">Items, creators, and tags</p>
+    <p class="text-white/40 text-sm">Search entries, creators, contests, and tags</p>
   </div>
 
+  <!-- No results state -->
+  <div id="searchEmpty" class="hidden items-center justify-center py-16 px-5 text-center">
+    <div class="w-16 h-16 rounded-md bg-white/5 flex items-center justify-center mb-4">
+      <iconify-icon icon="boxicons:search-alt" width="32" height="32" class="text-white/20"></iconify-icon>
+    </div>
+    <p class="text-white/40 text-sm">No results found</p>
+  </div>
+
+  <!-- Results panel -->
+  <div id="searchResults" class="hidden"></div>
+
 </div>
+
+<script>
+(function () {
+  var input      = document.getElementById('searchInput');
+  var idleEl     = document.getElementById('searchIdle');
+  var emptyEl    = document.getElementById('searchEmpty');
+  var resultsEl  = document.getElementById('searchResults');
+  var debounceTimer = null;
+  var initialQuery    = <%- JSON.stringify(initialQuery || '') %>;
+  var initialCategory = <%- JSON.stringify(initialCategory || '') %>;
+  var initialFilter   = <%- JSON.stringify(initialFilter || '') %>;
+
+  window.__ecSource = 'search';
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function avatarHtml(src, name, sizeClass) {
+    if (src) return '<img src="' + escHtml(src) + '" alt="' + escHtml(name) + '" class="' + sizeClass + ' rounded-full object-cover shrink-0" />';
+    return '<div class="' + sizeClass + ' rounded-full bg-shark-700 flex items-center justify-center shrink-0"><iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon></div>';
+  }
+
+  function setState(state) {
+    idleEl.classList.toggle('hidden', state !== 'idle');
+    emptyEl.classList.toggle('hidden', state !== 'empty');
+    emptyEl.classList.toggle('flex', state === 'empty');
+    emptyEl.classList.toggle('flex-col', state === 'empty');
+    resultsEl.classList.toggle('hidden', state !== 'results');
+  }
+
+  function sectionHeader(label) {
+    return '<p class="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">' + escHtml(label) + '</p>';
+  }
+
+  function renderUsers(users) {
+    if (!users.length) return '';
+    var rows = users.map(function (u) {
+      return '<a href="/' + escHtml(u.username) + '" class="flex items-center gap-3 px-1 py-2 hover:bg-white/5 rounded-md transition-colors no-underline">'
+        + avatarHtml(u.avatar, u.displayName, 'w-9 h-9')
+        + '<div class="flex flex-col min-w-0"><span class="text-sm font-medium text-white truncate">' + escHtml(u.displayName) + '</span>'
+        + '<span class="text-xs text-white/40 truncate">@' + escHtml(u.username) + '</span></div></a>';
+    }).join('');
+    return '<section class="px-5 pt-5 pb-1">' + sectionHeader('Creators') + '<div class="flex flex-col">' + rows + '</div></section>';
+  }
+
+  function renderEntries(entries) {
+    if (!entries.length) return '';
+    var tiles = entries.map(function (e) {
+      var avg = e.ratingCount > 0 ? Number(e.ratingAvg).toFixed(1) : null;
+      return '<a href="/entry/' + escHtml(e._id) + '" class="flex flex-col rounded-md bg-white/5 border border-white/10 overflow-hidden hover:bg-white/8 transition-colors no-underline">'
+        + '<div class="w-full aspect-square bg-white/10 shrink-0">'
+        + (e.mediaType === 'video'
+            ? '<video src="' + escHtml(e.mediaUrl) + '" class="w-full h-full object-cover" muted></video>'
+            : '<img src="' + escHtml(e.mediaUrl) + '" class="w-full h-full object-cover" loading="lazy" alt="' + escHtml(e.title) + '" />')
+        + '</div>'
+        + '<div class="flex flex-col p-2.5 gap-0.5">'
+        + '<span class="text-xs font-semibold text-white truncate">' + escHtml(e.title) + '</span>'
+        + '<span class="text-[11px] text-white/40 truncate">@' + escHtml(e.owner.username) + '</span>'
+        + (avg ? '<span class="text-[11px] text-yellow-400/80 mt-0.5">★ ' + avg + '</span>' : '')
+        + '</div></a>';
+    }).join('');
+    return '<section class="px-5 pt-5 pb-1">' + sectionHeader('Entries') + '<div class="grid grid-cols-3 gap-3">' + tiles + '</div></section>';
+  }
+
+  function renderTags(tags) {
+    if (!tags.length) return '';
+    var chips = tags.map(function (t) {
+      return '<a href="/search?q=' + encodeURIComponent('#' + t.tag) + '" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/5 border border-white/8 hover:border-charm-500/40 hover:bg-charm-600/8 transition-colors text-sm text-white/70 hover:text-white no-underline">'
+        + '<span class="text-charm-400 font-medium">#</span>' + escHtml(t.tag)
+        + '<span class="text-white/30 text-xs">' + t.count + '</span></a>';
+    }).join('');
+    return '<section class="px-5 pt-5 pb-1">' + sectionHeader('Tags') + '<div class="flex flex-wrap gap-2">' + chips + '</div></section>';
+  }
+
+  function renderContests(contests) {
+    if (!contests.length) return '';
+    var rows = contests.map(function (c) {
+      var covers = (c.covers || []).map(function (cv) {
+        return '<div class="w-10 h-10 rounded-md bg-white/10 overflow-hidden shrink-0">'
+          + (cv.mediaType === 'video'
+              ? '<video src="' + escHtml(cv.mediaUrl) + '" class="w-full h-full object-cover" muted></video>'
+              : '<img src="' + escHtml(cv.mediaUrl) + '" class="w-full h-full object-cover" loading="lazy" />')
+          + '</div>';
+      }).join('');
+      var names = (c.contestants || []).map(function (p) { return p.displayName; }).join(' vs ');
+      return '<a href="/contest/' + escHtml(c._id) + '" class="flex items-center gap-3 px-1 py-2.5 hover:bg-white/5 rounded-md transition-colors no-underline">'
+        + '<div class="flex -space-x-2">' + covers + '</div>'
+        + '<div class="flex flex-col min-w-0"><span class="text-sm font-medium text-white truncate">' + escHtml(c.title) + '</span>'
+        + '<span class="text-xs text-white/40 truncate">' + escHtml(names) + '</span></div></a>';
+    }).join('');
+    return '<section class="px-5 pt-5 pb-1">' + sectionHeader('Contests') + '<div class="flex flex-col">' + rows + '</div></section>';
+  }
+
+  function renderCompact(data) {
+    var html = renderUsers(data.users || []) + renderEntries(data.entries || []) + renderTags(data.tags || []) + renderContests(data.contests || []);
+    var hasResults = (data.users || []).length || (data.entries || []).length || (data.tags || []).length || (data.contests || []).length;
+    if (!hasResults) { setState('empty'); return; }
+    resultsEl.innerHTML = html;
+    setState('results');
+  }
+
+  function renderFull(category, data) {
+    var html = '';
+    if (category === 'people')   html = renderUsers(data.users || []);
+    if (category === 'entries')  html = renderEntries(data.entries || []);
+    if (category === 'tags')     html = renderTags(data.tags || []);
+    if (category === 'contests') html = renderContests(data.contests || []);
+    if (!html) { setState('empty'); return; }
+    resultsEl.innerHTML = html;
+    setState('results');
+  }
+
+  function runSearch(opts) {
+    var params = new URLSearchParams();
+    if (opts.q) params.set('q', opts.q);
+    if (opts.category) params.set('category', opts.category);
+    if (opts.filter) params.set('filter', opts.filter);
+
+    fetch('/api/search?' + params.toString())
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (opts.category) renderFull(opts.category, data);
+        else renderCompact(data);
+      })
+      .catch(function () { setState('empty'); });
+  }
+
+  input.addEventListener('input', function () {
+    clearTimeout(debounceTimer);
+    var val = this.value.trim();
+    if (!val) { setState('idle'); return; }
+    debounceTimer = setTimeout(function () { runSearch({ q: val }); }, 200);
+  });
+
+  if (initialCategory) {
+    setState('results');
+    runSearch({ q: initialQuery, category: initialCategory, filter: initialFilter });
+  } else if (initialQuery) {
+    setState('results');
+    runSearch({ q: initialQuery });
+  } else {
+    setState('idle');
+  }
+})();
+</script>
 
 <%- include('partials/appEnd') %>

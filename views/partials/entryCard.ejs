@@ -758,7 +758,7 @@
     fetch('/api/entries/' + eid + '/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body: body }),
+      body: JSON.stringify({ body: body, source: window.__ecSource }),
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {
@@ -797,7 +797,7 @@
     fetch('/api/entries/' + eid + '/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body: body, parentId: parentId }),
+      body: JSON.stringify({ body: body, parentId: parentId, source: window.__ecSource }),
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {

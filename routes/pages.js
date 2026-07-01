@@ -242,6 +242,9 @@ router.get('/search', (req, res) => {
     title:      'Search',
     activePage: 'search',
     currentUser: req.currentUser,
+    initialQuery:    req.query.q || '',
+    initialCategory: ['people', 'entries', 'contests', 'tags'].includes(req.query.category) ? req.query.category : '',
+    initialFilter:   req.query.filter || '',
   });
 });
 

@@ -3,14 +3,17 @@
   <!-- ── 0. Search ────────────────────────────────────────────────────────── -->
   <% if (!(typeof hideRightPanelSearch !== 'undefined' && hideRightPanelSearch)) { %>
   <div class="p-4 border-b border-white/10">
-    <form action="/search" method="GET" class="relative">
+    <form action="/search" method="GET" class="relative" autocomplete="off">
       <iconify-icon icon="boxicons:search" width="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" style="display:block"></iconify-icon>
       <input
+        id="panelSearchInput"
         type="text"
         name="q"
+        autocomplete="off"
         placeholder="Search..."
         class="w-full bg-white/5 border border-white/8 rounded-md pl-9 pr-4 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/8 transition-colors"
       >
+      <div id="panelSearchDropdown" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-shark-900 border border-white/10 rounded-md shadow-lg max-h-96 overflow-y-auto z-20"></div>
     </form>
   </div>
   <% } %>
@@ -306,6 +309,93 @@
     if (cards.length) fireImpression(cards[0].dataset.annId);
 
     startAuto();
+  }
+
+  // ── Search typeahead ────────────────────────────────────────────────────────
+  var panelSearchInput    = document.getElementById('panelSearchInput');
+  var panelSearchDropdown = document.getElementById('panelSearchDropdown');
+
+  if (panelSearchInput && panelSearchDropdown) {
+    var panelSearchTimer = null;
+
+    function psEscHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function psAvatarHtml(src, name) {
+      if (src) return '<img src="' + psEscHtml(src) + '" alt="' + psEscHtml(name) + '" class="w-7 h-7 rounded-full object-cover shrink-0" />';
+      return '<div class="w-7 h-7 rounded-full bg-shark-700 flex items-center justify-center shrink-0"><iconify-icon icon="boxicons:user" width="13" class="text-white/30"></iconify-icon></div>';
+    }
+
+    function psThumbHtml(mediaUrl, mediaType) {
+      if (mediaType === 'video') return '<video src="' + psEscHtml(mediaUrl) + '" class="w-7 h-7 rounded-md object-cover shrink-0" muted></video>';
+      return '<img src="' + psEscHtml(mediaUrl) + '" class="w-7 h-7 rounded-md object-cover shrink-0" loading="lazy" />';
+    }
+
+    function psSection(label, rowsHtml) {
+      if (!rowsHtml) return '';
+      return '<div class="px-2 pt-2 pb-1"><p class="text-[10px] font-bold text-white/35 uppercase tracking-wider px-2 mb-1">' + psEscHtml(label) + '</p>' + rowsHtml + '</div>';
+    }
+
+    function psRow(href, iconHtml, title, subtitle) {
+      return '<a href="' + href + '" class="flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-white/5 transition-colors no-underline">'
+        + iconHtml
+        + '<div class="flex flex-col min-w-0"><span class="text-xs font-medium text-white truncate">' + title + '</span>'
+        + (subtitle ? '<span class="text-[11px] text-white/40 truncate">' + subtitle + '</span>' : '')
+        + '</div></a>';
+    }
+
+    function renderPanelResults(data) {
+      var users    = data.users    || [];
+      var entries   = data.entries  || [];
+      var tags      = data.tags     || [];
+      var contests  = data.contests || [];
+
+      if (!users.length && !entries.length && !tags.length && !contests.length) {
+        panelSearchDropdown.innerHTML = '<p class="text-xs text-white/30 text-center py-4">No results found</p>';
+        panelSearchDropdown.classList.remove('hidden');
+        return;
+      }
+
+      var html = '';
+      html += psSection('Creators', users.map(function (u) {
+        return psRow('/' + psEscHtml(u.username), psAvatarHtml(u.avatar, u.displayName), psEscHtml(u.displayName), '@' + psEscHtml(u.username));
+      }).join(''));
+      html += psSection('Entries', entries.map(function (e) {
+        return psRow('/entry/' + psEscHtml(e._id), psThumbHtml(e.mediaUrl, e.mediaType), psEscHtml(e.title), '@' + psEscHtml(e.owner.username));
+      }).join(''));
+      html += psSection('Tags', tags.map(function (t) {
+        return psRow('/search?q=' + encodeURIComponent('#' + t.tag), '<div class="w-7 h-7 rounded-md bg-white/5 flex items-center justify-center shrink-0 text-charm-400 text-xs font-bold">#</div>', '#' + psEscHtml(t.tag), t.count + ' entries');
+      }).join(''));
+      html += psSection('Contests', contests.map(function (c) {
+        var cover = c.covers && c.covers[0] ? psThumbHtml(c.covers[0].mediaUrl, c.covers[0].mediaType) : psAvatarHtml(null, c.title);
+        var names = (c.contestants || []).map(function (p) { return p.displayName; }).join(' vs ');
+        return psRow('/contest/' + psEscHtml(c._id), cover, psEscHtml(c.title), psEscHtml(names));
+      }).join(''));
+
+      panelSearchDropdown.innerHTML = html;
+      panelSearchDropdown.classList.remove('hidden');
+    }
+
+    panelSearchInput.addEventListener('input', function () {
+      clearTimeout(panelSearchTimer);
+      var val = this.value.trim();
+      if (!val) { panelSearchDropdown.classList.add('hidden'); return; }
+      panelSearchTimer = setTimeout(function () {
+        fetch('/api/search?q=' + encodeURIComponent(val))
+          .then(function (r) { return r.json(); })
+          .then(renderPanelResults)
+          .catch(function () { panelSearchDropdown.classList.add('hidden'); });
+      }, 200);
+    });
+
+    panelSearchInput.addEventListener('focus', function () {
+      if (this.value.trim() && panelSearchDropdown.innerHTML) panelSearchDropdown.classList.remove('hidden');
+    });
+
+    panelSearchInput.addEventListener('blur', function () {
+      setTimeout(function () { panelSearchDropdown.classList.add('hidden'); }, 150);
+    });
   }
 
   // ── People to follow ──────────────────────────────────────────────────────

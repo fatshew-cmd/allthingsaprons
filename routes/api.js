@@ -31,33 +31,186 @@ const UserReport              = require('../models/UserReport');
 const ProfileShare            = require('../models/ProfileShare');
 const ProfileShareView        = require('../models/ProfileShareView');
 const { updateAffinity, updateCreatorAffinity, updateStainAffinity, SIGNAL_ANNOUNCEMENT_DISMISS, SIGNAL_ANNOUNCEMENT_CLICK } = require('../utils/affinityUpdater');
+const { getPeopleSubSections }         = require('./explore');
 
 router.get('/me', (req, res) => {
   res.json({ authenticated: !!req.session.userId });
 });
 
-router.get('/users/search', async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
-  const q = req.query.q?.trim().toLowerCase().replace(/^@/, '');
-  if (!q || q.length < 1) return res.json([]);
-  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function searchUsers(q, excludeUserId, limit) {
+  const escaped = escapeRegex(q);
   const users = await User.find({
     $or: [
       { 'username.value':    { $regex: escaped, $options: 'i' } },
       { 'displayName.value': { $regex: escaped, $options: 'i' } },
     ],
-    _id:  { $ne: req.session.userId },
+    _id:  { $ne: excludeUserId },
     role: 'user',
   })
     .select('username displayName avatar')
-    .limit(6)
+    .limit(limit)
     .lean();
-  res.json(users.map(u => ({
+  return users.map(u => ({
     _id:         u._id,
     username:    u.username.value,
     displayName: u.displayName?.value || u.username.value,
     avatar:      u.avatar?.value || null,
-  })));
+  }));
+}
+
+router.get('/users/search', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const q = req.query.q?.trim().toLowerCase().replace(/^@/, '');
+  if (!q || q.length < 1) return res.json([]);
+  res.json(await searchUsers(q, req.session.userId, 6));
+});
+
+async function searchEntries(rawQ, currentUserId, blockedIds, limit) {
+  let filter;
+  if (rawQ.startsWith('#')) {
+    const tag = rawQ.slice(1).trim().toLowerCase();
+    if (!tag) return [];
+    filter = { tags: tag };
+  } else {
+    const regex = { $regex: escapeRegex(rawQ), $options: 'i' };
+    filter = { $or: [{ title: regex }, { caption: regex }, { tags: regex }] };
+  }
+  filter.hidden = { $ne: true };
+  filter.userId = { $nin: blockedIds };
+
+  const entries = await Entry.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .populate('userId', 'username displayName avatar')
+    .lean();
+
+  return entries.map(e => ({
+    _id:        e._id,
+    mediaUrl:   e.mediaUrl,
+    mediaType:  e.mediaType,
+    title:      e.title,
+    ratingAvg:  e.ratingAvg,
+    ratingCount: e.ratingCount,
+    owner: {
+      _id:         e.userId?._id,
+      username:    e.userId?.username?.value || '',
+      displayName: e.userId?.displayName?.value || e.userId?.username?.value || '',
+      avatar:      e.userId?.avatar?.value || null,
+    },
+  }));
+}
+
+async function searchTags(rawQ, limit) {
+  if (rawQ.startsWith('#')) return [];
+  const regex = new RegExp(escapeRegex(rawQ), 'i');
+  const results = await Entry.aggregate([
+    { $match: { hidden: { $ne: true }, tags: { $elemMatch: { $regex: regex } } } },
+    { $unwind: '$tags' },
+    { $match: { tags: { $regex: regex } } },
+    { $group: { _id: '$tags', count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: limit },
+  ]);
+  return results.map(r => ({ tag: r._id, count: r.count }));
+}
+
+async function searchContests(rawQ, currentUserId, blockedIds, limit) {
+  if (rawQ.startsWith('#')) return [];
+  const regex = { $regex: escapeRegex(rawQ), $options: 'i' };
+
+  const [matchingEntries, matchingUsers] = await Promise.all([
+    Entry.find({ $or: [{ title: regex }, { caption: regex }, { tags: regex }], hidden: { $ne: true }, userId: { $nin: blockedIds } })
+      .select('_id').limit(50).lean(),
+    User.find({ $or: [{ 'username.value': regex }, { 'displayName.value': regex }] }).select('_id').limit(50).lean(),
+  ]);
+
+  const entryIds = matchingEntries.map(e => e._id);
+  const userIds  = matchingUsers.map(u => u._id);
+  if (!entryIds.length && !userIds.length) return [];
+
+  const contests = await Contest.find({
+    tournamentId: null,
+    $and: [
+      { $or: [{ 'entries.entryId': { $in: entryIds } }, { 'entries.userId': { $in: userIds } }] },
+      { $or: [{ visibility: 'public' }, { 'entries.userId': currentUserId }] },
+    ],
+  })
+    .sort({ lastActivityAt: -1 })
+    .limit(limit)
+    .populate('entries.entryId', 'title mediaType mediaUrl')
+    .populate('entries.userId', 'username displayName avatar')
+    .lean();
+
+  return contests.map(c => {
+    const title  = c.entries?.[0]?.entryId?.title || c.entries?.[1]?.entryId?.title || 'H2H Contest';
+    const covers = (c.entries || []).slice(0, 2).map(e => ({
+      mediaUrl:  e.entryId?.mediaUrl  || '',
+      mediaType: e.entryId?.mediaType || 'photo',
+    }));
+    const contestants = (c.entries || []).map(e => ({
+      userId:      e.userId?._id?.toString() || '',
+      username:    e.userId?.username?.value || '',
+      avatar:      e.userId?.avatar?.value || '',
+      displayName: e.userId?.displayName?.value || ('@' + (e.userId?.username?.value || '')),
+      isSelf:      e.userId?._id?.toString() === currentUserId.toString(),
+    }));
+    return {
+      _id:            c._id,
+      status:         c.status === 'pending' ? 'upcoming' : c.status,
+      covers,
+      title,
+      contestants,
+      votingDeadline: c.votingDeadline || null,
+    };
+  });
+}
+
+router.get('/search', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const currentUserId = req.session.userId;
+  const rawQ           = (req.query.q || '').trim();
+  const category        = ['people', 'entries', 'contests', 'tags'].includes(req.query.category) ? req.query.category : null;
+  const filter          = req.query.filter || '';
+  const isFullMode      = !!category;
+
+  if (!rawQ && category !== 'people') return res.json({ users: [], entries: [], tags: [], contests: [] });
+
+  const blockDocs   = await UserBlock.find({ blockerId: currentUserId }).select('blockedId').lean();
+  const blockedIds  = blockDocs.map(b => b.blockedId);
+
+  if (category === 'people') {
+    const followDocs   = await Follow.find({ followerId: currentUserId }).select('followingId').lean();
+    const followingSet = new Set(followDocs.map(f => f.followingId.toString()));
+    const excludeSet    = new Set([...followingSet, ...blockedIds.map(id => id.toString())]);
+    const sections      = await getPeopleSubSections(currentUserId, excludeSet, 20);
+    const section       = sections.find(s => s.key === filter);
+    return res.json({ users: section ? section.users : [] });
+  }
+
+  if (isFullMode) {
+    const limit = 30;
+    if (category === 'entries')  return res.json({ entries: await searchEntries(rawQ, currentUserId, blockedIds, limit) });
+    if (category === 'tags')     return res.json({ tags: await searchTags(rawQ, limit) });
+    if (category === 'contests') return res.json({ contests: await searchContests(rawQ, currentUserId, blockedIds, limit) });
+  }
+
+  if (rawQ.startsWith('#')) {
+    return res.json({ users: [], entries: await searchEntries(rawQ, currentUserId, blockedIds, 20), tags: [], contests: [] });
+  }
+
+  const [users, entries, tags, contests] = await Promise.all([
+    searchUsers(rawQ.toLowerCase().replace(/^@/, ''), currentUserId, 5),
+    searchEntries(rawQ, currentUserId, blockedIds, 5),
+    searchTags(rawQ, 6),
+    searchContests(rawQ, currentUserId, blockedIds, 4),
+  ]);
+
+  res.json({ users, entries, tags, contests });
 });
 
 router.get('/users/:id/entries', async (req, res) => {
