@@ -143,14 +143,19 @@ What remains in Phase 6: tournament management pages (deferred to July).
 | Right panel carousel fixes | Dismissing a card before the current slide no longer incorrectly shifts the active index (was `Math.min(current, cards.length-1)`, now `idx < current ? current - 1 : Math.min(current, cards.length-1)`). Clickable announcement cards get `tabindex="0"` and `role="link"` plus Enter/Space keydown handler for keyboard accessibility. |
 | Forfeit scrub path | `DELETE /contests/:id` extended to handle `void` (forfeited) contests in addition to `pending` ones. For void contests: caller must be a participant (not necessarily the creator). Any `active` contributions are refunded to contributors' `purchasedCHL` with `WalletTransaction` audit records, then the `Contest` and related `Nomination` doc are deleted. Pending contests retain the original cancel path (creator only, no refund needed). |
 | Admin content browser | `GET /admin/content` + `views/admin/content/index.ejs` — fully wired. Paginated list (50/page) of all platform entries with search (by title/caption via text index, stain via exact tag index, or user via prefix match) and filters (media type: photo/video; visibility: all/visible/hidden). `POST /admin/content/:id/hide` — hides an entry immediately; stalls any active contests containing it (`Contest.stalled: true`, `stalledAt: now`). `POST /admin/content/:id/unhide` — reinstates an entry; extends each stalled contest's `votingDeadline` by the stall duration (capped at 24h). `Entry` model gains `{ tags: 1 }` and `{ title: 'text', caption: 'text' }` indexes. Gated behind `requireDomain('content')`. |
+| Take On route simplified (July 1) | `GET /take-on/:id` now redirects to `/contest/:id` instead of rendering a separate page. Old `views/take-on.ejs` deleted. |
+| Affinity source prop wired (July 1) | Rating, bookmark, comment, and reply fetches in `ecScript.ejs` and `entryCard.ejs` now send `source: window.__ecSource` so the affinity updater's source multipliers apply correctly. Search page sets `window.__ecSource = 'search'` (1.3× multiplier). |
+| Dead code purge (July 1) | Deleted: `models/Retag.js`, `views/take-on.ejs`, `views/index.ejs`, `scripts/migrateWalletPools.js`, `scripts/correctWalletBalance.js`, `scripts/migrateAdminRoles.js`, `scripts/migrateEntryTitle.js`, `plans/May/ui-ux-vision.md`. All were orphaned, superseded, or already-ran one-off scripts. |
+| Search — fully wired (July 1) | `GET /api/search?q=<query>&category=<people\|entries\|contests\|tags>` — see July plan Phase 10.3 for full spec. Moved to done here; tracked as complete in the July plan. |
 
 ### What is not done yet
-- ~~Feed — Head To Head and Tournaments tabs~~ — tabs were removed entirely during Feed v2. Feed is now a flat ratings/discovery stream. Explore has its own page; contests live at `/contests`. No tab structure remains and none is needed.
-- ~~Fake credits admin action~~ — dropped; the fake `/wallet/topup` stub already lets any user acquire chillies without real payment, making a separate admin grant redundant
-- `Retag` model is scaffolded (`models/Retag.js`) but not yet wired into any route or UI
-- REVERT BEFORE LAUNCH (on hold, not yet — see `plans/July/july-action-plan.md`): re-enable `status === 'active'` check in `routes/api.js` vote handler; remove `TEST_BYPASS_USERNAMES` from `utils/contestEligibility.js` and `routes/api.js`. Kept in place intentionally as of 2026-07-01 — still actively testing contest flows.
+- ~~Feed — Head To Head and Tournaments tabs~~ — removed entirely; feed is a flat ratings/discovery stream
+- ~~Fake credits admin action~~ — dropped; the `/wallet/topup` stub serves this need
+- ~~`Retag` model~~ — deleted 2026-07-01 along with other dead code; was never wired and is no longer scaffolded
+- ~~Search page~~ — wired and live as of 2026-07-01 (see July plan)
+- REVERT BEFORE LAUNCH (on hold — see `plans/July/july-action-plan.md`): re-enable `status === 'active'` check in `routes/api.js` vote handler; remove `TEST_BYPASS_USERNAMES`. Kept in place intentionally — still testing.
 - Phase 6 admin UI: content moderation, entry moderation queues, and content browser (All Entries) are all done; tournament management and tournament review queue deferred to July
-- `whoCanComment` privacy setting: enforcement is live in `routes/api.js` `POST /entries/:eid/comments` (lines 1420–1436) ✅
+- `whoCanComment` privacy setting: enforcement is live in `routes/api.js` `POST /entries/:eid/comments` ✅
 
 ---
 

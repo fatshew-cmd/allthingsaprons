@@ -1,19 +1,33 @@
 # July Action Plan
 
+## Current State (July 1)
+
+July opened with the search page fully wired and a round of dead code cleanup. The `Retag` model is gone. The `/take-on/:id` route now redirects to `/contest/:id` directly. Affinity source props are wired from all entryCard actions. Everything else is as closed June left it.
+
+**What is done in July so far:**
+- **Search** (`GET /api/search` + `views/search.ejs`) — users, entries, tags, contests; `#tag` prefix mode; category drill-down; People section reuses `getPeopleSubSections` from explore; excludes blocked users; `window.__ecSource = 'search'` wires the 1.3× affinity multiplier ✅
+- **Right panel search typeahead** — form + dropdown in `rightPanel.ejs` hitting the same `GET /api/search` endpoint ✅
+- **Affinity source prop** wired from `ecScript.ejs` + `entryCard.ejs` (rating, bookmark, comment, reply) ✅
+- **Dead code purge** — `Retag.js`, `take-on.ejs`, `index.ejs`, all 4 migration scripts, `ui-ux-vision.md` deleted ✅
+- **`/take-on/:id` simplified** — redirects to `/contest/:id`; standalone view removed ✅
+- **Contest eligibility thresholds lowered** for testing (`minEntries` 5→3, `minRatingCount` 250→25) ✅
+
+---
+
 ## Starting Point
 
 June closed with the full standalone contest lifecycle, the chilli wallet economy, Phase 6 admin infrastructure, Feed v2, Explore, Bookmarks, and all content moderation done. The schema (`Tournament`, `TournamentEntry`) and all supporting infrastructure (agenda, wallet, contest close jobs, notification system, affinity updater) are already in place. July builds on top of everything without touching the June foundation.
 
 ---
 
-## What Carries Over From June
+## What Carries Over / Remains
 
 | Item | Status |
 |---|---|
 | `Tournament` + `TournamentEntry` models | Fully built — no routes or views yet |
 | Pre-launch test bypasses | **On hold — not yet, still actively testing.** Must revert before any public release (see below) |
-| `Retag` model | Scaffolded (`models/Retag.js`) — not scheduled for July either unless explicitly prioritized |
-| Search page (`/search`) | View exists, route is a stub — scheduled as Phase 10.3 |
+| ~~`Retag` model~~ | Deleted 2026-07-01 — was never wired, no longer exists |
+| ~~Search page~~ | **Done 2026-07-01** — see Current State above |
 | Right panel — Ongoing Tournaments | Currently a skeleton — wired when tournaments are built (Phase 7) |
 | Admin Analytics page | Sidebar entry exists in design only — low priority, end of July |
 
@@ -336,9 +350,9 @@ Data sourced from direct MongoDB aggregations — no external analytics service.
 
 ---
 
-#### Phase 10.3 — Search
+#### Phase 10.3 — Search ✅ (done 2026-07-01)
 
-Wire up the existing `/search` stub with real query logic.
+~~Wire up the existing `/search` stub with real query logic.~~
 
 **Route:** `GET /search?q=<query>&type=<entries|users|stains>`
 

@@ -8,8 +8,11 @@
     <div class="relative">
       <input id="searchInput" type="text" placeholder="Search items, creators, tags…" autocomplete="off"
              value="<%= initialQuery %>"
-             class="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2.5 pl-10 text-sm placeholder-white/30 focus:outline-none focus:border-yellow-400/50 transition-colors" />
+             class="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2.5 pl-10 pr-10 text-sm placeholder-white/30 focus:outline-none focus:border-yellow-400/50 transition-colors" />
       <iconify-icon icon="boxicons:search" width="16" height="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30"></iconify-icon>
+      <button type="button" id="searchClearBtn" aria-label="Clear search" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors cursor-pointer">
+        <iconify-icon icon="boxicons:x" width="16" height="16" style="display:block"></iconify-icon>
+      </button>
     </div>
   </header>
 
@@ -37,6 +40,7 @@
 <script>
 (function () {
   var input      = document.getElementById('searchInput');
+  var clearBtn   = document.getElementById('searchClearBtn');
   var idleEl     = document.getElementById('searchIdle');
   var emptyEl    = document.getElementById('searchEmpty');
   var resultsEl  = document.getElementById('searchResults');
@@ -161,12 +165,26 @@
       .catch(function () { setState('empty'); });
   }
 
+  function toggleClearBtn() {
+    clearBtn.classList.toggle('hidden', !input.value.trim());
+  }
+
   input.addEventListener('input', function () {
     clearTimeout(debounceTimer);
+    toggleClearBtn();
     var val = this.value.trim();
     if (!val) { setState('idle'); return; }
     debounceTimer = setTimeout(function () { runSearch({ q: val }); }, 200);
   });
+
+  clearBtn.addEventListener('click', function () {
+    input.value = '';
+    toggleClearBtn();
+    setState('idle');
+    input.focus();
+  });
+
+  toggleClearBtn();
 
   if (initialCategory) {
     setState('results');
