@@ -1302,8 +1302,8 @@ router.get('/settings', async (req, res) => {
 router.post('/settings/contest-eligibility', async (req, res) => {
   const role = req.session.roleOverride || req.session.adminRole;
   if (!SETTINGS_ROLES.includes(role)) return res.status(403).end();
-  const minEntries     = Math.max(1, parseInt(req.body.minEntries, 10) || 5);
-  const minRatingCount = Math.max(1, parseInt(req.body.minRatingCount, 10) || 250);
+  const minEntries     = Math.max(1, parseInt(req.body.minEntries, 10) || 3);
+  const minRatingCount = Math.max(1, parseInt(req.body.minRatingCount, 10) || 25);
   const minWeightedAvg = Math.min(10, Math.max(1, parseFloat(req.body.minWeightedAvg) || 7.4));
   await PlatformSettings.findOneAndUpdate(
     { key: 'global' },

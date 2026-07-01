@@ -10,8 +10,8 @@ async function checkContestEligibility(userId) {
   if (user && TEST_BYPASS_USERNAMES.includes(user.username?.value)) return { eligible: true };
   const settings   = await PlatformSettings.findOne({ key: 'global' }).lean();
   const thresholds = settings?.contestEligibility || {};
-  const minEntries     = thresholds.minEntries     ?? 5;
-  const minRatingCount = thresholds.minRatingCount ?? 250;
+  const minEntries     = thresholds.minEntries     ?? 3;
+  const minRatingCount = thresholds.minRatingCount ?? 25;
   const minWeightedAvg = thresholds.minWeightedAvg ?? 7.4;
 
   const entries      = await Entry.find({ userId }).select('ratingCount ratingAvg').lean();
