@@ -86,6 +86,7 @@ const userSchema = new mongoose.Schema({
   },
 
   accountStatus: { type: String, enum: ['active', 'invited', 'banned'], default: 'active' },
+  juryBanned:    { type: Boolean, default: false },
 
   idVerified:                     { type: Boolean, default: false },
   idVerificationStatus:           { type: String, enum: ['none', 'pending', 'closed'], default: 'none' },

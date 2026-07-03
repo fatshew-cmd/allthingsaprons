@@ -556,23 +556,20 @@
     <% userTournamentEntries.forEach(function(te) { %>
     <%
       const tourn = te.tournamentId;
-      const tEntryId = te.entryId ? te.entryId._id.toString() : null;
       let prizePlace = null;
-      if (tourn && tourn.status === 'closed' && tEntryId) {
-        if (tourn.prizes.first.entryId && tourn.prizes.first.entryId.toString() === tEntryId) prizePlace = 1;
-        else if (tourn.prizes.second.entryId && tourn.prizes.second.entryId.toString() === tEntryId) prizePlace = 2;
-        else if (tourn.prizes.third.entryId && tourn.prizes.third.entryId.toString() === tEntryId) prizePlace = 3;
+      if (tourn && tourn.status === 'closed') {
+        if (!te.eliminated && te.knockoutRound === 'Final') prizePlace = 1;
+        else if (te.eliminated && te.knockoutRound === 'Final') prizePlace = 2;
+        else if (!te.eliminated && te.knockoutRound === '3rd') prizePlace = 3;
       }
       const tStatus = tourn ? tourn.status : '';
-      const tStatusLabel = { open: 'Open', cooldown: 'Cooldown', active: 'Active', closed: 'Closed', canceled: 'Canceled', pending_funds: 'Pending', pending_review: 'Pending' }[tStatus] || tStatus;
+      const tStatusLabel = { open: 'Open', cooldown: 'Cooldown', active: 'Active', closed: 'Closed', canceled: 'Canceled' }[tStatus] || tStatus;
       const tStatusClass = {
-        open:           'bg-green-500/15 text-green-400',
-        cooldown:       'bg-amber-500/15 text-amber-400',
-        active:         'bg-blue-500/15 text-blue-400',
-        closed:         'bg-white/10 text-white/50',
-        canceled:       'bg-red-500/15 text-red-400',
-        pending_funds:  'bg-white/10 text-white/40',
-        pending_review: 'bg-white/10 text-white/40',
+        open:     'bg-green-500/15 text-green-400',
+        cooldown: 'bg-amber-500/15 text-amber-400',
+        active:   'bg-blue-500/15 text-blue-400',
+        closed:   'bg-white/10 text-white/50',
+        canceled: 'bg-red-500/15 text-red-400',
       }[tStatus] || 'bg-white/10 text-white/40';
       const approvalLabel = { pending: 'Pending Review', approved: 'Approved', rejected: 'Rejected', timed_out: 'Timed Out' }[te.approvalStatus] || te.approvalStatus;
       const approvalClass = {
@@ -596,9 +593,6 @@
       <!-- Info -->
       <div class="flex-1 min-w-0">
         <p class="text-sm font-semibold text-white truncate"><%= tourn ? tourn.name : 'Unknown Tournament' %></p>
-        <% if (tourn) { %>
-        <p class="text-xs text-white/40 mt-0.5"><%= tourn.type === 'platform' ? 'Platform' : 'User Organized' %></p>
-        <% } %>
         <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
           <% if (tourn) { %>
           <span class="text-xs font-semibold px-1.5 py-0.5 rounded-md <%= tStatusClass %>"><%= tStatusLabel %></span>
@@ -611,13 +605,13 @@
       <div class="shrink-0 text-right">
         <% if (prizePlace === 1) { %>
         <span class="text-xs font-bold text-amber-400">1st Place</span>
-        <p class="text-xs text-white/40 mt-0.5">$1,000</p>
+        <p class="text-xs text-white/40 mt-0.5">$<%= (tourn.prizes.first * 0.20).toFixed(2) %></p>
         <% } else if (prizePlace === 2) { %>
         <span class="text-xs font-bold text-white/60">2nd Place</span>
-        <p class="text-xs text-white/40 mt-0.5">$400</p>
+        <p class="text-xs text-white/40 mt-0.5">$<%= (tourn.prizes.second * 0.20).toFixed(2) %></p>
         <% } else { %>
         <span class="text-xs font-bold text-amber-600/80">3rd Place</span>
-        <p class="text-xs text-white/40 mt-0.5">$100</p>
+        <p class="text-xs text-white/40 mt-0.5">$<%= (tourn.prizes.third * 0.20).toFixed(2) %></p>
         <% } %>
       </div>
       <% } %>

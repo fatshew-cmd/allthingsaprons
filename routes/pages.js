@@ -1485,20 +1485,25 @@ router.get('/:username', async (req, res) => {
 
   const showBookmarksTab = isOwn || !(user.privacySettings?.bookmarksPrivate);
 
-  const [followerCount, followingCount, nominationsAccepted, firstPrizes, secondPrizes, thirdPrizes, userContests, userTournamentEntries, followDoc, blockDoc, viewerBookmarkDocs, profileBookmarkDocs] = await Promise.all([
+  const [followerCount, followingCount, nominationsAccepted, userContests, userTournamentEntries, followDoc, blockDoc, viewerBookmarkDocs, profileBookmarkDocs] = await Promise.all([
     Follow.countDocuments({ followingId: user._id }),
     Follow.countDocuments({ followerId: user._id }),
     Nomination.countDocuments({ nomineeId: user._id, status: 'accepted' }),
-    entryIds.length ? Tournament.countDocuments({ 'prizes.first.entryId': { $in: entryIds }, status: 'closed' }) : Promise.resolve(0),
-    entryIds.length ? Tournament.countDocuments({ 'prizes.second.entryId': { $in: entryIds }, status: 'closed' }) : Promise.resolve(0),
-    entryIds.length ? Tournament.countDocuments({ 'prizes.third.entryId': { $in: entryIds }, status: 'closed' }) : Promise.resolve(0),
     Contest.find({ 'entries.userId': user._id }).sort({ createdAt: -1 }).select('_id status voidReason entries votingDeadline winnerEntryId createdAt').populate('entries.entryId', 'mediaUrl caption').populate('entries.userId', 'username displayName avatar').lean(),
-    TournamentEntry.find({ userId: user._id }).sort({ submittedAt: -1 }).populate('tournamentId', 'name status type prizes').populate('entryId', 'mediaUrl caption').lean(),
+    TournamentEntry.find({ userId: user._id }).sort({ submittedAt: -1 }).populate('tournamentId', 'name status prizes').populate('entryId', 'mediaUrl caption').lean(),
     (!isOwn && req.session.userId) ? Follow.findOne({ followerId: req.session.userId, followingId: user._id }).lean() : Promise.resolve(null),
     (!isOwn && req.session.userId) ? UserBlock.findOne({ blockerId: req.session.userId, blockedId: user._id }).lean() : Promise.resolve(null),
     (entryIds.length && req.session.userId) ? EntryBookmark.find({ userId: req.session.userId, entryId: { $in: entryIds } }).select('entryId').lean() : Promise.resolve([]),
     showBookmarksTab ? EntryBookmark.find({ userId: user._id }).sort({ createdAt: -1 }).populate('entryId', 'mediaUrl mediaType ratingAvg ratingCount').lean() : Promise.resolve([]),
   ]);
+
+  let firstPrizes = 0, secondPrizes = 0, thirdPrizes = 0;
+  for (const te of userTournamentEntries) {
+    if (!te.tournamentId || te.tournamentId.status !== 'closed') continue;
+    if (!te.eliminated && te.knockoutRound === 'Final') firstPrizes++;
+    else if (te.eliminated && te.knockoutRound === 'Final') secondPrizes++;
+    else if (!te.eliminated && te.knockoutRound === '3rd') thirdPrizes++;
+  }
 
   const isFollowing = !!followDoc;
   const isBlocked   = !!blockDoc;

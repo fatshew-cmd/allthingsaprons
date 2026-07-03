@@ -69,6 +69,35 @@ router.get('/users/search', async (req, res) => {
   res.json(await searchUsers(q, req.session.userId, 6));
 });
 
+// Jury member typeahead — excludes the organizer and any banned/jury-banned users.
+// Never expose juryBanned in the response.
+router.post('/tournaments/search-users', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const q = (req.query.q || '').trim();
+  if (!q) return res.json([]);
+
+  const escaped = escapeRegex(q);
+  const users = await User.find({
+    $or: [
+      { 'username.value':    { $regex: escaped, $options: 'i' } },
+      { 'displayName.value': { $regex: escaped, $options: 'i' } },
+    ],
+    _id:           { $ne: req.session.userId },
+    accountStatus: { $ne: 'banned' },
+    juryBanned:    { $ne: true },
+  })
+    .select('username displayName avatar')
+    .limit(10)
+    .lean();
+
+  res.json(users.map(u => ({
+    _id:         u._id,
+    username:    u.username?.value || '',
+    displayName: u.displayName?.value || u.username?.value || '',
+    avatar:      u.avatar?.value || null,
+  })));
+});
+
 async function searchEntries(rawQ, currentUserId, blockedIds, limit) {
   let filter;
   if (rawQ.startsWith('#')) {

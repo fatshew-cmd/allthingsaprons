@@ -367,6 +367,18 @@ Data sourced from direct MongoDB aggregations — no external analytics service.
 
 ---
 
+#### Phase 10.4 — Dependency Phone-Home Audit
+
+Triggered 2026-07-02: noticed `dotenv` (v17.4.2) prints self-promotional console output on every boot and bundles agent-targeted `skills/*/SKILL.md` files nudging toward its paid sibling product `dotenvx`/`vestauth`. Confirmed that specific package isn't actually wired into anything (no `dotenvx`/`vestauth` in `package.json` or source — just marketing text), but it's a live example of a dependency embedding this kind of content, worth a broader look.
+
+**Scope:**
+- Audit `package.json` dependency tree for packages that make network calls beyond their stated purpose (telemetry, analytics pings, update checkers) not disclosed as opt-in
+- Check for postinstall/preinstall scripts across `node_modules` that could exfiltrate data or run unexpected code
+- Flag any bundled `SKILL.md` / agent-instruction files shipped inside dependencies (beyond the known `dotenv` one) that could influence AI-assisted development sessions
+- Not urgent — no known compromise, just hygiene. Low priority, end of July or later.
+
+---
+
 ## What Is NOT In July
 
 | Feature | Reason |

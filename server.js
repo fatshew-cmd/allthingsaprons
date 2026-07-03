@@ -17,8 +17,14 @@ const messagesRouter   = require('./routes/messages');
 const notificationsRouter = require('./routes/notifications');
 const walletRouter     = require('./routes/wallet');
 const exploreRouter    = require('./routes/explore');
+const tournamentsRouter = require('./routes/tournaments');
 const injectNotificationCount = require('./middleware/injectNotificationCount');
 const injectRightPanelData    = require('./middleware/injectRightPanelData');
+
+require('./models/TournamentGroup');
+require('./models/TournamentMatch');
+require('./models/TournamentJury');
+require('./models/TournamentJuryVote');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,6 +54,7 @@ app.use('/wallet', injectNotificationCount, injectRightPanelData, walletRouter);
 app.use('/messages', injectNotificationCount, injectRightPanelData, messagesRouter);
 app.use('/notifications', injectNotificationCount, injectRightPanelData, notificationsRouter);
 app.use('/', injectNotificationCount, injectRightPanelData, exploreRouter);
+app.use('/', injectNotificationCount, injectRightPanelData, tournamentsRouter);
 app.use('/', injectNotificationCount, injectRightPanelData, pagesRouter);
 app.use('/api', apiRouter);
 

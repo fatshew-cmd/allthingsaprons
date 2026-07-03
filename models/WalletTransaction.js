@@ -16,6 +16,7 @@ const walletTransactionSchema = new mongoose.Schema({
       'auto_payout',
       'makeup_payout',
       'manual_correction',
+      'tournament_prize_hold',
     ],
     required: true,
   },
@@ -33,13 +34,13 @@ const walletTransactionSchema = new mongoose.Schema({
 
   source: {
     type: String,
-    enum: ['package', 'custom', 'admin', 'contest_close', 'system', 'auto_payout', 'makeup_payout', 'manual_correction'],
+    enum: ['package', 'custom', 'admin', 'contest_close', 'system', 'auto_payout', 'makeup_payout', 'manual_correction', 'tournament_creation', 'tournament_fund'],
   },
 
   packageName: { type: String },
 
   referenceId:   { type: mongoose.Schema.Types.ObjectId },
-  referenceType: { type: String, enum: ['Contest', 'ContestContribution', 'ContestPayout', 'MonthlySnapshot'] },
+  referenceType: { type: String, enum: ['Contest', 'ContestContribution', 'ContestPayout', 'MonthlySnapshot', 'Tournament'] },
 
   metadata: { type: mongoose.Schema.Types.Mixed },
 }, { timestamps: true });

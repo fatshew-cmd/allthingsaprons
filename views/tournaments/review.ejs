@@ -1,0 +1,77 @@
+<%- include('../partials/appStart', { title: title, activePage: 'tournaments' }) %>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <div class="flex items-center gap-3">
+      <a href="/tournament/<%= tournament._id %>" class="text-white/40 hover:text-white/70 transition-colors">
+        <iconify-icon icon="boxicons:arrow-back" width="18"></iconify-icon>
+      </a>
+      <h1 class="font-black text-xl tracking-tight m-0">Review Candidates</h1>
+    </div>
+  </header>
+
+  <div class="px-5 py-5">
+    <% if (!pendingEntries.length) { %>
+      <div class="flex flex-col items-center justify-center py-16 gap-3 text-center">
+        <iconify-icon icon="boxicons:inbox" width="32" class="text-white/15"></iconify-icon>
+        <p class="text-sm text-white/30 m-0">No candidates waiting for review.</p>
+      </div>
+    <% } else { %>
+      <div class="flex flex-col gap-3" id="review-rows">
+        <% pendingEntries.forEach(function(pe) { %>
+          <div class="flex items-center gap-3 bg-shark-900 border border-white/10 rounded-md p-3" data-entry-row="<%= pe._id %>">
+            <div class="w-14 h-14 rounded-md overflow-hidden bg-shark-800 shrink-0">
+              <% if (pe.entryId?.mediaUrl) { %>
+                <img src="<%= pe.entryId.mediaUrl %>" class="w-full h-full object-cover" alt="">
+              <% } %>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-white truncate m-0"><%= pe.entryId?.title || 'Untitled entry' %></p>
+              <p class="text-xs text-white/40 truncate m-0">@<%= pe.userId?.username?.value %> · <%= pe.entryId?.ratingAvg ? pe.entryId.ratingAvg.toFixed(1) : '—' %> avg (<%= pe.entryId?.ratingCount || 0 %>)</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" class="reject-btn text-xs font-semibold px-3 py-1.5 rounded-md bg-white/8 text-white/60 hover:bg-red-500/15 hover:text-red-400 transition-colors">Reject</button>
+              <button type="button" class="approve-btn text-xs font-semibold px-3 py-1.5 rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors">Approve</button>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/appEnd') %>
+
+<script>
+(function () {
+  var tournamentId = <%- JSON.stringify(tournament._id.toString()) %>;
+
+  function handleAction(btn, action) {
+    var row = btn.closest('[data-entry-row]');
+    var eid = row.getAttribute('data-entry-row');
+    btn.closest('.flex.items-center.gap-2.shrink-0').querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+
+    fetch('/api/tournaments/' + tournamentId + '/entries/' + eid + '/' + action, { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.success) {
+          row.remove();
+          if (window.showToast) window.showToast(action === 'approve' ? 'Entry approved.' : 'Entry rejected.', 'success');
+        } else if (window.showToast) {
+          window.showToast((data && data.error) || 'Something went wrong.', 'error');
+        }
+      })
+      .catch(function () {
+        if (window.showToast) window.showToast('Something went wrong.', 'error');
+      });
+  }
+
+  document.getElementById('review-rows')?.addEventListener('click', function (e) {
+    var approveBtn = e.target.closest('.approve-btn');
+    var rejectBtn  = e.target.closest('.reject-btn');
+    if (approveBtn) handleAction(approveBtn, 'approve');
+    if (rejectBtn)  handleAction(rejectBtn, 'reject');
+  });
+})();
+</script>

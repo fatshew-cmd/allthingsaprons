@@ -1,0 +1,128 @@
+<%- include('../partials/appStart', { title: title, activePage: 'tournaments' }) %>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <div class="flex items-center gap-3">
+      <a href="/tournaments" class="text-white/40 hover:text-white/70 transition-colors">
+        <iconify-icon icon="boxicons:arrow-back" width="18"></iconify-icon>
+      </a>
+      <h1 class="font-black text-xl tracking-tight m-0 truncate"><%= tournament.name %></h1>
+    </div>
+  </header>
+
+  <%
+    var stCls = tournament.status === 'active' ? 'bg-green-500/20 text-green-400'
+              : tournament.status === 'open'   ? 'bg-amber-500/20 text-amber-400'
+              : tournament.status === 'cooldown' ? 'bg-blue-500/20 text-blue-400'
+              : tournament.status === 'closed' ? 'bg-white/8 text-white/40'
+              : 'bg-red-500/20 text-red-400';
+    var totalPrize = tournament.prizes.first + tournament.prizes.second + tournament.prizes.third;
+  %>
+
+  <div class="px-5 py-5 flex flex-col gap-5">
+
+    <!-- Summary -->
+    <div class="flex items-center gap-3">
+      <a href="/<%= tournament.createdBy?.username?.value %>" class="flex items-center gap-2 no-underline">
+        <img src="<%= tournament.createdBy?.avatar?.value || '/img/default-avatar.png' %>" class="w-8 h-8 rounded-full object-cover bg-white/5" alt="">
+        <span class="text-sm text-white/70">@<%= tournament.createdBy?.username?.value %></span>
+      </a>
+      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md <%= stCls %>"><%= tournament.status %></span>
+    </div>
+
+    <% if (tournament.description) { %>
+      <p class="text-sm text-white/60 m-0"><%= tournament.description %></p>
+    <% } %>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-2">
+      <div class="bg-shark-900 border border-white/10 rounded-md p-3 text-center">
+        <p class="text-lg font-bold text-white m-0"><%= entries.length %>/<%= tournament.size %></p>
+        <p class="text-[10px] text-white/40 uppercase tracking-wider m-0 mt-0.5">Players</p>
+      </div>
+      <div class="bg-shark-900 border border-white/10 rounded-md p-3 text-center">
+        <p class="text-lg font-bold text-white m-0"><%= totalPrize.toLocaleString() %> 🌶️</p>
+        <p class="text-[10px] text-white/40 uppercase tracking-wider m-0 mt-0.5">Prize Pool</p>
+      </div>
+      <div class="bg-shark-900 border border-white/10 rounded-md p-3 text-center">
+        <p class="text-lg font-bold text-white m-0"><%= groups.length %></p>
+        <p class="text-[10px] text-white/40 uppercase tracking-wider m-0 mt-0.5">Groups</p>
+      </div>
+    </div>
+
+    <!-- Prize breakdown -->
+    <div class="flex flex-col gap-1.5 bg-shark-900 border border-white/10 rounded-md p-4">
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-white/50">1st place</span><span class="text-white font-semibold"><%= tournament.prizes.first.toLocaleString() %> 🌶️</span>
+      </div>
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-white/50">2nd place</span><span class="text-white font-semibold"><%= tournament.prizes.second.toLocaleString() %> 🌶️</span>
+      </div>
+      <% if (tournament.size !== 4) { %>
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-white/50">3rd place</span><span class="text-white font-semibold"><%= tournament.prizes.third.toLocaleString() %> 🌶️</span>
+      </div>
+      <% } %>
+    </div>
+
+    <!-- Organizer review CTA -->
+    <% if (isOrganizer && tournament.status === 'open') { %>
+      <a href="/tournament/<%= tournament._id %>/review"
+        class="flex items-center justify-between bg-shark-900 border border-white/10 hover:border-charm-500/40 rounded-md p-4 no-underline transition-colors">
+        <span class="text-sm text-white">Review candidates</span>
+        <span class="flex items-center gap-2">
+          <% if (pendingCount > 0) { %>
+            <span class="text-xs bg-charm-600 text-white font-bold px-1.5 py-0.5 rounded-md"><%= pendingCount %></span>
+          <% } %>
+          <iconify-icon icon="boxicons:chevron-right" width="16" class="text-white/30"></iconify-icon>
+        </span>
+      </a>
+    <% } %>
+
+    <% if (!isOrganizer && tournament.status === 'open' && !userEntry) { %>
+      <div class="bg-shark-900 border border-white/10 rounded-md p-4 text-sm text-white/50">
+        This tournament is accepting candidates. Submit an entry from your profile to be considered.
+      </div>
+    <% } else if (!isOrganizer && userEntry) { %>
+      <div class="bg-shark-900 border border-white/10 rounded-md p-4 text-sm">
+        <span class="text-white/50">Your entry status: </span>
+        <span class="text-white font-semibold"><%= userEntry.approvalStatus %></span>
+      </div>
+    <% } %>
+
+    <!-- Participants -->
+    <div>
+      <h2 class="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Players</h2>
+      <% if (!entries.length) { %>
+        <p class="text-sm text-white/30">No approved players yet.</p>
+      <% } else { %>
+        <div class="flex flex-col gap-2">
+          <% entries.forEach(function(e) { %>
+            <a href="/<%= e.userId?.username?.value %>" class="flex items-center gap-3 bg-shark-900 border border-white/10 rounded-md p-3 no-underline">
+              <img src="<%= e.userId?.avatar?.value || '/img/default-avatar.png' %>" class="w-9 h-9 rounded-full object-cover bg-white/5" alt="">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-white truncate m-0"><%= e.userId?.displayName?.value || e.userId?.username?.value %></p>
+                <p class="text-xs text-white/40 truncate m-0">@<%= e.userId?.username?.value %></p>
+              </div>
+            </a>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+
+  </div>
+</div>
+
+<%- include('../partials/appEnd') %>
+
+<% if (typeof flash !== 'undefined' && flash) { %>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    window.showToast(<%- JSON.stringify(flash) %>, 'success');
+    var url = new URL(window.location.href);
+    url.searchParams.delete('flash');
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
+  });
+</script>
+<% } %>

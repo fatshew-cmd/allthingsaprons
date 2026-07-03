@@ -11,9 +11,17 @@ const tournamentEntrySchema = new mongoose.Schema({
   eliminated:     { type: Boolean, default: false },
   submittedAt:    { type: Date, required: true },
   reviewedAt:     { type: Date, default: null },
+
+  groupId:       { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentGroup', default: null },
+  groupPoints:   { type: Number, default: 0 },
+  groupRank:     { type: Number, default: null },
+  knockoutRound: { type: String, enum: ['R16', 'QF', 'SF', '3rd', 'Final'], default: null },
 }, { timestamps: true });
 
 tournamentEntrySchema.index({ tournamentId: 1, entryId: 1 }, { unique: true });
 tournamentEntrySchema.index({ tournamentId: 1, approvalStatus: 1 });
+tournamentEntrySchema.index({ tournamentId: 1, groupId: 1 });
+tournamentEntrySchema.index({ tournamentId: 1, eliminated: 1 });
+tournamentEntrySchema.index({ userId: 1, submittedAt: -1 });
 
 module.exports = mongoose.model('TournamentEntry', tournamentEntrySchema);

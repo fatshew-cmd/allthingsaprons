@@ -1,0 +1,278 @@
+<%- include('../partials/appStart', { title: title, activePage: 'tournaments' }) %>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <a href="/tournaments" class="w-8 h-8 flex items-center justify-center rounded-md text-white/40 hover:bg-white/8 hover:text-white/70 transition-colors shrink-0">
+        <iconify-icon icon="boxicons:arrow-left-stroke" width="22"></iconify-icon>
+      </a>
+      <h1 class="font-black text-xl tracking-tight m-0">Create Tournament</h1>
+    </div>
+    <button type="submit" form="tournament-step-form" formnovalidate name="intent" value="draft"
+      class="text-sm font-semibold text-white/40 hover:text-white/70 transition-colors shrink-0">
+      Save as Draft
+    </button>
+  </header>
+
+  <!-- Step indicator -->
+  <%
+    var STEP_NAMES = { 1: 'Basics', 2: 'Prizes', 3: 'Eligibility', 4: 'Jury' };
+  %>
+  <div class="px-5 pt-8 pb-6">
+    <div class="flex items-center gap-2">
+      <% [1, 2, 3, 4].forEach(function(n) { %>
+        <div class="flex-1 h-1 rounded-full <%= n <= step ? 'bg-charm-500' : 'bg-white/10' %>"></div>
+      <% }) %>
+    </div>
+    <p class="text-xs text-white/40 font-semibold mt-2 mb-0">Step <%= step %> of 4 · <%= STEP_NAMES[step] %></p>
+  </div>
+
+  <% if (errors && errors.length) { %>
+    <div class="mx-5 mb-4 p-3 rounded-md bg-red-500/10 border border-red-500/20">
+      <% errors.forEach(function(e) { %>
+        <p class="text-sm text-red-400 m-0"><%= e %></p>
+      <% }) %>
+    </div>
+  <% } %>
+
+  <div class="px-5 w-full">
+
+    <!-- ── Step 1: Basics ─────────────────────────────────────────── -->
+    <% if (step === 1) { %>
+      <form method="POST" action="/tournaments/create/step1" id="tournament-step-form" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-semibold text-white/80">Tournament name</label>
+          <input type="text" name="name" required minlength="3" maxlength="80" value="<%= formData.name || '' %>"
+            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-semibold text-white/80">Description (optional)</label>
+          <textarea name="description" maxlength="500" rows="3"
+            class="min-h-12 bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60"><%= formData.description || '' %></textarea>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-semibold text-white/80">Participant count</label>
+          <select name="size" required
+            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white focus:outline-none focus:border-charm-500/60">
+            <% [4, 8, 12, 16, 24].forEach(function(n) { %>
+              <option value="<%= n %>" <%= String(formData.size) === String(n) ? 'selected' : '' %>><%= n %> players</option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-semibold text-white/80">Open phase length</label>
+          <select name="openDays" required
+            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white focus:outline-none focus:border-charm-500/60">
+            <% [1, 2, 3].forEach(function(n) { %>
+              <option value="<%= n %>" <%= (String(formData.openDays) === String(n)) || (!formData.openDays && n === 3) ? 'selected' : '' %>><%= n %> day<%= n > 1 ? 's' : '' %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <button type="submit"
+          class="bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold py-2.5 rounded-md transition-colors mt-2">
+          Continue
+        </button>
+      </form>
+    <% } %>
+
+    <!-- ── Step 2: Prizes + Funding ───────────────────────────────── -->
+    <% if (step === 2) { %>
+      <div class="flex items-center gap-2 text-sm text-white/50 mb-5">
+        <iconify-icon icon="noto:hot-pepper" width="14"></iconify-icon>
+        Wallet balance: <span class="text-white font-semibold"><%= sbBalance.toLocaleString() %> 🌶️</span>
+      </div>
+
+      <form method="POST" action="/tournaments/create/step2" id="tournament-step-form" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-semibold text-white/80">1st place prize (min 1,000 🌶️)</label>
+          <input type="number" name="prizeFirst" min="1000" required value="<%= formData.prizeFirst || '' %>"
+            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-semibold text-white/80">2nd place prize (min 400 🌶️)</label>
+          <input type="number" name="prizeSecond" min="400" required value="<%= formData.prizeSecond || '' %>"
+            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-semibold text-white/80">3rd place prize (min 100 🌶️)</label>
+          <input type="number" name="prizeThird" min="100" required value="<%= formData.prizeThird || '' %>"
+            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+        </div>
+
+        <button type="submit"
+          class="bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold py-2.5 rounded-md transition-colors mt-2">
+          Continue
+        </button>
+      </form>
+
+      <% if (typeof insufficientFunds !== 'undefined' && insufficientFunds) { %>
+        <div class="mt-6 p-4 rounded-md bg-shark-900 border border-white/10">
+          <p class="text-sm text-white/70 mb-1">You need <span class="text-white font-semibold"><%= shortfall.toLocaleString() %> 🌶️</span> more to fund this prize pool (<%= total.toLocaleString() %> 🌶️ total).</p>
+          <p class="text-xs text-white/40 mb-3">Tournament top-ups are capped at 500 🌶️ per purchase.</p>
+          <form method="POST" action="/tournaments/fund" class="flex items-center gap-2">
+            <input type="number" name="amountCHL" min="1" max="500" required placeholder="Amount"
+              class="h-12 flex-1 bg-shark-800 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+            <button type="submit"
+              class="bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors shrink-0">
+              Add Funds
+            </button>
+          </form>
+        </div>
+      <% } %>
+    <% } %>
+
+    <!-- ── Step 3: Eligibility Criteria ───────────────────────────── -->
+    <% if (step === 3) { %>
+      <p class="text-sm text-white/50 mb-4">Optionally restrict who can enter this tournament. Leave empty to allow all eligible users.</p>
+
+      <form method="POST" action="/tournaments/create/step3" id="tournament-step-form" class="flex flex-col gap-4">
+        <div id="criteria-rows" class="flex flex-col gap-2"></div>
+
+        <button type="button" id="add-criteria-btn"
+          class="flex items-center justify-center gap-1.5 text-sm text-charm-400 hover:text-charm-300 transition-colors border border-dashed border-white/15 rounded-md py-2">
+          <iconify-icon icon="boxicons:plus" width="15"></iconify-icon> Add criteria
+        </button>
+
+        <input type="hidden" name="criteria" id="criteria-input" value="[]">
+
+        <button type="submit"
+          class="bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold py-2.5 rounded-md transition-colors mt-2">
+          Continue
+        </button>
+      </form>
+
+      <script>
+      (function () {
+        var FIELDS = ['ratingAvg', 'ratingCount', 'followerCount', 'age', 'sex', 'entryCount', 'accountAgeDays'];
+        var rowsEl  = document.getElementById('criteria-rows');
+        var form    = document.getElementById('tournament-step-form');
+        var hidden  = document.getElementById('criteria-input');
+
+        function addRow() {
+          var row = document.createElement('div');
+          row.className = 'flex items-center gap-2 criteria-row';
+          row.innerHTML =
+            '<select class="crit-field h-12 flex-1 bg-shark-900 border border-white/10 rounded-md px-2 text-xs text-white">' +
+              FIELDS.map(function (f) { return '<option value="' + f + '">' + f + '</option>'; }).join('') +
+            '</select>' +
+            '<select class="crit-op h-12 bg-shark-900 border border-white/10 rounded-md px-2 text-xs text-white">' +
+              '<option value="gte">&gt;=</option><option value="lte">&lt;=</option><option value="eq">=</option>' +
+            '</select>' +
+            '<input class="crit-value h-12 flex-1 bg-shark-900 border border-white/10 rounded-md px-2 text-xs text-white" placeholder="value">' +
+            '<button type="button" class="crit-remove text-white/30 hover:text-red-400 transition-colors shrink-0">' +
+              '<iconify-icon icon="boxicons:x" width="16"></iconify-icon></button>';
+          row.querySelector('.crit-remove').addEventListener('click', function () { row.remove(); });
+          rowsEl.appendChild(row);
+        }
+
+        document.getElementById('add-criteria-btn').addEventListener('click', addRow);
+
+        form.addEventListener('submit', function () {
+          var criteria = [];
+          rowsEl.querySelectorAll('.criteria-row').forEach(function (row) {
+            var field = row.querySelector('.crit-field').value;
+            var op    = row.querySelector('.crit-op').value;
+            var raw   = row.querySelector('.crit-value').value.trim();
+            if (!raw) return;
+            var value = field === 'sex' ? raw : Number(raw);
+            criteria.push({ field: field, operator: op, value: value });
+          });
+          hidden.value = JSON.stringify(criteria);
+        });
+      })();
+      </script>
+    <% } %>
+
+    <!-- ── Step 4: Jury Selection ─────────────────────────────────── -->
+    <% if (step === 4) { %>
+      <p class="text-sm text-white/50 mb-4">Select 5–7 jury members. Their identity will never be shown to anyone, including you.</p>
+
+      <form method="POST" action="/tournaments/create/step4" id="tournament-step-form" class="flex flex-col gap-4">
+        <div class="relative">
+          <input type="text" id="jury-search" placeholder="Search by username or display name"
+            class="h-12 w-full bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+          <div id="jury-results" class="hidden absolute z-10 top-full mt-1 w-full bg-shark-900 border border-white/10 rounded-md overflow-hidden max-h-60 overflow-y-auto"></div>
+        </div>
+
+        <div id="jury-selected" class="flex flex-col gap-2"></div>
+        <p class="text-xs text-white/30"><span id="jury-count">0</span> selected (5–7 required)</p>
+
+        <button type="submit" id="step4-submit" disabled
+          class="bg-charm-600 hover:bg-charm-500 disabled:opacity-40 disabled:pointer-events-none text-white text-sm font-semibold py-2.5 rounded-md transition-colors mt-2">
+          Launch Tournament
+        </button>
+      </form>
+
+      <script>
+      (function () {
+        var searchInput = document.getElementById('jury-search');
+        var resultsEl    = document.getElementById('jury-results');
+        var selectedEl   = document.getElementById('jury-selected');
+        var countEl      = document.getElementById('jury-count');
+        var submitBtn    = document.getElementById('step4-submit');
+        var form         = document.getElementById('tournament-step-form');
+        var selected     = new Map();
+        var debounceId;
+
+        function renderSelected() {
+          selectedEl.innerHTML = '';
+          selected.forEach(function (u, id) {
+            var row = document.createElement('div');
+            row.className = 'flex items-center gap-2 bg-shark-900 border border-white/10 rounded-md px-3 py-2';
+            row.innerHTML =
+              '<span class="text-sm text-white flex-1 truncate">' + u.displayName + ' <span class="text-white/40">@' + u.username + '</span></span>' +
+              '<button type="button" class="text-white/30 hover:text-red-400 transition-colors shrink-0"><iconify-icon icon="boxicons:x" width="15"></iconify-icon></button>' +
+              '<input type="hidden" name="juryUserIds" value="' + id + '">';
+            row.querySelector('button').addEventListener('click', function () {
+              selected.delete(id);
+              renderSelected();
+            });
+            selectedEl.appendChild(row);
+          });
+          countEl.textContent = selected.size;
+          submitBtn.disabled = selected.size < 5 || selected.size > 7;
+        }
+
+        searchInput.addEventListener('input', function () {
+          clearTimeout(debounceId);
+          var q = searchInput.value.trim();
+          if (!q) { resultsEl.classList.add('hidden'); return; }
+          debounceId = setTimeout(function () {
+            fetch('/api/tournaments/search-users?q=' + encodeURIComponent(q), { method: 'POST' })
+              .then(function (r) { return r.json(); })
+              .then(function (users) {
+                resultsEl.innerHTML = '';
+                users.filter(function (u) { return !selected.has(u._id); }).forEach(function (u) {
+                  var item = document.createElement('button');
+                  item.type = 'button';
+                  item.className = 'w-full text-left px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors flex items-center gap-2';
+                  item.innerHTML = '<span class="truncate">' + u.displayName + ' <span class="text-white/40">@' + u.username + '</span></span>';
+                  item.addEventListener('click', function () {
+                    selected.set(u._id, u);
+                    renderSelected();
+                    resultsEl.classList.add('hidden');
+                    searchInput.value = '';
+                  });
+                  resultsEl.appendChild(item);
+                });
+                resultsEl.classList.toggle('hidden', users.length === 0);
+              });
+          }, 250);
+        });
+
+        document.addEventListener('click', function (e) {
+          if (!resultsEl.contains(e.target) && e.target !== searchInput) resultsEl.classList.add('hidden');
+        });
+      })();
+      </script>
+    <% } %>
+
+  </div>
+</div>
+
+<%- include('../partials/appEnd') %>
