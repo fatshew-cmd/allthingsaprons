@@ -60,6 +60,6 @@ html {
     font-family: 'Sofia Sans', sans-serif;
 }
 
-button {
+button:not(:disabled) {
     cursor: pointer;
 }

@@ -10,6 +10,8 @@ const tournamentSchema = new mongoose.Schema({
   createdBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   name:        { type: String, required: true },
   description: { type: String },
+  thumbnailUrl: { type: String, required: true },
+  visibility:  { type: String, enum: ['public', 'private'], default: 'public' },
 
   size:        { type: Number, enum: [4, 8, 12, 16, 24], required: true },
   groupSize:   { type: Number, required: true },
@@ -18,10 +20,10 @@ const tournamentSchema = new mongoose.Schema({
   eligibilityCriteria: { type: [criteriaSchema], default: [] },
 
   prizes: {
-    first:  { type: Number, required: true, min: 1000 },
-    second: { type: Number, required: true, min: 400 },
+    first:  { type: Number, required: true, min: 350 },
+    second: { type: Number, required: true, min: 100 },
     // No 3rd-place match exists for a 4-player tournament (Final only) — never required for size 4.
-    third:  { type: Number, required: function () { return this.size !== 4; }, min: 100 },
+    third:  { type: Number, required: function () { return this.size !== 4; }, min: 50 },
     funded:     { type: Boolean, default: false },
     winnersSet: { type: Boolean, default: false },
   },

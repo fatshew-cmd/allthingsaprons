@@ -4,7 +4,14 @@
 > Spec source: `plans/July/tournament-spec.md`.
 > Written against actual codebase structure as of 2026-07-02.
 
-**Status (as of 2026-07-02): Not started.** `models/Tournament.js` and `models/TournamentEntry.js` are still the pre-plan schemas (`type`, `entryWindowHours`, `fundsHeld`, `reviewStatus`, `pending_funds`/`pending_review` status values) — none of Phase 1's schema changes have landed. No files from Phases 1–9 exist yet (`routes/tournaments.js`, `jobs/tournamentJobs.js`, `utils/tournamentScheduler.js`, `utils/tournamentEligibility.js`, `middleware/requireOrganizerEligibility.js`, `models/TournamentGroup.js`, `models/TournamentMatch.js`, `models/TournamentJury.js`, `models/TournamentJuryVote.js`, `views/tournaments/*`). The only tournament-related views present (`views/admin/tournaments/index.ejs`, `review.ejs`) are skeletons reflecting the **old, superseded** design (admin review queue, `pending_review`) and will need to be repurposed per Phase 9I once this plan is implemented. Next step: Phase 1 (schema).
+**Status (as of 2026-07-03): Phase 1 done, Phase 2 done, Phase 9 partially done (creation-flow views only). Phases 3–8 not started.**
+
+- **Phase 1 (schema) — done.** `models/Tournament.js`, `models/TournamentEntry.js`, `models/TournamentGroup.js`, `models/TournamentMatch.js`, `models/TournamentJury.js`, `models/TournamentJuryVote.js` all exist and are mounted in `server.js`. `Tournament` also picked up two fields beyond the original 1A spec: `thumbnailUrl` (required) and `visibility` (`'public' | 'private'`, default `'public'`) — see the Step 1 section below and the "Private Tournaments" note in `tournament-spec.md`.
+- **Phase 2 (creation flow) — done**, including the funding sub-route (`POST /tournaments/fund`). `middleware/requireOrganizerEligibility.js` and `routes/tournaments.js` exist and are mounted. Built behavior diverges from the original 2A/2C spec in several places — see those sections below for the as-built details (6 eligibility checks not 5, redirect+flash instead of JSON 403, thumbnail + visibility + live name-uniqueness check added to Step 1, tighter length limits, session-persisted draft with step-resume).
+- **Phase 9 (frontend) — partially done.** Only the views tied to browsing/creating a tournament are live and wired: `views/tournaments/index.ejs`, `create.ejs`, `detail.ejs` (read-only — no group/bracket/vote rendering yet since nothing generates groups or matches). `review.ejs` and `jury-vote.ejs` exist as page shells (`GET /tournament/:id/review`, `GET /tournament/:id/jury-vote/:matchId` render them) but have no backing POST actions yet — see below.
+- **Phases 3–8 — not started.** No `jobs/tournamentJobs.js`, `utils/tournamentScheduler.js`, or `utils/tournamentEligibility.js` exist yet. There is no route to submit a candidate entry to a tournament and no organizer approve/reject route — `review.ejs` renders the pending queue but has nothing to POST to. No group generation, match scheduling, standings, knockout progression, tie resolution, or prize distribution exists. `views/admin/tournaments/index.ejs` and `review.ejs` are still skeletons reflecting the old, superseded design (admin review queue, `pending_review`) and still need repurposing per Phase 9I.
+
+Next step: Phase 3 (open phase & candidate management).
 
 ---
 
@@ -225,23 +232,27 @@ require('./models/TournamentJuryVote');
 
 ## Phase 2 — Tournament Creation Flow
 
-### 2A. Create `middleware/requireOrganizerEligibility.js`
+### 2A. Create `middleware/requireOrganizerEligibility.js` — **done, built as 6 checks**
 
-This middleware runs before any tournament creation route. It checks all 5 organizer eligibility conditions and returns a JSON error or redirect if any fail.
+This middleware runs before any tournament creation route. As built it checks **6** organizer eligibility conditions (the spec's original 5 plus the concurrent-tournament cap from `tournament-spec.md`'s "Who Can Create a Tournament" list) and redirects with a flash message — not a JSON 403 — if any fail (except the identity-verification check, which redirects to `/verify-identity` as originally specced):
 
 ```
-Checks (in order):
-1. req.user.idVerified === true
+Checks (in order, as implemented):
+1. user.idVerified === true
    → if false: redirect to /verify-identity
-2. req.user.isBanned !== true
-   → if banned: res.status(403).json({ error: 'Your account has an active ban.' })
-3. Count UserReport docs where { reportedUserId: req.user._id, status: 'pending' } === 0
-   → if > 0: res.status(403).json({ error: 'Your account has pending reports under review.' })
-4. req.user.followerCount > 250
-   → if not: res.status(403).json({ error: 'You need more than 250 followers to organize a tournament.' })
-5. Count distinct contestId in ContestContribution where { userId: req.user._id } >= 5
-   → if < 5: res.status(403).json({ error: 'You must have contributed to at least 5 contests.' })
+2. user.accountStatus === 'banned'
+   → if banned: redirect to /tournaments?flash=...&flashType=error ('Your account has an active ban.')
+3. Count UserReport docs where { reportedUserId: userId, status: 'pending' } === 0
+   → if > 0: same redirect+flash pattern ('Your account has pending reports under review.')
+4. Follow.countDocuments({ followingId: userId }) > 250
+   → if not: same pattern ('You need more than 250 followers to organize a tournament.')
+5. ContestContribution.distinct('contestId', { contributorId: userId }).length >= 5
+   → if < 5: same pattern ('You must have contributed to at least 5 contests.')
+6. Tournament.countDocuments({ createdBy: userId, status: { $in: ['open','cooldown','active'] } }) < 3
+   → if >= 3: same pattern ('You can only have 3 tournaments running at once. Wait for one to close before starting another.')
 ```
+
+All 5 queries (report count, follower count, contribution count, concurrent-tournament count) run in parallel via `Promise.all`. `TEST_BYPASS_USERNAMES` (`celuiqui`, `storiesbyshews`) still short-circuits every check for local testing — tracked as a pre-launch revert in `july-action-plan.md`.
 
 Export as: `module.exports = requireOrganizerEligibility`
 
@@ -259,14 +270,17 @@ All routes in this file require `requireAuth` middleware applied at the router l
 **Page routes:**
 
 ```
-GET /tournaments
+GET /tournaments — done, with additions beyond spec
   → handler: fetch up to 20 tournaments sorted by createdAt desc, status in ['open','cooldown','active']
-  → also fetch up to 5 recently closed (status: 'closed', closedAt within last 30 days)
+  → also fetch up to 5 recently closed (status: 'closed', updatedAt within last 30 days)
+  → both queries also apply a visibility filter: { $or: [{ visibility: 'public' }, { visibility: { $exists: false } }, { createdBy: currentUser._id }] } — public tournaments plus the viewer's own private ones
   → render views/tournaments/index.ejs
-  → pass: { openTournaments, activeTournaments, closedTournaments, user: req.user }
+  → pass: { openTournaments, activeTournaments, closedTournaments, draft: req.session.tournamentDraft || null, flash, flashType }
+  → view renders a 4th tab ("Draft") showing the in-progress session draft (name, thumbnail, "Step N of 4 — tap to resume") if one exists
 
-GET /tournaments/create
+GET /tournaments/create — done, with step-resume added
   → middleware: requireOrganizerEligibility
+  → if req.session.tournamentDraft.step > 1, redirect straight to /tournaments/create/step{N} instead of rendering step 1
   → render views/tournaments/create.ejs
   → pass: { user: req.user, step: 1, errors: [], formData: {} }
 
@@ -295,29 +309,43 @@ GET /tournament/:id/jury-vote/:matchId
   → pass: { tournament, match, entryA, entryB } — DO NOT pass any jury identity info
 ```
 
+**New API route not in the original spec:** `GET /api/tournaments/check-name?name=...` (`routes/api.js`) — requires session auth, returns `{ available: boolean }` via a case-insensitive exact-match `Tournament.findOne`. Powers the live typeahead check on the Step 1 name field (debounced 450ms client-side). The same case-insensitive uniqueness check runs again server-side in `POST /tournaments/create/step1` before accepting the submission, so the client-side check is UX-only, not the enforcement point.
+
 ---
 
-### 2C. Creation flow — Step 1: Basics
+### 2C. Creation flow — Step 1: Basics — **done, expanded well beyond the original spec**
 
-`POST /tournaments/create/step1`
+`POST /tournaments/create/step1` (now `multipart/form-data` via `upload.tournament.single('thumbnail')`, not urlencoded)
 
-**Request body:**
+**Request body, as built:**
 ```
-name:          String, required, 3–80 chars
-description:   String, optional, max 500 chars
-size:          Number, must be in [4, 8, 12, 16, 24]
-openDays:      Number, 1–3 (how many days open phase lasts, default 3)
+thumbnail:      File, required (image, max 5MB) — stored via middleware/upload.js `tournament` storage → public/uploads/tournaments/
+                (removeThumbnail=1 clears a previously-drafted thumbnail with no new file attached)
+visibility:     'public' | 'private', default 'public' — toggle switch in the UI
+name:           String, required, 3–60 chars (spec said 80), letters/numbers/spaces only (new regex constraint),
+                must be case-insensitively unique across all tournaments (new — checked both live via
+                /api/tournaments/check-name and again server-side on submit)
+description:    String, optional, max 220 chars (spec said 500)
+size:           Number, must be in [4, 8, 12, 16, 24] — rendered as a radio-card list showing group/knockout
+                breakdown and estimated duration per size, not a plain <select>
+openDays:       Number, 1–3 (how many days open phase lasts, default 3) — rendered as a custom dropdown, not a <select>
 ```
 
 **Validation (server-side):**
-- `name` trimmed length 3–80: `'Tournament name must be between 3 and 80 characters.'`
+- `thumbnail` missing (no upload and no prior draft thumbnail): `'A tournament thumbnail is required.'`
+- `name` trimmed length not 3–60: `'Tournament name must be between 3 and 60 characters.'`
+- `name` fails `/^[A-Za-z0-9 ]+$/`: `'Tournament name may only contain letters, numbers, and spaces.'`
+- `name` case-insensitively matches an existing tournament: `'A tournament with this name already exists.'`
 - `size` not in valid list: `'Participant count must be 4, 8, 12, 16, or 24.'`
 - `openDays` not 1, 2, or 3: `'Open phase must last 1 to 3 days.'`
-- Any failure: re-render `views/tournaments/create.ejs` with `{ step: 1, errors, formData }`
+- `description` over 220 chars: `'Description must be 220 characters or fewer.'`
+- Any failure: re-render `views/tournaments/create.ejs` with `{ step: 1, errors, formData }` (formData now also carries `thumbnailUrl`, `visibility`)
+- Client-side: submit button stays disabled until the name passes the live uniqueness check and a thumbnail is present — validation isn't purely server-round-trip
 
 **On success:**
-- Store step 1 data in `req.session.tournamentDraft = { name, description, size, openDays }`
+- Store step 1 data in `req.session.tournamentDraft = { name, description, thumbnailUrl, visibility, size, openDays, step: 1 }` — every step now also stamps `step: N` on the draft so `GET /tournaments/create` can resume at the right step, and the "Draft" tab on `/tournaments` can show progress
 - Redirect to `GET /tournaments/create/step2`
+- "Save as Draft" (`intent=draft`) now submits via `fetch` (to support the multipart thumbnail) and shows a toast instead of redirecting to `/tournaments` with a flash querystring
 
 ---
 
@@ -1642,18 +1670,22 @@ views/tournaments/review.ejs       — Organizer candidate review queue
 views/tournaments/jury-vote.ejs    — Anonymous jury voting interface
 ```
 
-### 9B. `views/tournaments/index.ejs`
+### 9B. `views/tournaments/index.ejs` — **done** (Open/Active/Closed tabs built; card content is simpler than specced, plus a Draft tab was added)
 
-Sections:
-- **Open:** cards showing name, size, spots filled / total, prize pool total, days remaining, "View" CTA
-- **Active:** cards showing name, progress (group/knockout), prize pool, "Watch" CTA
-- **Recently Closed:** cards showing name, winner username + avatar, prize pool, "Results" CTA
+Tabs, as built: Open, Active, Closed, **Draft** (not in original spec — see below).
+
+- Cards (shared markup across all three status tabs) show: thumbnail (uploaded image, or a trophy icon placeholder if none), name, `@organizer`, `N entries`, prize pool total, chevron → `/tournament/:id`. The size/progress/winner-specific details in the original per-tab spec (spots filled, days remaining, group/knockout progress, winner username+avatar) are **not yet built** — cards are currently uniform across tabs.
+- **Draft tab (new):** if `req.session.tournamentDraft` exists, shows one row (thumbnail, name or "Untitled tournament", "Step N of 4 — tap to resume") linking to `/tournaments/create`, which redirects to the correct step. Empty state otherwise.
 
 No participation action on this page — all actions happen on the detail page.
 
 ---
 
-### 9C. `views/tournaments/detail.ejs` — status-aware rendering
+### 9C. `views/tournaments/detail.ejs` — status-aware rendering — **partially done**
+
+**Built so far (applies across statuses):** thumbnail hero banner (`aspect-3/1`, only rendered if `thumbnailUrl` is set), summary block, `entries.length/size` + prize pool stat tiles ("Entries" label, not "Players" — the platform-wide `Entry` terminology from `CLAUDE.md` was applied here), approved-entries list section (header now reads "Entries" too). This is fed by the read-only `GET /tournament/:id` route (fetches Tournament + approved TournamentEntries + matches with populated contestId).
+
+**Not yet built — everything below is still the Phase 9C target, unimplemented:**
 
 **When `status === 'open'`:**
 - Tournament name, description, eligibility criteria list
@@ -1694,16 +1726,19 @@ Two sub-sections toggle via tab:
 
 ---
 
-### 9D. `views/tournaments/create.ejs` — multi-step form
+### 9D. `views/tournaments/create.ejs` — multi-step form — **done through step 4; step 1 built out well beyond spec**
 
 Single EJS file that renders differently based on `step` variable (1–4).
 
-**Step 1 — Basics:**
-- Input: Tournament Name
-- Input: Description (optional)
-- Dropdown: Participant cap [4, 8, 12, 16, 24]
-- Radio: Open phase duration [1 day / 2 days / 3 days]
-- "Continue" button → POST /tournaments/create/step1
+**Step 1 — Basics — built as:**
+- Toggle: Private tournament (hidden from public browsing, reachable via direct link only — writes `visibility`)
+- Thumbnail upload (required): drop zone + live preview + clear button, 5MB client-side check before upload
+- Input: Tournament Name — capitalized display, live debounced (450ms) availability check against `/api/tournaments/check-name` with inline check/x icon + error text, letters/numbers/spaces only
+- Input: Description (optional, 220 char cap)
+- Participant cap: radio-card list (not a dropdown) — each card shows group count/size, total contest count, and estimated duration for that size
+- Open phase duration: custom dropdown component (not native radio/select) — 1/2/3 days
+- "Continue" button disabled until thumbnail + valid+available name are both present
+- "Save as Draft" now posts via `fetch` (supports the multipart thumbnail) and toasts instead of redirecting
 
 **Step 2 — Prizes:**
 - Three number inputs: 1st (min 1,000), 2nd (min 400), 3rd (min 100)
@@ -1907,3 +1942,9 @@ registerTournamentJobs(agenda);
 | Single top-up max $200 | Tournament-gated $500 top-up | New `/tournaments/fund` route |
 | No jury | 5–7 member anonymous jury | Two new models, new jobs, new view |
 | `pending_funds` lifecycle state | Prizes funded inline at creation | `fundsHeld` removed; `prizes.funded` replaces it |
+
+---
+
+## Follow-up Tasks (not yet scheduled to a phase)
+
+- Let organizers toggle whether they receive a notification when someone requests to join their tournament (extend `User.notificationSettings` with a tournament join-request in-app/email toggle, alongside the existing comments/nominations/contests/payouts toggles; gate the `tournament_entry_submitted` notification on it).

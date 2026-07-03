@@ -24,7 +24,7 @@ June closed with the full standalone contest lifecycle, the chilli wallet econom
 
 | Item | Status |
 |---|---|
-| `Tournament` + `TournamentEntry` models | Fully built — no routes or views yet |
+| `Tournament` + `TournamentEntry` models | Superseded by `tournament-implementation-plan.md` — schema (Phase 1) and creation flow (Phase 2) are done as of 2026-07-03; candidate submission/review, group/knockout progression, and prize distribution (Phases 3–8) are not started. See that doc's status header for the current breakdown, not this row. |
 | Pre-launch test bypasses | **On hold — not yet, still actively testing.** Must revert before any public release (see below) |
 | ~~`Retag` model~~ | Deleted 2026-07-01 — was never wired, no longer exists |
 | ~~Search page~~ | **Done 2026-07-01** — see Current State above |
@@ -387,6 +387,7 @@ Triggered 2026-07-02: noticed `dotenv` (v17.4.2) prints self-promotional console
 | Marketplace | Post-MVP |
 | Ratings Challenge | Removed from design — replaced by 3-replay chain |
 | Apron audience filter for Announcements | Requires Apron data to exist first — wire once Phase 9.2 is done (post-month) |
+| **Private Tournaments** | Post-MVP — fully designed and documented in `tournament-spec.md` (see "Private Tournaments" section). Invite-only, not publicly discoverable, max 12 participants, permanent result privacy (prizes still show on winner profiles). Do not implement until explicitly prioritized. |
 
 ---
 

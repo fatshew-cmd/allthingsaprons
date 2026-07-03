@@ -29,6 +29,7 @@ module.exports = {
   idDocs:    multer({ storage: makeStorage('id-docs'),       limits: { fileSize: 10 * MB }, fileFilter: imageOnly }),
   entry:     multer({ storage: makeStorage('entries'),       limits: { fileSize: 100 * MB }, fileFilter: imageOrVideo }),
   thumbnail: multer({ storage: makeStorage('announcements'), limits: { fileSize: 5 * MB },  fileFilter: imageOnly }),
+  tournament: multer({ storage: makeStorage('tournaments'),  limits: { fileSize: 5 * MB },  fileFilter: imageOnly }),
   support:   multer({ storage: makeStorage('support'),       limits: { fileSize: 2.5 * MB }, fileFilter: imageOnly }),
 
   // Combined avatar + banner for the settings/profile route

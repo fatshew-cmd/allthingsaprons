@@ -12,8 +12,12 @@
   %>
   <a href="/tournament/<%= t._id %>"
     class="flex items-center gap-3 px-5 py-4 border-b border-white/8 hover:bg-white/5 transition-colors no-underline">
-    <div class="w-11 h-11 rounded-md bg-charm-500/10 flex items-center justify-center shrink-0">
-      <iconify-icon icon="boxicons:trophy" width="20" style="color:#c45c7a"></iconify-icon>
+    <div class="w-11 h-11 rounded-md bg-charm-500/10 flex items-center justify-center shrink-0 overflow-hidden">
+      <% if (t.thumbnailUrl) { %>
+        <img src="<%= t.thumbnailUrl %>" class="w-full h-full object-cover" alt="">
+      <% } else { %>
+        <iconify-icon icon="boxicons:trophy" width="20" style="color:#c45c7a"></iconify-icon>
+      <% } %>
     </div>
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2">
@@ -26,7 +30,7 @@
           : null;
       %>
       <p class="text-xs text-white/40 truncate m-0 mt-0.5">
-        by @<%= t.createdBy?.username?.value || 'unknown' %><%= t.size ? ' · ' + t.size + ' players' : '' %><%= prizePool ? ' · ' + prizePool : '' %>
+        by @<%= t.createdBy?.username?.value || 'unknown' %><%= t.size ? ' · ' + t.size + ' entries' : '' %><%= prizePool ? ' · ' + prizePool : '' %>
       </p>
     </div>
     <iconify-icon icon="boxicons:chevron-right" width="18" class="text-white/20 shrink-0"></iconify-icon>
@@ -48,6 +52,11 @@
       class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
       Recently Closed
       <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= closedTournaments.length %></span>
+    </button>
+    <button id="tab-draft" onclick="switchTab('draft')"
+      class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
+      Draft
+      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= draft ? 1 : 0 %></span>
     </button>
   </header>
 
@@ -81,6 +90,32 @@
     <% } else { closedTournaments.forEach(tournamentCard); } %>
   </div>
 
+  <!-- Draft -->
+  <div id="panel-draft" class="hidden">
+    <% if (!draft) { %>
+      <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
+        <iconify-icon icon="boxicons:file-blank" width="32" height="32" class="text-white/20 mb-4"></iconify-icon>
+        <p class="text-white/40 text-sm">No draft in progress.</p>
+      </div>
+    <% } else { %>
+      <a href="/tournaments/create"
+        class="flex items-center gap-3 px-5 py-4 border-b border-white/8 hover:bg-white/5 transition-colors no-underline">
+        <div class="w-11 h-11 rounded-md bg-charm-500/10 flex items-center justify-center shrink-0 overflow-hidden">
+          <% if (draft.thumbnailUrl) { %>
+            <img src="<%= draft.thumbnailUrl %>" class="w-full h-full object-cover" alt="">
+          <% } else { %>
+            <iconify-icon icon="boxicons:trophy" width="20" style="color:#c45c7a"></iconify-icon>
+          <% } %>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-white truncate m-0"><%= draft.name || 'Untitled tournament' %></p>
+          <p class="text-xs text-white/40 truncate m-0 mt-0.5">Step <%= draft.step || 1 %> of 4 — tap to resume</p>
+        </div>
+        <iconify-icon icon="boxicons:chevron-right" width="18" class="text-white/20 shrink-0"></iconify-icon>
+      </a>
+    <% } %>
+  </div>
+
   <a href="/tournaments/create" title="Create tournament"
     class="fixed bottom-5 right-5 xl:right-[calc((100vw-80rem)/2+21.25rem)] z-20 flex items-center justify-center w-12 h-12 bg-charm-500/15 hover:bg-charm-500/25 text-charm-400 rounded-md shadow-xl transition-colors no-underline">
     <iconify-icon icon="boxicons:plus" width="22"></iconify-icon>
@@ -94,7 +129,7 @@
 </style>
 
 <script>
-  var TABS = ['open', 'active', 'closed'];
+  var TABS = ['open', 'active', 'closed', 'draft'];
   var BASE_BTN = 'tab-btn text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer ';
   function switchTab(tab) {
     TABS.forEach(function (t) {
@@ -109,9 +144,10 @@
 <% if (typeof flash !== 'undefined' && flash) { %>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    window.showToast(<%- JSON.stringify(flash) %>, 'success');
+    window.showToast(<%- JSON.stringify(flash) %>, <%- JSON.stringify(typeof flashType !== 'undefined' ? flashType : 'success') %>);
     var url = new URL(window.location.href);
     url.searchParams.delete('flash');
+    url.searchParams.delete('flashType');
     history.replaceState(null, '', url.pathname + url.search + url.hash);
   });
 </script>

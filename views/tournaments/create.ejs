@@ -2,27 +2,34 @@
 
 <div class="flex flex-col pb-20 md:pb-0">
 
+  <%
+    var STEP_NAMES = { 1: 'Basics', 2: 'Prizes', 3: 'Eligibility', 4: 'Jury' };
+    var STEP_URLS  = { 1: '/tournaments/create/step1', 2: '/tournaments/create/step2', 3: '/tournaments/create/step3', 4: '/tournaments/create/step4' };
+    var reachedMax = typeof maxStep !== 'undefined' ? maxStep : step;
+    var backUrl    = step > 1 ? STEP_URLS[step - 1] : '/tournaments';
+  %>
   <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm flex items-center justify-between gap-3">
     <div class="flex items-center gap-3">
-      <a href="/tournaments" class="w-8 h-8 flex items-center justify-center rounded-md text-white/40 hover:bg-white/8 hover:text-white/70 transition-colors shrink-0">
+      <a href="<%= backUrl %>" class="w-8 h-8 flex items-center justify-center rounded-md text-white/40 hover:bg-white/8 hover:text-white/70 transition-colors shrink-0">
         <iconify-icon icon="boxicons:arrow-left-stroke" width="22"></iconify-icon>
       </a>
       <h1 class="font-black text-xl tracking-tight m-0">Create Tournament</h1>
     </div>
-    <button type="submit" form="tournament-step-form" formnovalidate name="intent" value="draft"
+    <button type="submit" id="save-draft-btn" form="tournament-step-form" formnovalidate name="intent" value="draft"
       class="text-sm font-semibold text-white/40 hover:text-white/70 transition-colors shrink-0">
       Save as Draft
     </button>
   </header>
 
   <!-- Step indicator -->
-  <%
-    var STEP_NAMES = { 1: 'Basics', 2: 'Prizes', 3: 'Eligibility', 4: 'Jury' };
-  %>
   <div class="px-5 pt-8 pb-6">
     <div class="flex items-center gap-2">
       <% [1, 2, 3, 4].forEach(function(n) { %>
-        <div class="flex-1 h-1 rounded-full <%= n <= step ? 'bg-charm-500' : 'bg-white/10' %>"></div>
+        <% if (n <= reachedMax && n !== step) { %>
+          <a href="<%= STEP_URLS[n] %>" class="flex-1 h-1 rounded-full transition-colors hover:opacity-70 <%= n <= step ? 'bg-charm-500' : 'bg-white/10' %>"></a>
+        <% } else { %>
+          <div class="flex-1 h-1 rounded-full <%= n <= step ? 'bg-charm-500' : 'bg-white/10' %>"></div>
+        <% } %>
       <% }) %>
     </div>
     <p class="text-xs text-white/40 font-semibold mt-2 mb-0">Step <%= step %> of 4 · <%= STEP_NAMES[step] %></p>
@@ -40,90 +47,433 @@
 
     <!-- ── Step 1: Basics ─────────────────────────────────────────── -->
     <% if (step === 1) { %>
-      <form method="POST" action="/tournaments/create/step1" id="tournament-step-form" class="flex flex-col gap-4">
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-white/80">Tournament name</label>
-          <input type="text" name="name" required minlength="3" maxlength="80" value="<%= formData.name || '' %>"
-            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+      <form method="POST" action="/tournaments/create/step1" id="tournament-step-form" enctype="multipart/form-data" class="flex flex-col gap-4">
+        <%
+          var isPrivate = formData.visibility === 'private';
+        %>
+        <div class="flex items-center justify-between px-4 py-3.5 rounded-md border border-white/10 bg-shark-900">
+          <div>
+            <p class="text-sm font-medium text-white">Private tournament</p>
+            <p class="text-xs text-white/40 mt-0.5">Hidden from public browsing — only reachable via direct link</p>
+          </div>
+          <button type="button" id="toggle-visibility" data-on="<%= isPrivate ? 'true' : 'false' %>"
+            class="relative w-14 h-7 rounded-full transition-colors cursor-pointer shrink-0 <%= isPrivate ? 'bg-charm-600' : 'bg-shark-700' %>">
+            <span id="thumb-visibility" class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform <%= isPrivate ? 'translate-x-7' : '' %>"></span>
+          </button>
+          <input type="hidden" id="input-visibility" name="visibility" value="<%= isPrivate ? 'private' : 'public' %>">
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-white/80">Description (optional)</label>
-          <textarea name="description" maxlength="500" rows="3"
-            class="min-h-12 bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60"><%= formData.description || '' %></textarea>
+          <label class="text-sm font-bold text-white/90">Thumbnail</label>
+          <div class="flex items-start gap-3">
+            <div id="thumb-drop" class="relative flex flex-col items-center justify-center gap-1.5 flex-1 h-28 rounded-md border border-dashed border-white/15 bg-shark-900 hover:border-white/25 transition-colors cursor-pointer overflow-hidden">
+              <div id="thumb-empty" class="flex flex-col items-center gap-1.5 pointer-events-none px-2">
+                <iconify-icon icon="boxicons:image-add" width="20" style="color:rgba(255,255,255,0.2);display:block"></iconify-icon>
+                <span class="text-sm text-white/40 text-center leading-tight">Click to upload<br>Image, up to 5MB</span>
+              </div>
+              <input type="file" name="thumbnail" id="thumb-input" accept="image/*" class="hidden">
+            </div>
+            <div id="thumb-preview-wrap" class="w-28 aspect-square shrink-0 relative rounded-md overflow-hidden bg-shark-900 border border-white/10 flex items-center justify-center">
+              <iconify-icon id="thumb-placeholder" icon="boxicons:image" width="22" class="text-white/15 <%= formData.thumbnailUrl ? 'hidden' : '' %>"></iconify-icon>
+              <img id="thumb-preview" src="<%= formData.thumbnailUrl || '' %>" alt="" class="<%= formData.thumbnailUrl ? '' : 'hidden' %> w-full h-full object-cover pointer-events-none">
+              <button type="button" id="thumb-clear"
+                class="<%= formData.thumbnailUrl ? 'flex' : 'hidden' %> absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 transition-colors z-10 items-center justify-center">
+                <iconify-icon icon="boxicons:x" width="11" style="color:white;display:block"></iconify-icon>
+              </button>
+            </div>
+          </div>
+          <p id="thumb-error" class="text-xs text-red-400 hidden">A thumbnail is required.</p>
+          <input type="hidden" name="removeThumbnail" id="remove-thumbnail" value="0">
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-white/80">Participant count</label>
-          <select name="size" required
-            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white focus:outline-none focus:border-charm-500/60">
-            <% [4, 8, 12, 16, 24].forEach(function(n) { %>
-              <option value="<%= n %>" <%= String(formData.size) === String(n) ? 'selected' : '' %>><%= n %> players</option>
+          <label class="text-sm font-bold text-white/90">Tournament name</label>
+          <div class="relative">
+            <input type="text" id="tournament-name" name="name" required minlength="3" maxlength="60" pattern="[A-Za-z0-9 ]+" title="Letters, numbers, and spaces only" value="<%= formData.name || '' %>"
+              class="h-12 w-full capitalize bg-shark-900 border border-white/10 rounded-md px-3 pr-9 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+            <span id="tournament-name-status" class="absolute right-3 top-1/2 -translate-y-1/2 hidden"></span>
+          </div>
+          <p id="tournament-name-error" class="text-xs text-red-400 hidden"></p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-bold text-white/90">Description (optional)</label>
+          <textarea name="description" maxlength="220" rows="3"
+            class="min-h-12 resize-none bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60"><%= formData.description || '' %></textarea>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-bold text-white/90">Participant count</label>
+          <%
+            var SIZE_INFO = {
+              4:  { groups: 1, perGroup: 4, total: 7,  days: 4 },
+              8:  { groups: 2, perGroup: 4, total: 16, days: 5 },
+              12: { groups: 4, perGroup: 3, total: 20, days: 6 },
+              16: { groups: 4, perGroup: 4, total: 32, days: 6 },
+              24: { groups: 8, perGroup: 3, total: 40, days: 7 },
+            };
+          %>
+          <div class="flex flex-col gap-2">
+            <% [4, 8, 12, 16, 24].forEach(function(n) {
+              var info    = SIZE_INFO[n];
+              var checked = formData.size ? String(formData.size) === String(n) : n === 4;
+            %>
+              <label class="group flex items-center gap-3 px-4 py-3 rounded-md border border-white/10 bg-shark-900 hover:border-white/25 has-checked:border-charm-500 has-checked:bg-charm-500/10 cursor-pointer transition-colors">
+                <input type="radio" name="size" value="<%= n %>" <%= checked ? 'checked' : '' %> required class="sr-only">
+                <span class="shrink-0 relative w-4 h-4 rounded-full border-2 border-white/20 group-has-checked:border-charm-500 transition-colors">
+                  <span class="absolute inset-1 rounded-full bg-charm-500 scale-0 group-has-checked:scale-100 transition-transform"></span>
+                </span>
+                <span class="flex-1 flex items-center justify-between gap-3">
+                  <span class="text-sm font-semibold text-white"><%= n %> entries</span>
+                  <span class="text-xs text-white/40 text-right leading-snug">
+                    <%= info.groups %> group<%= info.groups > 1 ? 's' : '' %> of <%= info.perGroup %><br>
+                    <%= info.total %> contests total · ~<%= info.days %> day<%= info.days > 1 ? 's' : '' %>
+                  </span>
+                </span>
+              </label>
             <% }) %>
-          </select>
+          </div>
+          <p class="text-xs text-white/30 mt-0.5">Duration shown covers group stage + knockout play only — it doesn't include the Open (3 days) or Cooldown (up to 24h) phases before the tournament goes active.</p>
         </div>
 
+        <%
+          var openDaysValue = formData.openDays ? String(formData.openDays) : '3';
+        %>
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-white/80">Open phase length</label>
-          <select name="openDays" required
-            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white focus:outline-none focus:border-charm-500/60">
-            <% [1, 2, 3].forEach(function(n) { %>
-              <option value="<%= n %>" <%= (String(formData.openDays) === String(n)) || (!formData.openDays && n === 3) ? 'selected' : '' %>><%= n %> day<%= n > 1 ? 's' : '' %></option>
-            <% }) %>
-          </select>
+          <label class="text-sm font-bold text-white/90">Open phase length</label>
+          <div class="custom-dropdown relative" id="open-days-dropdown">
+            <input type="hidden" name="openDays" id="open-days-value" value="<%= openDaysValue %>">
+            <button type="button" data-dropdown-trigger
+              class="h-12 w-full bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-left text-white flex items-center justify-between focus:outline-none focus:border-charm-500/60 transition-colors cursor-pointer">
+              <span class="dropdown-label"><%= openDaysValue %> day<%= openDaysValue > 1 ? 's' : '' %></span>
+              <iconify-icon data-chevron icon="boxicons:chevron-down" width="16" class="text-white/30 shrink-0" style="transition:transform 0.15s ease"></iconify-icon>
+            </button>
+            <div class="dropdown-panel absolute z-20 w-full mt-1 bg-shark-900 border border-white/10 rounded-md shadow-xl overflow-hidden" style="display:none">
+              <% [1, 2, 3].forEach(function(n) { %>
+                <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer" data-value="<%= n %>" style="color:<%= openDaysValue === String(n) ? 'white' : 'rgba(255,255,255,0.5)' %>">
+                  <span class="opt-label"><%= n %> day<%= n > 1 ? 's' : '' %></span>
+                  <iconify-icon icon="boxicons:check" width="13" class="check-icon text-charm-400" style="<%= openDaysValue === String(n) ? 'display:flex' : 'display:none' %>;flex-shrink:0"></iconify-icon>
+                </button>
+              <% }) %>
+            </div>
+          </div>
+          <p class="text-xs text-white/30 mt-0.5">Candidates apply during this window; you review and approve/reject after it ends. Runs the full length even if the cap fills early. Too few applicants by the end cancels the tournament and refunds you.</p>
         </div>
 
-        <button type="submit"
-          class="bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold py-2.5 rounded-md transition-colors mt-2">
+        <button type="submit" id="step1-submit" disabled
+          class="h-12 bg-charm-500/15 hover:bg-charm-500/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-charm-500/15 text-charm-400 text-sm font-semibold rounded-md transition-colors mt-2">
           Continue
         </button>
       </form>
+
+      <script>
+      (function () {
+        var visibilityToggle = document.getElementById('toggle-visibility');
+        var visibilityThumb  = document.getElementById('thumb-visibility');
+        var visibilityInput  = document.getElementById('input-visibility');
+
+        visibilityToggle.addEventListener('click', function () {
+          var isPrivate = visibilityToggle.dataset.on !== 'true';
+          visibilityToggle.dataset.on = isPrivate ? 'true' : 'false';
+          visibilityToggle.classList.toggle('bg-charm-600', isPrivate);
+          visibilityToggle.classList.toggle('bg-shark-700', !isPrivate);
+          visibilityThumb.classList.toggle('translate-x-7', isPrivate);
+          visibilityInput.value = isPrivate ? 'private' : 'public';
+        });
+
+        var thumbInput       = document.getElementById('thumb-input');
+        var thumbPreview     = document.getElementById('thumb-preview');
+        var thumbPlaceholder = document.getElementById('thumb-placeholder');
+        var thumbClear       = document.getElementById('thumb-clear');
+        var thumbError       = document.getElementById('thumb-error');
+        var removeThumbnail  = document.getElementById('remove-thumbnail');
+        var nameInput        = document.getElementById('tournament-name');
+        var nameStatusEl     = document.getElementById('tournament-name-status');
+        var nameErrorEl      = document.getElementById('tournament-name-error');
+        var submitBtn        = document.getElementById('step1-submit');
+        var nameTimer        = null;
+        var nameOk           = false;
+
+        function hasThumbnail() {
+          return !thumbPreview.classList.contains('hidden');
+        }
+
+        function refreshSubmit() {
+          submitBtn.disabled = !nameOk || !hasThumbnail();
+        }
+
+        document.getElementById('thumb-drop').addEventListener('click', function () {
+          thumbInput.click();
+        });
+
+        thumbInput.addEventListener('change', function () {
+          var file = this.files[0];
+          if (!file) return;
+          if (file.size > 5 * 1024 * 1024) {
+            thumbInput.value = '';
+            thumbError.textContent = 'Image must be 5MB or smaller.';
+            thumbError.classList.remove('hidden');
+            return;
+          }
+          var reader = new FileReader();
+          reader.onload = function (e) {
+            thumbPreview.src = e.target.result;
+            thumbPreview.classList.remove('hidden');
+            thumbPlaceholder.classList.add('hidden');
+            thumbClear.classList.remove('hidden');
+            thumbClear.classList.add('flex');
+            thumbError.classList.add('hidden');
+            removeThumbnail.value = '0';
+            refreshSubmit();
+          };
+          reader.readAsDataURL(file);
+        });
+
+        thumbClear.addEventListener('click', function () {
+          thumbInput.value = '';
+          thumbPreview.src = '';
+          thumbPreview.classList.add('hidden');
+          thumbPlaceholder.classList.remove('hidden');
+          thumbClear.classList.add('hidden');
+          thumbClear.classList.remove('flex');
+          removeThumbnail.value = '1';
+          refreshSubmit();
+        });
+
+        function setNameIcon(icon, color) {
+          nameStatusEl.innerHTML = '<iconify-icon icon="' + icon + '" width="15" style="color:' + color + ';display:block"></iconify-icon>';
+          nameStatusEl.classList.remove('hidden');
+        }
+
+        var NAME_RE = /^[A-Za-z0-9 ]+$/;
+
+        function validateName() {
+          nameErrorEl.classList.add('hidden');
+          nameOk = false;
+          refreshSubmit();
+          var val = nameInput.value.trim();
+          if (val.length < 3) { nameStatusEl.classList.add('hidden'); return; }
+
+          if (!NAME_RE.test(val)) {
+            setNameIcon('boxicons:x-circle', '#f87171');
+            nameErrorEl.textContent = 'Letters, numbers, and spaces only.';
+            nameErrorEl.classList.remove('hidden');
+            refreshSubmit();
+            return;
+          }
+
+          setNameIcon('boxicons:loader-alt', 'rgba(255,255,255,0.3)');
+          nameTimer = setTimeout(function () {
+            fetch('/api/tournaments/check-name?name=' + encodeURIComponent(val))
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (data.available) {
+                  setNameIcon('boxicons:check-circle', '#4ade80');
+                  nameOk = true;
+                } else {
+                  setNameIcon('boxicons:x-circle', '#f87171');
+                  nameErrorEl.textContent = 'A tournament with this name already exists.';
+                  nameErrorEl.classList.remove('hidden');
+                }
+                refreshSubmit();
+              })
+              .catch(function () { nameStatusEl.classList.add('hidden'); });
+          }, 450);
+        }
+
+        nameInput.addEventListener('input', function () {
+          clearTimeout(nameTimer);
+          validateName();
+        });
+
+        refreshSubmit();
+        if (nameInput.value.trim().length >= 3) validateName();
+
+        // ── Custom dropdown (Open phase length) ──────────────────────────
+        function initDropdown(containerId) {
+          var container = document.getElementById(containerId);
+          if (!container) return;
+          var trigger = container.querySelector('[data-dropdown-trigger]');
+          var panel   = container.querySelector('.dropdown-panel');
+          var label   = container.querySelector('.dropdown-label');
+          var chevron = container.querySelector('[data-chevron]');
+          var hidden  = container.querySelector('input[type="hidden"]');
+          var options = container.querySelectorAll('.dropdown-option');
+          var isOpen  = false;
+
+          function openDropdown() {
+            panel.style.display = 'block';
+            chevron.style.transform = 'rotate(180deg)';
+            isOpen = true;
+          }
+          function closeDropdown() {
+            panel.style.display = 'none';
+            chevron.style.transform = 'rotate(0deg)';
+            isOpen = false;
+          }
+
+          trigger.addEventListener('click', function (e) {
+            e.stopPropagation();
+            isOpen ? closeDropdown() : openDropdown();
+          });
+
+          options.forEach(function (opt) {
+            opt.addEventListener('click', function () {
+              hidden.value = this.dataset.value;
+              label.textContent = this.querySelector('.opt-label').textContent;
+              options.forEach(function (o) {
+                o.style.color = 'rgba(255,255,255,0.5)';
+                o.querySelector('.check-icon').style.display = 'none';
+              });
+              this.style.color = 'white';
+              this.querySelector('.check-icon').style.display = 'flex';
+              closeDropdown();
+            });
+          });
+
+          document.addEventListener('click', function (e) {
+            if (!container.contains(e.target)) closeDropdown();
+          });
+        }
+
+        initDropdown('open-days-dropdown');
+      })();
+      </script>
     <% } %>
 
     <!-- ── Step 2: Prizes + Funding ───────────────────────────────── -->
     <% if (step === 2) { %>
-      <div class="flex items-center gap-2 text-sm text-white/50 mb-5">
-        <iconify-icon icon="noto:hot-pepper" width="14"></iconify-icon>
-        Wallet balance: <span class="text-white font-semibold"><%= sbBalance.toLocaleString() %> 🌶️</span>
+      <div class="flex flex-col gap-0.5 mb-3">
+        <span class="text-sm text-white/50">Wallet balance</span>
+        <span class="text-2xl font-bold text-white"><%= sbBalance.toLocaleString() %> 🌶️</span>
       </div>
+      <p class="text-xs text-white/40 mb-6">The following are the amounts each of the top 3 finishers will earn — funded from your wallet balance when the tournament launches.</p>
 
       <form method="POST" action="/tournaments/create/step2" id="tournament-step-form" class="flex flex-col gap-4">
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-white/80">1st place prize (min 1,000 🌶️)</label>
-          <input type="number" name="prizeFirst" min="1000" required value="<%= formData.prizeFirst || '' %>"
-            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-white/80">2nd place prize (min 400 🌶️)</label>
-          <input type="number" name="prizeSecond" min="400" required value="<%= formData.prizeSecond || '' %>"
-            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-semibold text-white/80">3rd place prize (min 100 🌶️)</label>
-          <input type="number" name="prizeThird" min="100" required value="<%= formData.prizeThird || '' %>"
-            class="h-12 bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
-        </div>
+        <%
+          var PRIZE_FIELDS = [
+            { name: 'prizeFirst',  label: '1st place prize', min: 350 },
+            { name: 'prizeSecond', label: '2nd place prize', min: 100 },
+            { name: 'prizeThird',  label: '3rd place prize', min: 50 },
+          ];
+        %>
+        <% PRIZE_FIELDS.forEach(function (f) { %>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm font-bold text-white/90"><%= f.label %> <span class="font-normal text-white/40">(min <%= f.min.toLocaleString() %> 🌶️)</span></label>
+            <div class="relative">
+              <input type="number" name="<%= f.name %>" id="<%= f.name %>" min="<%= f.min %>" required value="<%= formData[f.name] || '' %>"
+                class="prize-input h-12 w-full bg-shark-900 border border-white/10 rounded-md pl-3 pr-9 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder="<%= f.min.toLocaleString() %>">
+              <span class="prize-status absolute right-3 top-1/2 -translate-y-1/2 hidden"></span>
+            </div>
+            <p class="prize-error text-xs text-red-400 hidden">Minimum <%= f.min.toLocaleString() %> 🌶️.</p>
+          </div>
+        <% }) %>
 
-        <button type="submit"
-          class="bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold py-2.5 rounded-md transition-colors mt-2">
-          Continue
-        </button>
+        <div class="flex items-center justify-between pt-3 border-t border-white/10">
+          <span class="text-sm text-white/50">Total prize pool</span>
+          <span id="prize-total" class="text-base font-bold text-white">0 🌶️</span>
+        </div>
+        <p id="prize-remaining" class="text-xs text-white/30 -mt-2"></p>
       </form>
 
-      <% if (typeof insufficientFunds !== 'undefined' && insufficientFunds) { %>
-        <div class="mt-6 p-4 rounded-md bg-shark-900 border border-white/10">
-          <p class="text-sm text-white/70 mb-1">You need <span class="text-white font-semibold"><%= shortfall.toLocaleString() %> 🌶️</span> more to fund this prize pool (<%= total.toLocaleString() %> 🌶️ total).</p>
-          <p class="text-xs text-white/40 mb-3">Tournament top-ups are capped at 500 🌶️ per purchase.</p>
-          <form method="POST" action="/tournaments/fund" class="flex items-center gap-2">
-            <input type="number" name="amountCHL" min="1" max="500" required placeholder="Amount"
-              class="h-12 flex-1 bg-shark-800 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
-            <button type="submit"
-              class="bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors shrink-0">
-              Add Funds
-            </button>
-          </form>
-        </div>
-      <% } %>
+      <%
+        var showFundSection = typeof insufficientFunds !== 'undefined' && insufficientFunds;
+      %>
+      <div id="fund-section" class="mt-4 p-4 rounded-md bg-shark-900 border border-white/10 <%= showFundSection ? '' : 'hidden' %>">
+        <p class="text-sm text-white/70 mb-1">You need <span id="fund-shortfall" class="text-white font-semibold"><%= showFundSection ? shortfall.toLocaleString() : '0' %> 🌶️</span> more to fund this prize pool (<span id="fund-total"><%= showFundSection ? total.toLocaleString() : '0' %> 🌶️</span> total).</p>
+        <p class="text-xs text-white/40 mb-3">Tournament top-ups are capped at 500 🌶️ per purchase.</p>
+        <form method="POST" action="/tournaments/fund" class="flex items-center gap-2">
+          <input type="number" name="amountCHL" min="1" max="500" required placeholder="Amount"
+            class="h-12 flex-1 bg-shark-800 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+          <button type="submit"
+            class="bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors shrink-0">
+            Add Funds
+          </button>
+        </form>
+      </div>
+
+      <div class="flex items-center gap-2 mt-4">
+        <a href="/tournaments/create/step1"
+          class="h-12 px-5 flex items-center justify-center bg-shark-900 hover:bg-shark-800 border border-white/10 text-white/70 text-sm font-semibold rounded-md transition-colors shrink-0">
+          Back
+        </a>
+        <button type="submit" id="step2-submit" form="tournament-step-form" disabled
+          class="h-12 flex-1 bg-charm-500/15 hover:bg-charm-500/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-charm-500/15 text-charm-400 text-sm font-semibold rounded-md transition-colors">
+          Continue
+        </button>
+      </div>
+
+      <script>
+      (function () {
+        var sbBalance   = <%- JSON.stringify(sbBalance) %>;
+        var inputs      = Array.prototype.slice.call(document.querySelectorAll('.prize-input'));
+        var totalEl     = document.getElementById('prize-total');
+        var remainingEl = document.getElementById('prize-remaining');
+        var submitBtn   = document.getElementById('step2-submit');
+        var fundSection = document.getElementById('fund-section');
+        var fundShortfallEl = document.getElementById('fund-shortfall');
+        var fundTotalEl     = document.getElementById('fund-total');
+
+        function setStatus(input, ok, hasValue) {
+          var wrap  = input.closest('div');
+          var statusEl = wrap.querySelector('.prize-status');
+          var errorEl  = wrap.parentElement.querySelector('.prize-error');
+          if (!hasValue) {
+            statusEl.classList.add('hidden');
+            errorEl.classList.add('hidden');
+            return;
+          }
+          statusEl.classList.remove('hidden');
+          if (ok) {
+            statusEl.innerHTML = '<iconify-icon icon="boxicons:check-circle" width="15" style="color:#4ade80;display:block"></iconify-icon>';
+            errorEl.classList.add('hidden');
+          } else {
+            statusEl.innerHTML = '<iconify-icon icon="boxicons:x-circle" width="15" style="color:#f87171;display:block"></iconify-icon>';
+            errorEl.classList.remove('hidden');
+          }
+        }
+
+        function refresh() {
+          var total = 0;
+          var allValid = true;
+
+          inputs.forEach(function (input) {
+            var min = Number(input.min);
+            var raw = input.value.trim();
+            var hasValue = raw !== '';
+            var val = Number(raw);
+            var ok = hasValue && val >= min;
+            setStatus(input, ok, hasValue);
+            if (ok) total += val;
+            if (!ok) allValid = false;
+          });
+
+          totalEl.textContent = total.toLocaleString() + ' 🌶️';
+
+          var short = total - sbBalance;
+          if (allValid && short > 0) {
+            remainingEl.textContent = '';
+            fundShortfallEl.textContent = short.toLocaleString() + ' 🌶️';
+            fundTotalEl.textContent = total.toLocaleString() + ' 🌶️';
+            fundSection.classList.remove('hidden');
+          } else {
+            remainingEl.textContent = allValid ? 'Funded from your wallet balance on launch.' : '';
+            remainingEl.classList.remove('text-red-400');
+            remainingEl.classList.add('text-white/30');
+            fundSection.classList.add('hidden');
+          }
+
+          submitBtn.disabled = !allValid;
+        }
+
+        inputs.forEach(function (input) {
+          input.addEventListener('input', refresh);
+        });
+
+        refresh();
+      })();
+      </script>
     <% } %>
 
     <!-- ── Step 3: Eligibility Criteria ───────────────────────────── -->
@@ -140,10 +490,16 @@
 
         <input type="hidden" name="criteria" id="criteria-input" value="[]">
 
-        <button type="submit"
-          class="bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold py-2.5 rounded-md transition-colors mt-2">
-          Continue
-        </button>
+        <div class="flex items-center gap-2 mt-2">
+          <a href="/tournaments/create/step2"
+            class="h-11 px-5 flex items-center justify-center bg-shark-900 hover:bg-shark-800 border border-white/10 text-white/70 text-sm font-semibold rounded-md transition-colors shrink-0">
+            Back
+          </a>
+          <button type="submit"
+            class="flex-1 bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold py-2.5 rounded-md transition-colors">
+            Continue
+          </button>
+        </div>
       </form>
 
       <script>
@@ -152,8 +508,9 @@
         var rowsEl  = document.getElementById('criteria-rows');
         var form    = document.getElementById('tournament-step-form');
         var hidden  = document.getElementById('criteria-input');
+        var initial = <%- JSON.stringify(typeof existingCriteria !== 'undefined' ? existingCriteria : []) %>;
 
-        function addRow() {
+        function addRow(prefill) {
           var row = document.createElement('div');
           row.className = 'flex items-center gap-2 criteria-row';
           row.innerHTML =
@@ -167,10 +524,17 @@
             '<button type="button" class="crit-remove text-white/30 hover:text-red-400 transition-colors shrink-0">' +
               '<iconify-icon icon="boxicons:x" width="16"></iconify-icon></button>';
           row.querySelector('.crit-remove').addEventListener('click', function () { row.remove(); });
+          if (prefill) {
+            row.querySelector('.crit-field').value = prefill.field;
+            row.querySelector('.crit-op').value    = prefill.operator;
+            row.querySelector('.crit-value').value = prefill.value;
+          }
           rowsEl.appendChild(row);
         }
 
-        document.getElementById('add-criteria-btn').addEventListener('click', addRow);
+        document.getElementById('add-criteria-btn').addEventListener('click', function () { addRow(); });
+
+        initial.forEach(function (c) { addRow(c); });
 
         form.addEventListener('submit', function () {
           var criteria = [];
@@ -202,10 +566,16 @@
         <div id="jury-selected" class="flex flex-col gap-2"></div>
         <p class="text-xs text-white/30"><span id="jury-count">0</span> selected (5–7 required)</p>
 
-        <button type="submit" id="step4-submit" disabled
-          class="bg-charm-600 hover:bg-charm-500 disabled:opacity-40 disabled:pointer-events-none text-white text-sm font-semibold py-2.5 rounded-md transition-colors mt-2">
-          Launch Tournament
-        </button>
+        <div class="flex items-center gap-2 mt-2">
+          <a href="/tournaments/create/step3"
+            class="h-11 px-5 flex items-center justify-center bg-shark-900 hover:bg-shark-800 border border-white/10 text-white/70 text-sm font-semibold rounded-md transition-colors shrink-0">
+            Back
+          </a>
+          <button type="submit" id="step4-submit" disabled
+            class="flex-1 bg-charm-600 hover:bg-charm-500 disabled:opacity-40 disabled:pointer-events-none text-white text-sm font-semibold py-2.5 rounded-md transition-colors">
+            Launch Tournament
+          </button>
+        </div>
       </form>
 
       <script>
@@ -218,6 +588,9 @@
         var form         = document.getElementById('tournament-step-form');
         var selected     = new Map();
         var debounceId;
+        var initialJury  = <%- JSON.stringify(typeof existingJury !== 'undefined' ? existingJury : []) %>;
+
+        initialJury.forEach(function (u) { selected.set(String(u._id), u); });
 
         function renderSelected() {
           selectedEl.innerHTML = '';
@@ -268,11 +641,51 @@
         document.addEventListener('click', function (e) {
           if (!resultsEl.contains(e.target) && e.target !== searchInput) resultsEl.classList.add('hidden');
         });
+
+        renderSelected();
       })();
       </script>
     <% } %>
 
   </div>
 </div>
+
+<script>
+(function () {
+  var form = document.getElementById('tournament-step-form');
+  if (!form) return;
+
+  form.addEventListener('submit', function (e) {
+    if (!e.submitter || e.submitter.id !== 'save-draft-btn') return;
+    e.preventDefault();
+
+    var formData = new FormData(form);
+    formData.set('intent', 'draft');
+
+    var isMultipart = form.enctype === 'multipart/form-data';
+    var body, headers;
+    if (isMultipart) {
+      body = formData;
+      headers = {};
+    } else {
+      body = new URLSearchParams(formData);
+      headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    }
+
+    e.submitter.disabled = true;
+    fetch(form.action, { method: 'POST', body: body, headers: headers })
+      .then(function (r) {
+        if (!r.ok) throw new Error('save failed');
+        window.showToast('Draft saved.', 'success');
+      })
+      .catch(function () {
+        window.showToast('Could not save draft. Please try again.', 'error');
+      })
+      .finally(function () {
+        e.submitter.disabled = false;
+      });
+  });
+})();
+</script>
 
 <%- include('../partials/appEnd') %>

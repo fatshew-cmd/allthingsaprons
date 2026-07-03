@@ -30,6 +30,7 @@ const UserBlock               = require('../models/UserBlock');
 const UserReport              = require('../models/UserReport');
 const ProfileShare            = require('../models/ProfileShare');
 const ProfileShareView        = require('../models/ProfileShareView');
+const Tournament              = require('../models/Tournament');
 const { updateAffinity, updateCreatorAffinity, updateStainAffinity, SIGNAL_ANNOUNCEMENT_DISMISS, SIGNAL_ANNOUNCEMENT_CLICK } = require('../utils/affinityUpdater');
 const { getPeopleSubSections }         = require('./explore');
 
@@ -96,6 +97,18 @@ router.post('/tournaments/search-users', async (req, res) => {
     displayName: u.displayName?.value || u.username?.value || '',
     avatar:      u.avatar?.value || null,
   })));
+});
+
+router.get('/tournaments/check-name', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const name = (req.query.name || '').trim();
+  if (!name) return res.json({ available: true });
+
+  const existing = await Tournament.findOne({
+    name: { $regex: '^' + escapeRegex(name) + '$', $options: 'i' },
+  }).select('_id').lean();
+
+  res.json({ available: !existing });
 });
 
 async function searchEntries(rawQ, currentUserId, blockedIds, limit) {

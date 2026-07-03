@@ -12,6 +12,7 @@ const WalletTransaction           = require('../models/WalletTransaction');
 const requireAuth                 = require('../middleware/requireAuth');
 const requireApproved             = require('../middleware/requireApproved');
 const requireOrganizerEligibility = require('../middleware/requireOrganizerEligibility');
+const upload                      = require('../middleware/upload');
 
 const EXCHANGE_RATE = 0.20;
 
@@ -33,13 +34,15 @@ router.use(requireApproved);
 router.get('/tournaments', async (req, res) => {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
+  const visibilityFilter = { $or: [{ visibility: 'public' }, { visibility: { $exists: false } }, { createdBy: req.currentUser._id }] };
+
   const [liveTournaments, closedTournaments] = await Promise.all([
-    Tournament.find({ status: { $in: ['open', 'cooldown', 'active'] } })
+    Tournament.find({ status: { $in: ['open', 'cooldown', 'active'] }, ...visibilityFilter })
       .sort({ createdAt: -1 })
       .limit(20)
       .populate('createdBy', 'username displayName avatar')
       .lean(),
-    Tournament.find({ status: 'closed', updatedAt: { $gte: thirtyDaysAgo } })
+    Tournament.find({ status: 'closed', updatedAt: { $gte: thirtyDaysAgo }, ...visibilityFilter })
       .sort({ updatedAt: -1 })
       .limit(5)
       .populate('createdBy', 'username displayName avatar')
@@ -56,42 +59,76 @@ router.get('/tournaments', async (req, res) => {
     openTournaments,
     activeTournaments,
     closedTournaments,
+    draft: req.session.tournamentDraft || null,
     flash: req.query.flash || null,
+    flashType: req.query.flashType === 'error' ? 'error' : 'success',
   });
 });
 
-// ── GET /tournaments/create — step 1 ───────────────────────────────────────
+// ── GET /tournaments/create — resume at last-visited step, or start fresh ──
 router.get('/tournaments/create', requireOrganizerEligibility, (req, res) => {
+  const draftStep = req.session.tournamentDraft?.step;
+  if (draftStep && draftStep > 1) {
+    return res.redirect(`/tournaments/create/step${draftStep}`);
+  }
   res.render('tournaments/create', {
     title:      'Create Tournament',
     activePage: 'tournaments',
     currentUser: req.currentUser,
     step:     1,
+    maxStep:  req.session.tournamentDraft?.maxStep || 1,
+    errors:   [],
+    formData: req.session.tournamentDraft || {},
+  });
+});
+
+// ── GET /tournaments/create/step1 — explicit revisit (back navigation) ─────
+router.get('/tournaments/create/step1', requireOrganizerEligibility, (req, res) => {
+  res.render('tournaments/create', {
+    title:      'Create Tournament',
+    activePage: 'tournaments',
+    currentUser: req.currentUser,
+    step:     1,
+    maxStep:  req.session.tournamentDraft?.maxStep || 1,
     errors:   [],
     formData: req.session.tournamentDraft || {},
   });
 });
 
 // ── POST /tournaments/create/step1 — Basics ────────────────────────────────
-router.post('/tournaments/create/step1', requireOrganizerEligibility, (req, res) => {
+router.post('/tournaments/create/step1', requireOrganizerEligibility, upload.tournament.single('thumbnail'), async (req, res) => {
   const name        = (req.body.name || '').trim();
   const description = (req.body.description || '').trim();
   const size        = parseInt(req.body.size, 10);
   const openDays    = parseInt(req.body.openDays, 10);
+  const visibility  = req.body.visibility === 'private' ? 'private' : 'public';
+
+  const thumbnailUrl = req.file
+    ? '/uploads/tournaments/' + req.file.filename
+    : req.body.removeThumbnail === '1'
+      ? null
+      : (req.session.tournamentDraft?.thumbnailUrl || null);
 
   if (req.body.intent === 'draft') {
     req.session.tournamentDraft = {
       ...(req.session.tournamentDraft || {}),
-      name, description,
+      name, description, thumbnailUrl, visibility,
       size:     Number.isInteger(size) ? size : undefined,
       openDays: Number.isInteger(openDays) ? openDays : undefined,
+      step: 1,
     };
-    return res.redirect('/tournaments?flash=' + encodeURIComponent('Draft saved. Resume anytime from Create Tournament.'));
+    return res.redirect('/tournaments?flash=' + encodeURIComponent('Draft saved.'));
   }
 
   const errors = [];
-  if (name.length < 3 || name.length > 80) {
-    errors.push('Tournament name must be between 3 and 80 characters.');
+  if (!thumbnailUrl) {
+    errors.push('A tournament thumbnail is required.');
+  }
+  if (name.length < 3 || name.length > 60) {
+    errors.push('Tournament name must be between 3 and 60 characters.');
+  }
+  if (name && !/^[A-Za-z0-9 ]+$/.test(name)) {
+    errors.push('Tournament name may only contain letters, numbers, and spaces.');
   }
   if (![4, 8, 12, 16, 24].includes(size)) {
     errors.push('Participant count must be 4, 8, 12, 16, or 24.');
@@ -99,18 +136,30 @@ router.post('/tournaments/create/step1', requireOrganizerEligibility, (req, res)
   if (![1, 2, 3].includes(openDays)) {
     errors.push('Open phase must last 1 to 3 days.');
   }
-  if (description.length > 500) {
-    errors.push('Description must be 500 characters or fewer.');
+  if (description.length > 220) {
+    errors.push('Description must be 220 characters or fewer.');
+  }
+  if (name.length >= 3 && name.length <= 60) {
+    const existing = await Tournament.findOne({
+      name: { $regex: '^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', $options: 'i' },
+    }).select('_id').lean();
+    if (existing) errors.push('A tournament with this name already exists.');
   }
 
   if (errors.length) {
     return res.render('tournaments/create', {
       title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
-      step: 1, errors, formData: { name, description, size: req.body.size, openDays: req.body.openDays },
+      step: 1, maxStep: req.session.tournamentDraft?.maxStep || 1, errors,
+      formData: { name, description, size: req.body.size, openDays: req.body.openDays, thumbnailUrl, visibility },
     });
   }
 
-  req.session.tournamentDraft = { name, description, size, openDays };
+  const maxStep = Math.max(2, req.session.tournamentDraft?.maxStep || 1);
+  req.session.tournamentDraft = {
+    ...(req.session.tournamentDraft || {}),
+    name, description, size, openDays, thumbnailUrl, visibility,
+    step: 2, maxStep,
+  };
   res.redirect('/tournaments/create/step2');
 });
 
@@ -118,10 +167,12 @@ router.post('/tournaments/create/step1', requireOrganizerEligibility, (req, res)
 router.get('/tournaments/create/step2', requireOrganizerEligibility, async (req, res) => {
   if (!req.session.tournamentDraft) return res.redirect('/tournaments/create');
 
-  const user = await User.findById(req.currentUser._id).select('wallet').lean();
+  const user   = await User.findById(req.currentUser._id).select('wallet').lean();
+  const prizes = req.session.tournamentDraft.prizes || {};
   res.render('tournaments/create', {
     title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
-    step: 2, sbBalance: user?.wallet?.purchasedCHL || 0, errors: [], formData: {},
+    step: 2, maxStep: req.session.tournamentDraft.maxStep || 2, sbBalance: user?.wallet?.purchasedCHL || 0, errors: [],
+    formData: { prizeFirst: prizes.first, prizeSecond: prizes.second, prizeThird: prizes.third },
   });
 });
 
@@ -139,13 +190,14 @@ router.post('/tournaments/create/step2', requireOrganizerEligibility, async (req
       second: Number.isInteger(prizeSecond) ? prizeSecond : undefined,
       third:  Number.isInteger(prizeThird)  ? prizeThird  : undefined,
     };
-    return res.redirect('/tournaments?flash=' + encodeURIComponent('Draft saved. Resume anytime from Create Tournament.'));
+    req.session.tournamentDraft.step = 2;
+    return res.redirect('/tournaments?flash=' + encodeURIComponent('Draft saved.'));
   }
 
   const errors = [];
-  if (!(prizeFirst >= 1000))  errors.push('1st place prize must be at least 1,000 CHL.');
-  if (!(prizeSecond >= 400))  errors.push('2nd place prize must be at least 400 CHL.');
-  if (!(prizeThird >= 100))   errors.push('3rd place prize must be at least 100 CHL.');
+  if (!(prizeFirst >= 350))   errors.push('1st place prize must be at least 350 CHL.');
+  if (!(prizeSecond >= 100))  errors.push('2nd place prize must be at least 100 CHL.');
+  if (!(prizeThird >= 50))    errors.push('3rd place prize must be at least 50 CHL.');
   if (!errors.length) {
     if (!(prizeFirst > prizeSecond)) errors.push('1st place prize must be greater than 2nd place.');
     if (!(prizeSecond > prizeThird)) errors.push('2nd place prize must be greater than 3rd place.');
@@ -153,11 +205,12 @@ router.post('/tournaments/create/step2', requireOrganizerEligibility, async (req
 
   const user = await User.findById(req.currentUser._id).select('wallet').lean();
   const sbBalance = user?.wallet?.purchasedCHL || 0;
+  const maxStep = req.session.tournamentDraft.maxStep || 2;
 
   if (errors.length) {
     return res.render('tournaments/create', {
       title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
-      step: 2, sbBalance, errors, formData: { prizeFirst: req.body.prizeFirst, prizeSecond: req.body.prizeSecond, prizeThird: req.body.prizeThird },
+      step: 2, maxStep, sbBalance, errors, formData: { prizeFirst: req.body.prizeFirst, prizeSecond: req.body.prizeSecond, prizeThird: req.body.prizeThird },
     });
   }
 
@@ -165,13 +218,15 @@ router.post('/tournaments/create/step2', requireOrganizerEligibility, async (req
 
   if (sbBalance >= total) {
     req.session.tournamentDraft.prizes = { first: prizeFirst, second: prizeSecond, third: prizeThird };
+    req.session.tournamentDraft.step = 3;
+    req.session.tournamentDraft.maxStep = Math.max(3, maxStep);
     return res.redirect('/tournaments/create/step3');
   }
 
   const shortfall = total - sbBalance;
   res.render('tournaments/create', {
     title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
-    step: 2, sbBalance, errors: [], formData: { prizeFirst, prizeSecond, prizeThird },
+    step: 2, maxStep, sbBalance, errors: [], formData: { prizeFirst, prizeSecond, prizeThird },
     insufficientFunds: true, shortfall, total,
   });
 });
@@ -217,13 +272,15 @@ router.get('/tournaments/create/step3', requireOrganizerEligibility, (req, res) 
   if (!req.session.tournamentDraft?.prizes) return res.redirect('/tournaments/create/step2');
   res.render('tournaments/create', {
     title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
-    step: 3, errors: [],
+    step: 3, maxStep: req.session.tournamentDraft.maxStep || 3, errors: [],
+    existingCriteria: req.session.tournamentDraft.eligibilityCriteria || [],
   });
 });
 
 // ── POST /tournaments/create/step3 ─────────────────────────────────────────
 router.post('/tournaments/create/step3', requireOrganizerEligibility, (req, res) => {
   if (!req.session.tournamentDraft?.prizes) return res.redirect('/tournaments/create/step2');
+  const maxStep = req.session.tournamentDraft.maxStep || 3;
 
   if (req.body.intent === 'draft') {
     try {
@@ -232,7 +289,8 @@ router.post('/tournaments/create/step3', requireOrganizerEligibility, (req, res)
     } catch {
       req.session.tournamentDraft.eligibilityCriteria = [];
     }
-    return res.redirect('/tournaments?flash=' + encodeURIComponent('Draft saved. Resume anytime from Create Tournament.'));
+    req.session.tournamentDraft.step = 3;
+    return res.redirect('/tournaments?flash=' + encodeURIComponent('Draft saved.'));
   }
 
   let criteria = [];
@@ -242,7 +300,8 @@ router.post('/tournaments/create/step3', requireOrganizerEligibility, (req, res)
   } catch {
     return res.render('tournaments/create', {
       title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
-      step: 3, errors: ['Invalid eligibility criteria.'],
+      step: 3, maxStep, errors: ['Invalid eligibility criteria.'],
+      existingCriteria: req.session.tournamentDraft.eligibilityCriteria || [],
     });
   }
 
@@ -268,33 +327,49 @@ router.post('/tournaments/create/step3', requireOrganizerEligibility, (req, res)
   if (errors.length) {
     return res.render('tournaments/create', {
       title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
-      step: 3, errors,
+      step: 3, maxStep, errors, existingCriteria: criteria,
     });
   }
 
   req.session.tournamentDraft.eligibilityCriteria = criteria;
+  req.session.tournamentDraft.maxStep = Math.max(4, maxStep);
+  req.session.tournamentDraft.step = 4;
   res.redirect('/tournaments/create/step4');
 });
 
+// Resolves stored jury user ids into the {_id, username, displayName} shape the step4 UI expects.
+async function loadExistingJury(userIds) {
+  if (!userIds || !userIds.length) return [];
+  const users = await User.find({ _id: { $in: userIds } }).select('username displayName').lean();
+  return users.map(u => ({
+    _id:         u._id,
+    username:    u.username?.value || '',
+    displayName: u.displayName?.value || u.username?.value || '',
+  }));
+}
+
 // ── GET /tournaments/create/step4 — Jury Selection ─────────────────────────
-router.get('/tournaments/create/step4', requireOrganizerEligibility, (req, res) => {
+router.get('/tournaments/create/step4', requireOrganizerEligibility, async (req, res) => {
   if (!req.session.tournamentDraft?.eligibilityCriteria) return res.redirect('/tournaments/create/step3');
+  const existingJury = await loadExistingJury(req.session.tournamentDraft.juryUserIds);
   res.render('tournaments/create', {
     title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
-    step: 4, errors: [],
+    step: 4, maxStep: req.session.tournamentDraft.maxStep || 4, errors: [], existingJury,
   });
 });
 
 // ── POST /tournaments/create/step4 — finalize ──────────────────────────────
 router.post('/tournaments/create/step4', requireOrganizerEligibility, async (req, res) => {
   if (!req.session.tournamentDraft?.eligibilityCriteria) return res.redirect('/tournaments/create/step3');
+  const maxStep = req.session.tournamentDraft.maxStep || 4;
 
   const rawIds = Array.isArray(req.body.juryUserIds) ? req.body.juryUserIds : [req.body.juryUserIds].filter(Boolean);
   const juryUserIds = [...new Set(rawIds)];
 
   if (req.body.intent === 'draft') {
     req.session.tournamentDraft.juryUserIds = juryUserIds;
-    return res.redirect('/tournaments?flash=' + encodeURIComponent('Draft saved. Resume anytime from Create Tournament.'));
+    req.session.tournamentDraft.step = 4;
+    return res.redirect('/tournaments?flash=' + encodeURIComponent('Draft saved.'));
   }
 
   const errors = [];
@@ -320,7 +395,7 @@ router.post('/tournaments/create/step4', requireOrganizerEligibility, async (req
   if (errors.length) {
     return res.render('tournaments/create', {
       title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
-      step: 4, errors,
+      step: 4, maxStep, errors, existingJury: await loadExistingJury(juryUserIds),
     });
   }
 
@@ -333,7 +408,7 @@ router.post('/tournaments/create/step4', requireOrganizerEligibility, async (req
   } catch (err) {
     res.render('tournaments/create', {
       title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
-      step: 4, errors: [err.message || 'Something went wrong creating your tournament.'],
+      step: 4, maxStep, errors: [err.message || 'Something went wrong creating your tournament.'], existingJury: await loadExistingJury(juryUserIds),
     });
   }
 });
@@ -359,6 +434,8 @@ async function finalizeTournamentCreation(req) {
     createdBy:   userId,
     name:        draft.name,
     description: draft.description,
+    thumbnailUrl: draft.thumbnailUrl || null,
+    visibility:  draft.visibility === 'private' ? 'private' : 'public',
     size:        draft.size,
     groupSize,
     groupCount,

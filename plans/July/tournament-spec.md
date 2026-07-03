@@ -27,22 +27,25 @@ Creation → Open (3 days) → Cooldown (24h) → Active → Closed
 ```
 
 ### Creation
-- Organizer sets: tournament name, participant cap (one of the 5 valid sizes), eligibility criteria, jury members, prize pool
+- Organizer sets: thumbnail (required), tournament name (unique, 3–60 chars, letters/numbers/spaces only), description (optional, ≤220 chars), participant cap (one of the 5 valid sizes), open-phase length (1–3 days), visibility (public or private — see "Private Tournaments" below for the lightweight version shipped now), eligibility criteria, jury members, prize pool
 - Organizer deposits full prize pool in CHL at creation time
 - Tournament is not visible to candidates until after creation is complete
+- Creation is a 4-step form with session-persisted drafts — an incomplete draft can be saved at any step and resumed later from `/tournaments` (Draft tab)
 
 ### Open Phase
 - Candidates submit their entry for review
-- Duration: 3 days or until the participant cap is filled — whichever comes first
-- Minimum candidates required: 4
-- If fewer than 4 candidates after 3 days → tournament cancelled, CHL refunded
+- Duration: always runs the full organizer-set length (1–3 days) — does not end early when the participant cap fills, since the organizer may still reject some candidates during Cooldown review and others deserve the full window to apply
+- Minimum candidates required: the organizer's chosen participant cap (4, 8, 12, 16, or 24) — group/knockout math needs the exact count, no byes allowed
+- If fewer candidates have submitted than the chosen cap by the end of the open phase → tournament auto-cancelled, CHL refunded (this check is on raw submissions, since nothing has been approved/rejected yet)
 
 ### Cooldown Phase
 - Duration: 24 hours
 - Organizer approves or rejects pending candidates
-- Group assignments and match schedule auto-generate once all candidates are reviewed
+- Organizer must approve exactly the cap number of candidates — no byes, so the group/knockout bracket needs the exact count
+- Group assignments and match schedule auto-generate once all candidates are reviewed and the cap is met
 - Organizer can launch early if review is complete before 24h
-- If organizer fails to complete review within 24h → tournament cancelled, CHL refunded
+- If organizer fails to complete review within 24h → tournament auto-cancelled, CHL refunded
+- If organizer realizes they can't approve enough candidates to hit the cap (e.g. too many had to be rejected), they can choose to cancel the tournament themselves — also refunded
 
 ### Active Phase
 - Group stage runs first; all group matches can run in parallel across groups
@@ -64,6 +67,7 @@ Creation → Open (3 days) → Cooldown (24h) → Active → Closed
 - No active reports
 - More than 250 followers
 - Has contributed in at least 5 contests
+- Fewer than 3 concurrent tournaments (`open`/`cooldown`/`active`) — implemented in `middleware/requireOrganizerEligibility.js`
 
 ### Organizer Rules
 - Single organizer per tournament — no co-organizers
@@ -238,3 +242,110 @@ Key collections needed:
 | `tournament_matches` | Each scheduled H2H: `tournamentId`, `contestId`, stage (group/knockout), round, participants |
 | `tournament_jury` | Jury members: `tournamentId`, `userId` — never exposed via API |
 | `tournament_jury_votes` | Tie-breaking votes: `tournamentId`, `matchId`, `jurorId`, vote cast |
+
+---
+
+## Private Tournaments *(Future Version — Not in MVP)*
+
+> This full invite-based feature is fully designed but deferred after the public tournament launch. Do not implement until explicitly prioritized.
+
+> **Note — a lightweight version already shipped (2026-07-03), do not confuse the two.** `Tournament.visibility` (`'public' | 'private'`, default `'public'`) exists now, set via a toggle on Step 1 of creation. A private tournament today is simply excluded from the `/tournaments` browse listing for everyone except its organizer — it is **not** invite-only (no `tournament_invites` collection, no nomination/link invite flow, no size cap of 12, no permanent-results-privacy behavior), and self-submission during the `open` phase still works exactly as on a public tournament. Anyone who finds/guesses the direct URL can currently view and join it. The full invite-gated design below (slots, `tournament_invites`, unguessable IDs, permanent result privacy) remains unbuilt and deferred.
+
+### What It Is
+
+A private tournament is invite-only and entirely hidden from public discovery. Only people the organizer explicitly invites can participate. The results are permanently private — the tournament is never surfaced publicly — but prize placements (1st / 2nd / 3rd) still appear on winners' profiles regardless of tournament privacy.
+
+---
+
+### How It Differs From Public Tournaments
+
+| Aspect | Public | Private |
+|---|---|---|
+| Browse page (`/tournaments`) | Visible | Not listed |
+| Search | Appears in results | Never appears |
+| Direct link | Anyone can view | Accessible only to invited users |
+| Join method | Self-submit during `open` phase | Invitation only (nomination or invite link) |
+| Max size | 4, 8, 12, 16, or 24 | 4, 8, or 12 only |
+| Results page | Public after close | Permanently private |
+| Prize placements on profiles | Yes | Yes — prizes always show, regardless of tournament privacy |
+| Review step | Mandatory | Mandatory — link may reach unintended recipients |
+
+---
+
+### Invitation Methods
+
+The organizer can invite participants in two ways — both can be used for the same tournament:
+
+**1. Nomination (by username)**
+- Organizer searches for a user by username and sends a direct nomination
+- Can be sent at creation time or any time during the `open` phase
+- Recipient gets a `tournament_nomination` notification with accept/decline options
+
+**2. Invite Link**
+- Organizer generates a unique tokenized link (e.g. `/tournament/invite/:token`)
+- Organizer shares the link externally (DM, external chat, etc.)
+- Visiting the link shows an invitation screen — accept or decline
+- The link does not reveal any tournament content before acceptance
+- The organizer can revoke a link token at any time
+
+**Decline behavior:** An invited user who declines frees their slot. The organizer can re-invite someone else to fill it. The slot stays open until the tournament's `open` phase ends.
+
+**Accepted users still submit their own entry** — acceptance is agreement to participate, not automatic enrollment. The contestant picks which of their entries to submit, exactly as in a public tournament.
+
+---
+
+### Participant Slot Management
+
+- If an accepted user never submits during the `open` window, their slot stays open
+- Organizer can rescind an accepted invitation and invite a replacement at any time before the slot is filled (i.e., before an entry is submitted)
+- Once an entry is submitted, the slot is filled and cannot be reassigned
+
+---
+
+### Visibility Rules
+
+- The tournament URL itself is not guessable (uses a private UUID-style ID or a separate slug)
+- Unauthenticated users hitting a private tournament URL see a generic "not found" page — same as 404, no information leaked
+- Authenticated users who were not invited also see a 404-equivalent
+- Only invited (and accepted) users can see the tournament detail page
+- The organizer always has full access
+
+---
+
+### Results & Privacy After Close
+
+- The tournament results page is never made public — even after closing
+- Only participants and the organizer can view results
+- **Exception:** prize placements always show on each winner's public profile (same as public tournaments) — 1st / 2nd / 3rd appear on the profile trophy/prize section regardless of the tournament's privacy setting
+
+---
+
+### Schema Delta (when this is built)
+
+New field on `Tournament`:
+```js
+visibility: { type: String, enum: ['public', 'private'], default: 'public' }
+```
+
+New collection — `tournament_invites`:
+```js
+{
+  tournamentId:  ObjectId,  // ref: tournaments
+  userId:        ObjectId,  // ref: users — who was invited (null if link-only, resolved on acceptance)
+  invitedBy:     ObjectId,  // ref: users — always the organizer
+  method:        String,    // 'nomination' | 'link'
+  token:         String,    // unique token for link-based invites (indexed)
+  status:        String,    // 'pending' | 'accepted' | 'declined' | 'revoked'
+  sentAt:        Date,
+  respondedAt:   Date,
+}
+```
+
+Indexes: `{ tournamentId, userId }` unique on nominations; `{ token }` unique for link tokens.
+
+New notification types:
+| Type | Trigger | Recipient |
+|---|---|---|
+| `tournament_nomination` | Organizer nominates a user | Invitee |
+| `tournament_invite_accepted` | Invitee accepts | Organizer |
+| `tournament_invite_declined` | Invitee declines | Organizer |
