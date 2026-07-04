@@ -119,6 +119,14 @@ function notifText(n) {
     }
     case 'tournament_entry_removed':
       return 'You no longer meet the updated eligibility criteria for <strong>' + (p.tournamentName || 'a tournament') + '</strong> and have been removed';
+    case 'tournament_entry_submitted':
+      return '<strong>' + actorLabel(p) + '</strong> has submitted an entry to <strong>' + (p.tournamentName || 'your tournament') + '</strong>';
+    case 'tournament_entry_approved':
+      return 'Your entry was approved for <strong>' + (p.tournamentName || 'a tournament') + '</strong>';
+    case 'tournament_entry_rejected': {
+      var terNote = p.note ? ' — “' + p.note + '”' : '';
+      return 'Your entry wasn\'t selected for <strong>' + (p.tournamentName || 'a tournament') + '</strong>' + terNote;
+    }
     default:
       return 'New notification';
   }
@@ -153,6 +161,9 @@ function notifIcon(type) {
     case 'tournament_cooldown_started': return 'boxicons:time';
     case 'tournament_canceled':         return 'boxicons:x-circle';
     case 'tournament_entry_removed':    return 'boxicons:x-circle';
+    case 'tournament_entry_submitted':  return 'boxicons:trophy';
+    case 'tournament_entry_approved':   return 'boxicons:check-circle';
+    case 'tournament_entry_rejected':   return 'boxicons:x-circle';
     default:                         return 'boxicons:bell';
   }
 }
@@ -185,8 +196,9 @@ function notifIcon(type) {
     <% var p = n.payload || {}; %>
     <% var isTakeOnReceived = n.type === 'take_on_received' && p.nominationId; %>
     <% var isRemovalNotif   = n.type === 'comment_removed' || n.type === 'entry_removed'; %>
+    <% var isTournamentEntrySubmitted = n.type === 'tournament_entry_submitted' && p.entryUrl; %>
     <li data-id="<%= n._id %>" data-url="<%= p.url || '/notifications' %>"
-        class="notif-item px-5 py-4 cursor-pointer transition-colors hover:bg-white/4 <%= n.read ? '' : 'bg-charm-500/8' %> <%= (isTakeOnReceived || isRemovalNotif) ? 'flex flex-col gap-3' : 'flex items-start gap-3' %>">
+        class="notif-item px-5 py-4 cursor-pointer transition-colors hover:bg-white/4 <%= n.read ? '' : 'bg-charm-500/8' %> <%= (isTakeOnReceived || isRemovalNotif || isTournamentEntrySubmitted) ? 'flex flex-col gap-3' : 'flex items-start gap-3' %>">
 
       <% if (isTakeOnReceived) { %>
 
@@ -245,6 +257,38 @@ function notifIcon(type) {
           data-nom-id="<%= p.nominationId %>" data-contest-id="<%= p.contestId %>">
           Decline
         </button>
+      </div>
+
+      <% } else if (isTournamentEntrySubmitted) { %>
+
+      <!-- Tournament entry submitted: header row + entry thumbnail -->
+      <div class="flex items-start gap-3">
+        <div class="shrink-0 mt-0.5">
+          <% if (p.actorAvatar) { %>
+          <img src="<%= p.actorAvatar %>" alt="" class="w-9 h-9 rounded-full object-cover">
+          <% } else { %>
+          <div class="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
+            <iconify-icon icon="boxicons:trophy" width="18" class="text-charm-400"></iconify-icon>
+          </div>
+          <% } %>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-white/80 leading-snug"><%- notifText(n) %></p>
+          <p class="text-xs text-white/25 mt-1"><%= fmtNotifTime(n.createdAt) %></p>
+        </div>
+        <div class="shrink-0 mt-2">
+          <% if (!n.read) { %><span class="unread-dot w-2 h-2 rounded-full bg-charm-400 block"></span><% } else { %><span class="w-2 h-2 block"></span><% } %>
+        </div>
+      </div>
+
+      <div class="pl-12">
+        <div class="w-24 aspect-square rounded-md overflow-hidden bg-shark-900">
+          <% if (p.entryType === 'video') { %>
+          <video src="<%= p.entryUrl %>" class="w-full h-full object-cover pointer-events-none" muted preload="none"></video>
+          <% } else { %>
+          <img src="<%= p.entryUrl %>" alt="" class="w-full h-full object-cover">
+          <% } %>
+        </div>
       </div>
 
       <% } else if (isRemovalNotif) { %>

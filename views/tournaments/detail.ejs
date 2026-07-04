@@ -1,17 +1,17 @@
 <%- include('../partials/appStart', { title: title, activePage: 'tournaments' }) %>
 
 <style>
-  #tournament-groups-scroll {
+  .tournament-hscroll {
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.18) transparent;
   }
-  #tournament-groups-scroll::-webkit-scrollbar { height: 4px; }
-  #tournament-groups-scroll::-webkit-scrollbar-track { background: transparent; }
-  #tournament-groups-scroll::-webkit-scrollbar-thumb {
+  .tournament-hscroll::-webkit-scrollbar { height: 4px; }
+  .tournament-hscroll::-webkit-scrollbar-track { background: transparent; }
+  .tournament-hscroll::-webkit-scrollbar-thumb {
     background: rgba(255,255,255,0.18);
     border-radius: 9999px;
   }
-  #tournament-groups-scroll::-webkit-scrollbar-thumb:hover {
+  .tournament-hscroll::-webkit-scrollbar-thumb:hover {
     background: rgba(255,255,255,0.3);
   }
 </style>
@@ -51,7 +51,7 @@
       <a href="/tournaments" class="text-white/40 hover:text-white/70 transition-colors shrink-0 -mr-1">
         <iconify-icon icon="boxicons:arrow-back" width="18"></iconify-icon>
       </a>
-      <div class="w-14 h-14 rounded-md bg-charm-500/10 flex items-center justify-center shrink-0 overflow-hidden">
+      <div class="self-end w-16 h-16 rounded-md bg-charm-500/10 flex items-center justify-center shrink-0 overflow-hidden">
         <% if (tournament.thumbnailUrl) { %>
           <img src="<%= tournament.thumbnailUrl %>" class="w-full h-full object-cover" alt="">
         <% } else { %>
@@ -63,16 +63,18 @@
           <h1 class="font-black text-xl tracking-tight m-0 truncate"><%= tournament.name %></h1>
           <span class="text-xs font-semibold px-2 py-1 rounded-md shrink-0 <%= stCls %>"><%= tournament.status %></span>
         </div>
-        <div class="flex items-center gap-1.5 text-xs mt-0.5">
-          <span class="text-white/35">Organized by</span>
-          <a href="/<%= tournament.createdBy?.username?.value %>" class="shrink-0 w-5 h-5 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+        <div class="flex items-center gap-2 mt-1.5">
+          <a href="/<%= tournament.createdBy?.username?.value %>" class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center">
             <% if (tournament.createdBy?.avatar?.value) { %>
               <img src="<%= tournament.createdBy.avatar.value %>" class="w-full h-full object-cover" alt="">
             <% } else { %>
-              <iconify-icon icon="boxicons:user" width="11" class="text-white/30"></iconify-icon>
+              <iconify-icon icon="boxicons:user-filled" width="16" style="color:#e680a6"></iconify-icon>
             <% } %>
           </a>
-          <a href="/<%= tournament.createdBy?.username?.value %>" class="text-white/60 font-semibold hover:text-charm-300 transition-colors truncate"><%= tournament.createdBy?.displayName?.value || ('@' + tournament.createdBy?.username?.value) %></a>
+          <div class="min-w-0">
+            <a href="/<%= tournament.createdBy?.username?.value %>" class="block text-sm font-semibold text-white/80 truncate hover:text-charm-300 transition-colors leading-tight"><%= tournament.createdBy?.displayName?.value || ('@' + tournament.createdBy?.username?.value) %></a>
+            <a href="/<%= tournament.createdBy?.username?.value %>" class="block text-xs text-white/40 truncate leading-tight">@<%= tournament.createdBy?.username?.value %></a>
+          </div>
           <% if (!isOrganizer) { %>
             <button type="button" id="organizer-follow-btn"
               class="shrink-0 text-xs font-semibold rounded-md px-2.5 py-1 border transition-colors cursor-pointer <%= followBtnCls %>"
@@ -91,6 +93,12 @@
           title="<%= isWatching ? 'Stop watching' : 'Stay in the loop' %>"
           class="w-8 h-8 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0 <%= isWatching ? 'text-charm-400 hover:text-white/50' : 'text-zinc-400 hover:text-zinc-200' %>">
           <iconify-icon icon="<%= isWatching ? 'boxicons:bell-ring-filled' : 'boxicons:bell' %>" width="18"></iconify-icon>
+        </button>
+        <% } %>
+        <% if (!isOrganizer && !isJuror && !userEntry && tournament.status === 'open') { %>
+        <button type="button" id="tournament-enter-btn" data-tournament-id="<%= tournament._id %>"
+          class="h-10 px-3 flex items-center rounded-md bg-charm-600 hover:bg-charm-500 text-white text-xs font-semibold transition-colors cursor-pointer shrink-0">
+          Participate
         </button>
         <% } %>
         <% if (isOrganizer && (tournament.status === 'open' || tournament.status === 'cooldown')) { %>
@@ -128,11 +136,11 @@
           <p class="text-sm font-bold text-white m-0 whitespace-nowrap"><%= p.amount.toLocaleString() %> 🌶️</p>
           <% if (winnerUser) { %>
           <span class="flex items-center gap-1.5 min-w-0 max-w-full">
-            <span class="w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center shrink-0">
+            <span class="w-6 h-6 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center shrink-0">
               <% if (winnerUser.avatar?.value) { %>
               <img src="<%= winnerUser.avatar.value %>" class="w-full h-full object-cover" alt="">
               <% } else { %>
-              <iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon>
+              <iconify-icon icon="boxicons:user-filled" width="12" style="color:#e680a6"></iconify-icon>
               <% } %>
             </span>
             <span class="text-xs font-semibold text-white/80 truncate"><%= winnerUser.displayName?.value || ('@' + winnerUser.username?.value) %></span>
@@ -191,43 +199,139 @@
     </div>
 
     <!-- Entries panel (toggled via the Entries tab above) -->
-    <div id="tournament-entries-panel" class="flex flex-col -mt-2">
-      <% if (groups.length) { %>
-      <div id="tournament-groups-scroll" class="flex gap-2 overflow-x-auto pt-3 pb-1 -mx-5 px-5">
-        <% groups.forEach(function (g) { %>
-        <div class="shrink-0 w-36 bg-shark-900 border border-white/10 rounded-md p-3 flex flex-col gap-2">
-          <p class="text-xs font-semibold text-white/70 m-0 truncate"><%= g.label %></p>
-          <div class="flex items-center -space-x-2">
-            <% (g.memberIds || []).slice(0, 5).forEach(function (m) { %>
-            <span class="w-6 h-6 rounded-full overflow-hidden bg-shark-800 border-2 border-shark-900 flex items-center justify-center shrink-0">
-              <% if (m.userId?.avatar?.value) { %>
-              <img src="<%= m.userId.avatar.value %>" class="w-full h-full object-cover" alt="">
-              <% } else { %>
-              <iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon>
+    <div id="tournament-entries-panel" class="flex flex-col gap-5 -mt-2 pt-3">
+
+      <!-- Section 1: submitted entries -->
+      <div class="flex flex-col gap-2">
+        <% if (!userEntry && !entries.length) { %>
+        <p class="text-sm text-white/30 m-0">No entries yet.</p>
+        <% } else { %>
+        <div class="tournament-hscroll overflow-x-auto -mx-5 px-5 pb-1">
+          <div class="grid grid-flow-col auto-cols-[25%] gap-2">
+            <% if (userEntry) { %>
+            <div class="tournament-entry-nav sticky left-0 z-10 bg-shark-950 flex flex-col gap-1.5 cursor-pointer" data-nav="/entry/<%= userEntry.entryId?._id %>">
+              <div class="relative aspect-square rounded-md overflow-hidden bg-shark-800">
+                <% if (userEntry.approvalStatus === 'approved') { %>
+                <span class="absolute top-1.5 left-1.5 z-10 text-[9px] font-bold uppercase tracking-wide bg-green-500/90 text-white px-1.5 py-0.5 rounded-md">Approved</span>
+                <% } else { %>
+                <span class="absolute top-1.5 left-1.5 z-10 text-[9px] font-bold uppercase tracking-wide bg-black/70 text-white/80 px-1.5 py-0.5 rounded-md">To be approved</span>
+                <% } %>
+                <% if (userEntry.entryId?.mediaType === 'video') { %>
+                <video src="<%= userEntry.entryId.mediaUrl %>" class="w-full h-full object-cover pointer-events-none" muted preload="none"></video>
+                <% } else { %>
+                <img src="<%= userEntry.entryId?.mediaUrl %>" class="w-full h-full object-cover" alt="">
+                <% } %>
+              </div>
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center">
+                  <% if (currentUser.avatar) { %>
+                  <img src="<%= currentUser.avatar %>" class="w-full h-full object-cover" alt="">
+                  <% } else { %>
+                  <iconify-icon icon="boxicons:user-filled" width="16" style="color:#e680a6"></iconify-icon>
+                  <% } %>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold text-white truncate m-0 leading-tight"><%= currentUser.displayName || currentUser.username %></p>
+                  <p class="text-xs text-white/40 truncate m-0 leading-tight">@<%= currentUser.username %></p>
+                </div>
+              </div>
+              <% if (userEntry.approvalStatus === 'pending') { %>
+              <button type="button" id="tournament-withdraw-btn" data-tournament-id="<%= tournament._id %>"
+                class="w-full py-1 text-xs font-semibold text-red-400 hover:text-red-300 transition-colors cursor-pointer">
+                Withdraw
+              </button>
               <% } %>
-            </span>
+            </div>
+            <% } %>
+            <% entries.forEach(function(e) {
+              if (userEntry && e._id.toString() === userEntry._id.toString()) return;
+            %>
+            <div class="tournament-entry-nav flex flex-col gap-1.5 cursor-pointer" data-nav="/entry/<%= e.entryId?._id %>">
+              <div class="relative aspect-square rounded-md overflow-hidden bg-shark-800">
+                <% if (e.approvalStatus === 'approved') { %>
+                <span class="absolute top-1.5 left-1.5 z-10 text-[9px] font-bold uppercase tracking-wide bg-green-500/90 text-white px-1.5 py-0.5 rounded-md">Approved</span>
+                <% } else { %>
+                <span class="absolute top-1.5 left-1.5 z-10 text-[9px] font-bold uppercase tracking-wide bg-black/70 text-white/80 px-1.5 py-0.5 rounded-md">To be approved</span>
+                <% } %>
+                <% if (e.entryId?.mediaType === 'video') { %>
+                <video src="<%= e.entryId.mediaUrl %>" class="w-full h-full object-cover pointer-events-none" muted preload="none"></video>
+                <% } else { %>
+                <img src="<%= e.entryId?.mediaUrl %>" class="w-full h-full object-cover" alt="">
+                <% } %>
+              </div>
+              <a href="/<%= e.userId?.username?.value %>" class="flex items-center gap-2 min-w-0 no-underline">
+                <span class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center">
+                  <% if (e.userId?.avatar?.value) { %>
+                  <img src="<%= e.userId.avatar.value %>" class="w-full h-full object-cover" alt="">
+                  <% } else { %>
+                  <iconify-icon icon="boxicons:user-filled" width="16" style="color:#e680a6"></iconify-icon>
+                  <% } %>
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-semibold text-white truncate leading-tight"><%= e.userId?.displayName?.value || e.userId?.username?.value %></span>
+                  <span class="block text-xs text-white/40 truncate leading-tight">@<%= e.userId?.username?.value %></span>
+                </span>
+              </a>
+              <% if (isOrganizer && e.approvalStatus === 'pending' && tournament.status === 'cooldown') { %>
+              <button type="button" class="tournament-approve-btn w-full py-1 text-xs font-semibold text-charm-400 hover:text-charm-300 transition-colors cursor-pointer"
+                data-entry-id="<%= e._id %>" data-tournament-id="<%= tournament._id %>">
+                Approve
+              </button>
+              <% } %>
+            </div>
             <% }) %>
           </div>
-          <p class="text-[10px] text-white/30 uppercase tracking-wider m-0"><%= (g.memberIds || []).length %> entries</p>
         </div>
-        <% }) %>
+        <% } %>
       </div>
-      <% } %>
-      <% if (!entries.length) { %>
-        <p class="text-sm text-white/30 pt-3">No approved entries yet.</p>
-      <% } else { %>
-        <div class="flex flex-col gap-2 pt-3">
-          <% entries.forEach(function(e) { %>
-            <a href="/<%= e.userId?.username?.value %>" class="flex items-center gap-3 bg-shark-900 border border-white/10 rounded-md p-3 no-underline">
-              <img src="<%= e.userId?.avatar?.value || '/img/default-avatar.png' %>" class="w-9 h-9 rounded-full object-cover bg-white/5" alt="">
-              <div class="min-w-0">
-                <p class="text-sm font-semibold text-white truncate m-0"><%= e.userId?.displayName?.value || e.userId?.username?.value %></p>
-                <p class="text-xs text-white/40 truncate m-0">@<%= e.userId?.username?.value %></p>
+
+      <!-- Section 2: groups -->
+      <div class="flex flex-col gap-2">
+        <p class="text-xs font-semibold text-white/35 uppercase tracking-wide m-0">Groups</p>
+        <% if (!groups.length) { %>
+        <p class="text-sm text-white/30 m-0">Groups haven't been formed yet.</p>
+        <% } else { %>
+        <div class="tournament-hscroll overflow-x-auto -mx-5 px-5 pb-1">
+          <div class="grid grid-flow-col auto-cols-[25%] gap-2">
+            <% groups.forEach(function (g) { %>
+            <div class="bg-shark-900 border border-white/10 rounded-md p-2.5 flex flex-col gap-2.5">
+              <p class="text-xs font-semibold text-white/70 m-0 truncate"><%= g.label %></p>
+              <div class="flex flex-col gap-2">
+                <% (g.memberIds || []).forEach(function (m) { %>
+                <a href="/<%= m.userId?.username?.value %>" class="flex items-center gap-1.5 min-w-0 no-underline">
+                  <span class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center">
+                    <% if (m.userId?.avatar?.value) { %>
+                    <img src="<%= m.userId.avatar.value %>" class="w-full h-full object-cover" alt="">
+                    <% } else { %>
+                    <iconify-icon icon="boxicons:user-filled" width="16" style="color:#e680a6"></iconify-icon>
+                    <% } %>
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block text-xs font-semibold text-white truncate leading-tight"><%= m.userId?.displayName?.value || m.userId?.username?.value %></span>
+                    <span class="block text-[11px] text-white/40 truncate leading-tight">@<%= m.userId?.username?.value %></span>
+                  </span>
+                  <span class="shrink-0 w-6 h-6 rounded-md overflow-hidden bg-shark-800">
+                    <% if (m.entryId?.mediaType === 'video') { %>
+                    <video src="<%= m.entryId.mediaUrl %>" class="w-full h-full object-cover pointer-events-none" muted preload="none"></video>
+                    <% } else { %>
+                    <img src="<%= m.entryId?.mediaUrl %>" class="w-full h-full object-cover" alt="">
+                    <% } %>
+                  </span>
+                </a>
+                <% }) %>
               </div>
-            </a>
-          <% }) %>
+            </div>
+            <% }) %>
+          </div>
         </div>
-      <% } %>
+        <% } %>
+      </div>
+
+      <!-- Section 3: occurring matches -->
+      <div class="flex flex-col gap-2">
+        <p class="text-xs font-semibold text-white/35 uppercase tracking-wide m-0">Matches</p>
+      </div>
+
     </div>
 
     <!-- Comments panel (toggled via the Comment tab above) -->
@@ -239,11 +343,11 @@
         <div class="border border-white/12 rounded-md bg-white/6 focus-within:border-charm-500/40 transition-colors cursor-text" onclick="if(!event.target.closest('button,a,textarea')){this.querySelector('textarea').focus()}">
           <div class="flex items-center justify-between px-3 pt-3">
             <div class="flex items-center gap-2 min-w-0">
-              <a href="/<%= currentUser.username %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+              <a href="/<%= currentUser.username %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center">
                 <% if (currentUser.avatar) { %>
                 <img src="<%= currentUser.avatar %>" class="w-full h-full object-cover">
                 <% } else { %>
-                <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+                <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon>
                 <% } %>
               </a>
               <div class="flex flex-col min-w-0">
@@ -279,11 +383,11 @@
         %>
         <div class="tc-item px-2 py-3 border-t border-white/6" data-cid="<%= tcCid %>" data-username="<%= tcCUser.username?.value %>">
           <div class="flex gap-2.5">
-            <a href="/<%= tcCUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
+            <a href="/<%= tcCUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center mt-0.5">
               <% if (tcCUser.avatar?.value) { %>
               <img src="<%= tcCUser.avatar.value %>" class="w-full h-full object-cover">
               <% } else { %>
-              <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+              <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon>
               <% } %>
             </a>
             <div class="flex-1 min-w-0">
@@ -345,11 +449,11 @@
                 %>
                 <div class="tc-item" data-cid="<%= tcRid %>" data-username="<%= tcRUser.username?.value %>">
                   <div class="flex gap-2">
-                    <a href="/<%= tcRUser.username?.value %>" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
+                    <a href="/<%= tcRUser.username?.value %>" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center mt-0.5">
                       <% if (tcRUser.avatar?.value) { %>
                       <img src="<%= tcRUser.avatar.value %>" class="w-full h-full object-cover">
                       <% } else { %>
-                      <iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon>
+                      <iconify-icon icon="boxicons:user-filled" width="12" style="color:#e680a6"></iconify-icon>
                       <% } %>
                     </a>
                     <div class="flex-1 min-w-0">
@@ -408,8 +512,8 @@
     </div><!-- /tournament-comments-panel -->
 
     <div class="flex flex-col sm:flex-row gap-3">
-      <!-- Organizer review CTA -->
-      <% if (isOrganizer && tournament.status === 'open') { %>
+      <!-- Organizer review CTA — review only happens during cooldown, matching the approve/reject API's phase gate -->
+      <% if (isOrganizer && tournament.status === 'cooldown') { %>
         <a href="/tournament/<%= tournament._id %>/review"
           class="flex-1 flex items-center justify-between bg-shark-900 border border-white/10 hover:border-charm-500/40 rounded-md p-4 no-underline transition-colors">
           <span class="text-sm text-white">Review candidates</span>
@@ -437,15 +541,41 @@
       <% } %>
     </div>
 
-    <% if (!isOrganizer && userEntry) { %>
-      <div class="bg-shark-900 border border-white/10 rounded-md p-4 text-sm">
-        <span class="text-white/50">Your entry status: </span>
-        <span class="text-white font-semibold"><%= userEntry.approvalStatus %></span>
-      </div>
-    <% } %>
-
   </div>
 </div>
+
+<% if (!isOrganizer && !isJuror && !userEntry && tournament.status === 'open') { %>
+<!-- Enter Tournament Modal -->
+<div id="tournament-enter-modal" class="fixed inset-0 z-50 items-center justify-center p-4 hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="tournament-enter-modal-backdrop"></div>
+  <div class="relative w-full max-w-sm bg-shark-900 border border-white/10 rounded-md shadow-2xl max-h-[80vh] flex flex-col">
+    <div class="p-4 border-b border-white/10 flex items-center justify-between shrink-0">
+      <p class="font-bold text-white text-base m-0">Choose Your Entry</p>
+      <button type="button" id="tournament-enter-modal-close" class="text-white/40 hover:text-white/70 transition-colors cursor-pointer">
+        <iconify-icon icon="boxicons:x" width="18"></iconify-icon>
+      </button>
+    </div>
+    <div class="p-4 overflow-y-auto flex-1">
+      <div id="tournament-enter-error" class="hidden items-start gap-2 text-sm text-red-400 bg-red-400/8 border border-red-400/20 rounded-md px-3 py-2.5">
+        <iconify-icon icon="boxicons:alert-circle-filled" width="16" height="16" style="display:block" class="shrink-0 mt-0.5"></iconify-icon>
+        <div id="tournament-enter-error-text" class="leading-snug"></div>
+      </div>
+      <p id="tournament-enter-loading" class="text-sm text-white/30 text-center py-6 m-0">Checking your eligibility…</p>
+      <p id="tournament-enter-empty" class="hidden text-sm text-white/30 text-center py-6 m-0">You don't have any entries yet.</p>
+      <div class="grid grid-cols-3 gap-2" id="tournament-enter-entry-grid"></div>
+      <button type="button" id="tournament-enter-load-more" class="hidden w-full mt-3 py-2 text-xs font-semibold text-white/50 hover:text-white/80 transition-colors cursor-pointer">
+        Load more
+      </button>
+    </div>
+    <div class="p-4 border-t border-white/10 shrink-0" id="tournament-enter-modal-footer">
+      <button type="button" id="tournament-enter-modal-submit" disabled
+        class="w-full py-2.5 rounded-md bg-charm-600 text-white text-sm font-semibold hover:bg-charm-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+        Submit Entry
+      </button>
+    </div>
+  </div>
+</div>
+<% } %>
 
 <% if (isOrganizer && (tournament.status === 'open' || tournament.status === 'cooldown')) { %>
 <!-- Cancel Tournament Confirmation Modal -->
@@ -490,6 +620,39 @@
         <button type="button" id="tournament-cancel-modal-confirm-btn" data-tournament-id="<%= tournament._id %>"
           class="flex-1 py-2.5 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-500 transition-colors cursor-pointer">
           Yes, Cancel
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+<% } %>
+
+<% if (!isOrganizer && userEntry && userEntry.approvalStatus === 'pending') { %>
+<!-- Withdraw Submission Confirmation Modal -->
+<div id="tournament-withdraw-modal" class="fixed inset-0 z-50 items-center justify-center p-4 hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="tournament-withdraw-modal-backdrop"></div>
+  <div class="relative w-full max-w-sm bg-shark-900 border border-white/10 rounded-md shadow-2xl">
+    <div class="p-6">
+
+      <div class="flex items-start gap-3 mb-5">
+        <div class="w-10 h-10 rounded-md bg-red-500/15 flex items-center justify-center shrink-0 mt-0.5">
+          <iconify-icon icon="boxicons:error" width="22" class="text-red-400"></iconify-icon>
+        </div>
+        <div>
+          <p class="font-bold text-white text-base leading-snug">Withdraw Submission?</p>
+          <p class="text-sm text-white/45 mt-1">You'll need to re-submit if you change your mind, and there's no guarantee a spot will still be open.</p>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button type="button" id="tournament-withdraw-modal-cancel-btn"
+          class="flex-1 py-2.5 rounded-md border border-white/10 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors cursor-pointer">
+          Never mind
+        </button>
+        <button type="button" id="tournament-withdraw-modal-confirm-btn" data-tournament-id="<%= tournament._id %>"
+          class="flex-1 py-2.5 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-500 transition-colors cursor-pointer">
+          Yes, Withdraw
         </button>
       </div>
 
@@ -677,7 +840,7 @@
     var iconSz    = isReply ? '12' : '14';
     var avatarHtml = c.user.avatar
       ? '<a href="/' + c.user.username + '" class="shrink-0 ' + avatarCls + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><img src="' + c.user.avatar + '" class="w-full h-full object-cover"></a>'
-      : '<a href="/' + c.user.username + '" class="shrink-0 ' + avatarCls + ' rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5"><iconify-icon icon="boxicons:user" width="' + iconSz + '" class="text-white/30"></iconify-icon></a>';
+      : '<a href="/' + c.user.username + '" class="shrink-0 ' + avatarCls + ' rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center mt-0.5"><iconify-icon icon="boxicons:user-filled" width="' + iconSz + '" style="color:#e680a6"></iconify-icon></a>';
     var gap = isReply ? 'gap-2' : 'gap-2.5';
     var replyBlock = !isReply
       ? '<div class="tc-replies hidden mt-3 flex-col gap-3 pl-3 border-l border-white/8" data-parent-id="' + c._id + '"></div>'
@@ -768,7 +931,7 @@
       item.className = 'flex items-center gap-2.5 px-3 py-2 hover:bg-white/6 cursor-pointer transition-colors';
       item.innerHTML = (u.avatar
         ? '<img src="' + u.avatar + '" class="w-6 h-6 rounded-full object-cover shrink-0">'
-        : '<div class="w-6 h-6 rounded-full bg-shark-800 border border-white/10 shrink-0 flex items-center justify-center"><iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon></div>')
+        : '<div class="w-6 h-6 rounded-full bg-charm-950 border border-white/10 shrink-0 flex items-center justify-center"><iconify-icon icon="boxicons:user-filled" width="12" style="color:#e680a6"></iconify-icon></div>')
         + '<div class="flex flex-col min-w-0">'
         + '<span class="text-xs font-semibold text-white/80 truncate">' + escHtml(u.displayName || u.username) + '</span>'
         + '<span class="text-xs text-white/35 truncate">@' + escHtml(u.username) + '</span>'
@@ -1157,6 +1320,265 @@
         cancelModalConfirmBtn.textContent = 'Yes, Cancel';
         closeModal();
       });
+  });
+})();
+</script>
+
+<script>
+(function () {
+  var withdrawBtn = document.getElementById('tournament-withdraw-btn');
+  var modal       = document.getElementById('tournament-withdraw-modal');
+  if (!withdrawBtn || !modal) return;
+
+  var cancelBtn  = document.getElementById('tournament-withdraw-modal-cancel-btn');
+  var confirmBtn = document.getElementById('tournament-withdraw-modal-confirm-btn');
+  var backdrop   = document.getElementById('tournament-withdraw-modal-backdrop');
+
+  function openModal()  { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+  function closeModal() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+
+  withdrawBtn.addEventListener('click', openModal);
+  cancelBtn.addEventListener('click', closeModal);
+  backdrop.addEventListener('click', closeModal);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+
+  confirmBtn.addEventListener('click', function () {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Withdrawing…';
+    fetch('/tournament/' + confirmBtn.dataset.tournamentId + '/entry/withdraw', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) {
+          if (window.showToast) window.showToast(data.error, 'error');
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Yes, Withdraw';
+          closeModal();
+          return;
+        }
+        window.location.reload();
+      })
+      .catch(function () {
+        if (window.showToast) window.showToast('Something went wrong.', 'error');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Yes, Withdraw';
+        closeModal();
+      });
+  });
+})();
+</script>
+
+<script>
+(function () {
+  var enterBtn = document.getElementById('tournament-enter-btn');
+  var modal    = document.getElementById('tournament-enter-modal');
+  if (!enterBtn || !modal) return;
+
+  var closeBtn  = document.getElementById('tournament-enter-modal-close');
+  var backdrop  = document.getElementById('tournament-enter-modal-backdrop');
+  var grid      = document.getElementById('tournament-enter-entry-grid');
+  var emptyEl   = document.getElementById('tournament-enter-empty');
+  var loadingEl = document.getElementById('tournament-enter-loading');
+  var submitBtn = document.getElementById('tournament-enter-modal-submit');
+  var loadMoreBtn = document.getElementById('tournament-enter-load-more');
+  var errorBox  = document.getElementById('tournament-enter-error');
+  var errorText = document.getElementById('tournament-enter-error-text');
+  var tournamentId = enterBtn.dataset.tournamentId;
+  var eligibilityCriteria = <%- JSON.stringify(tournament.eligibilityCriteria || []) %>;
+  var selectedEntryId = null;
+  var loaded = false;
+  var currentPage = 1;
+
+  var FIELD_LABELS = {
+    ratingAvg: 'Average rating', ratingCount: 'Rating count', followerCount: 'Follower count',
+    isFollower: 'Following you', age: 'Age', sex: 'Sex', entryCount: 'Entry count', accountAgeDays: 'Account age (days)',
+  };
+  var OP_LABELS  = { gte: 'at least', lte: 'at most', eq: 'exactly' };
+  var SEX_LABELS = { M: 'Male', F: 'Female', NB: 'Non-binary' };
+  function formatCriterion(c) {
+    if (c.field === 'isFollower') return 'Must already follow the organizer';
+    if (c.field === 'sex') return 'Sex is ' + (SEX_LABELS[c.value] || c.value);
+    return (FIELD_LABELS[c.field] || c.field) + ' ' + (OP_LABELS[c.operator] || c.operator) + ' ' + c.value;
+  }
+
+  function hideError() { errorBox.classList.add('hidden'); errorBox.classList.remove('flex'); errorText.innerHTML = ''; }
+  function showPlainError(message) {
+    errorText.innerHTML = '<p class="m-0">' + message + '</p>';
+    errorBox.classList.remove('hidden'); errorBox.classList.add('flex');
+    submitBtn.disabled = true;
+  }
+  function showFailedCriteria(failedFields) {
+    var unmet = eligibilityCriteria.filter(function (c) { return failedFields.indexOf(c.field) !== -1; });
+    var lines = unmet.length ? unmet.map(formatCriterion) : ['Your entry does not meet the eligibility criteria.'];
+    errorText.innerHTML = '<p class="m-0 mb-1">You don\'t currently meet these requirements:</p><ul class="m-0 p-0 list-none flex flex-col gap-1">'
+      + lines.map(function (l) {
+        return '<li class="flex items-start gap-1.5"><iconify-icon icon="boxicons:x" width="14" height="14" style="display:block" class="shrink-0 mt-0.5"></iconify-icon><span>' + l + '</span></li>';
+      }).join('') + '</ul>';
+    errorBox.classList.remove('hidden'); errorBox.classList.add('flex');
+    submitBtn.disabled = true;
+  }
+
+  function renderEntryGrid(entries) {
+    entries.forEach(function (entry) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tournament-enter-entry-thumb relative aspect-square rounded-md overflow-hidden bg-shark-800 border-2 border-transparent cursor-pointer';
+      btn.dataset.entryId = entry._id;
+      var img = document.createElement('img');
+      img.src = entry.mediaUrl;
+      img.className = 'w-full h-full object-cover pointer-events-none';
+      btn.appendChild(img);
+      var radio = document.createElement('div');
+      radio.className = 'tournament-enter-entry-radio absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center pointer-events-none';
+      radio.innerHTML = '<iconify-icon icon="boxicons:circle" width="16" height="16" style="display:block" class="text-white/80"></iconify-icon>';
+      btn.appendChild(radio);
+      grid.appendChild(btn);
+    });
+  }
+
+  function openModal()  { modal.classList.remove('hidden'); modal.classList.add('flex'); hideError(); if (!loaded) checkEligibility(); }
+  function closeModal() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+
+  // Runs before any entries are shown, so a candidate never picks an entry only to be told
+  // at submit-time that it (or they) don't qualify — only entries that would actually pass
+  // submission are rendered into the picker. Paginated (12/page) since an account can own
+  // thousands of entries — the picker loads more on demand rather than all at once.
+  function checkEligibility() {
+    loaded = true;
+    fetch('/api/tournaments/' + tournamentId + '/eligibility?page=1')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        loadingEl.classList.add('hidden');
+        if (data.error) { showPlainError(data.error); return; }
+        if (data.noEntries) { emptyEl.classList.remove('hidden'); submitBtn.disabled = true; return; }
+        if (!data.eligible) { showFailedCriteria(data.failedCriteria || []); return; }
+        renderEntryGrid(data.entries || []);
+        currentPage = 1;
+        loadMoreBtn.classList.toggle('hidden', !data.hasMore);
+      })
+      .catch(function () {
+        loadingEl.classList.add('hidden');
+        showPlainError('Could not check your eligibility. Please try again.');
+      });
+  }
+
+  function loadMoreEntries() {
+    loadMoreBtn.disabled = true;
+    loadMoreBtn.textContent = 'Loading…';
+    fetch('/api/tournaments/' + tournamentId + '/eligibility?page=' + (currentPage + 1))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error || !data.eligible) { loadMoreBtn.classList.add('hidden'); return; }
+        renderEntryGrid(data.entries || []);
+        currentPage += 1;
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = 'Load more';
+        loadMoreBtn.classList.toggle('hidden', !data.hasMore);
+      })
+      .catch(function () {
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = 'Load more';
+      });
+  }
+
+  enterBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  backdrop.addEventListener('click', closeModal);
+  loadMoreBtn.addEventListener('click', loadMoreEntries);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal(); });
+
+  function setThumbSelected(btn, selected) {
+    btn.classList.toggle('border-charm-500', selected);
+    var icon = btn.querySelector('.tournament-enter-entry-radio iconify-icon');
+    if (!icon) return;
+    icon.setAttribute('icon', selected ? 'boxicons:check-circle-filled' : 'boxicons:circle');
+    icon.classList.toggle('text-charm-400', selected);
+    icon.classList.toggle('text-white/80', !selected);
+  }
+
+  grid.addEventListener('click', function (e) {
+    var btn = e.target.closest('.tournament-enter-entry-thumb');
+    if (!btn) return;
+    var deselecting = btn.dataset.entryId === selectedEntryId;
+
+    grid.querySelectorAll('.tournament-enter-entry-thumb').forEach(function (b) { setThumbSelected(b, false); });
+
+    if (deselecting) {
+      selectedEntryId = null;
+      submitBtn.disabled = true;
+    } else {
+      setThumbSelected(btn, true);
+      selectedEntryId = btn.dataset.entryId;
+      submitBtn.disabled = false;
+    }
+    hideError();
+  });
+
+  submitBtn.addEventListener('click', function () {
+    if (!selectedEntryId) return;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting…';
+    fetch('/api/tournaments/' + tournamentId + '/submit', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ entryId: selectedEntryId }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) {
+          if (data.failedCriteria && data.failedCriteria.length) {
+            showFailedCriteria(data.failedCriteria);
+          } else {
+            hideError();
+            if (window.showToast) window.showToast(data.error, 'error');
+          }
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit Entry';
+          return;
+        }
+        if (window.showToast) window.showToast(data.message || 'Entry submitted.', 'success');
+        window.location.reload();
+      })
+      .catch(function () {
+        if (window.showToast) window.showToast('Something went wrong.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Entry';
+      });
+  });
+})();
+</script>
+
+<script>
+(function () {
+  document.addEventListener('click', function (e) {
+    var approveBtn = e.target.closest('.tournament-approve-btn');
+    if (approveBtn) {
+      if (approveBtn.disabled) return;
+      approveBtn.disabled = true;
+      approveBtn.textContent = 'Approving…';
+      fetch('/api/tournaments/' + approveBtn.dataset.tournamentId + '/entries/' + approveBtn.dataset.entryId + '/approve', { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.error) {
+            if (window.showToast) window.showToast(data.error, 'error');
+            approveBtn.disabled = false;
+            approveBtn.textContent = 'Approve';
+            return;
+          }
+          if (window.showToast) window.showToast('Entry approved.', 'success');
+          window.location.reload();
+        })
+        .catch(function () {
+          if (window.showToast) window.showToast('Something went wrong.', 'error');
+          approveBtn.disabled = false;
+          approveBtn.textContent = 'Approve';
+        });
+      return;
+    }
+
+    var navCard = e.target.closest('.tournament-entry-nav');
+    if (navCard && !e.target.closest('a') && !e.target.closest('button')) {
+      window.location.href = navCard.dataset.nav;
+    }
   });
 })();
 </script>

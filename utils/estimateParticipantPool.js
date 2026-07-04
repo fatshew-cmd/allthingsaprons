@@ -122,13 +122,19 @@ async function estimateParticipantPool(organizerId, criteria) {
 
 const CRITERIA_OPS = { gte: (a, b) => a >= b, lte: (a, b) => a <= b, eq: (a, b) => a === b };
 
-// Re-checks a single already-submitted candidate (their user profile + the specific entry they
-// submitted) against a tournament's current eligibility criteria. Used when an organizer edits
-// criteria on an open/cooldown tournament — unlike estimateParticipantPool (which asks "does the
-// user have *any* qualifying entry"), this asks "does *this* entry still qualify."
-async function meetsTournamentCriteria(userId, entryId, organizerId, criteria) {
+// Re-checks a single candidate (their user profile + the specific entry they submitted/are
+// submitting) against a tournament's eligibility criteria, reporting exactly which criteria
+// failed. Used both by the candidate submission route (3B) and by the organizer's edit flow
+// (which only needs the pass/fail boolean — see meetsTournamentCriteria below). Unlike
+// estimateParticipantPool (which asks "does the user have *any* qualifying entry"), this asks
+// "does *this* entry still qualify."
+//
+// idVerified/banned/missing-or-hidden-entry are baseline gates, not criteria.value entries, so
+// a failure there reports as { eligible: false, failedCriteria: [] } — the caller is expected to
+// have already surfaced those cases with their own messaging (e.g. 3B step 5's idVerified check).
+async function evaluateTournamentCriteria(userId, entryId, organizerId, criteria) {
   const valid = (criteria || []).filter(isValidCriterion);
-  if (!valid.length) return true;
+  if (!valid.length) return { eligible: true, failedCriteria: [] };
 
   const needsEntry         = valid.some(c => PER_ENTRY_FIELDS.includes(c.field));
   const needsFollowerCount = valid.some(c => c.field === 'followerCount');
@@ -142,34 +148,56 @@ async function meetsTournamentCriteria(userId, entryId, organizerId, criteria) {
     needsIsFollower ? Follow.exists({ followerId: userId, followingId: organizerId }) : Promise.resolve(null),
     needsEntryCount ? Entry.countDocuments({ userId, hidden: { $ne: true } }) : Promise.resolve(null),
   ]);
-  if (!user || !user.idVerified || user.accountStatus === 'banned') return false;
-  if (needsEntry && (!entry || entry.hidden)) return false;
+  if (!user || !user.idVerified || user.accountStatus === 'banned') return { eligible: false, failedCriteria: [] };
+  if (needsEntry && (!entry || entry.hidden)) return { eligible: false, failedCriteria: [] };
 
   const now = new Date();
+  const failedCriteria = [];
 
   for (const c of valid) {
+    let pass;
     if (c.field === 'sex') {
-      if (!(SEX_MAP[c.value] || []).includes(user.sex?.value)) return false;
+      pass = (SEX_MAP[c.value] || []).includes(user.sex?.value);
     } else if (c.field === 'age') {
-      if (!user.birthdate?.value) return false;
-      const ageYears = (now - user.birthdate.value) / (MS_PER_DAY * YEAR_DAYS);
-      if (!CRITERIA_OPS[c.operator](ageYears, c.value)) return false;
+      pass = !!user.birthdate?.value && CRITERIA_OPS[c.operator]((now - user.birthdate.value) / (MS_PER_DAY * YEAR_DAYS), c.value);
     } else if (c.field === 'accountAgeDays') {
-      const ageDays = (now - user.createdAt) / MS_PER_DAY;
-      if (!CRITERIA_OPS[c.operator](ageDays, c.value)) return false;
+      pass = CRITERIA_OPS[c.operator]((now - user.createdAt) / MS_PER_DAY, c.value);
     } else if (c.field === 'followerCount') {
-      if (!CRITERIA_OPS[c.operator](followerCount, c.value)) return false;
+      pass = CRITERIA_OPS[c.operator](followerCount, c.value);
     } else if (c.field === 'isFollower') {
-      if (!followsOrganizer) return false;
+      pass = !!followsOrganizer;
     } else if (c.field === 'entryCount') {
-      if (!CRITERIA_OPS[c.operator](entryCount, c.value)) return false;
+      pass = CRITERIA_OPS[c.operator](entryCount, c.value);
     } else if (PER_ENTRY_FIELDS.includes(c.field)) {
-      if (!CRITERIA_OPS[c.operator](entry[c.field], c.value)) return false;
+      pass = CRITERIA_OPS[c.operator](entry[c.field], c.value);
     }
+    if (!pass && !failedCriteria.includes(c.field)) failedCriteria.push(c.field);
   }
 
-  return true;
+  return { eligible: failedCriteria.length === 0, failedCriteria };
 }
 
-estimateParticipantPool.meetsTournamentCriteria = meetsTournamentCriteria;
+// Thin boolean wrapper kept for the organizer edit-flow caller (routes/tournaments.js), which
+// only needs pass/fail, not the breakdown.
+async function meetsTournamentCriteria(userId, entryId, organizerId, criteria) {
+  return (await evaluateTournamentCriteria(userId, entryId, organizerId, criteria)).eligible;
+}
+
+// Builds a Mongo filter for the per-entry fields of a criteria set (merging multiple operators
+// on the same field, e.g. two "ratingAvg" criteria, the same way estimateParticipantPool's own
+// $match stage does) — lets a candidate's qualifying entries be found with a single indexed
+// query instead of evaluating every owned entry one at a time.
+function buildEntryCriteriaFilter(criteria) {
+  const filter = {};
+  (criteria || [])
+    .filter(isValidCriterion)
+    .filter(c => PER_ENTRY_FIELDS.includes(c.field))
+    .forEach(c => mergeOp(filter, c.field, c.operator, c.value));
+  return filter;
+}
+
+estimateParticipantPool.PER_ENTRY_FIELDS         = PER_ENTRY_FIELDS;
+estimateParticipantPool.buildEntryCriteriaFilter = buildEntryCriteriaFilter;
+estimateParticipantPool.meetsTournamentCriteria    = meetsTournamentCriteria;
+estimateParticipantPool.evaluateTournamentCriteria = evaluateTournamentCriteria;
 module.exports = estimateParticipantPool;

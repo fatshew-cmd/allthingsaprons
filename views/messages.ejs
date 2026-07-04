@@ -52,11 +52,11 @@ function fmtConvTime(d) {
            <%= isActive ? 'bg-white/8 border-l-2 border-l-charm-500' : 'hover:bg-white/4' %>">
 
         <!-- Avatar -->
-        <div class="shrink-0 w-10 h-10 rounded-full overflow-hidden bg-shark-800 flex items-center justify-center">
+        <div class="shrink-0 w-10 h-10 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center">
           <% if (other && other.avatar?.value) { %>
           <img src="<%= other.avatar.value %>" alt="" class="w-full h-full object-cover">
           <% } else { %>
-          <iconify-icon icon="boxicons:user" width="18" class="text-white/30"></iconify-icon>
+          <iconify-icon icon="boxicons:user-filled" width="18" style="color:#e680a6"></iconify-icon>
           <% } %>
         </div>
 
@@ -108,11 +108,11 @@ function fmtConvTime(d) {
       </a>
 
       <!-- Avatar -->
-      <div class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-shark-800 flex items-center justify-center">
+      <div class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center">
         <% if (otherUser.avatar?.value) { %>
         <img src="<%= otherUser.avatar.value %>" alt="" class="w-full h-full object-cover">
         <% } else { %>
-        <iconify-icon icon="boxicons:user" width="16" class="text-white/30"></iconify-icon>
+        <iconify-icon icon="boxicons:user-filled" width="16" style="color:#e680a6"></iconify-icon>
         <% } %>
       </div>
 
@@ -230,10 +230,10 @@ function fmtConvTime(d) {
       el.className = 'flex items-end gap-2';
       var avatarHtml = grouped
         ? '<div class="shrink-0 w-7 h-7"></div>'
-        : '<div class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 flex items-center justify-center">' +
+        : '<div class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center">' +
             ('<%= otherUser.avatar?.value %>'
               ? '<img src="<%= otherUser.avatar?.value %>" alt="" class="w-full h-full object-cover">'
-              : '<iconify-icon icon="boxicons:user" width="13" class="text-white/30"></iconify-icon>') +
+              : '<iconify-icon icon="boxicons:user-filled" width="13" style="color:#e680a6"></iconify-icon>') +
           '</div>';
       el.innerHTML =
         avatarHtml +

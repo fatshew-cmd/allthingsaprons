@@ -55,11 +55,11 @@
   <!-- Two-column layout on feed; full-width on entry detail page -->
   <div class="<%= locals.mediaFull ? '' : 'flex gap-3 ' %>px-3 pt-3">
     <% if (!locals.mediaFull) { %>
-    <a href="/<%= owner.username?.value %>" class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
+    <a href="/<%= owner.username?.value %>" class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center mt-0.5">
       <% if (owner.avatar?.value) { %>
       <img src="<%= owner.avatar.value %>" alt="<%= owner.username?.value %>" class="w-full h-full object-cover">
       <% } else { %>
-      <iconify-icon icon="boxicons:user" width="18" class="text-white/30"></iconify-icon>
+      <iconify-icon icon="boxicons:user-filled" width="18" style="color:#e680a6"></iconify-icon>
       <% } %>
     </a>
     <% } %>
@@ -67,11 +67,11 @@
       <!-- Names + follow + more menu -->
       <div class="flex items-center gap-2">
         <% if (locals.mediaFull) { %>
-        <a href="/<%= owner.username?.value %>" class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+        <a href="/<%= owner.username?.value %>" class="shrink-0 w-9 h-9 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center">
           <% if (owner.avatar?.value) { %>
           <img src="<%= owner.avatar.value %>" alt="<%= owner.username?.value %>" class="w-full h-full object-cover">
           <% } else { %>
-          <iconify-icon icon="boxicons:user" width="18" class="text-white/30"></iconify-icon>
+          <iconify-icon icon="boxicons:user-filled" width="18" style="color:#e680a6"></iconify-icon>
           <% } %>
         </a>
         <% } %>
@@ -254,8 +254,8 @@
         <% if (n.avatar) { %>
         <img src="<%= n.avatar %>" alt="" class="w-5 h-5 rounded object-cover bg-shark-800 shrink-0">
         <% } else { %>
-        <span class="w-5 h-5 rounded bg-shark-700 flex items-center justify-center shrink-0">
-          <iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon>
+        <span class="w-5 h-5 rounded bg-charm-950 flex items-center justify-center shrink-0">
+          <iconify-icon icon="boxicons:user-filled" width="12" style="color:#e680a6"></iconify-icon>
         </span>
         <% } %>
         <%# Username %>
@@ -384,9 +384,9 @@
         <% _sg.forEach(function(r, _ri) { var _ru = r.userId; var _un = _ru && _ru.username && _ru.username.value ? _ru.username.value : ''; var _dn = _ru && _ru.displayName && _ru.displayName.value ? _ru.displayName.value : _un; var _isSelf = locals.currentUser && locals.currentUser.username === _un; %>
         <a href="/<%= _un %>" class="ec-rcard flex flex-col gap-2 bg-white/4 rounded-md p-3 min-w-0 hover:bg-white/7 transition-colors<%= _ri >= 9 ? ' hidden' : '' %>">
           <div class="flex items-center gap-2 min-w-0">
-            <div class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+            <div class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center">
               <% if (_ru && _ru.avatar && _ru.avatar.value) { %><img src="<%= _ru.avatar.value %>" alt="" class="w-full h-full object-cover">
-              <% } else { %><iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon><% } %>
+              <% } else { %><iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon><% } %>
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-xs font-semibold text-white/80 truncate"><%= _dn %></p>
@@ -447,11 +447,11 @@
       <!-- Row 1: pfp badge + char counter -->
       <div class="flex items-center justify-between px-3 pt-3">
         <div class="flex items-center gap-2 min-w-0">
-          <a href="<%= locals.currentUser ? '/' + locals.currentUser.username : '#' %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+          <a href="<%= locals.currentUser ? '/' + locals.currentUser.username : '#' %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center">
             <% if (locals.currentUser && locals.currentUser.avatar) { %>
             <img src="<%= locals.currentUser.avatar %>" class="w-full h-full object-cover">
             <% } else { %>
-            <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+            <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon>
             <% } %>
           </a>
           <div class="flex flex-col min-w-0">
@@ -491,9 +491,9 @@
     %>
     <div class="ec-citem px-3 py-3" data-cid="<%= cid %>" data-username="<%= cUser.username?.value %>">
       <div class="flex gap-2.5">
-        <a href="/<%= cUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
+        <a href="/<%= cUser.username?.value %>" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center mt-0.5">
           <% if (cUser.avatar?.value) { %><img src="<%= cUser.avatar.value %>" class="w-full h-full object-cover">
-          <% } else { %><iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon><% } %>
+          <% } else { %><iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon><% } %>
         </a>
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline gap-1.5 flex-wrap">
@@ -545,9 +545,9 @@
             %>
             <div class="ec-citem" data-cid="<%= rid %>" data-username="<%= rUser.username?.value %>">
               <div class="flex gap-2">
-                <a href="/<%= rUser.username?.value %>" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">
+                <a href="/<%= rUser.username?.value %>" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center mt-0.5">
                   <% if (rUser.avatar?.value) { %><img src="<%= rUser.avatar.value %>" class="w-full h-full object-cover">
-                  <% } else { %><iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon><% } %>
+                  <% } else { %><iconify-icon icon="boxicons:user-filled" width="12" style="color:#e680a6"></iconify-icon><% } %>
                 </a>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-baseline gap-1.5 flex-wrap">
@@ -662,13 +662,13 @@
     var dt  = ecTimeAgo(c.createdAt);
     var av  = c.user.avatar
       ? '<img src="' + ecEsc(c.user.avatar) + '" class="w-full h-full object-cover">'
-      : '<iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>';
+      : '<iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon>';
     var act = '<button type="button" class="ec-edit-toggle w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer" title="Edit" data-cid="' + c._id + '"><iconify-icon icon="boxicons:pencil" width="15"></iconify-icon></button>'
       + '<button type="button" class="ec-cdelete w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-red-400 transition-colors cursor-pointer" title="Delete" data-cid="' + c._id + '" data-eid="' + eid + '"><iconify-icon icon="boxicons:trash" width="15"></iconify-icon></button>';
     var unameSpan = c.user.displayName ? '<span class="text-xs text-white/35">@' + ecEsc(c.user.username) + '</span>' : '';
     return '<div class="ec-citem px-3 py-3" data-cid="' + c._id + '">'
       + '<div class="flex gap-2.5">'
-      + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'
+      + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'
       + '<div class="flex-1 min-w-0">'
       + '<div class="flex items-baseline gap-1.5 flex-wrap">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity">' + ecEsc(dn) + '</a>'
@@ -709,11 +709,11 @@
     var dt = ecTimeAgo(c.createdAt);
     var av = c.user.avatar
       ? '<img src="' + ecEsc(c.user.avatar) + '" class="w-full h-full object-cover">'
-      : '<iconify-icon icon="boxicons:user" width="12" class="text-white/30"></iconify-icon>';
+      : '<iconify-icon icon="boxicons:user-filled" width="12" style="color:#e680a6"></iconify-icon>';
     var unameSpanR = c.user.displayName ? '<span class="text-xs text-white/35">@' + ecEsc(c.user.username) + '</span>' : '';
     return '<div class="ec-citem" data-cid="' + c._id + '" data-username="' + ecEsc(c.user.username) + '">'
       + '<div class="flex gap-2">'
-      + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'
+      + '<a href="/' + ecEsc(c.user.username) + '" class="shrink-0 w-6 h-6 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center mt-0.5">' + av + '</a>'
       + '<div class="flex-1 min-w-0">'
       + '<div class="flex items-baseline gap-1.5 flex-wrap">'
       + '<a href="/' + ecEsc(c.user.username) + '" class="text-sm font-semibold text-white/80 hover:opacity-70 transition-opacity">' + ecEsc(dn) + '</a>'

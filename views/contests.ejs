@@ -79,6 +79,10 @@
             <div class="flex items-center gap-1.5 min-w-0 flex-1">
               <% if (ct1 && ct1.avatar) { %>
                 <img src="<%= ct1.avatar %>" class="w-6 h-6 rounded-full object-cover border border-white/20 shrink-0" alt="">
+              <% } else if (ct1) { %>
+                <div class="w-6 h-6 rounded-full bg-charm-950 border border-white/20 flex items-center justify-center shrink-0">
+                  <iconify-icon icon="boxicons:user-filled" width="12" style="color:#e680a6"></iconify-icon>
+                </div>
               <% } %>
               <div class="min-w-0">
                 <p class="text-xs font-semibold text-white truncate m-0 leading-tight"><%= ct1 ? ct1.displayName : '—' %></p>
@@ -97,6 +101,10 @@
               </div>
               <% if (ct2 && ct2.avatar) { %>
                 <img src="<%= ct2.avatar %>" class="w-6 h-6 rounded-full object-cover border border-white/20 shrink-0" alt="">
+              <% } else if (ct2) { %>
+                <div class="w-6 h-6 rounded-full bg-charm-950 border border-white/20 flex items-center justify-center shrink-0">
+                  <iconify-icon icon="boxicons:user-filled" width="12" style="color:#e680a6"></iconify-icon>
+                </div>
               <% } %>
             </div>
           </div>
@@ -187,11 +195,11 @@
                   </div>
                 <% } %>
                 <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-full overflow-hidden bg-shark-800 border border-white/10 shrink-0 flex items-center justify-center">
+                  <div class="w-7 h-7 rounded-full overflow-hidden bg-charm-950 border border-white/10 shrink-0 flex items-center justify-center">
                     <% if (ct.avatar) { %>
                       <img src="<%= ct.avatar %>" class="w-full h-full object-cover" alt="">
                     <% } else { %>
-                      <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+                      <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon>
                     <% } %>
                   </div>
                   <div class="flex-1 min-w-0">
@@ -250,11 +258,11 @@
               <% comp.contestants.forEach(function(ct, i) { %>
                 <% if (i > 0) { %><span class="text-white/20 text-[9px] font-bold uppercase tracking-widest">vs</span><% } %>
                 <div class="flex items-center gap-1.5">
-                  <div class="w-6 h-6 rounded-full overflow-hidden bg-shark-800 border border-white/10 shrink-0 flex items-center justify-center">
+                  <div class="w-6 h-6 rounded-full overflow-hidden bg-charm-950 border border-white/10 shrink-0 flex items-center justify-center">
                     <% if (ct.avatar) { %>
                       <img src="<%= ct.avatar %>" class="w-full h-full object-cover" alt="">
                     <% } else { %>
-                      <iconify-icon icon="boxicons:user" width="11" class="text-white/30"></iconify-icon>
+                      <iconify-icon icon="boxicons:user-filled" width="11" style="color:#e680a6"></iconify-icon>
                     <% } %>
                   </div>
                   <div class="flex-1 min-w-0">

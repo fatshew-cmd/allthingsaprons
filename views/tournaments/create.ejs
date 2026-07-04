@@ -563,7 +563,7 @@
     <% if (step === 3) { %>
       <p class="text-sm text-white/50 mb-4">Optionally restrict who can enter this tournament. Leave empty to allow all eligible users.</p>
       <% if (isEditing) { %>
-        <p class="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2.5 mb-4">Tightening criteria will remove any already-submitted candidates who no longer qualify — they'll be notified.</p>
+        <p class="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2.5 mb-4">Tightening criteria will remove any already-submitted candidates who no longer qualify.</p>
       <% } %>
 
       <div class="flex items-center justify-between px-4 py-3.5 rounded-md border border-white/10 bg-shark-900 mb-4">
@@ -1224,8 +1224,8 @@
                 <% if (u.avatar) { %>
                   <img src="<%= u.avatar %>" alt="" class="w-8 h-8 rounded-full object-cover bg-shark-800 shrink-0">
                 <% } else { %>
-                  <div class="w-8 h-8 rounded-full bg-charm-200 flex items-center justify-center shrink-0">
-                    <iconify-icon icon="boxicons:user-filled" width="14" style="color:#dd6890;display:block"></iconify-icon>
+                  <div class="w-8 h-8 rounded-full bg-charm-950 flex items-center justify-center shrink-0">
+                    <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6;display:block"></iconify-icon>
                   </div>
                 <% } %>
                 <div class="flex flex-col min-w-0">

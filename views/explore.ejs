@@ -59,12 +59,18 @@
             <% section.users.forEach(function(u) { %>
               <div class="flex items-center gap-3" data-explore-person="<%= u.username?.value %>">
                 <a href="/<%= u.username?.value %>" class="shrink-0">
+                  <% if (u.avatar?.value) { %>
                   <img
-                    src="<%= u.avatar?.value || '/img/default-avatar.png' %>"
+                    src="<%= u.avatar.value %>"
                     class="w-10 h-10 rounded-full object-cover bg-white/5"
                     alt=""
                     loading="lazy"
                   />
+                  <% } else { %>
+                  <div class="w-10 h-10 rounded-full bg-charm-950 flex items-center justify-center">
+                    <iconify-icon icon="boxicons:user-filled" width="20" style="color:#e680a6;display:block"></iconify-icon>
+                  </div>
+                  <% } %>
                 </a>
                 <div class="flex-1 min-w-0">
                   <a href="/<%= u.username?.value %>" class="text-sm font-semibold text-white hover:text-charm-300 transition-colors block truncate no-underline">

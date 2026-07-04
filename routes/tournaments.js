@@ -1051,21 +1051,25 @@ router.get('/tournament/:id', async (req, res) => {
   const tournament = await Tournament.findById(req.params.id).populate('createdBy', 'username displayName avatar').lean();
   if (!tournament) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
 
-  Tournament.updateOne({ _id: tournament._id }, { $inc: { viewCount: 1 } }).catch(() => {});
-
   const isOrganizer = !!tournament.createdBy && tournament.createdBy._id.toString() === req.currentUser._id.toString();
 
-  const [groups, entries, matches, userEntry, pendingCount, declinedJuryCount, isFollowing, isWatching] = await Promise.all([
+  const [groups, entries, matches, userEntry, pendingCount, declinedJuryCount, isFollowing, isWatching, isJuror] = await Promise.all([
     TournamentGroup.find({ tournamentId: tournament._id })
-      .populate({ path: 'memberIds', populate: { path: 'userId', select: 'username displayName avatar' } })
+      .populate({ path: 'memberIds', populate: [
+        { path: 'userId', select: 'username displayName avatar' },
+        { path: 'entryId' },
+      ] })
       .lean(),
-    TournamentEntry.find({ tournamentId: tournament._id, approvalStatus: 'approved' })
+    TournamentEntry.find({
+      tournamentId: tournament._id,
+      approvalStatus: isOrganizer ? { $in: ['approved', 'pending'] } : 'approved',
+    })
       .populate('entryId')
       .populate('userId', 'username displayName avatar')
       .lean(),
     TournamentMatch.find({ tournamentId: tournament._id }).populate('contestId').lean(),
-    TournamentEntry.findOne({ tournamentId: tournament._id, userId: req.currentUser._id }).lean(),
-    isOrganizer && tournament.status === 'open'
+    TournamentEntry.findOne({ tournamentId: tournament._id, userId: req.currentUser._id }).populate('entryId').lean(),
+    isOrganizer && tournament.status === 'cooldown'
       ? TournamentEntry.countDocuments({ tournamentId: tournament._id, approvalStatus: 'pending' })
       : 0,
     isOrganizer
@@ -1076,6 +1080,9 @@ router.get('/tournament/:id', async (req, res) => {
       : false,
     !isOrganizer
       ? TournamentWatch.exists({ tournamentId: tournament._id, userId: req.currentUser._id })
+      : false,
+    !isOrganizer
+      ? TournamentJury.exists({ tournamentId: tournament._id, userId: req.currentUser._id })
       : false,
   ]);
 
@@ -1091,6 +1098,7 @@ router.get('/tournament/:id', async (req, res) => {
     tournament, groups, entries, matches, userEntry, isOrganizer, pendingCount, declinedJuryCount,
     isFollowing: !!isFollowing,
     isWatching: !!isWatching,
+    isJuror: !!isJuror,
     comments,
     placements,
     flash: req.query.flash || null,
@@ -1197,6 +1205,22 @@ router.post('/tournament/:id/cancel', async (req, res) => {
   ]);
   await cancelTournament(tournament._id, 'organizer_canceled');
 
+  res.json({ success: true });
+});
+
+// ── POST /tournament/:id/entry/withdraw — candidate withdraws their own submission ──
+// Only allowed while the organizer hasn't reviewed it yet — once approved/rejected the
+// entry is locked into (or out of) the bracket and can no longer be pulled by the candidate.
+router.post('/tournament/:id/entry/withdraw', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ID.' });
+
+  const entry = await TournamentEntry.findOne({ tournamentId: req.params.id, userId: req.currentUser._id });
+  if (!entry) return res.status(404).json({ error: 'Submission not found.' });
+  if (entry.approvalStatus !== 'pending') {
+    return res.status(400).json({ error: 'Your entry has already been reviewed and can no longer be withdrawn.' });
+  }
+
+  await entry.deleteOne();
   res.json({ success: true });
 });
 

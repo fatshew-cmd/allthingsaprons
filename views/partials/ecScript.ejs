@@ -127,13 +127,13 @@
         if (username) {
           var av = avatar
             ? '<img src="' + ecEsc(avatar) + '" alt="" class="w-full h-full object-cover">'
-            : '<iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>';
+            : '<iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon>';
           var _now = new Date();
           var _ts = _now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
             + ' – ' + _now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
           var pfp = '<a href="/' + ecEsc(username) + '" class="flex flex-col gap-2 bg-white/4 rounded-md p-3 min-w-0 hover:bg-white/7 transition-colors">'
             + '<div class="flex items-center gap-2 min-w-0">'
-            + '<div class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">' + av + '</div>'
+            + '<div class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-charm-950 border border-white/10 flex items-center justify-center">' + av + '</div>'
             + '<div class="flex-1 min-w-0">'
             + '<p class="text-xs font-semibold text-white/80 truncate">' + ecEsc(dn) + '</p>'
             + '<p class="text-xs text-white/35 truncate">@' + ecEsc(username) + '</p>'

@@ -57,6 +57,15 @@ async function cancelTournament(tournamentId, reason) {
   }
 }
 
+// Status-filtered so a concurrent job run / cap-reached route call can't double-activate.
+// Bracket/group generation on success is a later phase — not built yet (see CLAUDE.md gap note).
+async function activateTournament(tournamentId) {
+  await Tournament.findOneAndUpdate(
+    { _id: tournamentId, status: 'cooldown' },
+    { $set: { status: 'active', activeAt: new Date() } },
+  );
+}
+
 async function transitionToCooldown(tournamentId) {
   const cooldownDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000); // now + 24h
 
@@ -120,11 +129,8 @@ function registerTournamentJobs(agenda) {
       return;
     }
 
-    await Tournament.findOneAndUpdate(
-      { _id: tournament._id, status: 'cooldown' },
-      { $set: { status: 'active', activeAt: new Date() } },
-    );
+    await activateTournament(tournament._id);
   });
 }
 
-module.exports = { registerTournamentJobs, cancelTournament, transitionToCooldown, autoAcceptPendingJury };
+module.exports = { registerTournamentJobs, cancelTournament, transitionToCooldown, activateTournament, autoAcceptPendingJury };

@@ -111,8 +111,14 @@
     <!-- Viewer nomination: nominator (User C) wants to see a fight -->
     <div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-2.5 min-w-0">
-        <img src="<%= acceptingNomination.nominator.avatar?.value || '/img/default-avatar.png' %>"
+        <% if (acceptingNomination.nominator.avatar?.value) { %>
+        <img src="<%= acceptingNomination.nominator.avatar.value %>"
           class="w-7 h-7 rounded-full object-cover bg-shark-800 shrink-0" alt="">
+        <% } else { %>
+        <div class="w-7 h-7 rounded-full bg-charm-950 flex items-center justify-center shrink-0">
+          <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6;display:block"></iconify-icon>
+        </div>
+        <% } %>
         <div class="min-w-0">
           <p class="text-sm font-semibold text-white/85 truncate">
             <%= acceptingNomination.nominator.displayName?.value || ('@' + acceptingNomination.nominator.username?.value) %>
@@ -128,11 +134,11 @@
     </div>
     <% if (acceptingNomination.opponent) { %>
     <div class="flex items-center gap-2.5 px-3 py-2.5 bg-shark-900 rounded-md">
-      <div class="w-7 h-7 rounded-full overflow-hidden bg-shark-700 shrink-0 flex items-center justify-center">
+      <div class="w-7 h-7 rounded-full overflow-hidden bg-charm-950 shrink-0 flex items-center justify-center">
         <% if (acceptingNomination.opponent.avatar?.value) { %>
         <img src="<%= acceptingNomination.opponent.avatar.value %>" class="w-full h-full object-cover" alt="">
         <% } else { %>
-        <iconify-icon icon="boxicons:user" width="14" class="text-white/30"></iconify-icon>
+        <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon>
         <% } %>
       </div>
       <div class="min-w-0">
@@ -164,8 +170,14 @@
     <!-- Standard / take-on nomination: challenger info + their entry -->
     <div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-2.5 min-w-0">
-        <img src="<%= acceptingNomination.nominator.avatar?.value || '/img/default-avatar.png' %>"
+        <% if (acceptingNomination.nominator.avatar?.value) { %>
+        <img src="<%= acceptingNomination.nominator.avatar.value %>"
           class="w-7 h-7 rounded-full object-cover bg-shark-800 shrink-0" alt="">
+        <% } else { %>
+        <div class="w-7 h-7 rounded-full bg-charm-950 flex items-center justify-center shrink-0">
+          <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6;display:block"></iconify-icon>
+        </div>
+        <% } %>
         <div class="min-w-0">
           <p class="text-sm font-semibold text-white/85 truncate">
             <%= acceptingNomination.nominator.displayName?.value || ('@' + acceptingNomination.nominator.username?.value) %>
@@ -575,8 +587,13 @@
         <label class="nomination-card flex items-center gap-3 border border-white/10 rounded-md px-3 py-2.5 cursor-pointer hover:border-white/20 transition-colors has-checked:border-charm-500/50 has-checked:bg-charm-600/5">
           <input type="radio" name="nominationId" value="<%= nom._id %>"
             class="nomination-radio w-4 h-4 accent-charm-500 shrink-0 cursor-pointer">
-          <% const nom_avatar = nom.nominatorId.avatar?.value || '/img/default-avatar.png'; %>
-          <img src="<%= nom_avatar %>" alt="" class="w-7 h-7 rounded-full object-cover bg-shark-800 shrink-0">
+          <% if (nom.nominatorId.avatar?.value) { %>
+          <img src="<%= nom.nominatorId.avatar.value %>" alt="" class="w-7 h-7 rounded-full object-cover bg-shark-800 shrink-0">
+          <% } else { %>
+          <div class="w-7 h-7 rounded-full bg-charm-950 flex items-center justify-center shrink-0">
+            <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6;display:block"></iconify-icon>
+          </div>
+          <% } %>
           <div class="flex flex-col gap-0.5 min-w-0 flex-1">
             <span class="text-sm text-white/80 font-medium truncate">
               <%= nom.nominatorId.displayName?.value || ('@' + nom.nominatorId.username?.value) %>
@@ -717,6 +734,7 @@
   }
 </style>
 
+<%- include('partials/avatarJsHelpers') %>
 <script>
 (function () {
   var MAX_CLIP = 8;
@@ -925,7 +943,7 @@
       var badge = document.createElement('div');
       badge.className = 'inline-flex items-center gap-1.5 bg-white/5 border border-white/15 rounded-md pl-1.5 pr-1 py-1';
       badge.innerHTML =
-        '<img src="' + escHtml(u.avatar || '/img/default-avatar.png') + '" class="w-5 h-5 rounded object-cover bg-shark-800 shrink-0" alt="">' +
+        window.ataAvatarHtml(u.avatar, 'w-5 h-5', '11') +
         '<span class="text-xs text-white/70 font-medium">@' + escHtml(u.username) + '</span>' +
         '<button type="button" class="voter-remove text-white/30 hover:text-white/70 transition-colors cursor-pointer p-0.5 shrink-0" data-id="' + escHtml(u._id) + '">' +
           '<iconify-icon icon="boxicons:x" width="12"></iconify-icon>' +
@@ -955,7 +973,7 @@
       row.type = 'button';
       row.className = 'flex items-center gap-2.5 w-full px-3 py-2 hover:bg-white/5 transition-colors text-left cursor-pointer';
       row.innerHTML =
-        '<img src="' + escHtml(u.avatar || '/img/default-avatar.png') + '" class="w-7 h-7 rounded-md object-cover bg-shark-800 shrink-0" alt="">' +
+        window.ataAvatarHtml(u.avatar, 'w-7 h-7', '14') +
         '<div class="flex flex-col gap-0 min-w-0">' +
           '<span class="text-sm text-white/80 font-medium truncate">' + escHtml(u.displayName || u.username) + '</span>' +
           '<span class="text-xs text-white/35 truncate">@' + escHtml(u.username) + '</span>' +
@@ -1020,7 +1038,7 @@
       var badge = document.createElement('div');
       badge.className = 'inline-flex items-center gap-1.5 bg-charm-600/10 border border-charm-600/30 rounded-md pl-1.5 pr-1 py-1';
       badge.innerHTML =
-        '<img src="' + escHtml(u.avatar || '/img/default-avatar.png') + '" class="w-5 h-5 rounded object-cover bg-shark-800 shrink-0" alt="">' +
+        window.ataAvatarHtml(u.avatar, 'w-5 h-5', '11') +
         '<span class="text-xs text-white/80 font-medium">@' + escHtml(u.username) + '</span>' +
         '<button type="button" class="nominee-remove text-white/30 hover:text-white/70 transition-colors cursor-pointer p-0.5 shrink-0" data-id="' + escHtml(u._id) + '">' +
           '<iconify-icon icon="boxicons:x" width="12"></iconify-icon>' +
@@ -1056,7 +1074,7 @@
       row.type = 'button';
       row.className = 'flex items-center gap-2.5 w-full px-3 py-2 hover:bg-white/5 transition-colors text-left cursor-pointer';
       row.innerHTML =
-        '<img src="' + escHtml(u.avatar || '/img/default-avatar.png') + '" class="w-7 h-7 rounded-md object-cover bg-shark-800 shrink-0" alt="">' +
+        window.ataAvatarHtml(u.avatar, 'w-7 h-7', '14') +
         '<div class="flex flex-col gap-0 min-w-0">' +
           '<span class="text-sm text-white/80 font-medium truncate">' + escHtml(u.displayName) + '</span>' +
           '<span class="text-xs text-white/35 truncate">@' + escHtml(u.username) + '</span>' +

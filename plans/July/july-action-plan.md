@@ -1,5 +1,19 @@
 # July Action Plan
 
+## Current State (July 4, later)
+
+Candidate submission and organizer review are now live: a "Participate" button on the tournament detail page opens an entry picker gated by a new pre-submission eligibility check (`GET /api/tournaments/:id/eligibility`), and `POST /api/tournaments/:id/submit` creates the `TournamentEntry`. The organizer's existing `review.ejs` page (previously a shell with no backing routes) is now fully functional via `POST /api/tournaments/:id/entries/:eid/approve`/`reject`. Review is gated to the `cooldown` phase, not `open` — matches the "batch review, no per-entry timer" design this plan already called out as the target, but is a change from the earlier draft pseudocode in `tournament-implementation-plan.md`. Approving up to the tournament's participant cap immediately activates the tournament (skipping the rest of the 24h cooldown), reusing a newly-extracted `activateTournament` in `jobs/tournamentJobs.js` — which still only flips status, with no group/match generation (Phase 4 still not built). Three new notification types (`tournament_entry_submitted/approved/rejected`) render already. Full breakdown in `tournament-implementation-plan.md`'s "Phase 3 Extensions" section.
+
+Group/knockout progression and prize payout (Phases 4–8) are still not started.
+
+## Current State (July 4)
+
+A full tournament social layer shipped that wasn't in either the original spec or the July 3 status note: tournament comments (one level of replies, likes/dislikes, report-and-auto-hide, edit/delete), a tournament-level watch/subscribe toggle, and a tournament-level report action. Four new models (`TournamentComment`, `TournamentCommentReport`, `TournamentReport`, `TournamentWatch`) and a large batch of new routes in `routes/tournaments.js`. The detail page also picked up a view counter and a `loadTournamentPlacements` helper that renders a podium once a tournament is `closed` (dead code today — no bracket generation exists yet to ever close a tournament that way). Full breakdown in `tournament-implementation-plan.md`'s "Phase 9 Extensions" section.
+
+**Flagged gap (currently uncommitted in the working tree):** the view-counter increment (`Tournament.updateOne({ _id }, { $inc: { viewCount: 1 } })`) that was added in `GET /tournament/:id` has since been removed again — `tournament.viewCount` is still schema'd and still displayed on the detail page, but nothing increments it right now. Needs a decision: restore the increment or drop the display.
+
+Candidate submission, approval, group/knockout progression, and prize payout (Phases 3–8) are still not started.
+
 ## Current State (July 3)
 
 Tournament creation flow (Phase 2) grew a lot beyond its original scope: a 5th wizard step ("Review") before finalize, a full edit wizard so organizers can revise a live tournament (`open`/`cooldown` only) with wallet true-up and criteria re-checks, an organizer self-cancel route, and — new capability not previously planned at all — a jury invite/accept/decline flow plus organizer jury management/replace. The right panel's "Ongoing Tournaments" section (originally slated for Phase 7.7, after match generation existed) also shipped early since it only needed `Tournament.status === 'active'` to be a reachable state, not real matches. Full breakdown in `tournament-implementation-plan.md`'s status header and its new "Phase 2 Extensions" section. Candidate submission, approval, group/knockout progression, and prize payout (Phases 3–8) are still not started — and the agenda jobs that do exist (`jobs/tournamentJobs.js`) have a known gap: `tournament_cooldown_expiry` currently flips a tournament to `active` with no groups or matches generated, since Phase 4 doesn't exist yet.
@@ -28,7 +42,7 @@ June closed with the full standalone contest lifecycle, the chilli wallet econom
 
 | Item | Status |
 |---|---|
-| `Tournament` + `TournamentEntry` models | Superseded by `tournament-implementation-plan.md` — schema (Phase 1), creation flow (Phase 2, extended well beyond spec with an edit wizard + jury invite/accept/decline/replace + self-cancel), and right panel wiring (Phase 9G) are done as of 2026-07-03; candidate submission/review, group/knockout progression, and prize distribution (Phases 3–8) are not started. See that doc's status header for the current breakdown, not this row. |
+| `Tournament` + `TournamentEntry` models | Superseded by `tournament-implementation-plan.md` — schema (Phase 1), creation flow (Phase 2, extended well beyond spec with an edit wizard + jury invite/accept/decline/replace + self-cancel), right panel wiring (Phase 9G), a social layer (comments/watch/report, Phase 9 Extensions), and now candidate submission + organizer approve/reject (Phase 3 Extensions) are done as of 2026-07-04; group/knockout progression and prize distribution (Phases 4–8) are not started. See that doc's status header for the current breakdown, not this row. |
 | Pre-launch test bypasses | **On hold — not yet, still actively testing.** Must revert before any public release (see below) |
 | ~~`Retag` model~~ | Deleted 2026-07-01 — was never wired, no longer exists |
 | ~~Search page~~ | **Done 2026-07-01** — see Current State above |
@@ -112,7 +126,9 @@ Platform:                                          open → cooldown → active 
 
 ---
 
-#### Phase 7.3 — Entry Submission During `open` Phase
+#### Phase 7.3 — Entry Submission During `open` Phase ✅ (done 2026-07-04, shape diverges — see `tournament-implementation-plan.md`'s "Phase 3 Extensions")
+
+~~Submit entry to tournament from the tournament detail page or the standard `/submit` flow.~~ Built as a "Participate" button + modal on the tournament detail page only (no `?tournamentId=` param on the standard submit flow); a new pre-check endpoint (`GET /api/tournaments/:id/eligibility`) filters the entry picker down to only entries that would actually pass before the user can pick one.
 
 - Submit entry to tournament from the tournament detail page or the standard `/submit` flow (pass `?tournamentId=<id>`)
 - On submission: create `TournamentEntry` with `approvalStatus: pending`, `submittedAt: now`
@@ -123,14 +139,16 @@ Platform:                                          open → cooldown → active 
 
 ---
 
-#### Phase 7.4 — Organizer Review
+#### Phase 7.4 — Organizer Review ✅ (done 2026-07-04, batch-reviewed during cooldown — no 30-min timer, see below)
+
+`review.ejs` and its `GET /tournament/:id/review` route already existed as forward-compatible plumbing before today; the approve/reject POST routes that make it functional shipped today. Built per the batch-review design already noted in `tournament-implementation-plan.md`'s "What changes vs. old Phase 7/8" table (this was always the intended replacement for the 30-min timeout below, not a new divergence): review happens once, during the 24h `cooldown` phase, not continuously during `open`. No `missedReviews` counter, no 30-min timeout job, no `timed_out` approval status exist or are planned. Approving up to the participant cap activates the tournament immediately. See `tournament-implementation-plan.md`'s "Phase 3 Extensions" for full detail.
 
 - `GET /tournament/:id/review` + `views/tournaments/review.ejs` — organizer only. Lists pending entries with media preview and 30-minute countdown per entry.
 - `POST /api/tournaments/:id/entries/:eid/approve` — set `approvalStatus: approved`, `reviewedAt: now`. Notify submitter.
 - `POST /api/tournaments/:id/entries/:eid/reject` — set `approvalStatus: rejected`, `reviewedAt: now`. Notify submitter with rejection message.
 - Organizer can optionally add a rejection note.
 
-**Organizer review timeout job (agenda):**
+**Organizer review timeout job (agenda) — not built, superseded by batch review above:**
 - Sweeper runs every 5 minutes. Finds `TournamentEntries` with `approvalStatus: pending` and `submittedAt < now - 30min`.
 - For each: set `approvalStatus: timed_out`. Notify submitter (they can resubmit elsewhere).
 - Increment `tournament.missedReviews`. If `missedReviews >= 3`:
@@ -139,7 +157,7 @@ Platform:                                          open → cooldown → active 
   - Notify all `pending` submitters to try another tournament
   - Notify organizer their tournament was canceled
 
-**Entry window close (agenda):**
+**Entry window close (agenda) — superseded, actual behavior is the `tournament_open_expiry`/`tournament_cooldown_expiry` jobs in `jobs/tournamentJobs.js`:**
 - When `tournament.entryDeadline` passes: status → `cooldown`, `roundsStartAt` set to `entryDeadline + cooldownHours`.
 - Or when max approved capacity is reached: same transition.
 - If fewer than 2 approved entries: cancel tournament + refund.
