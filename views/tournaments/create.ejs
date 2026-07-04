@@ -3,28 +3,37 @@
 <div class="flex flex-col pb-20 md:pb-0">
 
   <%
-    var STEP_NAMES = { 1: 'Basics', 2: 'Prizes', 3: 'Eligibility', 4: 'Jury' };
-    var STEP_URLS  = { 1: '/tournaments/create/step1', 2: '/tournaments/create/step2', 3: '/tournaments/create/step3', 4: '/tournaments/create/step4' };
+    var isEditing = typeof editing !== 'undefined' && editing;
+    var basePath   = isEditing ? '/tournament/' + tournamentId + '/edit' : '/tournaments/create';
+    var STEP_NAMES = { 1: 'Basics', 2: 'Prizes', 3: 'Eligibility', 4: 'Jury', 5: 'Review' };
+    var STEP_URLS  = { 1: basePath + '/step1', 2: basePath + '/step2', 3: basePath + '/step3', 4: basePath + '/step4', 5: basePath + '/step5' };
     var reachedMax = typeof maxStep !== 'undefined' ? maxStep : step;
-    var backUrl    = step > 1 ? STEP_URLS[step - 1] : '/tournaments';
+    var backUrl    = step > 1 ? STEP_URLS[step - 1] : (isEditing ? '/tournament/' + tournamentId : '/tournaments');
   %>
   <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm flex items-center justify-between gap-3">
     <div class="flex items-center gap-3">
       <a href="<%= backUrl %>" class="w-8 h-8 flex items-center justify-center rounded-md text-white/40 hover:bg-white/8 hover:text-white/70 transition-colors shrink-0">
         <iconify-icon icon="boxicons:arrow-left-stroke" width="22"></iconify-icon>
       </a>
-      <h1 class="font-black text-xl tracking-tight m-0">Create Tournament</h1>
+      <h1 class="font-black text-xl tracking-tight m-0"><%= isEditing ? 'Edit Tournament' : 'Create Tournament' %></h1>
     </div>
+    <% if (!isEditing) { %>
     <button type="submit" id="save-draft-btn" form="tournament-step-form" formnovalidate name="intent" value="draft"
       class="text-sm font-semibold text-white/40 hover:text-white/70 transition-colors shrink-0">
       Save as Draft
     </button>
+    <% } else if (step < 5) { %>
+    <button type="submit" id="save-changes-btn" form="tournament-step-form" name="intent" value="save"
+      class="text-sm font-semibold text-charm-400 hover:text-charm-300 transition-colors shrink-0">
+      Save Changes
+    </button>
+    <% } %>
   </header>
 
   <!-- Step indicator -->
   <div class="px-5 pt-8 pb-6">
     <div class="flex items-center gap-2">
-      <% [1, 2, 3, 4].forEach(function(n) { %>
+      <% [1, 2, 3, 4, 5].forEach(function(n) { %>
         <% if (n <= reachedMax && n !== step) { %>
           <a href="<%= STEP_URLS[n] %>" class="flex-1 h-1 rounded-full transition-colors hover:opacity-70 <%= n <= step ? 'bg-charm-500' : 'bg-white/10' %>"></a>
         <% } else { %>
@@ -32,7 +41,7 @@
         <% } %>
       <% }) %>
     </div>
-    <p class="text-xs text-white/40 font-semibold mt-2 mb-0">Step <%= step %> of 4 · <%= STEP_NAMES[step] %></p>
+    <p class="text-xs text-white/40 font-semibold mt-2 mb-0">Step <%= step %> of 5 · <%= STEP_NAMES[step] %></p>
   </div>
 
   <% if (errors && errors.length) { %>
@@ -47,7 +56,7 @@
 
     <!-- ── Step 1: Basics ─────────────────────────────────────────── -->
     <% if (step === 1) { %>
-      <form method="POST" action="/tournaments/create/step1" id="tournament-step-form" enctype="multipart/form-data" class="flex flex-col gap-4">
+      <form method="POST" action="<%= STEP_URLS[1] %>" id="tournament-step-form" enctype="multipart/form-data" class="flex flex-col gap-4">
         <%
           var isPrivate = formData.visibility === 'private';
         %>
@@ -87,7 +96,10 @@
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-bold text-white/90">Tournament name</label>
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-bold text-white/90">Tournament name</label>
+            <span id="tournament-name-count" class="text-xs text-white/30"></span>
+          </div>
           <div class="relative">
             <input type="text" id="tournament-name" name="name" required minlength="3" maxlength="60" pattern="[A-Za-z0-9 ]+" title="Letters, numbers, and spaces only" value="<%= formData.name || '' %>"
               class="h-12 w-full capitalize bg-shark-900 border border-white/10 rounded-md px-3 pr-9 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
@@ -97,8 +109,11 @@
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-bold text-white/90">Description (optional)</label>
-          <textarea name="description" maxlength="220" rows="3"
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-bold text-white/90">Description (optional)</label>
+            <span id="description-count" class="text-xs text-white/30"></span>
+          </div>
+          <textarea name="description" id="tournament-description" maxlength="220" rows="3"
             class="min-h-12 resize-none bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60"><%= formData.description || '' %></textarea>
         </div>
 
@@ -137,10 +152,19 @@
         </div>
 
         <%
-          var openDaysValue = formData.openDays ? String(formData.openDays) : '3';
+          var openDaysValue  = formData.openDays ? String(formData.openDays) : '3';
+          var openDaysLocked = isEditing && typeof tournamentStatus !== 'undefined' && tournamentStatus !== 'open';
         %>
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-bold text-white/90">Open phase length</label>
+          <% if (openDaysLocked) { %>
+            <input type="hidden" name="openDays" value="<%= openDaysValue %>">
+            <div class="h-12 w-full bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white/40 flex items-center justify-between">
+              <span><%= openDaysValue %> day<%= openDaysValue > 1 ? 's' : '' %></span>
+              <iconify-icon icon="boxicons:lock-alt" width="14" class="text-white/25"></iconify-icon>
+            </div>
+            <p class="text-xs text-white/30 mt-0.5">The open phase has already ended, so its length can no longer be changed.</p>
+          <% } else { %>
           <div class="custom-dropdown relative" id="open-days-dropdown">
             <input type="hidden" name="openDays" id="open-days-value" value="<%= openDaysValue %>">
             <button type="button" data-dropdown-trigger
@@ -158,6 +182,7 @@
             </div>
           </div>
           <p class="text-xs text-white/30 mt-0.5">Candidates apply during this window; you review and approve/reject after it ends. Runs the full length even if the cap fills early. Too few applicants by the end cancels the tournament and refunds you.</p>
+          <% } %>
         </div>
 
         <button type="submit" id="step1-submit" disabled
@@ -168,6 +193,8 @@
 
       <script>
       (function () {
+        var isEditing    = <%- JSON.stringify(isEditing) %>;
+        var tournamentId = <%- JSON.stringify(isEditing ? tournamentId : null) %>;
         var visibilityToggle = document.getElementById('toggle-visibility');
         var visibilityThumb  = document.getElementById('thumb-visibility');
         var visibilityInput  = document.getElementById('input-visibility');
@@ -190,6 +217,9 @@
         var nameInput        = document.getElementById('tournament-name');
         var nameStatusEl     = document.getElementById('tournament-name-status');
         var nameErrorEl      = document.getElementById('tournament-name-error');
+        var nameCountEl      = document.getElementById('tournament-name-count');
+        var descInput        = document.getElementById('tournament-description');
+        var descCountEl      = document.getElementById('description-count');
         var submitBtn        = document.getElementById('step1-submit');
         var nameTimer        = null;
         var nameOk           = false;
@@ -197,6 +227,18 @@
         function hasThumbnail() {
           return !thumbPreview.classList.contains('hidden');
         }
+
+        function updateCount(el, input, max) {
+          var len = input.value.length;
+          el.textContent = len + '/' + max;
+          el.classList.toggle('text-red-400', len >= max);
+          el.classList.toggle('text-white/30', len < max);
+        }
+
+        nameInput.addEventListener('input', function () { updateCount(nameCountEl, nameInput, 60); });
+        descInput.addEventListener('input', function () { updateCount(descCountEl, descInput, 220); });
+        updateCount(nameCountEl, nameInput, 60);
+        updateCount(descCountEl, descInput, 220);
 
         function refreshSubmit() {
           submitBtn.disabled = !nameOk || !hasThumbnail();
@@ -264,7 +306,9 @@
 
           setNameIcon('boxicons:loader-alt', 'rgba(255,255,255,0.3)');
           nameTimer = setTimeout(function () {
-            fetch('/api/tournaments/check-name?name=' + encodeURIComponent(val))
+            var checkUrl = '/api/tournaments/check-name?name=' + encodeURIComponent(val);
+            if (isEditing && tournamentId) checkUrl += '&excludeId=' + encodeURIComponent(tournamentId);
+            fetch(checkUrl)
               .then(function (r) { return r.json(); })
               .then(function (data) {
                 if (data.available) {
@@ -345,11 +389,17 @@
     <% if (step === 2) { %>
       <div class="flex flex-col gap-0.5 mb-3">
         <span class="text-sm text-white/50">Wallet balance</span>
-        <span class="text-2xl font-bold text-white"><%= sbBalance.toLocaleString() %> 🌶️</span>
+        <span id="wallet-balance" class="text-2xl font-bold text-white"><%= sbBalance.toLocaleString() %> 🌶️</span>
       </div>
-      <p class="text-xs text-white/40 mb-6">The following are the amounts each of the top 3 finishers will earn — funded from your wallet balance when the tournament launches.</p>
+      <p class="text-xs text-white/40 mb-6">
+        <% if (isEditing) { %>
+          The following are the amounts each of the top 3 finishers will earn. Only an increase over the currently-funded <%= oldTotal.toLocaleString() %> 🌶️ will be deducted from your wallet — a decrease is refunded.
+        <% } else { %>
+          The following are the amounts each of the top 3 finishers will earn — funded from your wallet balance when the tournament launches.
+        <% } %>
+      </p>
 
-      <form method="POST" action="/tournaments/create/step2" id="tournament-step-form" class="flex flex-col gap-4">
+      <form method="POST" action="<%= STEP_URLS[2] %>" id="tournament-step-form" class="flex flex-col gap-4">
         <%
           var PRIZE_FIELDS = [
             { name: 'prizeFirst',  label: '1st place prize', min: 350 },
@@ -374,7 +424,6 @@
           <span class="text-sm text-white/50">Total prize pool</span>
           <span id="prize-total" class="text-base font-bold text-white">0 🌶️</span>
         </div>
-        <p id="prize-remaining" class="text-xs text-white/30 -mt-2"></p>
       </form>
 
       <%
@@ -383,18 +432,19 @@
       <div id="fund-section" class="mt-4 p-4 rounded-md bg-shark-900 border border-white/10 <%= showFundSection ? '' : 'hidden' %>">
         <p class="text-sm text-white/70 mb-1">You need <span id="fund-shortfall" class="text-white font-semibold"><%= showFundSection ? shortfall.toLocaleString() : '0' %> 🌶️</span> more to fund this prize pool (<span id="fund-total"><%= showFundSection ? total.toLocaleString() : '0' %> 🌶️</span> total).</p>
         <p class="text-xs text-white/40 mb-3">Tournament top-ups are capped at 500 🌶️ per purchase.</p>
-        <form method="POST" action="/tournaments/fund" class="flex items-center gap-2">
-          <input type="number" name="amountCHL" min="1" max="500" required placeholder="Amount"
+        <form id="fund-form" method="POST" action="/tournaments/fund" class="flex items-center gap-2">
+          <input type="number" name="amountCHL" id="fund-amount" min="1" max="500" required placeholder="Amount"
             class="h-12 flex-1 bg-shark-800 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
-          <button type="submit"
-            class="bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors shrink-0">
+          <button type="submit" id="fund-submit"
+            class="bg-charm-600 hover:bg-charm-500 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors shrink-0">
             Add Funds
           </button>
         </form>
+        <p id="fund-error" class="text-xs text-red-400 mt-2 hidden"></p>
       </div>
 
       <div class="flex items-center gap-2 mt-4">
-        <a href="/tournaments/create/step1"
+        <a href="<%= STEP_URLS[1] %>"
           class="h-12 px-5 flex items-center justify-center bg-shark-900 hover:bg-shark-800 border border-white/10 text-white/70 text-sm font-semibold rounded-md transition-colors shrink-0">
           Back
         </a>
@@ -406,14 +456,19 @@
 
       <script>
       (function () {
-        var sbBalance   = <%- JSON.stringify(sbBalance) %>;
+        var sbBalance     = <%- JSON.stringify(sbBalance) %>;
+        var alreadyFunded = <%- JSON.stringify(typeof oldTotal !== 'undefined' ? oldTotal : 0) %>;
         var inputs      = Array.prototype.slice.call(document.querySelectorAll('.prize-input'));
         var totalEl     = document.getElementById('prize-total');
-        var remainingEl = document.getElementById('prize-remaining');
         var submitBtn   = document.getElementById('step2-submit');
         var fundSection = document.getElementById('fund-section');
         var fundShortfallEl = document.getElementById('fund-shortfall');
         var fundTotalEl     = document.getElementById('fund-total');
+        var fundForm    = document.getElementById('fund-form');
+        var fundAmount  = document.getElementById('fund-amount');
+        var fundSubmit  = document.getElementById('fund-submit');
+        var fundError   = document.getElementById('fund-error');
+        var walletBalanceEl = document.getElementById('wallet-balance');
 
         function setStatus(input, ok, hasValue) {
           var wrap  = input.closest('div');
@@ -451,24 +506,52 @@
 
           totalEl.textContent = total.toLocaleString() + ' 🌶️';
 
-          var short = total - sbBalance;
+          var additionalNeeded = Math.max(0, total - alreadyFunded);
+          var short = additionalNeeded - sbBalance;
           if (allValid && short > 0) {
-            remainingEl.textContent = '';
             fundShortfallEl.textContent = short.toLocaleString() + ' 🌶️';
-            fundTotalEl.textContent = total.toLocaleString() + ' 🌶️';
+            fundTotalEl.textContent = additionalNeeded.toLocaleString() + ' 🌶️';
             fundSection.classList.remove('hidden');
           } else {
-            remainingEl.textContent = allValid ? 'Funded from your wallet balance on launch.' : '';
-            remainingEl.classList.remove('text-red-400');
-            remainingEl.classList.add('text-white/30');
             fundSection.classList.add('hidden');
           }
 
-          submitBtn.disabled = !allValid;
+          submitBtn.disabled = !allValid || short > 0;
         }
 
         inputs.forEach(function (input) {
           input.addEventListener('input', refresh);
+        });
+
+        fundForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          fundError.classList.add('hidden');
+          fundSubmit.disabled = true;
+
+          fetch(fundForm.action, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+            body: new URLSearchParams(new FormData(fundForm)),
+          })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (res) {
+              if (!res.ok) {
+                fundError.textContent = res.data.error || 'Could not add funds. Please try again.';
+                fundError.classList.remove('hidden');
+                return;
+              }
+              sbBalance = res.data.sbBalance;
+              walletBalanceEl.textContent = sbBalance.toLocaleString() + ' 🌶️';
+              fundAmount.value = '';
+              refresh();
+            })
+            .catch(function () {
+              fundError.textContent = 'Could not add funds. Please try again.';
+              fundError.classList.remove('hidden');
+            })
+            .finally(function () {
+              fundSubmit.disabled = false;
+            });
         });
 
         refresh();
@@ -479,24 +562,38 @@
     <!-- ── Step 3: Eligibility Criteria ───────────────────────────── -->
     <% if (step === 3) { %>
       <p class="text-sm text-white/50 mb-4">Optionally restrict who can enter this tournament. Leave empty to allow all eligible users.</p>
+      <% if (isEditing) { %>
+        <p class="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2.5 mb-4">Tightening criteria will remove any already-submitted candidates who no longer qualify — they'll be notified.</p>
+      <% } %>
 
-      <form method="POST" action="/tournaments/create/step3" id="tournament-step-form" class="flex flex-col gap-4">
-        <div id="criteria-rows" class="flex flex-col gap-2"></div>
+      <div class="flex items-center justify-between px-4 py-3.5 rounded-md border border-white/10 bg-shark-900 mb-4">
+        <div>
+          <p class="text-sm font-medium text-white">Estimated participant pool</p>
+          <p class="text-xs text-white/40 mt-0.5">Registered users who currently meet these criteria</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <iconify-icon id="pool-spinner" icon="boxicons:loader-circle" width="16" class="text-white/30 hidden animate-spin"></iconify-icon>
+          <span id="pool-count" class="text-2xl font-bold text-white"></span>
+        </div>
+      </div>
+
+      <form method="POST" action="<%= STEP_URLS[3] %>" id="tournament-step-form" class="flex flex-col gap-4">
+        <div id="criteria-rows" class="flex flex-col gap-3"></div>
 
         <button type="button" id="add-criteria-btn"
-          class="flex items-center justify-center gap-1.5 text-sm text-charm-400 hover:text-charm-300 transition-colors border border-dashed border-white/15 rounded-md py-2">
+          class="flex items-center justify-center gap-1.5 text-sm text-charm-400 hover:text-charm-300 transition-colors border border-dashed border-white/15 rounded-md py-3">
           <iconify-icon icon="boxicons:plus" width="15"></iconify-icon> Add criteria
         </button>
 
         <input type="hidden" name="criteria" id="criteria-input" value="[]">
 
         <div class="flex items-center gap-2 mt-2">
-          <a href="/tournaments/create/step2"
-            class="h-11 px-5 flex items-center justify-center bg-shark-900 hover:bg-shark-800 border border-white/10 text-white/70 text-sm font-semibold rounded-md transition-colors shrink-0">
+          <a href="<%= STEP_URLS[2] %>"
+            class="h-12 px-5 flex items-center justify-center bg-shark-900 hover:bg-shark-800 border border-white/10 text-white/70 text-sm font-semibold rounded-md transition-colors shrink-0">
             Back
           </a>
-          <button type="submit"
-            class="flex-1 bg-charm-600 hover:bg-charm-500 text-white text-sm font-semibold py-2.5 rounded-md transition-colors">
+          <button type="submit" id="step3-submit"
+            class="h-12 flex-1 bg-charm-500/15 hover:bg-charm-500/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-charm-500/15 text-charm-400 text-sm font-semibold rounded-md transition-colors">
             Continue
           </button>
         </div>
@@ -504,49 +601,340 @@
 
       <script>
       (function () {
-        var FIELDS = ['ratingAvg', 'ratingCount', 'followerCount', 'age', 'sex', 'entryCount', 'accountAgeDays'];
+        var FIELDS = [
+          { value: 'ratingAvg',      label: 'Average rating' },
+          { value: 'ratingCount',    label: 'Rating count' },
+          { value: 'followerCount', label: 'Follower count' },
+          { value: 'isFollower',    label: 'Following you' },
+          { value: 'age',            label: 'Age' },
+          { value: 'sex',            label: 'Sex' },
+          { value: 'entryCount',    label: 'Entry count' },
+          { value: 'accountAgeDays', label: 'Account age (days)' },
+        ];
+        var OPERATORS = [
+          { value: 'gte', label: 'At least' },
+          { value: 'lte', label: 'At most' },
+          { value: 'eq',  label: 'Exactly' },
+        ];
+        var SEX_OPTIONS = [
+          { value: 'M',  label: 'Male' },
+          { value: 'F',  label: 'Female' },
+          { value: 'NB', label: 'Non-binary' },
+        ];
+        var NUMBER_CONFIG = {
+          ratingAvg:      { min: 1,  max: 10, step: '0.1', placeholder: '1–10' },
+          ratingCount:    { min: 0,  step: '1', placeholder: 'e.g. 25' },
+          followerCount: { min: 0,  step: '1', placeholder: 'e.g. 250' },
+          age:            { min: 13, step: '1', placeholder: 'e.g. 18' },
+          entryCount:    { min: 0,  step: '1', placeholder: 'e.g. 5' },
+          accountAgeDays: { min: 0,  step: '1', placeholder: 'e.g. 30' },
+        };
+
         var rowsEl  = document.getElementById('criteria-rows');
         var form    = document.getElementById('tournament-step-form');
         var hidden  = document.getElementById('criteria-input');
+        var submitBtn = document.getElementById('step3-submit');
         var initial = <%- JSON.stringify(typeof existingCriteria !== 'undefined' ? existingCriteria : []) %>;
+
+        var poolCountEl   = document.getElementById('pool-count');
+        var poolSpinnerEl = document.getElementById('pool-spinner');
+        var estimateTimer, estimateSeq = 0;
+
+        // A row with an out-of-range value blocks Continue; an empty value just means that
+        // row is silently excluded from the saved criteria — both states are now surfaced
+        // per-row instead of failing silently.
+        function refreshSubmitState() {
+          var anyInvalid = false;
+          rowsEl.querySelectorAll('.criteria-row').forEach(function (r) {
+            if (r.dataset.status === 'invalid') anyInvalid = true;
+          });
+          submitBtn.disabled = anyInvalid;
+        }
+
+        // Rows sitting in the transient "saving" state (set the instant a valid value is
+        // entered) resolve to "saved" once the in-flight estimate call actually confirms it —
+        // or fall back to a plain valid state if that call failed, rather than lying about it.
+        function settleSavingRows(success) {
+          rowsEl.querySelectorAll('.criteria-row').forEach(function (row) {
+            if (row.dataset.status !== 'saving') return;
+            var iconEl = row.querySelector('.crit-status-icon');
+            var textEl = row.querySelector('.crit-status-text');
+            row.dataset.status = success ? 'saved' : 'ok';
+            textEl.textContent = success ? 'Criteria saved' : 'Included in eligibility criteria';
+            iconEl.classList.remove('animate-spin');
+            iconEl.setAttribute('icon', 'boxicons:check-circle');
+            iconEl.style.color = '#4ade80';
+            textEl.className = 'crit-status-text text-xs text-white/40';
+          });
+        }
+
+        function serializeCriteria() {
+          var criteria = [];
+          rowsEl.querySelectorAll('.criteria-row').forEach(function (row) {
+            var c = row.getCriteria();
+            var raw = c.value;
+            if (raw === undefined || raw === null || raw === '') return;
+            var value = (c.fieldValue === 'sex' || c.fieldValue === 'isFollower') ? raw : Number(raw);
+            criteria.push({ field: c.fieldValue, operator: c.opValue, value: value });
+          });
+          return criteria;
+        }
+
+        function fetchEstimate() {
+          var seq = ++estimateSeq;
+          poolSpinnerEl.classList.remove('hidden');
+          fetch('/api/tournaments/estimate-pool', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'criteria=' + encodeURIComponent(JSON.stringify(serializeCriteria())),
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (seq !== estimateSeq) return;
+              poolCountEl.textContent = data.exact ? String(data.approxCount) : '~' + data.approxCount.toLocaleString();
+              settleSavingRows(true);
+            })
+            .catch(function () {
+              if (seq !== estimateSeq) return;
+              poolCountEl.textContent = '—';
+              settleSavingRows(false);
+            })
+            .finally(function () {
+              if (seq !== estimateSeq) return;
+              poolSpinnerEl.classList.add('hidden');
+            });
+        }
+
+        function scheduleEstimate() {
+          clearTimeout(estimateTimer);
+          estimateTimer = setTimeout(fetchEstimate, 350);
+        }
+
+        function labelFor(list, val) {
+          var match = list.filter(function (o) { return o.value === val; })[0];
+          return match ? match.label : val;
+        }
+
+        function closeAllPanels() {
+          document.querySelectorAll('#criteria-rows .dropdown-panel').forEach(function (p) {
+            p.style.display = 'none';
+            var chevron = p.parentElement.querySelector('[data-chevron]');
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+          });
+        }
+
+        // Renders a custom dropdown into `container`; calls onSelect(value) on choice.
+        function buildDropdown(container, options, value, onSelect) {
+          container.innerHTML =
+            '<button type="button" data-trigger class="h-12 w-full bg-shark-800 border border-white/10 rounded-md px-3 text-sm text-left text-white flex items-center justify-between focus:outline-none focus:border-charm-500/60 transition-colors cursor-pointer">' +
+              '<span data-label>' + labelFor(options, value) + '</span>' +
+              '<iconify-icon data-chevron icon="boxicons:chevron-down" width="16" class="text-white/30 shrink-0" style="transition:transform 0.15s ease"></iconify-icon>' +
+            '</button>' +
+            '<div data-panel class="dropdown-panel absolute z-20 w-full mt-1 bg-shark-800 border border-white/10 rounded-md shadow-xl overflow-hidden max-h-52 overflow-y-auto" style="display:none"></div>';
+
+          var trigger = container.querySelector('[data-trigger]');
+          var panel   = container.querySelector('[data-panel]');
+          var label   = container.querySelector('[data-label]');
+          var chevron = container.querySelector('[data-chevron]');
+          var current = value;
+
+          function renderOptions() {
+            panel.innerHTML = '';
+            options.forEach(function (opt) {
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm hover:bg-white/5 transition-colors cursor-pointer';
+              btn.style.color = opt.value === current ? 'white' : 'rgba(255,255,255,0.5)';
+              btn.innerHTML = '<span>' + opt.label + '</span>' +
+                '<iconify-icon icon="boxicons:check" width="13" class="text-charm-400 shrink-0" style="' + (opt.value === current ? 'display:flex' : 'display:none') + '"></iconify-icon>';
+              btn.addEventListener('click', function () {
+                current = opt.value;
+                label.textContent = opt.label;
+                closeAllPanels();
+                renderOptions();
+                onSelect(opt.value);
+              });
+              panel.appendChild(btn);
+            });
+          }
+          renderOptions();
+
+          trigger.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = panel.style.display === 'block';
+            closeAllPanels();
+            if (!isOpen) {
+              panel.style.display = 'block';
+              chevron.style.transform = 'rotate(180deg)';
+            }
+          });
+
+          return { get: function () { return current; } };
+        }
 
         function addRow(prefill) {
           var row = document.createElement('div');
-          row.className = 'flex items-center gap-2 criteria-row';
+          row.className = 'criteria-row flex flex-col gap-2.5 p-3.5 rounded-md border border-white/10 bg-shark-900';
           row.innerHTML =
-            '<select class="crit-field h-12 flex-1 bg-shark-900 border border-white/10 rounded-md px-2 text-xs text-white">' +
-              FIELDS.map(function (f) { return '<option value="' + f + '">' + f + '</option>'; }).join('') +
-            '</select>' +
-            '<select class="crit-op h-12 bg-shark-900 border border-white/10 rounded-md px-2 text-xs text-white">' +
-              '<option value="gte">&gt;=</option><option value="lte">&lt;=</option><option value="eq">=</option>' +
-            '</select>' +
-            '<input class="crit-value h-12 flex-1 bg-shark-900 border border-white/10 rounded-md px-2 text-xs text-white" placeholder="value">' +
-            '<button type="button" class="crit-remove text-white/30 hover:text-red-400 transition-colors shrink-0">' +
-              '<iconify-icon icon="boxicons:x" width="16"></iconify-icon></button>';
-          row.querySelector('.crit-remove').addEventListener('click', function () { row.remove(); });
-          if (prefill) {
-            row.querySelector('.crit-field').value = prefill.field;
-            row.querySelector('.crit-op').value    = prefill.operator;
-            row.querySelector('.crit-value').value = prefill.value;
+            '<div class="flex items-center justify-between">' +
+              '<label class="text-xs font-bold text-white/40 uppercase tracking-wide">Field</label>' +
+              '<button type="button" class="crit-remove w-6 h-6 -mr-1 flex items-center justify-center rounded-full text-white/30 hover:bg-white/8 hover:text-red-400 transition-colors">' +
+                '<iconify-icon icon="boxicons:x" width="14"></iconify-icon></button>' +
+            '</div>' +
+            '<div class="crit-field-dropdown custom-dropdown relative"></div>' +
+            '<div class="crit-condition-row flex items-start gap-2">' +
+              '<div class="crit-op-wrap flex flex-col gap-1.5 w-36 shrink-0">' +
+                '<label class="text-xs font-bold text-white/40 uppercase tracking-wide">Condition</label>' +
+              '</div>' +
+              '<div class="crit-value-wrap flex flex-col gap-1.5 flex-1">' +
+                '<label class="text-xs font-bold text-white/40 uppercase tracking-wide">Value</label>' +
+              '</div>' +
+            '</div>' +
+            '<p class="crit-note hidden text-sm text-white/60 bg-shark-800 border border-white/10 rounded-md px-3 py-3 m-0">Only users who already follow you can enter.</p>' +
+            '<div class="crit-status flex items-center gap-1.5">' +
+              '<iconify-icon class="crit-status-icon shrink-0" width="13"></iconify-icon>' +
+              '<span class="crit-status-text text-xs"></span>' +
+            '</div>';
+
+          row.querySelector('.crit-remove').addEventListener('click', function () { row.remove(); scheduleEstimate(); refreshSubmitState(); });
+
+          var fieldEl       = row.querySelector('.crit-field-dropdown');
+          var conditionRow = row.querySelector('.crit-condition-row');
+          var noteEl        = row.querySelector('.crit-note');
+          var opWrap    = row.querySelector('.crit-op-wrap');
+          var valueWrap = row.querySelector('.crit-value-wrap');
+          var statusIconEl = row.querySelector('.crit-status-icon');
+          var statusTextEl = row.querySelector('.crit-status-text');
+          var fieldDropdown, opDropdown, valueDropdown;
+
+          function setStatus(kind, text) {
+            row.dataset.status = kind;
+            statusTextEl.textContent = text;
+            if (kind === 'saving') {
+              statusIconEl.setAttribute('icon', 'boxicons:loader-circle');
+              statusIconEl.classList.add('animate-spin');
+              statusIconEl.style.color = 'rgba(255,255,255,0.4)';
+              statusTextEl.className = 'crit-status-text text-xs text-white/40';
+            } else if (kind === 'saved' || kind === 'ok') {
+              statusIconEl.classList.remove('animate-spin');
+              statusIconEl.setAttribute('icon', 'boxicons:check-circle');
+              statusIconEl.style.color = '#4ade80';
+              statusTextEl.className = 'crit-status-text text-xs text-white/40';
+            } else if (kind === 'invalid') {
+              statusIconEl.classList.remove('animate-spin');
+              statusIconEl.setAttribute('icon', 'boxicons:x-circle');
+              statusIconEl.style.color = '#f87171';
+              statusTextEl.className = 'crit-status-text text-xs text-red-400';
+            } else {
+              statusIconEl.classList.remove('animate-spin');
+              statusIconEl.setAttribute('icon', 'boxicons:minus-circle');
+              statusIconEl.style.color = 'rgba(255,255,255,0.25)';
+              statusTextEl.className = 'crit-status-text text-xs text-white/30';
+            }
+            refreshSubmitState();
           }
+
+          // Surfaces exactly what the silent skip used to hide: an empty value means this
+          // row won't be saved at all; an out-of-range value blocks Continue until fixed.
+          // A valid value goes "Saving…" immediately, then flips to "Criteria saved" once the
+          // debounced pool-estimate call (the one real round-trip this step makes) resolves.
+          function updateStatus() {
+            var field = fieldDropdown.get();
+            if (field === 'sex' || field === 'isFollower') {
+              setStatus('saving', 'Saving…');
+              return;
+            }
+            var raw = valueDropdown.get();
+            if (raw === '') {
+              setStatus('empty', 'Add a value to include this criteria');
+              return;
+            }
+            var num = Number(raw);
+            var cfg = NUMBER_CONFIG[field] || {};
+            if (cfg.min !== undefined && num < cfg.min) {
+              setStatus('invalid', 'Must be at least ' + cfg.min);
+              return;
+            }
+            if (cfg.max !== undefined && num > cfg.max) {
+              setStatus('invalid', 'Must be no more than ' + cfg.max);
+              return;
+            }
+            setStatus('saving', 'Saving…');
+          }
+
+          function clearControls(wrap) {
+            Array.prototype.slice.call(wrap.children).forEach(function (el) {
+              if (el.tagName !== 'LABEL') el.remove();
+            });
+          }
+
+          function renderConditionAndValue(field, prefillOp, prefillValue) {
+            clearControls(opWrap);
+            clearControls(valueWrap);
+
+            if (field === 'isFollower') {
+              conditionRow.classList.add('hidden');
+              noteEl.classList.remove('hidden');
+              opDropdown    = { get: function () { return 'eq'; } };
+              valueDropdown = { get: function () { return true; } };
+              return;
+            }
+            conditionRow.classList.remove('hidden');
+            noteEl.classList.add('hidden');
+
+            if (field === 'sex') {
+              var opFixed = document.createElement('div');
+              opFixed.className = 'h-12 flex items-center px-3 rounded-md bg-shark-800 border border-white/10 text-sm text-white/50';
+              opFixed.textContent = 'Is';
+              opWrap.appendChild(opFixed);
+
+              var sexDropdownEl = document.createElement('div');
+              sexDropdownEl.className = 'custom-dropdown relative';
+              valueWrap.appendChild(sexDropdownEl);
+              valueDropdown = buildDropdown(sexDropdownEl, SEX_OPTIONS, ['M', 'F', 'NB'].indexOf(prefillValue) >= 0 ? prefillValue : 'M', function () { updateStatus(); scheduleEstimate(); });
+              opDropdown = { get: function () { return 'eq'; } };
+            } else {
+              var opDropdownEl = document.createElement('div');
+              opDropdownEl.className = 'custom-dropdown relative';
+              opWrap.appendChild(opDropdownEl);
+              opDropdown = buildDropdown(opDropdownEl, OPERATORS, OPERATORS.some(function (o) { return o.value === prefillOp; }) ? prefillOp : 'gte', scheduleEstimate);
+
+              var cfg = NUMBER_CONFIG[field] || { min: 0, step: '1', placeholder: 'Value' };
+              var input = document.createElement('input');
+              input.type = 'number';
+              input.className = 'crit-value h-12 w-full bg-shark-800 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60';
+              input.min = cfg.min;
+              if (cfg.max !== undefined) input.max = cfg.max;
+              input.step = cfg.step;
+              input.placeholder = cfg.placeholder;
+              if (prefillValue !== undefined && prefillValue !== null && prefillValue !== '') input.value = prefillValue;
+              input.addEventListener('input', function () { updateStatus(); scheduleEstimate(); });
+              valueWrap.appendChild(input);
+              valueDropdown = { get: function () { return input.value.trim(); } };
+            }
+          }
+
+          var initialField = FIELDS.some(function (f) { return f.value === (prefill && prefill.field); }) ? prefill.field : 'ratingAvg';
+          fieldDropdown = buildDropdown(fieldEl, FIELDS, initialField, function (field) { renderConditionAndValue(field, 'gte', undefined); updateStatus(); scheduleEstimate(); });
+          renderConditionAndValue(initialField, prefill && prefill.operator, prefill && prefill.value);
+
+          row.getCriteria = function () {
+            return { fieldValue: fieldDropdown.get(), opValue: opDropdown.get(), value: valueDropdown.get() };
+          };
+
           rowsEl.appendChild(row);
+          updateStatus();
         }
 
-        document.getElementById('add-criteria-btn').addEventListener('click', function () { addRow(); });
+        document.getElementById('add-criteria-btn').addEventListener('click', function () { addRow(); scheduleEstimate(); });
+
+        document.addEventListener('click', closeAllPanels);
 
         initial.forEach(function (c) { addRow(c); });
+        fetchEstimate();
 
         form.addEventListener('submit', function () {
-          var criteria = [];
-          rowsEl.querySelectorAll('.criteria-row').forEach(function (row) {
-            var field = row.querySelector('.crit-field').value;
-            var op    = row.querySelector('.crit-op').value;
-            var raw   = row.querySelector('.crit-value').value.trim();
-            if (!raw) return;
-            var value = field === 'sex' ? raw : Number(raw);
-            criteria.push({ field: field, operator: op, value: value });
-          });
-          hidden.value = JSON.stringify(criteria);
+          hidden.value = JSON.stringify(serializeCriteria());
         });
       })();
       </script>
@@ -554,41 +942,60 @@
 
     <!-- ── Step 4: Jury Selection ─────────────────────────────────── -->
     <% if (step === 4) { %>
-      <p class="text-sm text-white/50 mb-4">Select 5–7 jury members. Their identity will never be shown to anyone, including you.</p>
+      <p class="text-sm text-white/50 mb-4">Select 5–7 jury members. Their identity stays visible only to you — no one else, including the contestants, will ever see who they are.</p>
 
-      <form method="POST" action="/tournaments/create/step4" id="tournament-step-form" class="flex flex-col gap-4">
+      <form method="POST" action="<%= STEP_URLS[4] %>" id="tournament-step-form" class="flex flex-col gap-4">
         <div class="relative">
-          <input type="text" id="jury-search" placeholder="Search by username or display name"
-            class="h-12 w-full bg-shark-900 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
-          <div id="jury-results" class="hidden absolute z-10 top-full mt-1 w-full bg-shark-900 border border-white/10 rounded-md overflow-hidden max-h-60 overflow-y-auto"></div>
+          <div class="relative">
+            <iconify-icon icon="boxicons:search" width="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" style="display:block"></iconify-icon>
+            <input type="text" id="jury-search" placeholder="Search by username or display name" autocomplete="off"
+              class="h-12 w-full bg-shark-900 border border-white/10 rounded-md pl-9 pr-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+          </div>
+          <div id="jury-results" class="hidden absolute z-20 top-full mt-1.5 w-full bg-shark-900 border border-white/10 rounded-md shadow-xl overflow-hidden max-h-60 overflow-y-auto"></div>
         </div>
 
-        <div id="jury-selected" class="flex flex-col gap-2"></div>
-        <p class="text-xs text-white/30"><span id="jury-count">0</span> selected (5–7 required)</p>
+        <div class="flex flex-col gap-2">
+          <div id="jury-selected" class="flex flex-col gap-2"></div>
+          <div id="jury-empty" class="flex flex-col items-center justify-center gap-1.5 py-8">
+            <iconify-icon icon="boxicons:group" width="20" style="color:rgba(255,255,255,0.2);display:block"></iconify-icon>
+            <span class="text-xs text-white/30">No jury members selected yet</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <iconify-icon id="jury-count-icon" icon="boxicons:info-circle" width="14" style="color:rgba(255,255,255,0.25);display:block"></iconify-icon>
+          <p class="text-xs text-white/40 m-0"><span id="jury-count" class="font-semibold text-white">0</span> selected <span class="text-white/30">(5–7 required)</span></p>
+        </div>
 
         <div class="flex items-center gap-2 mt-2">
-          <a href="/tournaments/create/step3"
-            class="h-11 px-5 flex items-center justify-center bg-shark-900 hover:bg-shark-800 border border-white/10 text-white/70 text-sm font-semibold rounded-md transition-colors shrink-0">
+          <a href="<%= STEP_URLS[3] %>"
+            class="h-12 px-5 flex items-center justify-center bg-shark-900 hover:bg-shark-800 border border-white/10 text-white/70 text-sm font-semibold rounded-md transition-colors shrink-0">
             Back
           </a>
           <button type="submit" id="step4-submit" disabled
-            class="flex-1 bg-charm-600 hover:bg-charm-500 disabled:opacity-40 disabled:pointer-events-none text-white text-sm font-semibold py-2.5 rounded-md transition-colors">
-            Launch Tournament
+            class="h-12 flex-1 bg-charm-500/15 hover:bg-charm-500/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-charm-500/15 text-charm-400 text-sm font-semibold rounded-md transition-colors">
+            Continue to Review
           </button>
         </div>
       </form>
 
+      <%- include('../partials/avatarJsHelpers') %>
       <script>
       (function () {
         var searchInput = document.getElementById('jury-search');
         var resultsEl    = document.getElementById('jury-results');
         var selectedEl   = document.getElementById('jury-selected');
+        var emptyEl      = document.getElementById('jury-empty');
         var countEl      = document.getElementById('jury-count');
+        var countIconEl  = document.getElementById('jury-count-icon');
         var submitBtn    = document.getElementById('step4-submit');
-        var form         = document.getElementById('tournament-step-form');
         var selected     = new Map();
+        var lastResults  = [];
         var debounceId;
+        var suppressOutsideClick = false;
         var initialJury  = <%- JSON.stringify(typeof existingJury !== 'undefined' ? existingJury : []) %>;
+        var escHtml      = window.ataEscHtml;
+        var avatarHtml   = window.ataAvatarHtml;
 
         initialJury.forEach(function (u) { selected.set(String(u._id), u); });
 
@@ -596,55 +1003,252 @@
           selectedEl.innerHTML = '';
           selected.forEach(function (u, id) {
             var row = document.createElement('div');
-            row.className = 'flex items-center gap-2 bg-shark-900 border border-white/10 rounded-md px-3 py-2';
+            row.className = 'flex items-center gap-3 p-3 rounded-md border border-white/10 bg-shark-900';
             row.innerHTML =
-              '<span class="text-sm text-white flex-1 truncate">' + u.displayName + ' <span class="text-white/40">@' + u.username + '</span></span>' +
-              '<button type="button" class="text-white/30 hover:text-red-400 transition-colors shrink-0"><iconify-icon icon="boxicons:x" width="15"></iconify-icon></button>' +
-              '<input type="hidden" name="juryUserIds" value="' + id + '">';
-            row.querySelector('button').addEventListener('click', function () {
+              avatarHtml(u.avatar, 'w-9 h-9', '16') +
+              '<div class="flex flex-col min-w-0 flex-1">' +
+                '<span class="text-sm font-semibold text-white truncate">' + escHtml(u.displayName) + '</span>' +
+                '<span class="text-xs text-white/40 truncate">@' + escHtml(u.username) + '</span>' +
+              '</div>' +
+              '<button type="button" class="jury-remove w-7 h-7 flex items-center justify-center rounded-full text-white/30 hover:bg-white/8 hover:text-red-400 transition-colors shrink-0">' +
+                '<iconify-icon icon="boxicons:x" width="15"></iconify-icon></button>' +
+              '<input type="hidden" name="juryUserIds" value="' + escHtml(id) + '">';
+            row.querySelector('.jury-remove').addEventListener('click', function () {
               selected.delete(id);
               renderSelected();
             });
             selectedEl.appendChild(row);
           });
-          countEl.textContent = selected.size;
-          submitBtn.disabled = selected.size < 5 || selected.size > 7;
+
+          var count = selected.size;
+          emptyEl.classList.toggle('hidden', count > 0);
+          countEl.textContent = count;
+
+          if (count >= 5 && count <= 7) {
+            countIconEl.setAttribute('icon', 'boxicons:check-circle');
+            countIconEl.style.color = '#4ade80';
+            countEl.className = 'font-semibold text-green-400';
+          } else if (count > 7) {
+            countIconEl.setAttribute('icon', 'boxicons:x-circle');
+            countIconEl.style.color = '#f87171';
+            countEl.className = 'font-semibold text-red-400';
+          } else {
+            countIconEl.setAttribute('icon', 'boxicons:info-circle');
+            countIconEl.style.color = 'rgba(255,255,255,0.25)';
+            countEl.className = 'font-semibold text-white';
+          }
+
+          submitBtn.disabled = count < 5 || count > 7;
+
+          if (!resultsEl.classList.contains('hidden')) renderResults();
+        }
+
+        function renderResults() {
+          resultsEl.innerHTML = '';
+          if (!lastResults.length) { resultsEl.classList.add('hidden'); return; }
+          lastResults.forEach(function (u) {
+            var id = String(u._id);
+            var isSelected = selected.has(id);
+            var item = document.createElement('div');
+            item.className = 'flex items-center gap-2.5 w-full px-3 py-2 hover:bg-white/5 transition-colors cursor-pointer' + (isSelected ? ' bg-charm-500/10' : '');
+            item.innerHTML =
+              '<iconify-icon class="jury-result-check shrink-0 transition-colors" icon="' + (isSelected ? 'boxicons:check-square-filled' : 'boxicons:square') + '" width="16" style="color:' + (isSelected ? '#dd6890' : 'rgba(255,255,255,0.25)') + '"></iconify-icon>' +
+              avatarHtml(u.avatar, 'w-7 h-7', '13') +
+              '<div class="flex flex-col gap-0 min-w-0 flex-1">' +
+                '<span class="text-sm text-white/80 font-medium truncate">' + escHtml(u.displayName) + '</span>' +
+                '<span class="text-xs text-white/35 truncate">@' + escHtml(u.username) + '</span>' +
+              '</div>';
+            item.addEventListener('click', function () {
+              suppressOutsideClick = true;
+              if (selected.has(id)) {
+                selected.delete(id);
+              } else {
+                selected.set(id, u);
+              }
+              renderSelected();
+              searchInput.focus();
+            });
+            resultsEl.appendChild(item);
+          });
+
+          var footer = document.createElement('div');
+          footer.className = 'sticky bottom-0 bg-shark-900 border-t border-white/10 p-2';
+          footer.innerHTML =
+            '<button type="button" class="jury-results-done w-full h-12 flex items-center justify-center bg-charm-500/15 hover:bg-charm-500/25 text-charm-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-charm-500/15 text-sm font-semibold rounded-md transition-colors"' + (selected.size === 0 ? ' disabled' : '') + '>' +
+              'Done' + (selected.size ? ' (' + selected.size + ')' : '') +
+            '</button>';
+          footer.querySelector('.jury-results-done').addEventListener('click', function () {
+            resultsEl.classList.add('hidden');
+          });
+          resultsEl.appendChild(footer);
+
+          resultsEl.classList.remove('hidden');
         }
 
         searchInput.addEventListener('input', function () {
           clearTimeout(debounceId);
           var q = searchInput.value.trim();
-          if (!q) { resultsEl.classList.add('hidden'); return; }
+          if (!q) { lastResults = []; resultsEl.classList.add('hidden'); resultsEl.innerHTML = ''; return; }
           debounceId = setTimeout(function () {
             fetch('/api/tournaments/search-users?q=' + encodeURIComponent(q), { method: 'POST' })
               .then(function (r) { return r.json(); })
               .then(function (users) {
-                resultsEl.innerHTML = '';
-                users.filter(function (u) { return !selected.has(u._id); }).forEach(function (u) {
-                  var item = document.createElement('button');
-                  item.type = 'button';
-                  item.className = 'w-full text-left px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors flex items-center gap-2';
-                  item.innerHTML = '<span class="truncate">' + u.displayName + ' <span class="text-white/40">@' + u.username + '</span></span>';
-                  item.addEventListener('click', function () {
-                    selected.set(u._id, u);
-                    renderSelected();
-                    resultsEl.classList.add('hidden');
-                    searchInput.value = '';
-                  });
-                  resultsEl.appendChild(item);
-                });
-                resultsEl.classList.toggle('hidden', users.length === 0);
+                lastResults = users;
+                renderResults();
               });
           }, 250);
         });
 
+        searchInput.addEventListener('focus', function () {
+          if (lastResults.length && searchInput.value.trim()) renderResults();
+        });
+
         document.addEventListener('click', function (e) {
+          if (suppressOutsideClick) { suppressOutsideClick = false; return; }
           if (!resultsEl.contains(e.target) && e.target !== searchInput) resultsEl.classList.add('hidden');
         });
 
         renderSelected();
       })();
       </script>
+    <% } %>
+
+    <!-- ── Step 5: Review ─────────────────────────────────────────── -->
+    <% if (step === 5) { %>
+      <p class="text-sm text-white/50 mb-4">
+        <% if (isEditing) { %>
+          Review your changes before saving. Prize pool adjustments and jury changes take effect immediately.
+        <% } else { %>
+          Review everything before you launch. Once launched, the prize pool is deducted from your wallet and candidates can start submitting entries immediately.
+        <% } %>
+      </p>
+
+      <%
+        var FIELD_LABELS = {
+          ratingAvg: 'Average rating', ratingCount: 'Rating count', followerCount: 'Follower count',
+          isFollower: 'Following you', age: 'Age', sex: 'Sex', entryCount: 'Entry count', accountAgeDays: 'Account age (days)',
+        };
+        var OP_LABELS  = { gte: 'at least', lte: 'at most', eq: 'exactly' };
+        var SEX_LABELS = { M: 'Male', F: 'Female', NB: 'Non-binary' };
+        function formatCriterion(c) {
+          if (c.field === 'isFollower') return 'Only users who already follow you can enter';
+          if (c.field === 'sex') return 'Sex is ' + (SEX_LABELS[c.value] || c.value);
+          return FIELD_LABELS[c.field] + ' ' + (OP_LABELS[c.operator] || c.operator) + ' ' + c.value;
+        }
+        var criteria  = formData.eligibilityCriteria || [];
+        var prizes    = formData.prizes || {};
+        var prizeTotal = (prizes.first || 0) + (prizes.second || 0) + (prizes.third || 0);
+      %>
+
+      <form method="POST" action="<%= STEP_URLS[5] %>" id="tournament-step-form" class="flex flex-col gap-4">
+
+        <!-- Basics -->
+        <div class="flex flex-col gap-3 p-4 rounded-md border border-white/10 bg-shark-900">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white/40 uppercase tracking-wide">Basics</span>
+            <a href="<%= STEP_URLS[1] %>" class="text-xs font-semibold text-charm-400 hover:text-charm-300 transition-colors">Edit</a>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-14 h-14 shrink-0 rounded-md overflow-hidden bg-shark-800 border border-white/10 flex items-center justify-center">
+              <% if (formData.thumbnailUrl) { %>
+                <img src="<%= formData.thumbnailUrl %>" alt="" class="w-full h-full object-cover">
+              <% } else { %>
+                <iconify-icon icon="boxicons:image" width="20" class="text-white/15"></iconify-icon>
+              <% } %>
+            </div>
+            <div class="flex flex-col min-w-0">
+              <span class="text-sm font-semibold text-white truncate capitalize"><%= formData.name %></span>
+              <span class="text-xs text-white/40"><%= formData.visibility === 'private' ? 'Private' : 'Public' %> · <%= formData.size %> entries · <%= formData.openDays %> day<%= formData.openDays > 1 ? 's' : '' %> open</span>
+            </div>
+          </div>
+          <% if (formData.description) { %>
+            <p class="text-xs text-white/50 m-0 leading-relaxed"><%= formData.description %></p>
+          <% } %>
+        </div>
+
+        <!-- Prizes -->
+        <div class="flex flex-col gap-3 p-4 rounded-md border border-white/10 bg-shark-900">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white/40 uppercase tracking-wide">Prizes</span>
+            <a href="<%= STEP_URLS[2] %>" class="text-xs font-semibold text-charm-400 hover:text-charm-300 transition-colors">Edit</a>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-white/50">1st place</span>
+              <span class="text-white font-semibold"><%= (prizes.first || 0).toLocaleString() %> 🌶️</span>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-white/50">2nd place</span>
+              <span class="text-white font-semibold"><%= (prizes.second || 0).toLocaleString() %> 🌶️</span>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-white/50">3rd place</span>
+              <span class="text-white font-semibold"><%= (prizes.third || 0).toLocaleString() %> 🌶️</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-white/10">
+            <span class="text-sm text-white/50">Total prize pool</span>
+            <span class="text-base font-bold text-white"><%= prizeTotal.toLocaleString() %> 🌶️</span>
+          </div>
+        </div>
+
+        <!-- Eligibility -->
+        <div class="flex flex-col gap-3 p-4 rounded-md border border-white/10 bg-shark-900">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white/40 uppercase tracking-wide">Eligibility</span>
+            <a href="<%= STEP_URLS[3] %>" class="text-xs font-semibold text-charm-400 hover:text-charm-300 transition-colors">Edit</a>
+          </div>
+          <% if (!criteria.length) { %>
+            <p class="text-xs text-white/40 m-0">Open to all eligible users — no restrictions set.</p>
+          <% } else { %>
+            <ul class="flex flex-col gap-1.5 m-0 pl-0 list-none">
+              <% criteria.forEach(function (c) { %>
+                <li class="flex items-center gap-1.5 text-xs text-white/60">
+                  <iconify-icon icon="boxicons:check" width="13" class="text-charm-400 shrink-0"></iconify-icon>
+                  <%= formatCriterion(c) %>
+                </li>
+              <% }) %>
+            </ul>
+          <% } %>
+        </div>
+
+        <!-- Jury -->
+        <div class="flex flex-col gap-3 p-4 rounded-md border border-white/10 bg-shark-900">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white/40 uppercase tracking-wide">Jury (<%= existingJury.length %>)</span>
+            <a href="<%= STEP_URLS[4] %>" class="text-xs font-semibold text-charm-400 hover:text-charm-300 transition-colors">Edit</a>
+          </div>
+          <div class="flex flex-col gap-2">
+            <% existingJury.forEach(function (u) { %>
+              <div class="flex items-center gap-3">
+                <% if (u.avatar) { %>
+                  <img src="<%= u.avatar %>" alt="" class="w-8 h-8 rounded-full object-cover bg-shark-800 shrink-0">
+                <% } else { %>
+                  <div class="w-8 h-8 rounded-full bg-charm-200 flex items-center justify-center shrink-0">
+                    <iconify-icon icon="boxicons:user-filled" width="14" style="color:#dd6890;display:block"></iconify-icon>
+                  </div>
+                <% } %>
+                <div class="flex flex-col min-w-0">
+                  <span class="text-sm font-medium text-white truncate"><%= u.displayName %></span>
+                  <span class="text-xs text-white/40 truncate">@<%= u.username %></span>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+          <p class="text-xs text-white/30 m-0">Their identity stays visible only to you.</p>
+        </div>
+
+        <div class="flex items-center gap-2 mt-2">
+          <a href="<%= STEP_URLS[4] %>"
+            class="h-12 px-5 flex items-center justify-center bg-shark-900 hover:bg-shark-800 border border-white/10 text-white/70 text-sm font-semibold rounded-md transition-colors shrink-0">
+            Back
+          </a>
+          <button type="submit" id="step5-submit"
+            class="h-12 flex-1 bg-charm-600 hover:bg-charm-500 text-white cursor-pointer text-sm font-semibold rounded-md transition-colors">
+            <%= isEditing ? 'Save Changes' : 'Launch Tournament' %>
+          </button>
+        </div>
+      </form>
     <% } %>
 
   </div>

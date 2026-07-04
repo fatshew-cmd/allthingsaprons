@@ -1,5 +1,9 @@
 # July Action Plan
 
+## Current State (July 3)
+
+Tournament creation flow (Phase 2) grew a lot beyond its original scope: a 5th wizard step ("Review") before finalize, a full edit wizard so organizers can revise a live tournament (`open`/`cooldown` only) with wallet true-up and criteria re-checks, an organizer self-cancel route, and — new capability not previously planned at all — a jury invite/accept/decline flow plus organizer jury management/replace. The right panel's "Ongoing Tournaments" section (originally slated for Phase 7.7, after match generation existed) also shipped early since it only needed `Tournament.status === 'active'` to be a reachable state, not real matches. Full breakdown in `tournament-implementation-plan.md`'s status header and its new "Phase 2 Extensions" section. Candidate submission, approval, group/knockout progression, and prize payout (Phases 3–8) are still not started — and the agenda jobs that do exist (`jobs/tournamentJobs.js`) have a known gap: `tournament_cooldown_expiry` currently flips a tournament to `active` with no groups or matches generated, since Phase 4 doesn't exist yet.
+
 ## Current State (July 1)
 
 July opened with the search page fully wired and a round of dead code cleanup. The `Retag` model is gone. The `/take-on/:id` route now redirects to `/contest/:id` directly. Affinity source props are wired from all entryCard actions. Everything else is as closed June left it.
@@ -24,7 +28,7 @@ June closed with the full standalone contest lifecycle, the chilli wallet econom
 
 | Item | Status |
 |---|---|
-| `Tournament` + `TournamentEntry` models | Superseded by `tournament-implementation-plan.md` — schema (Phase 1) and creation flow (Phase 2) are done as of 2026-07-03; candidate submission/review, group/knockout progression, and prize distribution (Phases 3–8) are not started. See that doc's status header for the current breakdown, not this row. |
+| `Tournament` + `TournamentEntry` models | Superseded by `tournament-implementation-plan.md` — schema (Phase 1), creation flow (Phase 2, extended well beyond spec with an edit wizard + jury invite/accept/decline/replace + self-cancel), and right panel wiring (Phase 9G) are done as of 2026-07-03; candidate submission/review, group/knockout progression, and prize distribution (Phases 3–8) are not started. See that doc's status header for the current breakdown, not this row. |
 | Pre-launch test bypasses | **On hold — not yet, still actively testing.** Must revert before any public release (see below) |
 | ~~`Retag` model~~ | Deleted 2026-07-01 — was never wired, no longer exists |
 | ~~Search page~~ | **Done 2026-07-01** — see Current State above |
@@ -181,11 +185,9 @@ When a tournament contest closes (via the existing `close_contest` agenda job), 
 
 ---
 
-#### Phase 7.7 — Right Panel — Ongoing Tournaments
+#### Phase 7.7 — Right Panel — Ongoing Tournaments ✅ (done 2026-07-03, ahead of schedule)
 
-Replace the current skeleton in `views/partials/rightPanel.ejs` with real data:
-- `injectRightPanelData` middleware already runs — add `activeTournaments` query (up to 3, status: `active`, sorted by `roundsStartAt` desc)
-- Show tournament name, entry count, prize pool badge, link to `/tournament/:id`
+~~Replace the current skeleton in `views/partials/rightPanel.ejs` with real data~~ — done via `tournament-implementation-plan.md`'s Phase 9G, not this superseded Phase 7 breakdown. `injectRightPanelData` populates `activeTournaments` (limit 5, sorted by `activeAt` desc); `rightPanel.ejs` renders thumbnail-or-trophy-icon, name, and USD-formatted prize pool, linking to `/tournament/:id`. Shipped early since it only needed `Tournament.status: 'active'` to exist as a state, not real match data.
 
 ---
 

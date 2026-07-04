@@ -69,8 +69,10 @@ mongoose
     const { registerContestJobs } = require('./jobs/contestJobs');
     const { startSweeper }        = require('./jobs/sweeper');
     const { registerWalletJobs, startWalletJobs } = require('./jobs/walletJobs');
+    const { registerTournamentJobs } = require('./jobs/tournamentJobs');
     registerContestJobs(agenda);
     registerWalletJobs(agenda);
+    registerTournamentJobs(agenda);
     await agenda.start();
     await startSweeper(agenda);
     await startWalletJobs(agenda);

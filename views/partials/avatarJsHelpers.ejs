@@ -1,0 +1,12 @@
+<script>
+// Shared client-side helpers for rendering user avatars in JS-built dropdown/list markup
+// (falls back to a charm-200/user-filled circle when no avatar is set). Included by any
+// view that builds user search results or picker rows client-side.
+window.ataEscHtml = window.ataEscHtml || function (s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+};
+window.ataAvatarHtml = window.ataAvatarHtml || function (src, sizeCls, iconSize) {
+  if (src) return '<img src="' + window.ataEscHtml(src) + '" alt="" class="' + sizeCls + ' rounded-full object-cover bg-shark-800 shrink-0">';
+  return '<div class="' + sizeCls + ' rounded-full bg-charm-200 flex items-center justify-center shrink-0"><iconify-icon icon="boxicons:user-filled" width="' + iconSize + '" style="color:#dd6890;display:block"></iconify-icon></div>';
+};
+</script>

@@ -12,6 +12,8 @@ var txLabels = {
   admin_grant:             'Admin Grant',
   platform_fee:            'Platform Fee',
   manual_correction:       'Manual Correction',
+  tournament_prize_hold:   'Tournament Prize Hold',
+  tournament_prize_refund: 'Tournament Prize Refund',
 };
 var label    = txLabels[tx.type] || tx.type;
 var isCredit = tx.direction === 'credit';

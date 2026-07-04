@@ -17,6 +17,7 @@ const walletTransactionSchema = new mongoose.Schema({
       'makeup_payout',
       'manual_correction',
       'tournament_prize_hold',
+      'tournament_prize_refund',
     ],
     required: true,
   },

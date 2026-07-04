@@ -4,14 +4,14 @@
 > Spec source: `plans/July/tournament-spec.md`.
 > Written against actual codebase structure as of 2026-07-02.
 
-**Status (as of 2026-07-03): Phase 1 done, Phase 2 done, Phase 9 partially done (creation-flow views only). Phases 3–8 not started.**
+**Status (as of 2026-07-03): Phase 1 done, Phase 2 done and substantially extended beyond spec (edit wizard, jury invite/accept/decline, jury replace, self-cancel), Phase 9 partially done (browse/create/detail views + right panel; review/jury-vote pages are still shells). Phases 3–8 (candidate submission through prize payout) not started — see the gap called out below.**
 
-- **Phase 1 (schema) — done.** `models/Tournament.js`, `models/TournamentEntry.js`, `models/TournamentGroup.js`, `models/TournamentMatch.js`, `models/TournamentJury.js`, `models/TournamentJuryVote.js` all exist and are mounted in `server.js`. `Tournament` also picked up two fields beyond the original 1A spec: `thumbnailUrl` (required) and `visibility` (`'public' | 'private'`, default `'public'`) — see the Step 1 section below and the "Private Tournaments" note in `tournament-spec.md`.
-- **Phase 2 (creation flow) — done**, including the funding sub-route (`POST /tournaments/fund`). `middleware/requireOrganizerEligibility.js` and `routes/tournaments.js` exist and are mounted. Built behavior diverges from the original 2A/2C spec in several places — see those sections below for the as-built details (6 eligibility checks not 5, redirect+flash instead of JSON 403, thumbnail + visibility + live name-uniqueness check added to Step 1, tighter length limits, session-persisted draft with step-resume).
-- **Phase 9 (frontend) — partially done.** Only the views tied to browsing/creating a tournament are live and wired: `views/tournaments/index.ejs`, `create.ejs`, `detail.ejs` (read-only — no group/bracket/vote rendering yet since nothing generates groups or matches). `review.ejs` and `jury-vote.ejs` exist as page shells (`GET /tournament/:id/review`, `GET /tournament/:id/jury-vote/:matchId` render them) but have no backing POST actions yet — see below.
-- **Phases 3–8 — not started.** No `jobs/tournamentJobs.js`, `utils/tournamentScheduler.js`, or `utils/tournamentEligibility.js` exist yet. There is no route to submit a candidate entry to a tournament and no organizer approve/reject route — `review.ejs` renders the pending queue but has nothing to POST to. No group generation, match scheduling, standings, knockout progression, tie resolution, or prize distribution exists. `views/admin/tournaments/index.ejs` and `review.ejs` are still skeletons reflecting the old, superseded design (admin review queue, `pending_review`) and still need repurposing per Phase 9I.
+- **Phase 1 (schema) — done.** `models/Tournament.js`, `models/TournamentEntry.js`, `models/TournamentGroup.js`, `models/TournamentMatch.js`, `models/TournamentJury.js`, `models/TournamentJuryVote.js` all exist and are mounted in `server.js`. `Tournament` also picked up two fields beyond the original 1A spec: `thumbnailUrl` (required) and `visibility` (`'public' | 'private'`, default `'public'`) — see the Step 1 section below and the "Private Tournaments" note in `tournament-spec.md`. `Tournament.eligibilityCriteria` gained an `isFollower` field option beyond the original 7 (eq/true only — "must follow the organizer"). `TournamentJury` gained `status: 'pending' | 'accepted' | 'declined'` (default `'pending'`) and `respondedAt` — jury membership is now an invite a user accepts/declines, not an unconditional assignment (see the new jury invite/manage flow below, which didn't exist in the original spec at all).
+- **Phase 2 (creation flow) — done and extended well beyond spec.** `middleware/requireOrganizerEligibility.js` and `routes/tournaments.js` exist and are mounted. Built behavior diverges from the original 2A/2C spec in several places — see those sections below for the as-built details (6 eligibility checks not 5, redirect+flash instead of JSON 403, thumbnail + visibility + live name-uniqueness check added to Step 1, tighter length limits, session-persisted draft with step-resume). **New beyond original spec, built 2026-07-03 — see "Phase 2 Extensions" section immediately below Phase 2 exit criteria:** a 5th wizard step ("Review") before finalize; a full **edit wizard** (`GET/POST /tournament/:id/edit` + `/edit/step1`–`/step5`) letting the organizer revise a live `open`/`cooldown` tournament, with wallet true-up, criteria re-checks that drop now-ineligible candidates, and jury diffing; an organizer **self-cancel** route (`POST /tournament/:id/cancel`); a **jury invite/accept/decline** flow (`GET /tournament/:id/jury-invite`, `POST /tournament/:id/jury-invite/respond`); and a **jury management/replace** flow for organizers (`GET /tournament/:id/jury/manage`, `POST /tournament/:id/jury/replace`) usable while `status: 'open'`.
+- **Phase 9 (frontend) — partially done, ahead of schedule in places.** `views/tournaments/index.ejs`, `create.ejs` (now 5 steps + edit mode), `detail.ejs` (read-only content, but organizer actions — cancel, edit, manage jury — are wired) are live. **9G (right panel) is done** — `middleware/injectRightPanelData.js` populates `activeTournaments` (limit 5) and `views/partials/rightPanel.ejs` renders it — despite Phase 9 nominally following Phases 3–8, this had no dependency on match generation so it shipped early. New views not in the original 9A list: `views/tournaments/jury-invite.ejs`, `views/tournaments/jury-manage.ejs`, and a shared `views/partials/avatarJsHelpers.ejs` script partial. `review.ejs` and `jury-vote.ejs` still exist only as page shells (render, no backing POST actions).
+- **Phases 3–8 — not started, with one caveat.** No `utils/tournamentScheduler.js` or `utils/tournamentEligibility.js` exist yet. There is still no route to submit a candidate entry to a tournament and no organizer approve/reject route — `review.ejs` renders nothing real to review. No group generation, match scheduling, standings, knockout progression, tie resolution, or prize distribution exists. **Caveat: `jobs/tournamentJobs.js` now exists**, but only implements a simplified, diverged version of the Phase 3 open/cooldown expiry jobs (see "Phase 2 Extensions" below for exact behavior and a flagged gap: `tournament_cooldown_expiry` currently flips a tournament straight to `status: 'active'` with no groups or matches generated, since Phase 4 doesn't exist yet). `views/admin/tournaments/index.ejs` and `review.ejs` are still skeletons reflecting the old, superseded design (admin review queue, `pending_review`) and still need repurposing per Phase 9I.
 
-Next step: Phase 3 (open phase & candidate management).
+Next step: Phase 3 (open phase & candidate management) — building the actual `/submit` and approve/reject routes, and reconciling them with the jury-gated expiry jobs that already exist in `jobs/tournamentJobs.js`.
 
 ---
 
@@ -543,6 +543,72 @@ This function does all the writes atomically:
 
 ---
 
+## Phase 2 Extensions — built 2026-07-03, beyond original spec
+
+None of this was in the original plan. It grew out of Phase 2 while building the creation wizard and is documented here rather than renumbered into Phase 2A–2H above.
+
+### Step 5 — Review (new wizard step)
+
+`GET/POST /tournaments/create/step5` — inserted before finalize. Requires `draft.juryUserIds.length >= 5` (else redirect to step4). Renders a summary of Basics/Prizes/Eligibility/Jury with "Edit" links back to each step. `POST` with `intent: 'draft'` just flashes "Draft saved."; otherwise calls `finalizeTournamentCreation(req)` (unchanged from 2H) and redirects to the new tournament. The wizard is now **5 steps, not 4** — `views/tournaments/index.ejs`'s Draft-tab resume copy and `create.ejs`'s step indicator both reflect this.
+
+`finalizeTournamentCreation` also now sends a `tournament_jury_invite` notification to each selected juror (payload includes `url: '/tournament/:id/jury-invite'`), and wraps the whole write sequence in try/catch: on any failure it rolls back the wallet debit, deletes the half-created `Tournament` + `TournamentJury` docs + jury-invite notifications, and cancels the scheduled `tournament_open_expiry` job — best-effort, doesn't mask the original error.
+
+### Jury invite / accept / decline flow
+
+Jury membership is now opt-in. `TournamentJury.status` starts `'pending'`.
+
+- `GET /tournament/:id/jury-invite` — juror-facing; requires a `pending` `TournamentJury` record for `req.currentUser` and tournament `status: 'open'`; renders `views/tournaments/jury-invite.ejs` (thumbnail, tournament name/size/prize pool, explanation of the tie-break duty and anonymity guarantee, "no response counts as acceptance" notice, Accept/Decline buttons).
+- `POST /tournament/:id/jury-invite/respond` — body `{ action: 'accept' | 'decline' }`; atomically updates the record (`findOneAndUpdate` guarded on `status: 'pending'`) to `accepted`/`declined` + `respondedAt`. On decline, notifies the organizer with `tournament_jury_declined` (payload links to `/tournament/:id/jury/manage`).
+- **Auto-accept on open expiry:** when `tournament_open_expiry` fires (see below), any juror who never responded is auto-accepted (`autoAcceptPendingJury`) — matches the jury-invite page's stated policy.
+- The jury-vote route (`GET /tournament/:id/jury-vote/:matchId`) now requires the juror's `TournamentJury.status` to be `'accepted'`, not just present.
+
+### Jury management / replace (organizer)
+
+- `GET /tournament/:id/jury/manage` — organizer-only; lists every `TournamentJury` record (any status) with a status badge; renders `views/tournaments/jury-manage.ejs`. For each `declined` juror, while tournament is still `open`, shows an inline user-search ("Replace") hitting `POST /api/tournaments/search-users?excludeTournamentId=...`.
+- `POST /tournament/:id/jury/replace` — body `{ oldUserId, newUserId }`; requires `status: 'open'`, organizer-only; `newUserId` can't be the organizer, an existing juror, banned, or `juryBanned`. Uses an atomic `findOneAndDelete({ status: 'declined', userId: oldUserId })` guard so two concurrent replace attempts can't double-replace the same slot. Inserts the new `TournamentJury` (`status: 'pending'`) and sends it a `tournament_jury_invite` notification.
+- `GET /tournament/:id` (detail route) now computes `declinedJuryCount` for the organizer, surfaced on the detail page as a "Manage jury" card with an "N declined" badge, always visible to the organizer (not gated to `open` — though the replace action itself is).
+
+### Edit wizard (organizer revises a live `open`/`cooldown` tournament)
+
+New: `GET/POST /tournament/:id/edit` + `/edit/step1` through `/edit/step5`, reusing `views/tournaments/create.ejs` with `editing: true` (different step URLs, "Save Changes" instead of "Save as Draft", a per-step `trySaveNow` shortcut that finalizes immediately on `intent: 'save'` without walking the rest of the wizard). Only the organizer can reach it, and only while `status` is `open` or `cooldown`; `loadEditableTournament` enforces both and 403s/redirects otherwise.
+
+`finalizeTournamentEdit(req, tournament)` — validates everything before any writes (no multi-doc transactions in this codebase):
+- Re-fetches the tournament fresh; re-requires `open`/`cooldown`.
+- Blocks shrinking `size` below the current approved-entry count; otherwise recomputes `groupSize`/`groupCount`.
+- If still `open` and `openDays` changed: recomputes `openDeadline` (rejects if it lands in the past) and reschedules the `tournament_open_expiry` agenda job.
+- **Wallet true-up:** `delta = newTotal - oldTotal` prize pool. Positive delta debits the wallet (guarded `findOneAndUpdate` on sufficient `purchasedCHL`) and logs a `tournament_prize_hold` (`source: 'tournament_edit'`); negative delta calls `creditWallet(...)` with `tournament_prize_refund`.
+- **Criteria change:** if `eligibilityCriteria` changed, re-checks every `pending`/`approved` `TournamentEntry` via `estimateParticipantPool.meetsTournamentCriteria` (see below) — anyone who no longer qualifies is set to `approvalStatus: 'rejected'` and notified with `tournament_entry_removed`.
+- **Jury diff:** computes added/removed juror sets; new jurors get a fresh `TournamentJury` (`status: 'pending'`) + `tournament_jury_invite` notification; removed jurors' records are deleted outright.
+- Tournament fields are persisted last, once everything else has succeeded.
+
+### Organizer self-cancel
+
+`POST /tournament/:id/cancel` — organizer-only, while `status` is `open` or `cooldown`. Cancels whichever agenda job is pending (`tournament_open_expiry` or `tournament_cooldown_expiry`) and calls `cancelTournament(tournamentId, 'organizer_canceled')` — a new cancellation reason beyond the original spec's `insufficient_candidates`/`cooldown_expired`. The detail page shows this behind a confirmation modal that spells out the prize refund and candidate notifications before submitting.
+
+### New utils: `utils/tournamentCriteria.js`, `utils/estimateParticipantPool.js`, `utils/wallet.js`
+
+- **`utils/tournamentCriteria.js`** — just the shared constants (`CRITERIA_FIELDS` including `isFollower`, `CRITERIA_OPERATORS`, `SEX_VALUES`), imported by both `routes/tournaments.js` and `utils/estimateParticipantPool.js` so the field/operator lists can't drift between validation and evaluation.
+- **`utils/estimateParticipantPool.js`** — exports `estimateParticipantPool(organizerId, criteria)`, an aggregation that estimates how many currently-registered users would qualify for a given criteria set today (only joins what the criteria set actually needs — plain age/sex/accountAgeDays/isFollower criteria run with zero `$lookup`s). Also exports `.meetsTournamentCriteria(userId, entryId, organizerId, criteria)`, a per-candidate re-check (used by the edit wizard's criteria-tightening path above). Backs the new API route below.
+- **`utils/wallet.js`** — exports `creditWallet(userId, amountCHL, { pool, type, source, referenceId, referenceType })`, a shared helper that increments a wallet pool and writes the matching `WalletTransaction` in one call. `routes/tournaments.js`, `jobs/tournamentJobs.js`, and `routes/wallet.js` now all route wallet credits through this instead of hand-rolling the increment + transaction-write pair inline.
+
+### New API routes (`routes/api.js`)
+
+- `POST /api/tournaments/estimate-pool` — body `{ criteria }`; calls `estimateParticipantPool(req.currentUser._id, criteria)`, rounds the result for display (exact count shown under 10, else rounded to ~2 significant figures), returns `{ approxCount, exact }`. Powers the live "estimated participant pool" counter on the Step 3 (Eligibility) screen.
+- `POST /api/tournaments/search-users` — now accepts `excludeTournamentId` (excludes users already on that tournament's jury) and restricts results to `role: 'user'`.
+- `GET /api/tournaments/check-name` — now accepts `excludeId` so the edit wizard's name-uniqueness check doesn't collide with the tournament being edited.
+
+### `jobs/tournamentJobs.js` — exists now, but only a partial/diverged Phase 3
+
+This file exists (it didn't when this doc's status header was last fully accurate) and registers two agenda jobs, but they implement a simplified version of Phase 3's 3E/3G/3H, not the full spec below:
+
+- **`tournament_open_expiry`**: auto-accepts any still-pending jury invites, then requires `acceptedJuryCount >= 5` (`MIN_JURY`) — else cancels with reason `'insufficient_jury'` (a cancellation reason not in the original spec, since jury accept/decline didn't exist yet when Phase 3 was written). Then requires `submittedCount >= tournament.size` (counts **all** `TournamentEntry` docs regardless of `approvalStatus`, since there's no `/submit` route yet to distinguish pending vs. approved in practice) — else cancels `'insufficient_candidates'`. Otherwise transitions to cooldown.
+- **`tournament_cooldown_expiry`**: requires `approvedCount === tournament.size` exactly — else cancels `'cooldown_incomplete'` (spec's original `'cooldown_expired'` reason was renamed/repurposed). **Gap:** on success this sets `status: 'active'` directly. It does **not** call anything resembling `activateTournament`/`generateGroups` (Phase 4, not built yet), so a tournament reaching `active` today has no groups or matches — this needs to be wired up when Phase 4 lands, not left as-is.
+- `cancelTournament(tournamentId, reason)` and `transitionToCooldown(tournamentId)` are implemented per the original 3G/3H shape (refund via `creditWallet`, notify organizer + pending/approved contestants), with `transitionToCooldown`'s status-filtered `findOneAndUpdate` guard already in place as designed.
+
+No candidate submission route, no approve/reject routes, and no `utils/tournamentEligibility.js` exist yet — Phase 3's actual player-facing surface is still entirely unbuilt.
+
+---
+
 ## Phase 3 — Open Phase & Candidate Management
 
 ### 3A. Eligibility criteria evaluation — `utils/tournamentEligibility.js`
@@ -585,21 +651,23 @@ POST /api/tournaments/:id/submit
   1. Fetch Tournament by _id. If not found: 404.
   2. If tournament.status !== 'open': 400 { error: 'This tournament is no longer accepting candidates.' }
   3. If req.user._id.toString() === tournament.createdBy.toString(): 403 { error: 'Organizers cannot enter their own tournament.' }
-  4. If !req.user.idVerified: 403 { error: 'Identity verification is required to enter a tournament.' }
-  5. Parse req.body.entryId. Fetch Entry by _id where userId === req.user._id.
+  4. Check TournamentJury.exists({ tournamentId, userId: req.user._id })
+     If exists: 403 { error: 'Jury members cannot enter the tournament they are serving on.' }
+  5. If !req.user.idVerified: 403 { error: 'Identity verification is required to enter a tournament.' }
+  6. Parse req.body.entryId. Fetch Entry by _id where userId === req.user._id.
      If not found: 400 { error: 'Entry not found or does not belong to you.' }
-  6. Check TournamentEntry.exists({ tournamentId, userId: req.user._id })
+  7. Check TournamentEntry.exists({ tournamentId, userId: req.user._id })
      If exists: 400 { error: 'You have already submitted an entry to this tournament.' }
-  7. Evaluate eligibilityCriteria via evaluateCriteria(req.user, entry, tournament.eligibilityCriteria)
+  8. Evaluate eligibilityCriteria via evaluateCriteria(req.user, entry, tournament.eligibilityCriteria)
      If not eligible: 400 { error: 'Your entry does not meet the eligibility criteria.', failedCriteria }
-  8. Count approved TournamentEntries for this tournament.
+  9. Count approved TournamentEntries for this tournament.
      If count >= tournament.size: 400 { error: 'This tournament is already full.' }
-  9. Create TournamentEntry:
+  10. Create TournamentEntry:
      { tournamentId, entryId, userId: req.user._id, approvalStatus: 'pending', submittedAt: new Date() }
-  10. Create Notification for organizer:
+  11. Create Notification for organizer:
       { userId: tournament.createdBy, type: 'tournament_entry_submitted',
         payload: { tournamentId, entryId, url: '/tournament/' + tournamentId + '/review' } }
-  11. Return 200 { success: true, message: 'Your entry has been submitted for review.' }
+  12. Return 200 { success: true, message: 'Your entry has been submitted for review.' }
 ```
 
 ---
@@ -798,6 +866,7 @@ async function cancelTournament(tournamentId, reason) {
 ### Phase 3 exit criteria
 
 - Candidates can submit entries during open phase
+- Organizer and jury members are blocked from submitting entries to their own tournament
 - Organizer can approve and reject from the review queue
 - Approval at capacity immediately triggers cooldown transition
 - Open phase expiry job fires at `openDeadline`: cancels if < 4, transitions to cooldown if ≥ 4
@@ -1675,7 +1744,7 @@ views/tournaments/jury-vote.ejs    — Anonymous jury voting interface
 Tabs, as built: Open, Active, Closed, **Draft** (not in original spec — see below).
 
 - Cards (shared markup across all three status tabs) show: thumbnail (uploaded image, or a trophy icon placeholder if none), name, `@organizer`, `N entries`, prize pool total, chevron → `/tournament/:id`. The size/progress/winner-specific details in the original per-tab spec (spots filled, days remaining, group/knockout progress, winner username+avatar) are **not yet built** — cards are currently uniform across tabs.
-- **Draft tab (new):** if `req.session.tournamentDraft` exists, shows one row (thumbnail, name or "Untitled tournament", "Step N of 4 — tap to resume") linking to `/tournaments/create`, which redirects to the correct step. Empty state otherwise.
+- **Draft tab (new):** if `req.session.tournamentDraft` exists, shows one row (thumbnail, name or "Untitled tournament", "Step N of 5 — tap to resume") linking to `/tournaments/create`, which redirects to the correct step. Empty state otherwise. (Updated 2026-07-03: was "Step N of 4" before the Review step was added — see "Phase 2 Extensions".)
 
 No participation action on this page — all actions happen on the detail page.
 
@@ -1683,7 +1752,9 @@ No participation action on this page — all actions happen on the detail page.
 
 ### 9C. `views/tournaments/detail.ejs` — status-aware rendering — **partially done**
 
-**Built so far (applies across statuses):** thumbnail hero banner (`aspect-3/1`, only rendered if `thumbnailUrl` is set), summary block, `entries.length/size` + prize pool stat tiles ("Entries" label, not "Players" — the platform-wide `Entry` terminology from `CLAUDE.md` was applied here), approved-entries list section (header now reads "Entries" too). This is fed by the read-only `GET /tournament/:id` route (fetches Tournament + approved TournamentEntries + matches with populated contestId).
+**Built so far (applies across statuses):** thumbnail hero banner (`aspect-3/1`, only rendered if `thumbnailUrl` is set), summary block, `entries.length/size` + prize pool stat tiles ("Entries" label, not "Players" — the platform-wide `Entry` terminology from `CLAUDE.md` was applied here), approved-entries list section (header now reads "Entries" too). This is fed by the read-only `GET /tournament/:id` route (fetches Tournament + approved TournamentEntries + matches with populated contestId, plus `declinedJuryCount` and `isFollowing` as of 2026-07-03).
+
+**Organizer/social actions wired 2026-07-03 (ahead of the status-aware content below):** status badge inline with title; Share button (Web Share API with clipboard fallback); for the organizer while `open`/`cooldown` — "Cancel Tournament" (confirmation modal → `POST /tournament/:id/cancel`) and "Edit" (→ `/tournament/:id/edit`); a "Manage jury" card always visible to the organizer with an "N declined" badge (→ `/tournament/:id/jury/manage`); a follow/unfollow button for non-organizer viewers. Flash messages now support `flashType` (success/error styling).
 
 **Not yet built — everything below is still the Phase 9C target, unimplemented:**
 
@@ -1726,9 +1797,9 @@ Two sub-sections toggle via tab:
 
 ---
 
-### 9D. `views/tournaments/create.ejs` — multi-step form — **done through step 4; step 1 built out well beyond spec**
+### 9D. `views/tournaments/create.ejs` — multi-step form — **done through step 5 (Review added 2026-07-03); step 1 built out well beyond spec; also now doubles as the edit wizard**
 
-Single EJS file that renders differently based on `step` variable (1–4).
+Single EJS file that renders differently based on `step` variable (1–5) and an `editing` flag. See "Phase 2 Extensions" above for the new Step 5 (Review), the edit-mode wizard (`/tournament/:id/edit/stepN`, "Save Changes" via `trySaveNow`), and the live "estimated participant pool" counter added to Step 3.
 
 **Step 1 — Basics — built as:**
 - Toggle: Private tournament (hidden from public browsing, reachable via direct link only — writes `visibility`)
@@ -1758,11 +1829,10 @@ Single EJS file that renders differently based on `step` variable (1–4).
 - "Skip / Continue" button → POST /tournaments/create/step3
 
 **Step 4 — Jury:**
-- Search box with typeahead (hits POST /api/tournaments/search-users)
-- Selected jury members shown as pill tags with avatar and remove button
+- Search box with typeahead (hits POST /api/tournaments/search-users, now with `excludeTournamentId` support in edit mode)
+- As built: a checkbox-style multi-select results list (not pill tags) with a "Done" footer; avatars rendered via the shared `views/partials/avatarJsHelpers.ejs` script (`window.ataAvatarHtml`) instead of duplicated markup
 - Count indicator: "X of 5–7 selected"
-- "Confirm & Create Tournament" button (disabled until 5–7 selected) → POST /tournaments/create/step4
-- Step 4 success → redirect to /tournament/:id
+- Step 4 now advances to Step 5 (Review), not straight to finalize — see "Phase 2 Extensions"
 
 ---
 
@@ -1793,9 +1863,11 @@ Critical: this page must reveal nothing about jury identity.
 
 ---
 
-### 9G. Update `views/partials/rightPanel.ejs`
+### 9G. Update `views/partials/rightPanel.ejs` — **done (2026-07-03)**
 
-Replace the existing tournament skeleton (currently commented-out or empty):
+Built essentially as specced below, with `limit(5)` instead of `limit(3)` and `thumbnailUrl` included in the `.select()`. Cards show thumbnail-or-trophy-icon fallback, name, and prize pool formatted as USD (`× 0.20`), not a raw "$X pool" span. Shipped ahead of Phases 3–8 since it only depends on `Tournament.status === 'active'` existing as a reachable state, not on anything those phases build.
+
+Original spec, for reference (replace the existing tournament skeleton, currently commented-out or empty):
 
 ```html
 <% if (locals.activeTournaments && activeTournaments.length > 0) { %>
@@ -1817,7 +1889,7 @@ Update `middleware/injectRightPanelData.js` to add:
 const Tournament = require('../models/Tournament');
 const activeTournaments = await Tournament.find({ status: 'active' })
   .sort({ activeAt: -1 })
-  .limit(3)
+  .limit(5)
   .select('name prizes status activeAt')
   .lean();
 res.locals.activeTournaments = activeTournaments;
@@ -1860,12 +1932,13 @@ POST /admin/tournaments/:id/cancel  → middleware: requireDomain(null) [founder
 
 ### 9J. Notification types to add to `models/Notification.js`
 
-Add to the `type` enum:
+**Already added and live (2026-07-03), ahead of this phase — 2 of the 13 below, plus 3 not originally planned:** `tournament_cooldown_started`, `tournament_canceled` (from the list below); `tournament_jury_invite`, `tournament_jury_declined`, `tournament_entry_removed` (net-new, from the jury invite/manage + edit-wizard criteria-tightening work — see "Phase 2 Extensions"). All 5 render in `views/notifications.ejs` already (medal / error-circle / time / x-circle icons as appropriate; `tournament_canceled` text branches on `payload.reason`, including the new `insufficient_jury`, `cooldown_incomplete`, and `organizer_canceled` reasons).
+
+**Still to add** — the remaining 11, which depend on Phases 3–8 existing to ever fire:
 ```
 'tournament_entry_submitted'
 'tournament_entry_approved'
 'tournament_entry_rejected'
-'tournament_cooldown_started'
 'tournament_live'
 'tournament_group_advance'
 'tournament_eliminated'
@@ -1874,8 +1947,8 @@ Add to the `type` enum:
 'tournament_jury_vote_received'
 'tournament_closed'
 'tournament_prize_awarded'
-'tournament_canceled'
 ```
+(`tournament_cooldown_started` and `tournament_canceled` already exist per above — 11 + 2 = the original 13.)
 
 In `views/notifications.ejs`, add rendering cases for each new type. Pattern:
 - `tournament_prize_awarded` → "You won [place] place in [tournament name] — [amount] CHL awarded"
@@ -1918,7 +1991,7 @@ registerTournamentJobs(agenda);
 | Phase | Files Created | Files Modified |
 |---|---|---|
 | 1 | `models/TournamentGroup.js`, `models/TournamentMatch.js`, `models/TournamentJury.js`, `models/TournamentJuryVote.js` | `models/Tournament.js`, `models/TournamentEntry.js`, `models/User.js`, `server.js` |
-| 2 | `middleware/requireOrganizerEligibility.js`, `routes/tournaments.js` | `server.js` |
+| 2 | `middleware/requireOrganizerEligibility.js`, `routes/tournaments.js`, `utils/tournamentCriteria.js`, `utils/estimateParticipantPool.js`, `utils/wallet.js`, `views/tournaments/jury-invite.ejs`, `views/tournaments/jury-manage.ejs`, `views/partials/avatarJsHelpers.ejs` | `server.js`, `routes/api.js`, `models/Tournament.js`, `models/TournamentJury.js` |
 | 3 | `jobs/tournamentJobs.js` (start), `utils/tournamentEligibility.js` | `routes/api.js` |
 | 4 | `utils/tournamentScheduler.js` | `jobs/tournamentJobs.js` |
 | 5 | — | `jobs/contestJobs.js`, `jobs/tournamentJobs.js` |

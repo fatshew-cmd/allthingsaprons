@@ -104,6 +104,21 @@ function notifText(n) {
       var erTitle = p.entryTitle ? '"' + p.entryTitle + '"' : 'Your entry';
       return erTitle + ' was removed for violating our community guidelines';
     }
+    case 'tournament_jury_invite':
+      return 'You\'ve been asked to serve as jury for <strong>' + (p.tournamentName || 'a tournament') + '</strong>';
+    case 'tournament_jury_declined':
+      return 'A jury member declined for <strong>' + (p.tournamentName || 'your tournament') + '</strong> — pick a replacement';
+    case 'tournament_cooldown_started':
+      return 'Review your tournament\'s candidates before cooldown ends';
+    case 'tournament_canceled': {
+      var tcReason = p.reason === 'insufficient_jury' ? 'not enough jurors accepted'
+                   : p.reason === 'insufficient_candidates' ? 'not enough candidates applied'
+                   : p.reason === 'cooldown_incomplete' ? 'candidate review wasn\'t finished in time'
+                   : 'it was canceled';
+      return 'Tournament canceled — ' + tcReason;
+    }
+    case 'tournament_entry_removed':
+      return 'You no longer meet the updated eligibility criteria for <strong>' + (p.tournamentName || 'a tournament') + '</strong> and have been removed';
     default:
       return 'New notification';
   }
@@ -133,6 +148,11 @@ function notifIcon(type) {
     case 'contest_stalled':          return 'boxicons:pause-circle';
     case 'contest_resumed':          return 'boxicons:play-circle';
     case 'entry_reported':           return 'boxicons:flag';
+    case 'tournament_jury_invite':      return 'boxicons:medal';
+    case 'tournament_jury_declined':    return 'boxicons:error-circle';
+    case 'tournament_cooldown_started': return 'boxicons:time';
+    case 'tournament_canceled':         return 'boxicons:x-circle';
+    case 'tournament_entry_removed':    return 'boxicons:x-circle';
     default:                         return 'boxicons:bell';
   }
 }

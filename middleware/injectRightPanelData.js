@@ -5,6 +5,7 @@ const Follow = require('../models/Follow');
 const User = require('../models/User');
 const Nomination = require('../models/Nomination');
 const Entry = require('../models/Entry');
+const Tournament = require('../models/Tournament');
 
 function announcementMatchesUser(ann, user) {
   const f = ann.filters;
@@ -24,6 +25,7 @@ module.exports = async function injectRightPanelData(req, res, next) {
   res.locals.panelAnnouncements = [];
   res.locals.panelSuggestedUsers = [];
   res.locals.panelPendingNominations = [];
+  res.locals.activeTournaments = [];
 
   if (!req.session?.userId) return next();
 
@@ -138,6 +140,15 @@ module.exports = async function injectRightPanelData(req, res, next) {
       avatar:       s.user.avatar?.value || null,
       followerCount: s.followerCount,
     }));
+  } catch { /* non-fatal */ }
+
+  try {
+    // ── Ongoing Tournaments ───────────────────────────────────────────────────
+    res.locals.activeTournaments = await Tournament.find({ status: 'active' })
+      .sort({ activeAt: -1 })
+      .limit(5)
+      .select('name prizes status activeAt thumbnailUrl')
+      .lean();
   } catch { /* non-fatal */ }
 
   next();

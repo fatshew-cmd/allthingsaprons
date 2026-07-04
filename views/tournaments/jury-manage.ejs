@@ -1,0 +1,133 @@
+<%- include('../partials/appStart', { title: title, activePage: 'tournaments' }) %>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <div class="flex items-center gap-3">
+      <a href="/tournament/<%= tournament._id %>" class="text-white/40 hover:text-white/70 transition-colors">
+        <iconify-icon icon="boxicons:arrow-back" width="18"></iconify-icon>
+      </a>
+      <h1 class="font-black text-xl tracking-tight m-0">Manage Jury</h1>
+    </div>
+  </header>
+
+  <div class="px-5 py-6 flex flex-col gap-3">
+
+    <% if (tournament.status !== 'open') { %>
+    <p class="text-xs text-white/40 mb-1">Jury can no longer be replaced — the open phase has ended.</p>
+    <% } %>
+
+    <div id="jury-manage-list" class="flex flex-col gap-2">
+      <% jury.forEach(function (j) { %>
+        <%
+          var u = j.userId || {};
+          var badgeCls = j.status === 'accepted' ? 'bg-green-500/20 text-green-400'
+                       : j.status === 'declined' ? 'bg-red-500/20 text-red-400'
+                       : 'bg-amber-500/20 text-amber-400';
+        %>
+        <div class="jury-manage-row flex flex-col gap-2 bg-shark-900 border border-white/10 rounded-md p-3" data-user-id="<%= u._id %>">
+          <div class="flex items-center gap-3">
+            <% if (u.avatar?.value) { %>
+            <img src="<%= u.avatar.value %>" class="w-9 h-9 rounded-full object-cover shrink-0" alt="">
+            <% } else { %>
+            <div class="w-9 h-9 rounded-full bg-charm-200 flex items-center justify-center shrink-0">
+              <iconify-icon icon="boxicons:user-filled" width="16" style="color:#dd6890;display:block"></iconify-icon>
+            </div>
+            <% } %>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-sm font-semibold text-white truncate"><%= u.displayName?.value || u.username?.value %></span>
+              <span class="text-xs text-white/40 truncate">@<%= u.username?.value %></span>
+            </div>
+            <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0 <%= badgeCls %>"><%= j.status %></span>
+          </div>
+
+          <% if (j.status === 'declined' && tournament.status === 'open') { %>
+          <button type="button" class="jury-replace-toggle text-xs font-semibold text-charm-400 hover:text-charm-300 transition-colors text-left">
+            Replace
+          </button>
+          <div class="jury-replace-panel hidden relative">
+            <input type="text" placeholder="Search by username or display name" autocomplete="off"
+              class="jury-replace-search h-10 w-full bg-shark-800 border border-white/10 rounded-md px-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-charm-500/60">
+            <div class="jury-replace-results hidden absolute z-20 top-full mt-1.5 w-full bg-shark-900 border border-white/10 rounded-md shadow-xl overflow-hidden max-h-52 overflow-y-auto"></div>
+          </div>
+          <% } %>
+        </div>
+      <% }) %>
+    </div>
+
+  </div>
+</div>
+
+<%- include('../partials/appEnd') %>
+
+<%- include('../partials/avatarJsHelpers') %>
+<script>
+(function () {
+  var tournamentId = <%- JSON.stringify(tournament._id.toString()) %>;
+  var escHtml    = window.ataEscHtml;
+  var avatarHtml = function (src) { return window.ataAvatarHtml(src, 'w-7 h-7', '13'); };
+
+  document.querySelectorAll('.jury-manage-row').forEach(function (row) {
+    var oldUserId    = row.dataset.userId;
+    var toggleBtn    = row.querySelector('.jury-replace-toggle');
+    var panel        = row.querySelector('.jury-replace-panel');
+    var searchInput  = row.querySelector('.jury-replace-search');
+    var resultsEl    = row.querySelector('.jury-replace-results');
+    if (!toggleBtn) return;
+
+    var debounceId;
+
+    toggleBtn.addEventListener('click', function () {
+      panel.classList.toggle('hidden');
+      if (!panel.classList.contains('hidden')) searchInput.focus();
+    });
+
+    searchInput.addEventListener('input', function () {
+      clearTimeout(debounceId);
+      var q = searchInput.value.trim();
+      if (!q) { resultsEl.classList.add('hidden'); resultsEl.innerHTML = ''; return; }
+      debounceId = setTimeout(function () {
+        fetch('/api/tournaments/search-users?excludeTournamentId=' + tournamentId + '&q=' + encodeURIComponent(q), { method: 'POST' })
+          .then(function (r) { return r.json(); })
+          .then(function (users) {
+            resultsEl.innerHTML = '';
+            users.forEach(function (u) {
+              var item = document.createElement('button');
+              item.type = 'button';
+              item.className = 'flex items-center gap-2.5 w-full px-3 py-2 hover:bg-white/5 transition-colors text-left cursor-pointer';
+              item.innerHTML =
+                avatarHtml(u.avatar) +
+                '<div class="flex flex-col gap-0 min-w-0 flex-1">' +
+                  '<span class="text-sm text-white/80 font-medium truncate">' + escHtml(u.displayName) + '</span>' +
+                  '<span class="text-xs text-white/35 truncate">@' + escHtml(u.username) + '</span>' +
+                '</div>';
+              item.addEventListener('click', function () {
+                item.disabled = true;
+                fetch('/tournament/' + tournamentId + '/jury/replace', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ oldUserId: oldUserId, newUserId: u._id }),
+                })
+                  .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                  .then(function (res) {
+                    if (!res.ok) throw new Error(res.data.error || 'Something went wrong.');
+                    window.location.reload();
+                  })
+                  .catch(function (err) {
+                    if (window.showToast) window.showToast(err.message, 'error');
+                    item.disabled = false;
+                  });
+              });
+              resultsEl.appendChild(item);
+            });
+            resultsEl.classList.toggle('hidden', users.length === 0);
+          });
+      }, 250);
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!row.contains(e.target)) resultsEl.classList.add('hidden');
+    });
+  });
+})();
+</script>

@@ -21,6 +21,8 @@ const TX_LABELS = {
   admin_grant:             'Admin Grant',
   platform_fee:            'Platform Fee',
   manual_correction:       'Manual Correction',
+  tournament_prize_hold:   'Tournament Prize Hold',
+  tournament_prize_refund: 'Tournament Prize Refund',
 };
 
 function buildTxFilter(userId, month, type, months, types) {

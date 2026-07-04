@@ -38,15 +38,15 @@
   <% } %>
 
   <header class="sticky top-0 z-10 flex items-center justify-center border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
-    <button id="tab-open" onclick="switchTab('open')"
-      class="tab-btn tab-active text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
-      Accepting Candidates
-      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= openTournaments.length %></span>
-    </button>
     <button id="tab-active" onclick="switchTab('active')"
-      class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
+      class="tab-btn tab-active text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
       Active
       <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= activeTournaments.length %></span>
+    </button>
+    <button id="tab-open" onclick="switchTab('open')"
+      class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
+      Open
+      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= openTournaments.length %></span>
     </button>
     <button id="tab-closed" onclick="switchTab('closed')"
       class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
@@ -60,24 +60,24 @@
     </button>
   </header>
 
-  <!-- Accepting Candidates -->
-  <div id="panel-open">
-    <% if (!openTournaments.length) { %>
-      <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
-        <iconify-icon icon="boxicons:clock-10" width="32" height="32" class="text-white/20 mb-4"></iconify-icon>
-        <p class="text-white/40 text-sm">No tournaments open right now.</p>
-      </div>
-    <% } else { openTournaments.forEach(tournamentCard); } %>
-  </div>
-
   <!-- Active -->
-  <div id="panel-active" class="hidden">
+  <div id="panel-active">
     <% if (!activeTournaments.length) { %>
       <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
         <iconify-icon icon="boxicons:album-covers" width="32" height="32" class="text-white/20 mb-4"></iconify-icon>
         <p class="text-white/40 text-sm">No tournaments in progress.</p>
       </div>
     <% } else { activeTournaments.forEach(tournamentCard); } %>
+  </div>
+
+  <!-- Open -->
+  <div id="panel-open" class="hidden">
+    <% if (!openTournaments.length) { %>
+      <div class="flex flex-col items-center justify-center py-20 px-5 text-center">
+        <iconify-icon icon="boxicons:clock-10" width="32" height="32" class="text-white/20 mb-4"></iconify-icon>
+        <p class="text-white/40 text-sm">No tournaments open right now.</p>
+      </div>
+    <% } else { openTournaments.forEach(tournamentCard); } %>
   </div>
 
   <!-- Recently Closed -->
@@ -109,7 +109,7 @@
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold text-white truncate m-0"><%= draft.name || 'Untitled tournament' %></p>
-          <p class="text-xs text-white/40 truncate m-0 mt-0.5">Step <%= draft.step || 1 %> of 4 — tap to resume</p>
+          <p class="text-xs text-white/40 truncate m-0 mt-0.5">Step <%= draft.step || 1 %> of 5 — tap to resume</p>
         </div>
         <iconify-icon icon="boxicons:chevron-right" width="18" class="text-white/20 shrink-0"></iconify-icon>
       </a>
@@ -129,7 +129,7 @@
 </style>
 
 <script>
-  var TABS = ['open', 'active', 'closed', 'draft'];
+  var TABS = ['active', 'open', 'closed', 'draft'];
   var BASE_BTN = 'tab-btn text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer ';
   function switchTab(tab) {
     TABS.forEach(function (t) {

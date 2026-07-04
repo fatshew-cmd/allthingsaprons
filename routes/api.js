@@ -31,6 +31,8 @@ const UserReport              = require('../models/UserReport');
 const ProfileShare            = require('../models/ProfileShare');
 const ProfileShareView        = require('../models/ProfileShareView');
 const Tournament              = require('../models/Tournament');
+const TournamentJury           = require('../models/TournamentJury');
+const estimateParticipantPool = require('../utils/estimateParticipantPool');
 const { updateAffinity, updateCreatorAffinity, updateStainAffinity, SIGNAL_ANNOUNCEMENT_DISMISS, SIGNAL_ANNOUNCEMENT_CLICK } = require('../utils/affinityUpdater');
 const { getPeopleSubSections }         = require('./explore');
 
@@ -77,15 +79,22 @@ router.post('/tournaments/search-users', async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q) return res.json([]);
 
+  let excludeIds = [req.session.userId];
+  if (req.query.excludeTournamentId && mongoose.isValidObjectId(req.query.excludeTournamentId)) {
+    const currentJury = await TournamentJury.find({ tournamentId: req.query.excludeTournamentId }).select('userId').lean();
+    excludeIds = excludeIds.concat(currentJury.map(j => j.userId));
+  }
+
   const escaped = escapeRegex(q);
   const users = await User.find({
     $or: [
       { 'username.value':    { $regex: escaped, $options: 'i' } },
       { 'displayName.value': { $regex: escaped, $options: 'i' } },
     ],
-    _id:           { $ne: req.session.userId },
+    _id:           { $nin: excludeIds },
     accountStatus: { $ne: 'banned' },
     juryBanned:    { $ne: true },
+    role:          'user',
   })
     .select('username displayName avatar')
     .limit(10)
@@ -104,11 +113,38 @@ router.get('/tournaments/check-name', async (req, res) => {
   const name = (req.query.name || '').trim();
   if (!name) return res.json({ available: true });
 
-  const existing = await Tournament.findOne({
-    name: { $regex: '^' + escapeRegex(name) + '$', $options: 'i' },
-  }).select('_id').lean();
+  const query = { name: { $regex: '^' + escapeRegex(name) + '$', $options: 'i' } };
+  if (req.query.excludeId && mongoose.isValidObjectId(req.query.excludeId)) {
+    query._id = { $ne: req.query.excludeId };
+  }
+  const existing = await Tournament.findOne(query).select('_id').lean();
 
   res.json({ available: !existing });
+});
+
+// Rounds to ~2 significant figures so the precision scales with the pool size — a platform
+// with 4 matching users sees "4", not an inflated "~100"; a platform with 76,300 sees "~76,000".
+// Never exposes the exact count for pools of 10+ (avoids an individually-identifying headcount).
+function roundForDisplay(exact) {
+  if (exact < 10) return { value: exact, exact: true };
+  const magnitude = Math.pow(10, Math.floor(Math.log10(exact)) - 1);
+  return { value: Math.round(exact / magnitude) * magnitude, exact: false };
+}
+
+router.post('/tournaments/estimate-pool', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  let criteria;
+  try {
+    criteria = JSON.parse(req.body.criteria || '[]');
+    if (!Array.isArray(criteria)) throw new Error();
+  } catch {
+    return res.status(400).json({ error: 'Invalid criteria.' });
+  }
+
+  const exactCount = await estimateParticipantPool(req.session.userId, criteria);
+  const { value: approxCount, exact } = roundForDisplay(exactCount);
+  res.json({ approxCount, exact });
 });
 
 async function searchEntries(rawQ, currentUserId, blockedIds, limit) {

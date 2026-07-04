@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const criteriaSchema = new mongoose.Schema({
-  field:    { type: String, enum: ['ratingAvg', 'ratingCount', 'followerCount', 'age', 'sex', 'entryCount', 'accountAgeDays'], required: true },
+  field:    { type: String, enum: ['ratingAvg', 'ratingCount', 'followerCount', 'isFollower', 'age', 'sex', 'entryCount', 'accountAgeDays'], required: true },
   operator: { type: String, enum: ['gte', 'lte', 'eq'], required: true },
   value:    { type: mongoose.Schema.Types.Mixed, required: true },
 }, { _id: false });
@@ -35,6 +35,8 @@ const tournamentSchema = new mongoose.Schema({
   activeAt:         { type: Date },
 
   cancelReason: { type: String, default: null },
+
+  viewCount: { type: Number, default: 0 },
 }, { timestamps: true });
 
 tournamentSchema.index({ status: 1 });
