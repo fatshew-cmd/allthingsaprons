@@ -285,6 +285,11 @@
     <input type="hidden" name="tournamentId" value="<%= locals.targetTournament.tournament._id %>">
     <% } %>
 
+    <% /* Reusing an already-published entry only makes sense when fulfilling an H2H
+          obligation (nomination accept / take-on) — a plain new post or a tournament
+          candidacy (which always requires a fresh upload) can't be satisfied by
+          picking something you already posted. */ %>
+    <% if (acceptingNomination || takeOnContest || takeOnTargetEntry) { %>
     <!-- ── Source tabs ────────────────────────────────────────────── -->
     <div class="flex items-center gap-1 bg-shark-900 border border-white/10 rounded-md p-1 mb-3 self-start w-fit">
       <button type="button" id="tab-new"
@@ -326,6 +331,7 @@
       <% } %>
       <input type="hidden" id="existing-entry-id" value="">
     </div>
+    <% } %>
 
     <!-- ── Media section ─────────────────────────────────────────── -->
     <div class="flex flex-col gap-1.5 mb-3">

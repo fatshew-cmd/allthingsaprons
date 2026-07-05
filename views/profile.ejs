@@ -340,12 +340,13 @@
       const voidLabelMap = { expired: 'No Response', declined: 'Rejected', canceled: 'Canceled', nominee_forfeit: 'Forfeited', nominator_forfeit: 'Forfeit Win' };
       const statusLabel = effStatus === 'void'
         ? (voidLabelMap[contest.voidReason] || 'No Response')
-        : ({ pending: 'Pending', active: 'Active', closed: 'Closed' }[effStatus] || effStatus);
+        : ({ pending: 'Pending', scheduled: 'Scheduled', active: 'Active', closed: 'Closed' }[effStatus] || effStatus);
       const statusClass = {
-        pending: 'bg-amber-500/15 text-amber-400',
-        active:  'bg-green-500/15 text-green-400',
-        void:    'bg-white/10 text-white/40',
-        closed:  'bg-white/10 text-white/50',
+        pending:   'bg-amber-500/15 text-amber-400',
+        scheduled: 'bg-amber-500/15 text-amber-400',
+        active:    'bg-green-500/15 text-green-400',
+        void:      'bg-white/10 text-white/40',
+        closed:    'bg-white/10 text-white/50',
       }[effStatus] || 'bg-white/10 text-white/40';
       const myEntryId  = myEntry  && myEntry.entryId  ? myEntry.entryId._id.toString()  : null;
       const oppEntryId = oppEntry && oppEntry.entryId ? oppEntry.entryId._id.toString() : null;

@@ -913,8 +913,8 @@ router.post('/moderation/entry-reports/:eid/reject', async (req, res) => {
         contestantUserIds.map(uid => ({ userId: uid, type: 'contest_resumed', payload, read: false })),
         { ordered: false }
       );
-      const notifyWatchers = require('../utils/notifyWatchers');
-      await notifyWatchers(contest._id, 'contest_resumed', payload, contestantUserIds);
+      const notifyLoopedIn = require('../utils/notifyLoopedIn');
+      await notifyLoopedIn(contest._id, 'contest_resumed', payload, contestantUserIds);
     }
   } catch (err) {
     console.error('Entry report reject error:', err);
@@ -935,7 +935,7 @@ router.post('/moderation/entry-reports/:eid/approve', async (req, res) => {
       'entries.entryId': entry._id,
     }).select('_id entries').lean();
 
-    const notifyWatchers = require('../utils/notifyWatchers');
+    const notifyLoopedIn = require('../utils/notifyLoopedIn');
 
     for (const contest of activeContests) {
       await Contest.updateOne({ _id: contest._id }, {
@@ -949,7 +949,7 @@ router.post('/moderation/entry-reports/:eid/approve', async (req, res) => {
         contestantUserIds.map(uid => ({ userId: uid, type: 'contest_voided', payload, read: false })),
         { ordered: false }
       );
-      await notifyWatchers(contest._id, 'contest_voided', payload, contestantUserIds);
+      await notifyLoopedIn(contest._id, 'contest_voided', payload, contestantUserIds);
     }
 
     await Entry.deleteOne({ _id: eid });

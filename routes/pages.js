@@ -17,7 +17,7 @@ const Notification          = require('../models/Notification');
 const TournamentEntry       = require('../models/TournamentEntry');
 const Tournament            = require('../models/Tournament');
 const Follow                = require('../models/Follow');
-const ContestWatch          = require('../models/ContestWatch');
+const ContestLoop           = require('../models/ContestLoop');
 const UserAffinity          = require('../models/UserAffinity');
 const WalletTransaction     = require('../models/WalletTransaction');
 const ContestPayout         = require('../models/ContestPayout');
@@ -253,7 +253,7 @@ router.get('/contests', async (req, res) => {
   const currentUserId = req.currentUser._id;
   const now = new Date();
 
-  const [rawNominations, rawContests, watchDocs] = await Promise.all([
+  const [rawNominations, rawContests, loopDocs] = await Promise.all([
     Nomination.find({ nomineeId: currentUserId, status: 'pending' })
       .populate('nominatorId', 'username displayName')
       .populate({
@@ -277,13 +277,13 @@ router.get('/contests', async (req, res) => {
       .sort({ createdAt: -1 })
       .lean(),
 
-    ContestWatch.find({ userId: currentUserId }).select('contestId').lean(),
+    ContestLoop.find({ userId: currentUserId }).select('contestId').lean(),
   ]);
 
-  const watchedContestIds = watchDocs.map(w => w.contestId);
+  const loopedInContestIds = loopDocs.map(w => w.contestId);
 
-  const rawWatched = watchedContestIds.length
-    ? await Contest.find({ _id: { $in: watchedContestIds } })
+  const rawLoopedIn = loopedInContestIds.length
+    ? await Contest.find({ _id: { $in: loopedInContestIds } })
         .populate('entries.entryId', 'title mediaType mediaUrl')
         .populate('entries.userId', 'username displayName avatar')
         .sort({ lastActivityAt: -1 })
@@ -292,7 +292,7 @@ router.get('/contests', async (req, res) => {
 
   // Build follow set across all contestant IDs from both sections
   const allContestantIds = [];
-  for (const c of [...rawContests, ...rawWatched]) {
+  for (const c of [...rawContests, ...rawLoopedIn]) {
     for (const e of (c.entries || [])) {
       if (e.userId?._id) allContestantIds.push(e.userId._id);
     }
@@ -347,7 +347,7 @@ router.get('/contests', async (req, res) => {
   }
 
   const contests        = rawContests.map(c => buildContestShape(c, c.status === 'pending' ? 'upcoming' : 'active'));
-  const watchedContests = rawWatched.map(c => buildContestShape(c));
+  const loopedInContests = rawLoopedIn.map(c => buildContestShape(c));
 
   res.render('contests', {
     title:      'Contests',
@@ -355,7 +355,7 @@ router.get('/contests', async (req, res) => {
     currentUser: req.currentUser,
     panelPendingNominations,
     contests,
-    watchedContests,
+    loopedInContests,
   });
 });
 
@@ -1342,8 +1342,8 @@ router.get('/contest/:id', async (req, res) => {
     }
   }
 
-  const isWatching = req.session.userId
-    ? !!(await ContestWatch.exists({ contestId: contest._id, userId: req.session.userId }))
+  const isLoopedIn = req.session.userId
+    ? !!(await ContestLoop.exists({ contestId: contest._id, userId: req.session.userId }))
     : false;
 
   const voidLabelMap = { expired: 'No Response', declined: 'Denied', canceled: 'Canceled', nominee_forfeit: 'Forfeited', nominator_forfeit: 'Forfeit Win' };
@@ -1468,7 +1468,7 @@ router.get('/contest/:id', async (req, res) => {
     canVote,
     isNominator,
     isNominee,
-    isWatching,
+    isLoopedIn,
     pendingTakeOnNomId,
     totalVotes,
     showVotes:   !!(myVote || effectiveStatus === 'closed'),
@@ -1533,7 +1533,7 @@ router.get('/:username', async (req, res) => {
   const viewerBookmarkedIdSet = new Set(viewerBookmarkDocs.map(b => b.entryId.toString()));
   const bookmarkedEntries = profileBookmarkDocs.filter(b => b.entryId).map(b => b.entryId);
 
-  const contestStatusPriority = { active: 0, pending: 1, closed: 2, void: 3 };
+  const contestStatusPriority = { active: 0, pending: 1, scheduled: 1, closed: 2, void: 3 };
   userContests.sort((a, b) => {
     const pa = contestStatusPriority[a.status] ?? 3;
     const pb = contestStatusPriority[b.status] ?? 3;

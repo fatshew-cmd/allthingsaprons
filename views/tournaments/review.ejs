@@ -60,9 +60,10 @@
               <div class="flex items-center gap-1.5">
                 <p class="text-sm font-semibold text-white truncate m-0"><%= pe.entryId?.title || 'Untitled entry' %></p>
                 <% if (pe.autoSubmitted) { %>
-                <span class="shrink-0 text-[10px] font-bold text-charm-400 bg-charm-500/10 border border-charm-500/20 rounded px-1.5 py-0.5">
-                  Wildcard<% if (tournament.wildcardStains && tournament.wildcardStains.length) { %> · #<%= tournament.wildcardStains.join(' / #') %><% } %>
-                </span>
+                <% var matchedStains = (tournament.wildcardStains || []).filter(function (s) { return (pe.entryId?.tags || []).includes(s); }); %>
+                <% matchedStains.forEach(function (s) { %>
+                <span class="shrink-0 text-[10px] font-bold text-charm-400 bg-charm-500/10 border border-charm-500/20 rounded px-1.5 py-0.5">#<%= s %></span>
+                <% }) %>
                 <% } %>
               </div>
               <p class="text-xs text-white/40 truncate m-0">@<%= pe.userId?.username?.value %> · <%= pe.entryId?.ratingAvg ? pe.entryId.ratingAvg.toFixed(1) : '—' %> avg (<%= pe.entryId?.ratingCount || 0 %> ratings) · <%= pe.followerCount || 0 %> followers</p>
@@ -78,28 +79,88 @@
   </div>
 </div>
 
+<!-- Cap Reached Confirmation Modal -->
+<div id="cap-reached-modal" class="fixed inset-0 z-50 items-center justify-center p-4 hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="cap-reached-modal-backdrop"></div>
+  <div class="relative w-full max-w-sm bg-shark-900 border border-white/10 rounded-md shadow-2xl">
+    <div class="p-6">
+
+      <div class="flex items-start gap-3 mb-5">
+        <div class="w-10 h-10 rounded-md bg-charm-500/10 flex items-center justify-center shrink-0 overflow-hidden mt-0.5">
+          <% if (tournament.thumbnailUrl) { %>
+            <img src="<%= tournament.thumbnailUrl %>" class="w-full h-full object-cover" alt="">
+          <% } else { %>
+            <iconify-icon icon="boxicons:trophy" width="18" style="color:#c45c7a"></iconify-icon>
+          <% } %>
+        </div>
+        <div>
+          <p class="font-bold text-white text-base leading-snug">Start the tournament now?</p>
+          <p class="text-sm text-white/45 mt-1">You just approved the last candidate needed (<%= tournament.size %>/<%= tournament.size %>). You can go live immediately, or leave this candidate in review a little longer.</p>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button type="button" id="cap-reached-not-yet-btn"
+          class="flex-1 py-2.5 rounded-md border border-white/10 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors cursor-pointer">
+          Not yet
+        </button>
+        <button type="button" id="cap-reached-confirm-btn"
+          class="flex-1 py-2.5 rounded-md bg-charm-600 text-white text-sm font-semibold hover:bg-charm-500 transition-colors cursor-pointer">
+          Go live now
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <%- include('../partials/appEnd') %>
 
 <script>
 (function () {
   var tournamentId = <%- JSON.stringify(tournament._id.toString()) %>;
+  var capState = null; // { eid, row } — the row awaiting a go-live/not-yet decision
+
+  var capModal      = document.getElementById('cap-reached-modal');
+  var capBackdrop   = document.getElementById('cap-reached-modal-backdrop');
+  var capNotYetBtn  = document.getElementById('cap-reached-not-yet-btn');
+  var capConfirmBtn = document.getElementById('cap-reached-confirm-btn');
+
+  function openCapModal(eid, row) {
+    capState = { eid: eid, row: row };
+    capModal.classList.remove('hidden');
+    capModal.classList.add('flex');
+  }
+  function closeCapModal() {
+    capModal.classList.add('hidden');
+    capModal.classList.remove('flex');
+  }
+  function reenableRow(row) {
+    row.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+  }
 
   function handleAction(btn, action) {
     var row = btn.closest('[data-entry-row]');
     var eid = row.getAttribute('data-entry-row');
-    btn.closest('.flex.items-center.gap-2.shrink-0').querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    row.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
 
     fetch('/api/tournaments/' + tournamentId + '/entries/' + eid + '/' + action, { method: 'POST' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data && data.success) {
+          if (action === 'approve' && data.capReached) {
+            openCapModal(eid, row);
+            return;
+          }
           row.remove();
           if (window.showToast) window.showToast(action === 'approve' ? 'Entry approved.' : 'Entry rejected.', 'success');
-        } else if (window.showToast) {
-          window.showToast((data && data.error) || 'Something went wrong.', 'error');
+        } else {
+          reenableRow(row);
+          if (window.showToast) window.showToast((data && data.error) || 'Something went wrong.', 'error');
         }
       })
       .catch(function () {
+        reenableRow(row);
         if (window.showToast) window.showToast('Something went wrong.', 'error');
       });
   }
@@ -109,6 +170,60 @@
     var rejectBtn  = e.target.closest('.reject-btn');
     if (approveBtn) handleAction(approveBtn, 'approve');
     if (rejectBtn)  handleAction(rejectBtn, 'reject');
+  });
+
+  function declineCapModal() {
+    if (!capState) return;
+    var eid = capState.eid, row = capState.row;
+    closeCapModal();
+    fetch('/api/tournaments/' + tournamentId + '/entries/' + eid + '/revert', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        reenableRow(row);
+        if (data && data.success) {
+          if (window.showToast) window.showToast('Kept in review — approve again when you\'re ready.', 'success');
+        } else if (window.showToast) {
+          window.showToast((data && data.error) || 'Something went wrong.', 'error');
+        }
+      })
+      .catch(function () {
+        reenableRow(row);
+        if (window.showToast) window.showToast('Something went wrong.', 'error');
+      });
+  }
+
+  capNotYetBtn.addEventListener('click', declineCapModal);
+  capBackdrop.addEventListener('click', declineCapModal);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !capModal.classList.contains('hidden')) declineCapModal();
+  });
+
+  capConfirmBtn.addEventListener('click', function () {
+    if (!capState) return;
+    capConfirmBtn.disabled = true;
+    capConfirmBtn.textContent = 'Starting…';
+    fetch('/api/tournaments/' + tournamentId + '/advance-now', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.success) {
+          window.location.href = '/tournament/' + tournamentId;
+          return;
+        }
+        capConfirmBtn.disabled = false;
+        capConfirmBtn.textContent = 'Go live now';
+        var row = capState.row;
+        closeCapModal();
+        reenableRow(row);
+        if (window.showToast) window.showToast((data && data.error) || 'Something went wrong.', 'error');
+      })
+      .catch(function () {
+        capConfirmBtn.disabled = false;
+        capConfirmBtn.textContent = 'Go live now';
+        var row = capState.row;
+        closeCapModal();
+        reenableRow(row);
+        if (window.showToast) window.showToast('Something went wrong.', 'error');
+      });
   });
 })();
 </script>

@@ -54,11 +54,11 @@ function notifText(n) {
           ? 'You won your contest against ' + opp
           : 'Your contest against ' + opp + ' ended';
       }
-      return 'A contest you\'re watching has ended';
+      return 'A contest you\'re looped in on has ended';
     case 'contest_voided':
       return p.isParticipant
         ? 'Your contest was voided — the opponent didn\'t respond in time'
-        : 'A contest you\'re watching was voided';
+        : 'A contest you\'re looped in on was voided';
     case 'viewer_nomination': {
       var vnOpponent = p.opponentHandle
         ? ' against <strong>' + userLabel(p.opponentDisplayName || p.opponentHandle, p.opponentHandle) + '</strong>'

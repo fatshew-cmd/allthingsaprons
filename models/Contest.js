@@ -10,7 +10,7 @@ const contestEntrySchema = new mongoose.Schema({
 const contestSchema = new mongoose.Schema({
   createdBy:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   visibility:      { type: String, enum: ['public', 'private'], required: true },
-  status:          { type: String, enum: ['pending', 'active', 'void', 'closed'], default: 'pending' },
+  status:          { type: String, enum: ['pending', 'scheduled', 'active', 'void', 'closed'], default: 'pending' },
   tournamentId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', default: null },
   parentContestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contest', default: null },
   windowHours:     { type: Number, default: 72 },

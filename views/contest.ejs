@@ -24,12 +24,12 @@
     <% var _isParticipant = locals.isNominator || locals.isNominee ||
       (locals.currentUser && (contest.entries || []).some(function(e) { return String(e.userId) === String(locals.currentUser._id); })); %>
     <% if (!_isParticipant) { %>
-    <button id="cv-watch-btn" type="button"
+    <button id="cv-loop-btn" type="button"
       data-contest-id="<%= contest._id %>"
-      data-watching="<%= locals.isWatching ? 'true' : 'false' %>"
-      title="<%= locals.isWatching ? 'Stop watching' : 'Stay in the loop' %>"
-      class="w-8 h-8 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0 <%= locals.isWatching ? 'text-charm-400 hover:text-white/50' : 'text-zinc-400 hover:text-zinc-200' %>">
-      <iconify-icon icon="<%= locals.isWatching ? 'boxicons:bell-ring-filled' : 'boxicons:bell' %>" width="18"></iconify-icon>
+      data-looped-in="<%= locals.isLoopedIn ? 'true' : 'false' %>"
+      title="<%= locals.isLoopedIn ? 'Leave the loop' : 'Stay in the loop' %>"
+      class="w-8 h-8 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0 <%= locals.isLoopedIn ? 'text-charm-400 hover:text-white/50' : 'text-zinc-400 hover:text-zinc-200' %>">
+      <iconify-icon icon="<%= locals.isLoopedIn ? 'boxicons:bell-ring-filled' : 'boxicons:bell' %>" width="18"></iconify-icon>
     </button>
     <% } %>
     <span class="text-xs font-semibold px-2 py-0.5 rounded-md <%= statusCls %>"><%= statusLabel %></span>
@@ -1352,25 +1352,25 @@
     });
   }
 
-  // ── Watch toggle ─────────────────────────────────────────────────
+  // ── Loop-in toggle ───────────────────────────────────────────────
 
-  var watchBtn = document.getElementById('cv-watch-btn');
-  if (watchBtn) {
-    watchBtn.addEventListener('click', function () {
-      watchBtn.disabled = true;
-      fetch('/api/contests/' + watchBtn.dataset.contestId + '/watch', { method: 'POST' })
+  var loopBtn = document.getElementById('cv-loop-btn');
+  if (loopBtn) {
+    loopBtn.addEventListener('click', function () {
+      loopBtn.disabled = true;
+      fetch('/api/contests/' + loopBtn.dataset.contestId + '/loop-in', { method: 'POST' })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          var watching = data.watching;
-          watchBtn.dataset.watching = watching ? 'true' : 'false';
-          watchBtn.title = watching ? 'Stop watching' : 'Stay in the loop';
-          watchBtn.className = 'w-8 h-8 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0 ' +
-            (watching ? 'text-charm-400 hover:text-white/50' : 'text-zinc-400 hover:text-zinc-200');
-          watchBtn.querySelector('iconify-icon').setAttribute('icon', watching ? 'boxicons:bell-ring-filled' : 'boxicons:bell');
-          if (window.showToast) window.showToast(watching ? "You're now watching this contest" : 'Stopped watching', 'success');
+          var loopedIn = data.loopedIn;
+          loopBtn.dataset.loopedIn = loopedIn ? 'true' : 'false';
+          loopBtn.title = loopedIn ? 'Leave the loop' : 'Stay in the loop';
+          loopBtn.className = 'w-8 h-8 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0 ' +
+            (loopedIn ? 'text-charm-400 hover:text-white/50' : 'text-zinc-400 hover:text-zinc-200');
+          loopBtn.querySelector('iconify-icon').setAttribute('icon', loopedIn ? 'boxicons:bell-ring-filled' : 'boxicons:bell');
+          if (window.showToast) window.showToast(loopedIn ? "You're now looped in on this contest" : 'Left the loop', 'success');
         })
         .catch(function () { if (window.showToast) window.showToast('Something went wrong.', 'error'); })
-        .finally(function () { watchBtn.disabled = false; });
+        .finally(function () { loopBtn.disabled = false; });
     });
   }
 

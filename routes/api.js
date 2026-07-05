@@ -19,10 +19,10 @@ const AnnouncementImpression  = require('../models/AnnouncementImpression');
 const AnnouncementClick       = require('../models/AnnouncementClick');
 const upload                  = require('../middleware/upload');
 const checkContestEligibility = require('../utils/contestEligibility');
-const ContestWatch            = require('../models/ContestWatch');
+const ContestLoop              = require('../models/ContestLoop');
 const ContestContribution     = require('../models/ContestContribution');
 const WalletTransaction       = require('../models/WalletTransaction');
-const notifyWatchers          = require('../utils/notifyWatchers');
+const notifyLoopedIn           = require('../utils/notifyLoopedIn');
 const EntryReport             = require('../models/EntryReport');
 const EntryBookmark           = require('../models/EntryBookmark');
 const PlatformSettings        = require('../models/PlatformSettings');
@@ -33,7 +33,7 @@ const ProfileShareView        = require('../models/ProfileShareView');
 const Tournament              = require('../models/Tournament');
 const TournamentJury           = require('../models/TournamentJury');
 const TournamentEntry          = require('../models/TournamentEntry');
-const { activateTournament }  = require('../jobs/tournamentJobs');
+const { activateTournament, autoAcceptPendingJury, MIN_JURY } = require('../jobs/tournamentJobs');
 const estimateParticipantPool = require('../utils/estimateParticipantPool');
 const { submitEntryToTournament, checkTournamentPreflight, attemptTournamentAutoDraft } = require('../utils/tournamentSubmission');
 const { updateAffinity, updateCreatorAffinity, updateStainAffinity, SIGNAL_ANNOUNCEMENT_DISMISS, SIGNAL_ANNOUNCEMENT_CLICK } = require('../utils/affinityUpdater');
@@ -217,16 +217,83 @@ router.post('/tournaments/:id/entries/:eid/approve', async (req, res) => {
     payload: { tournamentId: tournament._id, tournamentName: tournament.name, url: '/tournament/' + tournament._id },
   });
 
-  // Reaching capacity before the cooldown deadline activates the tournament immediately,
-  // mirroring what the tournament_cooldown_expiry job does when the deadline itself fires.
-  // Scoped to `cooldown` only — during `open`, candidates still have the full window to submit,
-  // so hitting the cap early must not cut that off.
-  if (tournament.status === 'cooldown' && approvedCount + 1 === tournament.size) {
-    const agenda = require('../jobs/agenda'); // lazy — must load after mongoose.connect() in server.js
-    await agenda.cancel({ name: 'tournament_cooldown_expiry', 'data.tournamentId': tournament._id.toString() });
-    await activateTournament(tournament._id);
+  // This approval fills the last open slot. Rather than silently skipping ahead, tell the
+  // client so the organizer gets an explicit choice (see POST /tournaments/:id/advance-now):
+  // go live right now, or leave it as-is — the phase resolves correctly either way, since the
+  // open-phase clock and the cooldown sweeper both already check the approved count on their own.
+  const capReached = approvedCount + 1 === tournament.size;
+
+  res.json({ success: true, capReached });
+});
+
+// Sends a just-approved entry back to `pending` — the organizer's "actually, not yet" undo,
+// distinct from reject (which notifies the submitter of a real decision). No notification here:
+// the submitter's status hasn't actually changed from their perspective, they're still pending.
+router.post('/tournaments/:id/entries/:eid/revert', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.eid)) {
+    return res.status(404).json({ error: 'Not found.' });
   }
 
+  const tournament = await Tournament.findById(req.params.id).lean();
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (tournament.createdBy.toString() !== req.session.userId) {
+    return res.status(403).json({ error: 'Not authorized.' });
+  }
+  if (tournament.status !== 'open' && tournament.status !== 'cooldown') {
+    return res.status(400).json({ error: 'Candidate review is only available during the open or cooldown phase.' });
+  }
+
+  const entry = await TournamentEntry.findOne({ _id: req.params.eid, tournamentId: tournament._id });
+  if (!entry) return res.status(404).json({ error: 'Entry not found.' });
+  if (entry.approvalStatus !== 'approved') {
+    return res.status(400).json({ error: 'Only an approved entry can be reverted.' });
+  }
+
+  entry.approvalStatus = 'pending';
+  entry.reviewedAt = null;
+  await entry.save();
+
+  res.json({ success: true });
+});
+
+// Organizer-triggered early activation once the roster is exactly full — the counterpart to
+// declining the cap-reached prompt. Works from either `open` (skips straight to `active`,
+// bypassing cooldown entirely) or `cooldown` (skips whatever's left of the 24h window).
+router.post('/tournaments/:id/advance-now', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Tournament not found.' });
+
+  const tournament = await Tournament.findById(req.params.id).lean();
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (tournament.createdBy.toString() !== req.session.userId) {
+    return res.status(403).json({ error: 'Not authorized.' });
+  }
+  if (tournament.status !== 'open' && tournament.status !== 'cooldown') {
+    return res.status(400).json({ error: 'This tournament cannot be started right now.' });
+  }
+
+  const approvedCount = await TournamentEntry.countDocuments({ tournamentId: tournament._id, approvalStatus: 'approved' });
+  if (approvedCount !== tournament.size) {
+    return res.status(400).json({ error: `You need exactly ${tournament.size} approved candidates before starting the tournament.` });
+  }
+
+  const agenda = require('../jobs/agenda'); // lazy — must load after mongoose.connect() in server.js
+
+  if (tournament.status === 'open') {
+    // Mirrors the jury-readiness bar tournament_open_expiry enforces before it would otherwise
+    // transition onward — going live early must not skip that check.
+    await autoAcceptPendingJury(tournament._id);
+    const acceptedJuryCount = await TournamentJury.countDocuments({ tournamentId: tournament._id, status: 'accepted' });
+    if (acceptedJuryCount < MIN_JURY) {
+      return res.status(400).json({ error: 'This tournament does not have enough confirmed jury members yet.' });
+    }
+    await agenda.cancel({ name: 'tournament_open_expiry', 'data.tournamentId': tournament._id.toString() });
+  } else {
+    await agenda.cancel({ name: 'tournament_cooldown_expiry', 'data.tournamentId': tournament._id.toString() });
+  }
+
+  await activateTournament(tournament._id);
   res.json({ success: true });
 });
 
@@ -771,7 +838,7 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
           if (sibling) {
             Notification.create({ userId: sibling.nomineeId, type: 'nominee_accepted', payload: acceptPayload }).catch(() => {});
           }
-          notifyWatchers(pendingNom.contestId, 'nominee_accepted', acceptPayload, [req.session.userId]);
+          notifyLoopedIn(pendingNom.contestId, 'nominee_accepted', acceptPayload, [req.session.userId]);
         }
       } else {
         await Promise.all([
@@ -799,7 +866,7 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
           type:    'nominee_accepted',
           payload: nomAcceptPayload,
         }).catch(() => {});
-        notifyWatchers(pendingNom.contestId, 'nominee_accepted', nomAcceptPayload, [req.session.userId, pendingNom.nominatorId]);
+        notifyLoopedIn(pendingNom.contestId, 'nominee_accepted', nomAcceptPayload, [req.session.userId, pendingNom.nominatorId]);
       }
     }
 
@@ -814,7 +881,7 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
         }),
       ]);
       contestId = pendingTakeOn.contest._id;
-      notifyWatchers(pendingTakeOn.contest._id, 'nominee_accepted', {
+      notifyLoopedIn(pendingTakeOn.contest._id, 'nominee_accepted', {
         actorUsername:    actor?.username?.value    || 'Someone',
         actorDisplayName: actor?.displayName?.value || actor?.username?.value || 'Someone',
         actorAvatar:      actor?.avatar?.value      || null,
@@ -927,7 +994,7 @@ router.post('/nominations/:id/accept', async (req, res) => {
         Notification.create({ userId: sibling.nomineeId, type: 'nominee_accepted', payload: livePayload }).catch(() => {});
       }
       Notification.create({ userId: nom.nominatorId, type: 'nominee_accepted', payload: livePayload }).catch(() => {});
-      notifyWatchers(nom.contestId, 'nominee_accepted', livePayload, [req.session.userId]);
+      notifyLoopedIn(nom.contestId, 'nominee_accepted', livePayload, [req.session.userId]);
     } else {
       const siblingUrl    = sibling ? '/submit?nomination=' + sibling._id : '/contest/' + nom.contestId;
       const waitPayload   = { ...basePayload, contestIsLive: false, url: siblingUrl };
@@ -966,7 +1033,7 @@ router.post('/nominations/:id/accept', async (req, res) => {
     type:    'nominee_accepted',
     payload: acceptPayload,
   }).catch(() => {});
-  notifyWatchers(nom.contestId, 'nominee_accepted', acceptPayload, [req.session.userId, nom.nominatorId]);
+  notifyLoopedIn(nom.contestId, 'nominee_accepted', acceptPayload, [req.session.userId, nom.nominatorId]);
   res.json({ ok: true, contestId: nom.contestId });
 });
 
@@ -1005,7 +1072,7 @@ router.post('/nominations/:id/decline', async (req, res) => {
     }
     // Notify the nominator (User C) who set up the contest
     Notification.create({ userId: nom.nominatorId, type: 'nominee_declined', payload: declinedPayload }).catch(() => {});
-    notifyWatchers(nom.contestId, 'nominee_declined', declinedPayload, [req.session.userId]);
+    notifyLoopedIn(nom.contestId, 'nominee_declined', declinedPayload, [req.session.userId]);
     return res.json({ ok: true });
   }
 
@@ -1015,7 +1082,7 @@ router.post('/nominations/:id/decline', async (req, res) => {
   ]);
   // Notify the challenger that their nomination was declined
   Notification.create({ userId: nom.nominatorId, type: 'nominee_declined', payload: declinedPayload }).catch(() => {});
-  notifyWatchers(nom.contestId, 'nominee_declined', declinedPayload, [req.session.userId]);
+  notifyLoopedIn(nom.contestId, 'nominee_declined', declinedPayload, [req.session.userId]);
   res.json({ ok: true });
 });
 
@@ -1243,6 +1310,23 @@ router.post('/contests/:id/vote', async (req, res) => {
   );
   if (isOwnEntry) return res.status(403).json({ error: "You can't vote for your own entry." });
 
+  // Organizers and jury are barred from voting in *regular* H2H contests while any tournament
+  // they organize/serve on is in progress — contest.tournamentId is only set on a contest that
+  // is itself a tournament match, which is unaffected (that's how group/knockout matches are
+  // normally decided, jury tie-break votes are a separate TournamentJuryVote mechanism).
+  if (!contest.tournamentId) {
+    const juryTournamentIds = await TournamentJury.distinct('tournamentId', { userId: req.session.userId });
+    const [isActiveOrganizer, isActiveJuror] = await Promise.all([
+      Tournament.exists({ createdBy: req.session.userId, status: { $in: ['open', 'cooldown', 'active'] } }),
+      juryTournamentIds.length
+        ? Tournament.exists({ _id: { $in: juryTournamentIds }, status: { $in: ['open', 'cooldown', 'active'] } })
+        : Promise.resolve(false),
+    ]);
+    if (isActiveOrganizer || isActiveJuror) {
+      return res.status(403).json({ error: 'Tournament organizers and jury cannot vote in regular contests while a tournament is in progress.' });
+    }
+  }
+
   try {
     await ContestVote.create({ contestId: contest._id, entryId, userId: req.session.userId });
     Contest.updateOne({ _id: contest._id }, { $set: { lastActivityAt: new Date() } }).catch(() => {});
@@ -1348,7 +1432,7 @@ router.delete('/contests/:id', async (req, res) => {
         Contest.deleteOne({ _id: cid }),
         Nomination.deleteMany({ contestId: cid }),
         ContestVote.deleteMany({ contestId: cid }),
-        ContestWatch.deleteMany({ contestId: cid }),
+        ContestLoop.deleteMany({ contestId: cid }),
         ContestComment.deleteMany({ contestId: cid }),
         ContestContribution.deleteMany({ contestId: cid }),
         commentIds.length > 0
@@ -1407,7 +1491,7 @@ router.post('/contests/:id/forfeit', async (req, res) => {
     Contest.findByIdAndUpdate(req.params.id, { $set: { status: 'void', voidReason, winnerEntryId, lastActivityAt: new Date() } }),
     User.findById(req.session.userId).select('username displayName avatar').lean(),
   ]);
-  notifyWatchers(req.params.id, 'contest_forfeited', {
+  notifyLoopedIn(req.params.id, 'contest_forfeited', {
     actorUsername:    forfeiter?.username?.value    || 'Someone',
     actorDisplayName: forfeiter?.displayName?.value || forfeiter?.username?.value || 'Someone',
     actorAvatar:      forfeiter?.avatar?.value      || null,
@@ -1541,7 +1625,7 @@ router.post('/nominations/:id/take-on-accept', async (req, res) => {
       url:              '/contest/' + nom.contestId,
     },
   }).catch(() => {});
-  notifyWatchers(nom.contestId, 'nominee_accepted', {
+  notifyLoopedIn(nom.contestId, 'nominee_accepted', {
     actorUsername:    acceptor?.username?.value    || 'Someone',
     actorDisplayName: acceptor?.displayName?.value || acceptor?.username?.value || 'Someone',
     actorAvatar:      acceptor?.avatar?.value      || null,
@@ -1552,25 +1636,25 @@ router.post('/nominations/:id/take-on-accept', async (req, res) => {
   res.json({ ok: true, contestId: nom.contestId });
 });
 
-// ── Contest watch ─────────────────────────────────────────────────
+// ── Contest loop-in ────────────────────────────────────────────────
 
-router.post('/contests/:id/watch', async (req, res) => {
+router.post('/contests/:id/loop-in', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ID.' });
 
-  const existing = await ContestWatch.findOne({ contestId: req.params.id, userId: req.session.userId });
+  const existing = await ContestLoop.findOne({ contestId: req.params.id, userId: req.session.userId });
   if (existing) {
     await existing.deleteOne();
-    return res.json({ watching: false });
+    return res.json({ loopedIn: false });
   }
 
   const [, contest] = await Promise.all([
-    ContestWatch.create({ contestId: req.params.id, userId: req.session.userId }),
+    ContestLoop.create({ contestId: req.params.id, userId: req.session.userId }),
     Contest.findById(req.params.id).select('entries').lean(),
   ]);
-  res.json({ watching: true });
+  res.json({ loopedIn: true });
 
-  // Fire-and-forget creator affinity for both contestants — watching signals interest in the creators
+  // Fire-and-forget creator affinity for both contestants — looping in signals interest in the creators
   if (contest?.entries?.length) {
     for (const e of contest.entries) {
       updateCreatorAffinity(req.session.userId, e.userId, 0.3).catch(() => {});
@@ -2145,7 +2229,7 @@ router.post('/entries/:eid/report', async (req, res) => {
           { ordered: false }
         );
 
-        await notifyWatchers(contest._id, 'contest_stalled', stalledPayload, contestantUserIds);
+        await notifyLoopedIn(contest._id, 'contest_stalled', stalledPayload, contestantUserIds);
       }
     }
   }

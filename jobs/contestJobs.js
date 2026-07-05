@@ -5,7 +5,44 @@ const ContestPayout       = require('../models/ContestPayout');
 const Nomination          = require('../models/Nomination');
 const Notification        = require('../models/Notification');
 const User                = require('../models/User');
-const notifyWatchers      = require('../utils/notifyWatchers');
+const TournamentMatch     = require('../models/TournamentMatch');
+const TournamentEntry     = require('../models/TournamentEntry');
+const notifyLoopedIn      = require('../utils/notifyLoopedIn');
+const notifyEntryLoopedIn = require('../utils/tournamentEntryLoop');
+
+// Notifies anyone looped in on either of this match's two TournamentEntry docs (see
+// utils/tournamentEntryLoop.js) — a no-op for standalone (non-tournament) contests.
+async function notifyEntryLoopedInOnClose(contest, winnerEntryId) {
+  if (!contest.tournamentId) return;
+
+  const match = await TournamentMatch.findOne({ contestId: contest._id }).lean();
+  if (!match) return;
+
+  const [entryA, entryB] = await Promise.all([
+    TournamentEntry.findById(match.tournamentEntryIdA).populate('userId', 'username displayName').lean(),
+    TournamentEntry.findById(match.tournamentEntryIdB).populate('userId', 'username displayName').lean(),
+  ]);
+
+  function outcomeFor(entryId) {
+    if (!winnerEntryId) return 'tied';
+    return entryId.toString() === winnerEntryId.toString() ? 'won' : 'lost';
+  }
+
+  await notifyEntryLoopedIn([
+    { tournamentEntryId: match.tournamentEntryIdA, type: 'tournament_entry_match_closed', payload: {
+        tournamentId: contest.tournamentId, tournamentEntryId: match.tournamentEntryIdA, matchId: match._id, contestId: contest._id,
+        outcome: outcomeFor(match.entryIdA),
+        opponentUsername: entryB.userId.username?.value, opponentDisplayName: entryB.userId.displayName?.value || entryB.userId.username?.value,
+        url: '/contest/' + contest._id,
+    } },
+    { tournamentEntryId: match.tournamentEntryIdB, type: 'tournament_entry_match_closed', payload: {
+        tournamentId: contest.tournamentId, tournamentEntryId: match.tournamentEntryIdB, matchId: match._id, contestId: contest._id,
+        outcome: outcomeFor(match.entryIdB),
+        opponentUsername: entryA.userId.username?.value, opponentDisplayName: entryA.userId.displayName?.value || entryA.userId.username?.value,
+        url: '/contest/' + contest._id,
+    } },
+  ], [entryA.userId._id, entryB.userId._id]);
+}
 
 async function voidExpiredContest(contestId) {
   const contest = await Contest.findOneAndUpdate(
@@ -26,7 +63,7 @@ async function voidExpiredContest(contestId) {
     type:    'contest_voided',
     payload: { ...voidedPayload, isParticipant: true },
   }).catch(() => {});
-  notifyWatchers(contest._id, 'contest_voided', voidedPayload, [contest.createdBy]);
+  notifyLoopedIn(contest._id, 'contest_voided', voidedPayload, [contest.createdBy]);
 }
 
 async function closeContest(contestId) {
@@ -67,7 +104,7 @@ async function closeContest(contestId) {
     ? contest.entries.find(e => e.entryId.toString() === winnerEntryId.toString())?.userId
     : null;
 
-  // ── Participant and watcher notifications (fire before earnings so a payout error can't silence them) ──
+  // ── Participant and loop-in notifications (fire before earnings so a payout error can't silence them) ──
   const notifications = contest.entries.map(e => {
     const uid           = e.userId.toString();
     const opponentEntry = contest.entries.find(oe => oe.userId.toString() !== uid);
@@ -84,11 +121,12 @@ async function closeContest(contestId) {
 
   await Promise.all([
     Notification.insertMany(notifications, { ordered: false }).catch(() => {}),
-    notifyWatchers(contest._id, 'contest_closed', {
+    notifyLoopedIn(contest._id, 'contest_closed', {
       contestId:     contest._id,
       winnerEntryId: winnerEntryId || null,
       url:           '/contest/' + contest._id,
     }, userIds),
+    notifyEntryLoopedInOnClose(contest, winnerEntryId),
   ]);
 
   // ── Lock contributions and settle earnings ────────────────────────

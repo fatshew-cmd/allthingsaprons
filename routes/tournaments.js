@@ -11,7 +11,8 @@ const TournamentJuryVote          = require('../models/TournamentJuryVote');
 const TournamentComment           = require('../models/TournamentComment');
 const TournamentCommentReport     = require('../models/TournamentCommentReport');
 const TournamentReport            = require('../models/TournamentReport');
-const TournamentWatch             = require('../models/TournamentWatch');
+const TournamentLoop               = require('../models/TournamentLoop');
+const TournamentEntryLoop          = require('../models/TournamentEntryLoop');
 const WalletTransaction           = require('../models/WalletTransaction');
 const Notification                = require('../models/Notification');
 const Follow                      = require('../models/Follow');
@@ -1118,7 +1119,7 @@ function buildTournamentEntryPipeline(tournamentId, approvalStatus, sort, search
     { $sort: TOURNAMENT_ENTRY_SORTS[sort] },
     { $project: {
         approvalStatus: 1, submittedAt: 1, followerCount: 1, autoSubmitted: 1,
-        entryId: { _id: '$entry._id', title: '$entry.title', mediaType: '$entry.mediaType', mediaUrl: '$entry.mediaUrl', ratingAvg: '$entry.ratingAvg', ratingCount: '$entry.ratingCount' },
+        entryId: { _id: '$entry._id', title: '$entry.title', mediaType: '$entry.mediaType', mediaUrl: '$entry.mediaUrl', ratingAvg: '$entry.ratingAvg', ratingCount: '$entry.ratingCount', tags: '$entry.tags' },
         userId:  { _id: '$user._id', username: '$user.username', displayName: '$user.displayName', avatar: '$user.avatar' },
     } },
   );
@@ -1131,11 +1132,13 @@ router.get('/tournament/:id', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.redirect('/tournaments');
 
   const tournament = await Tournament.findById(req.params.id).populate('createdBy', 'username displayName avatar').lean();
-  if (!tournament) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  if (!tournament || tournament.status === 'canceled') {
+    return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  }
 
   const isOrganizer = !!tournament.createdBy && tournament.createdBy._id.toString() === req.currentUser._id.toString();
 
-  const [groups, entries, matches, userEntry, pendingCount, declinedJuryCount, isFollowing, isWatching, isJuror] = await Promise.all([
+  const [groups, entries, matches, userEntry, pendingCount, declinedJuryCount, isFollowing, isLoopedIn, isJuror] = await Promise.all([
     TournamentGroup.find({ tournamentId: tournament._id })
       .populate({ path: 'memberIds', populate: [
         { path: 'userId', select: 'username displayName avatar' },
@@ -1144,12 +1147,22 @@ router.get('/tournament/:id', async (req, res) => {
       .lean(),
     TournamentEntry.find({
       tournamentId: tournament._id,
-      approvalStatus: isOrganizer ? { $in: ['approved', 'pending'] } : 'approved',
+      approvalStatus: { $in: ['approved', 'pending'] },
     })
       .populate('entryId')
       .populate('userId', 'username displayName avatar')
       .lean(),
-    TournamentMatch.find({ tournamentId: tournament._id }).populate('contestId').lean(),
+    TournamentMatch.find({ tournamentId: tournament._id })
+      .populate({ path: 'tournamentEntryIdA', populate: [
+        { path: 'userId', select: 'username displayName avatar' },
+        { path: 'entryId' },
+      ] })
+      .populate({ path: 'tournamentEntryIdB', populate: [
+        { path: 'userId', select: 'username displayName avatar' },
+        { path: 'entryId' },
+      ] })
+      .populate('contestId')
+      .lean(),
     TournamentEntry.findOne({ tournamentId: tournament._id, userId: req.currentUser._id }).populate('entryId').lean(),
     isOrganizer && (tournament.status === 'open' || tournament.status === 'cooldown')
       ? TournamentEntry.countDocuments({ tournamentId: tournament._id, approvalStatus: 'pending' })
@@ -1161,7 +1174,7 @@ router.get('/tournament/:id', async (req, res) => {
       ? Follow.exists({ followerId: req.currentUser._id, followingId: tournament.createdBy._id })
       : false,
     !isOrganizer
-      ? TournamentWatch.exists({ tournamentId: tournament._id, userId: req.currentUser._id })
+      ? TournamentLoop.exists({ tournamentId: tournament._id, userId: req.currentUser._id })
       : false,
     !isOrganizer
       ? TournamentJury.exists({ tournamentId: tournament._id, userId: req.currentUser._id })
@@ -1172,23 +1185,28 @@ router.get('/tournament/:id', async (req, res) => {
     entries.map(e => e.userId?._id?.toString()).filter(id => id && id !== req.currentUser._id.toString()),
   )];
 
-  const [comments, placements, entryFollowDocs] = await Promise.all([
+  const [comments, placements, entryFollowDocs, entryLoopDocs] = await Promise.all([
     loadTournamentComments(tournament._id),
     tournament.status === 'closed' ? loadTournamentPlacements(tournament._id) : {},
     entryOwnerIds.length
       ? Follow.find({ followerId: req.currentUser._id, followingId: { $in: entryOwnerIds } }).select('followingId').lean()
       : [],
+    entries.length
+      ? TournamentEntryLoop.find({ tournamentEntryId: { $in: entries.map(e => e._id) }, userId: req.currentUser._id }).select('tournamentEntryId').lean()
+      : [],
   ]);
   const entryFollowingSet = new Set(entryFollowDocs.map(f => f.followingId.toString()));
+  const entryLoopedInSet  = new Set(entryLoopDocs.map(w => w.tournamentEntryId.toString()));
 
   res.render('tournaments/detail', {
     title:      tournament.name,
     activePage: 'tournaments',
     currentUser: req.currentUser,
     tournament, groups, entries, matches, userEntry, isOrganizer, pendingCount, declinedJuryCount,
+    entryLoopedInSet,
     entryFollowingSet,
     isFollowing: !!isFollowing,
-    isWatching: !!isWatching,
+    isLoopedIn: !!isLoopedIn,
     isJuror: !!isJuror,
     comments,
     placements,
@@ -1315,24 +1333,49 @@ router.post('/tournament/:id/entry/withdraw', async (req, res) => {
   res.json({ success: true });
 });
 
-// ── POST /tournament/:id/watch — toggle watch/subscribe ─────────────────────
-router.post('/tournament/:id/watch', async (req, res) => {
+// ── POST /tournament/:id/loop-in — toggle loop-in/subscribe ─────────────────
+router.post('/tournament/:id/loop-in', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ID.' });
 
-  const existing = await TournamentWatch.findOne({ tournamentId: req.params.id, userId: req.currentUser._id });
+  const existing = await TournamentLoop.findOne({ tournamentId: req.params.id, userId: req.currentUser._id });
   if (existing) {
     await existing.deleteOne();
-    return res.json({ watching: false });
+    return res.json({ loopedIn: false });
   }
 
   const tournament = await Tournament.findById(req.params.id).select('createdBy').lean();
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
   if (tournament.createdBy.toString() === req.currentUser._id.toString()) {
-    return res.status(400).json({ error: "You can't watch your own tournament." });
+    return res.status(400).json({ error: "You can't loop in on your own tournament." });
   }
 
-  await TournamentWatch.create({ tournamentId: req.params.id, userId: req.currentUser._id });
-  res.json({ watching: true });
+  await TournamentLoop.create({ tournamentId: req.params.id, userId: req.currentUser._id });
+  res.json({ loopedIn: true });
+});
+
+// ── POST /tournament/:id/entry/:teId/loop-in — toggle loop-in on a specific candidate ───
+router.post('/tournament/:id/entry/:teId/loop-in', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.teId)) {
+    return res.status(400).json({ error: 'Invalid ID.' });
+  }
+
+  const existing = await TournamentEntryLoop.findOne({ tournamentEntryId: req.params.teId, userId: req.currentUser._id });
+  if (existing) {
+    await existing.deleteOne();
+    return res.json({ loopedIn: false });
+  }
+
+  const entry = await TournamentEntry.findById(req.params.teId).select('tournamentId userId').lean();
+  if (!entry) return res.status(404).json({ error: 'Entry not found.' });
+  if (entry.tournamentId.toString() !== req.params.id) {
+    return res.status(400).json({ error: 'Entry does not belong to this tournament.' });
+  }
+  if (entry.userId.toString() === req.currentUser._id.toString()) {
+    return res.status(400).json({ error: "You can't loop in on your own entry." });
+  }
+
+  await TournamentEntryLoop.create({ tournamentEntryId: req.params.teId, tournamentId: req.params.id, userId: req.currentUser._id });
+  res.json({ loopedIn: true });
 });
 
 // ── POST /tournament/:id/report — report the tournament itself ──────────────

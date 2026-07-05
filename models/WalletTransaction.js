@@ -35,7 +35,7 @@ const walletTransactionSchema = new mongoose.Schema({
 
   source: {
     type: String,
-    enum: ['package', 'custom', 'admin', 'contest_close', 'system', 'auto_payout', 'makeup_payout', 'manual_correction', 'tournament_creation', 'tournament_fund'],
+    enum: ['package', 'custom', 'admin', 'contest_close', 'system', 'auto_payout', 'makeup_payout', 'manual_correction', 'tournament_creation', 'tournament_fund', 'tournament_cancel', 'tournament_edit'],
   },
 
   packageName: { type: String },
