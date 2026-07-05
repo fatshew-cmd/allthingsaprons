@@ -35,6 +35,7 @@ const TournamentJury           = require('../models/TournamentJury');
 const TournamentEntry          = require('../models/TournamentEntry');
 const { activateTournament }  = require('../jobs/tournamentJobs');
 const estimateParticipantPool = require('../utils/estimateParticipantPool');
+const { submitEntryToTournament, checkTournamentPreflight, attemptTournamentAutoDraft } = require('../utils/tournamentSubmission');
 const { updateAffinity, updateCreatorAffinity, updateStainAffinity, SIGNAL_ANNOUNCEMENT_DISMISS, SIGNAL_ANNOUNCEMENT_CLICK } = require('../utils/affinityUpdater');
 const { getPeopleSubSections }         = require('./explore');
 
@@ -149,11 +150,10 @@ router.post('/tournaments/estimate-pool', async (req, res) => {
   res.json({ approxCount, exact });
 });
 
-// Pre-submission eligibility check — run when the "Choose Your Entry" modal opens, before any
-// entries are shown, so a candidate never picks an entry only to be told at submit-time that it
-// (or they) don't qualify. Per-entry criteria (ratingAvg/ratingCount) are evaluated per-entry;
-// only entries that would actually pass submission are returned, so the picker never shows a
-// choice that's guaranteed to fail.
+// Pre-upload eligibility check — run before the "Enter Tournament" CTA sends a candidate to the
+// upload page, so they never waste an upload only to be told at submit-time that they don't
+// qualify. Entries are always submitted at the moment they're uploaded (see POST /entries), so
+// there's no existing-entry picker here anymore — just a profile-level pass/fail.
 router.get('/tournaments/:id/eligibility', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Tournament not found.' });
@@ -161,158 +161,14 @@ router.get('/tournaments/:id/eligibility', async (req, res) => {
   const tournament = await Tournament.findById(req.params.id).lean();
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
 
-  if (tournament.status !== 'open') {
-    return res.status(400).json({ error: 'This tournament is no longer accepting candidates.' });
-  }
-  if (tournament.createdBy.toString() === req.session.userId) {
-    return res.status(403).json({ error: 'Organizers cannot enter their own tournament.' });
-  }
-
-  const isJuror = await TournamentJury.exists({ tournamentId: tournament._id, userId: req.session.userId });
-  if (isJuror) {
-    return res.status(403).json({ error: 'Jury members cannot enter the tournament they are serving on.' });
-  }
-
-  const actor = await User.findById(req.session.userId).select('idVerified').lean();
-  if (!actor?.idVerified) {
-    return res.status(403).json({ error: 'Identity verification is required to enter a tournament.' });
-  }
-
-  const alreadySubmitted = await TournamentEntry.exists({ tournamentId: tournament._id, userId: req.session.userId });
-  if (alreadySubmitted) {
-    return res.status(400).json({ error: 'You have already submitted an entry to this tournament.' });
-  }
-
-  const criteria = tournament.eligibilityCriteria || [];
-  const PER_ENTRY_FIELDS = estimateParticipantPool.PER_ENTRY_FIELDS;
-  const userCriteria  = criteria.filter(c => !PER_ENTRY_FIELDS.includes(c.field));
-  const entryCriteria = criteria.filter(c => PER_ENTRY_FIELDS.includes(c.field));
-
-  // User-level criteria (followerCount, age, sex, etc.) don't depend on which entry gets
-  // submitted — check them once, before ever touching the Entry collection, so an ineligible
-  // candidate bails out in two queries regardless of how many entries they own.
-  if (userCriteria.length) {
-    const { eligible, failedCriteria } = await estimateParticipantPool.evaluateTournamentCriteria(
-      req.session.userId, null, tournament.createdBy, userCriteria,
-    );
-    if (!eligible) return res.json({ eligible: false, entries: [], failedCriteria });
-  }
-
-  const baseFilter = { userId: req.session.userId, hidden: { $ne: true } };
-  const entryFilter = Object.assign({}, baseFilter, estimateParticipantPool.buildEntryCriteriaFilter(entryCriteria));
-
-  const page  = Math.max(1, parseInt(req.query.page) || 1);
-  const limit = 12;
-  const skip  = (page - 1) * limit;
-
-  const [totalOwned, qualifyingCount, entries] = await Promise.all([
-    Entry.countDocuments(baseFilter),
-    Entry.countDocuments(entryFilter),
-    Entry.find(entryFilter)
-      .select('mediaUrl mediaType ratingAvg ratingCount')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-  ]);
-
-  if (!totalOwned) {
-    return res.json({ eligible: false, noEntries: true, entries: [] });
-  }
-
-  if (!qualifyingCount) {
-    // None of the candidate's entries satisfy the per-entry criteria together — report which
-    // specific fields are the blocker via cheap per-field counts (bounded by criteria count,
-    // never by entry count) instead of evaluating every owned entry individually.
-    const perFieldCounts = await Promise.all(entryCriteria.map(c =>
-      Entry.countDocuments(Object.assign({}, baseFilter, estimateParticipantPool.buildEntryCriteriaFilter([c]))),
-    ));
-    let failedCriteria = entryCriteria.filter((c, i) => perFieldCounts[i] === 0).map(c => c.field);
-    if (!failedCriteria.length) failedCriteria = entryCriteria.map(c => c.field);
-    return res.json({ eligible: false, entries: [], failedCriteria });
-  }
-
-  res.json({ eligible: true, entries, hasMore: skip + entries.length < qualifyingCount });
-});
-
-router.post('/tournaments/:id/submit', async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
-  if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Tournament not found.' });
-
-  const tournament = await Tournament.findById(req.params.id).lean();
-  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
-
-  if (tournament.status !== 'open') {
-    return res.status(400).json({ error: 'This tournament is no longer accepting candidates.' });
-  }
-  if (tournament.createdBy.toString() === req.session.userId) {
-    return res.status(403).json({ error: 'Organizers cannot enter their own tournament.' });
-  }
-
-  const isJuror = await TournamentJury.exists({ tournamentId: tournament._id, userId: req.session.userId });
-  if (isJuror) {
-    return res.status(403).json({ error: 'Jury members cannot enter the tournament they are serving on.' });
-  }
-
-  const actor = await User.findById(req.session.userId).select('idVerified username displayName avatar').lean();
-  if (!actor?.idVerified) {
-    return res.status(403).json({ error: 'Identity verification is required to enter a tournament.' });
-  }
-
-  if (!mongoose.isValidObjectId(req.body.entryId)) {
-    return res.status(400).json({ error: 'Entry not found or does not belong to you.' });
-  }
-  const entry = await Entry.findOne({ _id: req.body.entryId, userId: req.session.userId }).lean();
-  if (!entry) return res.status(400).json({ error: 'Entry not found or does not belong to you.' });
-
-  const alreadySubmitted = await TournamentEntry.exists({ tournamentId: tournament._id, userId: req.session.userId });
-  if (alreadySubmitted) {
-    return res.status(400).json({ error: 'You have already submitted an entry to this tournament.' });
-  }
-
-  const { eligible, failedCriteria } = await estimateParticipantPool.evaluateTournamentCriteria(
-    req.session.userId, entry._id, tournament.createdBy, tournament.eligibilityCriteria,
-  );
-  if (!eligible) {
-    return res.status(400).json({ error: 'Your entry does not meet the eligibility criteria.', failedCriteria });
-  }
-
-  const approvedCount = await TournamentEntry.countDocuments({ tournamentId: tournament._id, approvalStatus: 'approved' });
-  if (approvedCount >= tournament.size) {
-    return res.status(400).json({ error: 'This tournament is already full.' });
-  }
-
-  await TournamentEntry.create({
-    tournamentId:   tournament._id,
-    entryId:        entry._id,
-    userId:         req.session.userId,
-    approvalStatus: 'pending',
-    submittedAt:    new Date(),
-  });
-
-  await Notification.create({
-    userId:  tournament.createdBy,
-    type:    'tournament_entry_submitted',
-    payload: {
-      actorUsername:    actor?.username?.value    || 'Someone',
-      actorDisplayName: actor?.displayName?.value || actor?.username?.value || 'Someone',
-      actorAvatar:      actor?.avatar?.value      || null,
-      tournamentId:     tournament._id,
-      tournamentName:   tournament.name,
-      entryId:          entry._id,
-      entryUrl:         entry.mediaUrl,
-      entryType:        entry.mediaType,
-      url:              '/tournament/' + tournament._id + '/review',
-    },
-  });
-
-  res.json({ success: true, message: 'Your entry has been submitted for review.' });
+  const result = await checkTournamentPreflight(tournament, req.session.userId);
+  res.json(result);
 });
 
 // Shared setup for the approve/reject routes: loads the tournament, checks organizer + phase,
-// and loads the pending TournamentEntry. Review happens during `cooldown`, not `open` — the
-// original spec assumed per-entry review during the open window, but the sweeper jobs already
-// built (jobs/tournamentJobs.js) batch the review step into the 24h cooldown phase instead.
+// and loads the pending TournamentEntry. Review happens on a rolling basis during `open` as well
+// as `cooldown`, so organizers of high-volume tournaments aren't stuck reviewing everything inside
+// the 24h cooldown window alone.
 async function loadPendingEntryForReview(req, res) {
   if (!req.session.userId) { res.status(401).json({ error: 'Not authenticated' }); return null; }
   if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.eid)) {
@@ -326,8 +182,8 @@ async function loadPendingEntryForReview(req, res) {
     res.status(403).json({ error: 'Not authorized.' });
     return null;
   }
-  if (tournament.status !== 'cooldown') {
-    res.status(400).json({ error: 'Candidate review is only available during the cooldown phase.' });
+  if (tournament.status !== 'open' && tournament.status !== 'cooldown') {
+    res.status(400).json({ error: 'Candidate review is only available during the open or cooldown phase.' });
     return null;
   }
 
@@ -363,7 +219,9 @@ router.post('/tournaments/:id/entries/:eid/approve', async (req, res) => {
 
   // Reaching capacity before the cooldown deadline activates the tournament immediately,
   // mirroring what the tournament_cooldown_expiry job does when the deadline itself fires.
-  if (approvedCount + 1 === tournament.size) {
+  // Scoped to `cooldown` only — during `open`, candidates still have the full window to submit,
+  // so hitting the cap early must not cut that off.
+  if (tournament.status === 'cooldown' && approvedCount + 1 === tournament.size) {
     const agenda = require('../jobs/agenda'); // lazy — must load after mongoose.connect() in server.js
     await agenda.cancel({ name: 'tournament_cooldown_expiry', 'data.tournamentId': tournament._id.toString() });
     await activateTournament(tournament._id);
@@ -847,6 +705,12 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
     if (!eligibility.eligible) contestEligibilityError = eligibility.reason;
   }
 
+  const tournamentId = req.body.tournamentId?.trim() || null;
+  let targetTournament = null;
+  if (tournamentId && mongoose.isValidObjectId(tournamentId)) {
+    targetTournament = await Tournament.findById(tournamentId).lean();
+  }
+
   try {
     const entry = await Entry.create({
       userId:          req.session.userId,
@@ -862,8 +726,16 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
       allowTakeOns:    req.body.allowTakeOns !== 'false',
     });
 
+    // Tournament candidacy is always resolved at upload time — either an explicit tournament
+    // the uploader targeted, or an automatic stain-match draft into any other open tournament.
+    let tournamentSubmission = null;
+    if (targetTournament) {
+      tournamentSubmission = await submitEntryToTournament({ tournament: targetTournament, entry, actor, autoSubmitted: false });
+    }
+    attemptTournamentAutoDraft(entry, actor).catch(() => {});
+
     if (contestEligibilityError) {
-      return res.json({ entryId: entry._id, contestId: null, eligibilityError: contestEligibilityError });
+      return res.json({ entryId: entry._id, contestId: null, eligibilityError: contestEligibilityError, tournamentSubmission });
     }
 
     let contestId = null;
@@ -991,7 +863,7 @@ router.post('/entries', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }
       contestId = contests.length === 1 ? contests[0] : null;
     }
 
-    res.json({ entryId: entry._id, contestId });
+    res.json({ entryId: entry._id, contestId, tournamentSubmission });
   } catch (err) {
     console.error('Entry create error:', err);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });

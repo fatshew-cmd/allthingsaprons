@@ -3,37 +3,121 @@
 <div class="flex flex-col pb-20 md:pb-0">
 
   <%
+    function timeAgo(date) {
+      var diff = Math.max(0, Date.now() - new Date(date).getTime());
+      var s = Math.floor(diff / 1000);
+      if (s < 60) return 'just now';
+      var m = Math.floor(s / 60);
+      if (m < 60) return m + 'm ago';
+      var h = Math.floor(m / 60);
+      if (h < 24) return h + 'h ago';
+      var d = Math.floor(h / 24);
+      if (d < 7) return d + 'd ago';
+      var w = Math.floor(d / 7);
+      if (w < 5) return w + 'w ago';
+      return Math.floor(d / 30) + 'mo ago';
+    }
+
     function tournamentCard(t) {
       var stCls = t.status === 'active' ? 'bg-green-500/20 text-green-400'
                 : t.status === 'open'   ? 'bg-amber-500/20 text-amber-400'
                 : t.status === 'cooldown' ? 'bg-blue-500/20 text-blue-400'
                 : t.status === 'closed' ? 'bg-white/8 text-white/40'
                 : 'bg-red-500/20 text-red-400';
+      var followBtnCls = t.isFollowing
+        ? 'border-white/30 text-white/50 hover:bg-white/8'
+        : 'border-charm-500/40 text-charm-400 hover:bg-charm-500/10';
+
+      var firstPrize = typeof t.prizes?.first === 'number' ? t.prizes.first.toLocaleString() : null;
+
+      var deadlineTs = t.status === 'open' ? (t.openDeadline ? new Date(t.openDeadline).getTime() : null)
+                      : t.status === 'cooldown' ? (t.cooldownDeadline ? new Date(t.cooldownDeadline).getTime() : null)
+                      : null;
+      var deadlineLabel = t.status === 'open' ? 'Closes in' : t.status === 'cooldown' ? 'Review closes in' : '';
+
+      var stageLabel = t.stage === 'group' ? 'Group Stage'
+                      : t.stage === 'knockout' ? 'Knockout'
+                      : t.stage === 'finale' ? 'Finale'
+                      : null;
   %>
   <a href="/tournament/<%= t._id %>"
-    class="flex items-center gap-3 px-5 py-4 border-b border-white/8 hover:bg-white/5 transition-colors no-underline">
-    <div class="w-11 h-11 rounded-md bg-charm-500/10 flex items-center justify-center shrink-0 overflow-hidden">
-      <% if (t.thumbnailUrl) { %>
-        <img src="<%= t.thumbnailUrl %>" class="w-full h-full object-cover" alt="">
-      <% } else { %>
-        <iconify-icon icon="boxicons:trophy" width="20" style="color:#c45c7a"></iconify-icon>
+    class="flex flex-col gap-3 px-5 py-4 border-b border-white/10 hover:bg-white/5 transition-colors no-underline">
+    <div class="flex items-center gap-3">
+      <div class="w-16 h-16 rounded-md bg-charm-500/10 flex items-center justify-center shrink-0 overflow-hidden">
+        <% if (t.thumbnailUrl) { %>
+          <img src="<%= t.thumbnailUrl %>" class="w-full h-full object-cover" alt="">
+        <% } else { %>
+          <iconify-icon icon="boxicons:trophy" width="24" style="color:#c45c7a"></iconify-icon>
+        <% } %>
+      </div>
+      <div class="flex-1 min-w-0 flex flex-col gap-1">
+        <div class="flex items-center gap-2">
+          <p class="text-lg font-bold text-white truncate m-0"><%= t.name %></p>
+          <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0 uppercase tracking-wide <%= stCls %>"><%= t.status %></span>
+        </div>
+
+        <!-- Organizer badge -->
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="w-7 h-7 rounded-full bg-charm-950 flex items-center justify-center shrink-0 overflow-hidden">
+            <% if (t.createdBy?.avatar?.value) { %>
+              <img src="<%= t.createdBy.avatar.value %>" class="w-full h-full object-cover" alt="">
+            <% } else { %>
+              <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon>
+            <% } %>
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-white truncate m-0 leading-tight"><%= t.createdBy?.displayName?.value || ('@' + (t.createdBy?.username?.value || 'unknown')) %></p>
+            <p class="text-xs text-white/40 truncate m-0 leading-tight">@<%= t.createdBy?.username?.value || 'unknown' %></p>
+          </div>
+          <% if (!t.isSelf) { %>
+            <button type="button" class="tournament-follow-btn ml-2 shrink-0 text-xs font-semibold rounded-md px-2.5 py-1 border transition-colors cursor-pointer <%= followBtnCls %>"
+              data-username="<%= t.createdBy?.username?.value %>" data-following="<%= t.isFollowing ? '1' : '0' %>"
+              onclick="event.preventDefault(); event.stopPropagation(); handleTournamentFollow(this)">
+              <%= t.isFollowing ? 'Following' : 'Follow' %>
+            </button>
+          <% } %>
+        </div>
+      </div>
+      <iconify-icon icon="boxicons:chevron-right" width="18" class="text-white/20 shrink-0"></iconify-icon>
+    </div>
+
+    <% if (t.description) { %>
+    <p class="text-sm text-white/70 line-clamp-2 m-0"><%= t.description %></p>
+    <% } %>
+
+    <div class="flex items-center gap-4 text-sm text-white/60">
+      <span class="flex items-center gap-2"><iconify-icon icon="boxicons:bar-chart" width="18" class="text-white/35"></iconify-icon><%= (t.viewCount || 0).toLocaleString() %></span>
+      <% if (t.size) { %>
+        <span class="flex items-center gap-2"><iconify-icon icon="boxicons:group" width="18" class="text-white/35"></iconify-icon><%= t.size %></span>
+      <% } %>
+      <% if (t.status === 'active' && stageLabel) { %>
+        <span class="flex items-center gap-2"><iconify-icon icon="boxicons:flag" width="18" class="text-white/35"></iconify-icon><%= stageLabel %></span>
+      <% } %>
+      <% if (firstPrize) { %>
+        <span class="flex items-center gap-2"><iconify-icon icon="boxicons:trophy-star-filled" width="18" class="text-purple-400"></iconify-icon><%= firstPrize %></span>
+      <% } %>
+      <% if (deadlineTs) { %>
+        <span class="tournament-deadline ml-auto font-medium text-white/55" data-deadline-ts="<%= deadlineTs %>" data-label="<%= deadlineLabel %>">&nbsp;</span>
+      <% } else if (t.status === 'closed' && t.updatedAt) { %>
+        <span class="ml-auto text-white/30">Closed <%= timeAgo(t.updatedAt) %></span>
       <% } %>
     </div>
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2">
-        <p class="text-sm font-semibold text-white truncate m-0"><%= t.name %></p>
-        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0 <%= stCls %>"><%= t.status %></span>
-      </div>
-      <%
-        var prizePool = (typeof t.prizes?.first === 'number' && typeof t.prizes?.second === 'number' && typeof t.prizes?.third === 'number')
-          ? (t.prizes.first + t.prizes.second + t.prizes.third).toLocaleString() + ' 🌶️ prize pool'
-          : null;
-      %>
-      <p class="text-xs text-white/40 truncate m-0 mt-0.5">
-        by @<%= t.createdBy?.username?.value || 'unknown' %><%= t.size ? ' · ' + t.size + ' entries' : '' %><%= prizePool ? ' · ' + prizePool : '' %>
-      </p>
+
+    <% if ((t.wildcardStains && t.wildcardStains.length) || (t.stains && t.stains.length)) { %>
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <% (t.wildcardStains || []).forEach(function (s) { %>
+        <span class="wildcard-stain-badge inline-flex items-center gap-1.5 text-xs font-bold text-charm-300 bg-charm-500/15 border border-charm-500/40 rounded-md pl-1.5 pr-1 py-0.5" data-stain="<%= s %>">
+          <iconify-icon icon="boxicons:purchase-tag" width="11" class="shrink-0"></iconify-icon>#<%= s %>
+          <button type="button" class="wildcard-stain-copy-btn shrink-0 flex items-center justify-center w-5 h-5 rounded text-charm-300/70 hover:text-charm-200 hover:bg-charm-500/20 transition-colors cursor-pointer" title="Copy stain">
+            <iconify-icon icon="boxicons:copy" width="11" class="pointer-events-none"></iconify-icon>
+          </button>
+        </span>
+      <% }); %>
+      <% (t.stains || []).forEach(function (s) { %>
+        <span class="text-xs text-charm-400/60">#<%= s %></span>
+      <% }); %>
     </div>
-    <iconify-icon icon="boxicons:chevron-right" width="18" class="text-white/20 shrink-0"></iconify-icon>
+    <% } %>
   </a>
   <% } %>
 
@@ -104,7 +188,7 @@
           <% if (draft.thumbnailUrl) { %>
             <img src="<%= draft.thumbnailUrl %>" class="w-full h-full object-cover" alt="">
           <% } else { %>
-            <iconify-icon icon="boxicons:trophy" width="20" style="color:#c45c7a"></iconify-icon>
+            <iconify-icon icon="boxicons:trophy" width="18" style="color:#c45c7a"></iconify-icon>
           <% } %>
         </div>
         <div class="flex-1 min-w-0">
@@ -116,7 +200,7 @@
     <% } %>
   </div>
 
-  <a href="/tournaments/create" title="Create tournament"
+  <a href="/tournaments/create?new=1" title="Create tournament"
     class="fixed bottom-5 right-5 xl:right-[calc((100vw-80rem)/2+21.25rem)] z-20 flex items-center justify-center w-12 h-12 bg-charm-500/15 hover:bg-charm-500/25 text-charm-400 rounded-md shadow-xl transition-colors no-underline">
     <iconify-icon icon="boxicons:plus" width="22"></iconify-icon>
   </a>
@@ -137,6 +221,65 @@
       document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
     });
   }
+
+  (function () {
+    function fmtCountdown(ts) {
+      var diff = ts - Date.now();
+      if (diff <= 0) return null;
+      var d = Math.floor(diff / 86400000);
+      var h = Math.floor((diff % 86400000) / 3600000);
+      var m = Math.floor((diff % 3600000) / 60000);
+      if (d > 0) return d + 'd ' + h + 'h';
+      if (h > 0) return h + 'h ' + m + 'm';
+      return m + 'm';
+    }
+    function tick() {
+      document.querySelectorAll('.tournament-deadline').forEach(function (el) {
+        var ts = parseInt(el.dataset.deadlineTs, 10);
+        if (!ts) return;
+        var label = el.dataset.label || '';
+        var duration = fmtCountdown(ts);
+        el.textContent = duration ? (label ? label + ' ' + duration : duration) : 'wrapping up…';
+      });
+    }
+    tick();
+    setInterval(tick, 30000);
+  })();
+
+  function handleTournamentFollow(btn) {
+    var username  = btn.dataset.username;
+    var following = btn.dataset.following === '1';
+    var url       = following ? '/unfollow/' + username : '/follow/' + username;
+    var followingCls = ['border-white/30', 'text-white/50', 'hover:bg-white/8'];
+    var followCls     = ['border-charm-500/40', 'text-charm-400', 'hover:bg-charm-500/10'];
+    fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var nowFollowing = data.following;
+        btn.dataset.following = nowFollowing ? '1' : '0';
+        btn.textContent = nowFollowing ? 'Following' : 'Follow';
+        followCls.forEach(function (c) { btn.classList.toggle(c, !nowFollowing); });
+        followingCls.forEach(function (c) { btn.classList.toggle(c, nowFollowing); });
+      });
+  }
+
+  document.querySelectorAll('.wildcard-stain-copy-btn').forEach(function (btn) {
+    var icon = btn.querySelector('iconify-icon');
+    var revertTimer = null;
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var stain = btn.closest('.wildcard-stain-badge').dataset.stain;
+      navigator.clipboard.writeText(stain).then(function () {
+        if (window.showToast) window.showToast('Copied #' + stain, 'success');
+        clearTimeout(revertTimer);
+        icon.setAttribute('icon', 'boxicons:check');
+        revertTimer = setTimeout(function () { icon.setAttribute('icon', 'boxicons:copy'); }, 1200);
+      }).catch(function () {
+        if (window.showToast) window.showToast('Could not copy', 'error');
+      });
+    });
+  });
 </script>
 
 <%- include('../partials/appEnd') %>

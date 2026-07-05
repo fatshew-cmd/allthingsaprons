@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/allthingsaprons';
 

@@ -11,11 +11,41 @@
     </div>
   </header>
 
+  <%
+    var SORT_LABELS = {
+      recent: 'Most recent', oldest: 'Oldest', rating: 'Highest rated',
+      ratingCount: 'Most ratings', followers: 'Most followers',
+    };
+  %>
+  <form method="GET" class="px-5 pt-4 flex flex-wrap items-center gap-2">
+    <div class="relative flex-1 min-w-40">
+      <iconify-icon icon="boxicons:search" width="16" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/30"></iconify-icon>
+      <input type="search" name="q" value="<%= search %>" placeholder="Search by username"
+        class="w-full bg-shark-900 border border-white/10 rounded-md pl-8 pr-3 py-2 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/25 transition-colors">
+    </div>
+    <div class="custom-dropdown relative shrink-0" id="review-sort-dropdown" style="min-width:150px">
+      <input type="hidden" name="sort" value="<%= sort %>">
+      <button type="button" data-dropdown-trigger
+        class="w-full bg-shark-900 border border-white/10 rounded-md px-3 py-2 text-sm text-left flex items-center justify-between gap-2 focus:outline-none transition-colors cursor-pointer text-white">
+        <span class="dropdown-label"><%= SORT_LABELS[sort] %></span>
+        <iconify-icon data-chevron icon="boxicons:chevron-down" width="14" style="color:rgba(255,255,255,0.3);flex-shrink:0;transition:transform 0.15s ease;display:block"></iconify-icon>
+      </button>
+      <div class="dropdown-panel absolute z-30 w-full mt-1 bg-shark-900 border border-white/10 rounded-md shadow-xl overflow-hidden" style="display:none">
+        <% Object.keys(SORT_LABELS).forEach(function (val) { %>
+        <button type="button" class="dropdown-option w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/8 transition-colors cursor-pointer text-white/70" data-value="<%= val %>">
+          <span class="opt-label"><%= SORT_LABELS[val] %></span>
+          <iconify-icon icon="boxicons:check" width="13" class="check-icon" style="display:none;color:#e680a6;flex-shrink:0"></iconify-icon>
+        </button>
+        <% }) %>
+      </div>
+    </div>
+  </form>
+
   <div class="px-5 py-5">
     <% if (!pendingEntries.length) { %>
       <div class="flex flex-col items-center justify-center py-16 gap-3 text-center">
         <iconify-icon icon="boxicons:inbox" width="32" class="text-white/15"></iconify-icon>
-        <p class="text-sm text-white/30 m-0">No candidates waiting for review.</p>
+        <p class="text-sm text-white/30 m-0"><%= search ? 'No candidates match that search.' : 'No candidates waiting for review.' %></p>
       </div>
     <% } else { %>
       <div class="flex flex-col gap-3" id="review-rows">
@@ -27,8 +57,15 @@
               <% } %>
             </div>
             <div class="min-w-0 flex-1">
-              <p class="text-sm font-semibold text-white truncate m-0"><%= pe.entryId?.title || 'Untitled entry' %></p>
-              <p class="text-xs text-white/40 truncate m-0">@<%= pe.userId?.username?.value %> · <%= pe.entryId?.ratingAvg ? pe.entryId.ratingAvg.toFixed(1) : '—' %> avg (<%= pe.entryId?.ratingCount || 0 %>)</p>
+              <div class="flex items-center gap-1.5">
+                <p class="text-sm font-semibold text-white truncate m-0"><%= pe.entryId?.title || 'Untitled entry' %></p>
+                <% if (pe.autoSubmitted) { %>
+                <span class="shrink-0 text-[10px] font-bold text-charm-400 bg-charm-500/10 border border-charm-500/20 rounded px-1.5 py-0.5">
+                  Wildcard<% if (tournament.wildcardStains && tournament.wildcardStains.length) { %> · #<%= tournament.wildcardStains.join(' / #') %><% } %>
+                </span>
+                <% } %>
+              </div>
+              <p class="text-xs text-white/40 truncate m-0">@<%= pe.userId?.username?.value %> · <%= pe.entryId?.ratingAvg ? pe.entryId.ratingAvg.toFixed(1) : '—' %> avg (<%= pe.entryId?.ratingCount || 0 %> ratings) · <%= pe.followerCount || 0 %> followers</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <button type="button" class="reject-btn text-xs font-semibold px-3 py-1.5 rounded-md bg-white/8 text-white/60 hover:bg-red-500/15 hover:text-red-400 transition-colors">Reject</button>
@@ -72,6 +109,65 @@
     var rejectBtn  = e.target.closest('.reject-btn');
     if (approveBtn) handleAction(approveBtn, 'approve');
     if (rejectBtn)  handleAction(rejectBtn, 'reject');
+  });
+})();
+</script>
+
+<script>
+(function () {
+  var closers = [];
+
+  function initDropdown(containerId, onSelect) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var trigger = container.querySelector('[data-dropdown-trigger]');
+    var panel   = container.querySelector('.dropdown-panel');
+    var label   = container.querySelector('.dropdown-label');
+    var chevron = container.querySelector('[data-chevron]');
+    var hidden  = container.querySelector('input[type="hidden"]');
+    var options = container.querySelectorAll('.dropdown-option');
+    var isOpen  = false;
+
+    function open() {
+      closers.forEach(function (fn) { fn(); });
+      panel.style.display = 'block';
+      chevron.style.transform = 'rotate(180deg)';
+      trigger.style.borderColor = 'rgba(230,128,166,0.5)';
+      isOpen = true;
+    }
+    function close() {
+      panel.style.display = 'none';
+      chevron.style.transform = '';
+      trigger.style.borderColor = '';
+      isOpen = false;
+    }
+    closers.push(close);
+
+    trigger.addEventListener('click', function (e) {
+      e.stopPropagation();
+      isOpen ? close() : open();
+    });
+
+    options.forEach(function (opt) {
+      var check = opt.querySelector('.check-icon');
+      if (opt.getAttribute('data-value') === hidden.value) check.style.display = 'block';
+      opt.addEventListener('click', function () {
+        hidden.value = opt.getAttribute('data-value');
+        label.textContent = opt.querySelector('.opt-label').textContent;
+        options.forEach(function (o) { o.querySelector('.check-icon').style.display = 'none'; });
+        check.style.display = 'block';
+        close();
+        if (onSelect) onSelect();
+      });
+    });
+
+    document.addEventListener('click', function (e) {
+      if (isOpen && !container.contains(e.target)) close();
+    });
+  }
+
+  initDropdown('review-sort-dropdown', function () {
+    document.getElementById('review-sort-dropdown').closest('form').submit();
   });
 })();
 </script>

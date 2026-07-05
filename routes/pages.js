@@ -28,6 +28,7 @@ const UserBlock             = require('../models/UserBlock');
 const ProfileShareView      = require('../models/ProfileShareView');
 const { buildFeedPage }                        = require('../utils/feedScorer');
 const { updateAffinity, updateCreatorAffinity } = require('../utils/affinityUpdater');
+const { submitEntryToTournament, checkTournamentPreflight, attemptTournamentAutoDraft } = require('../utils/tournamentSubmission');
 const requireAuth   = require('../middleware/requireAuth');
 const requireApproved = require('../middleware/requireApproved');
 const upload        = require('../middleware/upload');
@@ -846,6 +847,15 @@ router.get('/submit', async (req, res) => {
     }
   }
 
+  let targetTournament = null;
+  if (req.query.tournamentId && mongoose.isValidObjectId(req.query.tournamentId)) {
+    const tournament = await Tournament.findById(req.query.tournamentId).lean();
+    if (tournament) {
+      const preflight = await checkTournamentPreflight(tournament, userId);
+      targetTournament = { tournament, eligible: preflight.eligible, reason: preflight.reason || null };
+    }
+  }
+
   res.render('submit', {
     title:      'Submit Entry',
     activePage: 'submit',
@@ -859,6 +869,7 @@ router.get('/submit', async (req, res) => {
     challengeEntry,
     takeOnContest,
     takeOnTargetEntry,
+    targetTournament,
   });
 });
 
@@ -894,6 +905,18 @@ router.post('/submit', upload.entry.fields([{ name: 'entryMedia', maxCount: 1 }]
       caption,
       tags,
     });
+
+    // Tournament candidacy is always resolved at upload time — either an explicit tournament
+    // the uploader targeted, or an automatic stain-match draft into any other open tournament.
+    const tournamentId = req.body.tournamentId?.trim() || null;
+    const uploader = await User.findById(req.session.userId).select('idVerified username displayName avatar').lean();
+    if (tournamentId && mongoose.isValidObjectId(tournamentId)) {
+      const targetTournament = await Tournament.findById(tournamentId).lean();
+      if (targetTournament) {
+        await submitEntryToTournament({ tournament: targetTournament, entry, actor: uploader, autoSubmitted: false });
+      }
+    }
+    attemptTournamentAutoDraft(entry, uploader).catch(() => {});
 
     const takeOnTargetId = req.body.takeOnTargetId?.trim() || null;
     if (takeOnTargetId && mongoose.isValidObjectId(takeOnTargetId)) {

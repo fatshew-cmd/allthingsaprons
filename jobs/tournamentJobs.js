@@ -62,7 +62,7 @@ async function cancelTournament(tournamentId, reason) {
 async function activateTournament(tournamentId) {
   await Tournament.findOneAndUpdate(
     { _id: tournamentId, status: 'cooldown' },
-    { $set: { status: 'active', activeAt: new Date() } },
+    { $set: { status: 'active', activeAt: new Date(), stage: 'group' } },
   );
 }
 

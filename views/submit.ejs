@@ -96,6 +96,33 @@
   </script>
   <% } %>
 
+  <% if (locals.targetTournament) { %>
+  <% var _tt = locals.targetTournament.tournament; var _ttEligible = locals.targetTournament.eligible; var _ttReason = locals.targetTournament.reason; %>
+  <div class="flex items-center gap-3 border rounded-md p-3 mb-5 <%= _ttEligible ? 'border-charm-500/25 bg-charm-600/5' : 'border-red-500/25 bg-red-500/5' %>">
+    <a href="/tournament/<%= _tt._id %>" class="shrink-0 w-16 h-16 rounded-md overflow-hidden bg-shark-900 flex items-center justify-center">
+      <% if (_tt.thumbnailUrl) { %>
+      <img src="<%= _tt.thumbnailUrl %>" class="w-full h-full object-cover" alt="">
+      <% } else { %>
+      <iconify-icon icon="boxicons:trophy" width="24" class="text-white/20"></iconify-icon>
+      <% } %>
+    </a>
+    <div class="flex flex-col gap-0.5 min-w-0 flex-1">
+      <div class="flex items-center gap-1.5 mb-0.5">
+        <iconify-icon icon="boxicons:trophy" width="11" class="<%= _ttEligible ? 'text-charm-400' : 'text-red-400' %> shrink-0"></iconify-icon>
+        <span class="text-[10px] font-bold uppercase tracking-wide <%= _ttEligible ? 'text-charm-400' : 'text-red-400' %>">
+          <%= _ttEligible ? 'Entering Tournament' : 'Cannot Enter Tournament' %>
+        </span>
+      </div>
+      <p class="text-sm font-semibold text-white truncate"><%= _tt.name %></p>
+      <% if (_ttEligible) { %>
+      <p class="text-xs text-white/45">Uploading here submits this entry for review.</p>
+      <% } else if (_ttReason) { %>
+      <p class="text-xs text-red-400/80"><%= _ttReason %></p>
+      <% } %>
+    </div>
+  </div>
+  <% } %>
+
   <% if (error) { %>
   <div class="flex items-center gap-2 text-sm text-red-400 bg-red-400/8 border border-red-400/20 rounded-md px-3 py-2.5 mb-4">
     <iconify-icon icon="boxicons:error-circle" width="15" class="shrink-0"></iconify-icon>
@@ -253,6 +280,9 @@
     <input type="hidden" id="accepting-nomination-id" value="<%= acceptingNomination ? acceptingNomination._id : '' %>">
     <% if (locals.takeOnTargetEntry) { %>
     <input type="hidden" name="takeOnTargetId" value="<%= locals.takeOnTargetEntry._id %>">
+    <% } %>
+    <% if (locals.targetTournament && locals.targetTournament.eligible) { %>
+    <input type="hidden" name="tournamentId" value="<%= locals.targetTournament.tournament._id %>">
     <% } %>
 
     <!-- ── Source tabs ────────────────────────────────────────────── -->
@@ -2180,6 +2210,7 @@
     }
 
     var _takeOnTargetIdB = document.querySelector('input[name="takeOnTargetId"]')?.value || '';
+    var _tournamentIdB   = document.querySelector('input[name="tournamentId"]')?.value || '';
 
     async function postEntry(file, caption, entryTags, nomId) {
       var fd = new FormData();
@@ -2193,6 +2224,7 @@
       fd.append('aiGenerated',     aiGenerated);
       fd.append('allowTakeOns',    allowTakeOns);
       if (nomId) fd.append('nominationId', nomId);
+      if (_tournamentIdB) fd.append('tournamentId', _tournamentIdB);
       if (hasChallenge) {
         selectedNominees.forEach(function (o) { fd.append('challengeUsername', o.username); });
         fd.append('challengeVisibility',  challengeVis);
@@ -2205,13 +2237,17 @@
       var r    = await fetch('/api/entries', { method: 'POST', body: fd });
       var data = await r.json();
       if (!r.ok || data.error) throw new Error(data.error || 'Upload failed');
-      return { entryId: data.entryId, contestId: data.contestId || null, eligibilityError: data.eligibilityError || null };
+      return {
+        entryId: data.entryId, contestId: data.contestId || null, eligibilityError: data.eligibilityError || null,
+        tournamentSubmission: data.tournamentSubmission || null,
+      };
     }
 
     try {
       var firstId;
       var firstContestId;
       var eligibilityError;
+      var tournamentSubmission;
       if (trimCards.length > 0) {
         var results = await Promise.all(trimCards.map(function (tc, i) {
           return postEntry(
@@ -2220,14 +2256,16 @@
             i === 0 ? selectedNomId : ''
           );
         }));
-        firstId          = results[0].entryId;
-        firstContestId   = results[0].contestId;
-        eligibilityError = results[0].eligibilityError;
+        firstId              = results[0].entryId;
+        firstContestId       = results[0].contestId;
+        eligibilityError     = results[0].eligibilityError;
+        tournamentSubmission = results[0].tournamentSubmission;
       } else {
         var res = await postEntry(rawFile, document.getElementById('caption').value, tags.slice(), selectedNomId);
-        firstId          = res.entryId;
-        firstContestId   = res.contestId;
-        eligibilityError = res.eligibilityError;
+        firstId              = res.entryId;
+        firstContestId       = res.contestId;
+        eligibilityError     = res.eligibilityError;
+        tournamentSubmission = res.tournamentSubmission;
       }
       if (_takeOnTargetIdB && firstId) {
         var rto2 = await fetch('/api/entries/' + _takeOnTargetIdB + '/take-on', {
@@ -2241,9 +2279,15 @@
         return;
       }
       var dest = firstContestId ? '/contest/' + firstContestId : '/entry/' + firstId;
-      if (eligibilityError && window.showToast) {
+      if (tournamentSubmission && !tournamentSubmission.success && window.showToast) {
+        window.showToast(tournamentSubmission.reason || 'Could not submit your entry to the tournament.', 'error');
+        setTimeout(function () { window.location.href = dest; }, 3000);
+      } else if (eligibilityError && window.showToast) {
         window.showToast(eligibilityError, 'error');
         setTimeout(function () { window.location.href = dest; }, 3000);
+      } else if (tournamentSubmission && tournamentSubmission.success && window.showToast) {
+        window.showToast('Submitted to the tournament for review.', 'success');
+        setTimeout(function () { window.location.href = dest; }, 1500);
       } else {
         window.location.href = dest;
       }

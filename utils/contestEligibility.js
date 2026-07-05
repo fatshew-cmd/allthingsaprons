@@ -1,6 +1,6 @@
 const User             = require('../models/User');
-const Entry            = require('../models/Entry');
 const PlatformSettings = require('../models/PlatformSettings');
+const { getUserRatingStats } = require('./weightedRating');
 
 // TEMP: bypass eligibility for these usernames during local testing — remove before launch
 const TEST_BYPASS_USERNAMES = ['celuiqui', 'storiesbyshews'];
@@ -14,19 +14,16 @@ async function checkContestEligibility(userId) {
   const minRatingCount = thresholds.minRatingCount ?? 25;
   const minWeightedAvg = thresholds.minWeightedAvg ?? 7.4;
 
-  const entries      = await Entry.find({ userId }).select('ratingCount ratingAvg').lean();
-  const ratedEntries = entries.filter(e => e.ratingCount > 0);
+  const { weightedAvg, totalRatingCount, ratedEntryCount } = await getUserRatingStats(userId);
 
-  if (ratedEntries.length < minEntries) {
+  if (ratedEntryCount < minEntries) {
     return { eligible: false, reason: `You need at least ${minEntries} rated entries to participate in contests.` };
   }
 
-  const totalRatings = ratedEntries.reduce((s, e) => s + e.ratingCount, 0);
-  if (totalRatings < minRatingCount) {
+  if (totalRatingCount < minRatingCount) {
     return { eligible: false, reason: `Your entries need at least ${minRatingCount} total ratings to participate in contests.` };
   }
 
-  const weightedAvg = ratedEntries.reduce((s, e) => s + e.ratingAvg * e.ratingCount, 0) / totalRatings;
   if (weightedAvg < minWeightedAvg) {
     return { eligible: false, reason: `Your weighted rating average must be at least ${minWeightedAvg} to participate in contests.` };
   }

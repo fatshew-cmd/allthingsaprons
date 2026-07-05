@@ -118,6 +118,31 @@
         </div>
 
         <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-bold text-white/90">Stains <span class="text-white/30 font-normal">(optional, up to 6)</span></label>
+            <span id="tournament-stain-count" class="text-xs text-white/30"></span>
+          </div>
+          <div id="tournament-stain-wrap"
+            class="flex flex-wrap gap-2 items-center bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 min-h-12 cursor-text focus-within:border-charm-500/60 transition-colors">
+            <input id="tournament-stain-input" type="text" placeholder="Add a stain…"
+              class="flex-1 min-w-24 bg-transparent text-sm text-white placeholder:text-white/25 outline-none">
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-bold text-white/90">Wildcards <span class="text-white/30 font-normal">(optional, up to 2)</span></label>
+            <span id="wildcard-stain-count" class="text-xs text-white/30"></span>
+          </div>
+          <div id="wildcard-stain-wrap"
+            class="flex flex-wrap gap-2 items-center bg-shark-900 border border-white/10 rounded-md px-3 py-2.5 min-h-12 cursor-text focus-within:border-charm-500/60 transition-colors">
+            <input id="wildcard-stain-input" type="text" placeholder="Add a wildcard…"
+              class="flex-1 min-w-24 bg-transparent text-sm text-white placeholder:text-white/25 outline-none">
+          </div>
+          <p class="text-xs text-white/30">Any new entry tagged with one of these is automatically submitted as a candidate while this tournament is open.</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
           <label class="text-sm font-bold text-white/90">Participant count</label>
           <%
             var SIZE_INFO = {
@@ -207,6 +232,153 @@
           visibilityThumb.classList.toggle('translate-x-7', isPrivate);
           visibilityInput.value = isPrivate ? 'private' : 'public';
         });
+
+        // ── Stains ──────────────────────────────────────────────────
+        var stepForm      = document.getElementById('tournament-step-form');
+        var MAX_STAINS    = 6;
+        var stains        = [];
+        var stainInput    = document.getElementById('tournament-stain-input');
+        var stainWrap     = document.getElementById('tournament-stain-wrap');
+        var stainCountEl  = document.getElementById('tournament-stain-count');
+
+        function updateStainUI() {
+          stainCountEl.textContent = stains.length + '/' + MAX_STAINS;
+          stainInput.style.display = stains.length >= MAX_STAINS ? 'none' : '';
+          stainInput.placeholder   = stains.length === 0 ? 'Add a stain…' : (stains.length < MAX_STAINS ? 'Add another…' : '');
+        }
+
+        function addStain(text) {
+          text = text.trim().toLowerCase().replace(/,/g, '');
+          if (!text || stains.includes(text) || stains.length >= MAX_STAINS) return;
+          stains.push(text);
+
+          var chip = document.createElement('span');
+          chip.className   = 'inline-flex items-center gap-1 bg-shark-800 border border-white/15 rounded-md px-2 py-1 text-xs text-white/70';
+          chip.dataset.stain = text;
+          chip.innerHTML   = '#' + text +
+            '<button type="button" class="text-white/30 hover:text-white/70 transition-colors cursor-pointer ml-0.5 leading-none">' +
+            '<iconify-icon icon="boxicons:x" width="12"></iconify-icon></button>';
+          chip.querySelector('button').addEventListener('click', function () { removeStain(text, chip); });
+          stainWrap.insertBefore(chip, stainInput);
+
+          var hidden = document.createElement('input');
+          hidden.type          = 'hidden';
+          hidden.name          = 'stains';
+          hidden.value         = text;
+          hidden.dataset.stain = text;
+          stepForm.appendChild(hidden);
+
+          updateStainUI();
+        }
+
+        function removeStain(text, chip) {
+          stains = stains.filter(function (s) { return s !== text; });
+          chip.remove();
+          var h = stepForm.querySelector('input[type="hidden"][data-stain="' + text + '"]');
+          if (h) h.remove();
+          updateStainUI();
+        }
+
+        stainInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addStain(this.value);
+            this.value = '';
+          } else if ((e.key === ',' || e.key === ' ') && this.value.trim()) {
+            e.preventDefault();
+            addStain(this.value);
+            this.value = '';
+          } else if (e.key === 'Backspace' && !this.value && stains.length) {
+            var chips = stainWrap.querySelectorAll('span[data-stain]');
+            var last  = chips[chips.length - 1];
+            if (last) removeStain(last.dataset.stain, last);
+          }
+        });
+
+        stainInput.addEventListener('input', function () {
+          if (this.value.includes(',')) {
+            this.value.split(',').forEach(function (p) { addStain(p); });
+            this.value = '';
+          }
+        });
+
+        stainWrap.addEventListener('click', function () { stainInput.focus(); });
+
+        (<%- JSON.stringify((typeof formData !== 'undefined' && formData.stains) || []) %>).forEach(function (s) { addStain(s); });
+        updateStainUI();
+
+        // ── Wildcards ─────────────────────────────────────────────────
+        var MAX_WILDCARD    = 2;
+        var wildcardStains  = [];
+        var wildcardInput   = document.getElementById('wildcard-stain-input');
+        var wildcardWrap    = document.getElementById('wildcard-stain-wrap');
+        var wildcardCountEl = document.getElementById('wildcard-stain-count');
+
+        function updateWildcardUI() {
+          wildcardCountEl.textContent = wildcardStains.length + '/' + MAX_WILDCARD;
+          wildcardInput.style.display = wildcardStains.length >= MAX_WILDCARD ? 'none' : '';
+          wildcardInput.placeholder   = wildcardStains.length === 0 ? 'Add a wildcard…' : (wildcardStains.length < MAX_WILDCARD ? 'Add another…' : '');
+        }
+
+        function addWildcardStain(text) {
+          text = text.trim().toLowerCase().replace(/,/g, '');
+          if (!text || wildcardStains.includes(text) || wildcardStains.length >= MAX_WILDCARD) return;
+          wildcardStains.push(text);
+
+          var chip = document.createElement('span');
+          chip.className   = 'inline-flex items-center gap-1 bg-shark-800 border border-white/15 rounded-md px-2 py-1 text-xs text-white/70';
+          chip.dataset.wildcardStain = text;
+          chip.innerHTML   = '#' + text +
+            '<button type="button" class="text-white/30 hover:text-white/70 transition-colors cursor-pointer ml-0.5 leading-none">' +
+            '<iconify-icon icon="boxicons:x" width="12"></iconify-icon></button>';
+          chip.querySelector('button').addEventListener('click', function () { removeWildcardStain(text, chip); });
+          wildcardWrap.insertBefore(chip, wildcardInput);
+
+          var hidden = document.createElement('input');
+          hidden.type          = 'hidden';
+          hidden.name          = 'wildcardStains';
+          hidden.value         = text;
+          hidden.dataset.wildcardStain = text;
+          stepForm.appendChild(hidden);
+
+          updateWildcardUI();
+        }
+
+        function removeWildcardStain(text, chip) {
+          wildcardStains = wildcardStains.filter(function (s) { return s !== text; });
+          chip.remove();
+          var h = stepForm.querySelector('input[type="hidden"][data-wildcard-stain="' + text + '"]');
+          if (h) h.remove();
+          updateWildcardUI();
+        }
+
+        wildcardInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addWildcardStain(this.value);
+            this.value = '';
+          } else if ((e.key === ',' || e.key === ' ') && this.value.trim()) {
+            e.preventDefault();
+            addWildcardStain(this.value);
+            this.value = '';
+          } else if (e.key === 'Backspace' && !this.value && wildcardStains.length) {
+            var wChips = wildcardWrap.querySelectorAll('span[data-wildcard-stain]');
+            var wLast  = wChips[wChips.length - 1];
+            if (wLast) removeWildcardStain(wLast.dataset.wildcardStain, wLast);
+          }
+        });
+
+        wildcardInput.addEventListener('input', function () {
+          if (this.value.includes(',')) {
+            this.value.split(',').forEach(function (p) { addWildcardStain(p); });
+            this.value = '';
+          }
+        });
+
+        wildcardWrap.addEventListener('click', function () { wildcardInput.focus(); });
+
+        (<%- JSON.stringify((typeof formData !== 'undefined' && formData.wildcardStains) || []) %>).forEach(function (s) { addWildcardStain(s); });
+        updateWildcardUI();
 
         var thumbInput       = document.getElementById('thumb-input');
         var thumbPreview     = document.getElementById('thumb-preview');
@@ -602,8 +774,8 @@
       <script>
       (function () {
         var FIELDS = [
-          { value: 'ratingAvg',      label: 'Average rating' },
-          { value: 'ratingCount',    label: 'Rating count' },
+          { value: 'ratingAvg',      label: 'Average rating (curator)' },
+          { value: 'ratingCount',    label: 'Rating count (curator)' },
           { value: 'followerCount', label: 'Follower count' },
           { value: 'isFollower',    label: 'Following you' },
           { value: 'age',            label: 'Age' },
@@ -1125,7 +1297,7 @@
 
       <%
         var FIELD_LABELS = {
-          ratingAvg: 'Average rating', ratingCount: 'Rating count', followerCount: 'Follower count',
+          ratingAvg: 'Average rating (curator)', ratingCount: 'Rating count (curator)', followerCount: 'Follower count',
           isFollower: 'Following you', age: 'Age', sex: 'Sex', entryCount: 'Entry count', accountAgeDays: 'Account age (days)',
         };
         var OP_LABELS  = { gte: 'at least', lte: 'at most', eq: 'exactly' };
@@ -1163,6 +1335,15 @@
           </div>
           <% if (formData.description) { %>
             <p class="text-xs text-white/50 m-0 leading-relaxed"><%= formData.description %></p>
+          <% } %>
+          <% if (formData.stains && formData.stains.length) { %>
+            <p class="text-xs text-charm-400/70 m-0">#<%= formData.stains.join(' #') %></p>
+          <% } %>
+          <% if (formData.wildcardStains && formData.wildcardStains.length) { %>
+            <div class="flex items-center gap-1.5 text-xs text-white/60 pt-2 border-t border-white/10">
+              <iconify-icon icon="boxicons:purchase-tag" width="13" class="text-charm-400 shrink-0"></iconify-icon>
+              New entries tagged <span class="text-white font-semibold">#<%= formData.wildcardStains.join(' or #') %></span> auto-submit while open
+            </div>
           <% } %>
         </div>
 

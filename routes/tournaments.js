@@ -56,6 +56,20 @@ router.get('/tournaments', async (req, res) => {
       .lean(),
   ]);
 
+  const currentUserId = req.currentUser._id;
+  const organizerIds = [...liveTournaments, ...closedTournaments]
+    .map(t => t.createdBy?._id)
+    .filter(Boolean);
+  const followDocs = organizerIds.length
+    ? await Follow.find({ followerId: currentUserId, followingId: { $in: organizerIds } }).select('followingId').lean()
+    : [];
+  const followingSet = new Set(followDocs.map(f => f.followingId.toString()));
+  [...liveTournaments, ...closedTournaments].forEach(t => {
+    const uid = t.createdBy?._id?.toString();
+    t.isFollowing = uid ? followingSet.has(uid) : false;
+    t.isSelf      = uid === currentUserId.toString();
+  });
+
   const openTournaments   = liveTournaments.filter(t => t.status === 'open' || t.status === 'cooldown');
   const activeTournaments = liveTournaments.filter(t => t.status === 'active');
 
@@ -73,7 +87,11 @@ router.get('/tournaments', async (req, res) => {
 });
 
 // ── GET /tournaments/create — resume at last-visited step, or start fresh ──
+// `?new=1` (the "+" FAB) explicitly discards any in-progress draft first — resuming is only
+// for the "Draft" tab's "tap to resume" card, which links here without that flag.
 router.get('/tournaments/create', requireOrganizerEligibility, (req, res) => {
+  if (req.query.new === '1') delete req.session.tournamentDraft;
+
   const draftStep = req.session.tournamentDraft?.step;
   if (draftStep && draftStep > 1) {
     return res.redirect(`/tournaments/create/step${draftStep}`);
@@ -103,12 +121,26 @@ router.get('/tournaments/create/step1', requireOrganizerEligibility, (req, res) 
 });
 
 // ── POST /tournaments/create/step1 — Basics ────────────────────────────────
+// Trim/lowercase/dedupe stains the same way entry tags are normalized, capped at 6.
+function normalizeStains(raw) {
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return [...new Set(list.map(s => s.trim().toLowerCase()).filter(Boolean))].slice(0, 6);
+}
+
+// Trim/lowercase/dedupe wildcard stains the same way general stains are, capped at 2.
+function normalizeWildcardStains(raw) {
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return [...new Set(list.map(s => s.trim().toLowerCase()).filter(Boolean))].slice(0, 2);
+}
+
 router.post('/tournaments/create/step1', requireOrganizerEligibility, upload.tournament.single('thumbnail'), async (req, res) => {
   const name        = (req.body.name || '').trim();
   const description = (req.body.description || '').trim();
   const size        = parseInt(req.body.size, 10);
   const openDays    = parseInt(req.body.openDays, 10);
   const visibility  = req.body.visibility === 'private' ? 'private' : 'public';
+  const stains      = normalizeStains(req.body.stains);
+  const wildcardStains = normalizeWildcardStains(req.body.wildcardStains);
 
   const thumbnailUrl = req.file
     ? '/uploads/tournaments/' + req.file.filename
@@ -119,7 +151,7 @@ router.post('/tournaments/create/step1', requireOrganizerEligibility, upload.tou
   if (req.body.intent === 'draft') {
     req.session.tournamentDraft = {
       ...(req.session.tournamentDraft || {}),
-      name, description, thumbnailUrl, visibility,
+      name, description, thumbnailUrl, visibility, stains, wildcardStains,
       size:     Number.isInteger(size) ? size : undefined,
       openDays: Number.isInteger(openDays) ? openDays : undefined,
       step: 1,
@@ -157,14 +189,14 @@ router.post('/tournaments/create/step1', requireOrganizerEligibility, upload.tou
     return res.render('tournaments/create', {
       title: 'Create Tournament', activePage: 'tournaments', currentUser: req.currentUser,
       step: 1, maxStep: req.session.tournamentDraft?.maxStep || 1, errors,
-      formData: { name, description, size: req.body.size, openDays: req.body.openDays, thumbnailUrl, visibility },
+      formData: { name, description, size: req.body.size, openDays: req.body.openDays, thumbnailUrl, visibility, stains, wildcardStains },
     });
   }
 
   const maxStep = Math.max(2, req.session.tournamentDraft?.maxStep || 1);
   req.session.tournamentDraft = {
     ...(req.session.tournamentDraft || {}),
-    name, description, size, openDays, thumbnailUrl, visibility,
+    name, description, size, openDays, thumbnailUrl, visibility, stains, wildcardStains,
     step: 2, maxStep,
   };
   res.redirect('/tournaments/create/step2');
@@ -478,7 +510,9 @@ async function finalizeTournamentCreation(req) {
     size:        draft.size,
     groupSize,
     groupCount,
+    stains: draft.stains || [],
     eligibilityCriteria: draft.eligibilityCriteria,
+    wildcardStains: draft.wildcardStains || [],
     prizes: { first: draft.prizes.first, second: draft.prizes.second, third: draft.prizes.third, funded: true },
     status: 'open',
     openDeadline,
@@ -588,10 +622,12 @@ router.get('/tournament/:id/edit', async (req, res) => {
     description: tournament.description || '',
     thumbnailUrl: tournament.thumbnailUrl,
     visibility: tournament.visibility,
+    stains: tournament.stains || [],
     size: tournament.size,
     openDays,
     prizes: { first: tournament.prizes.first, second: tournament.prizes.second, third: tournament.prizes.third || 0 },
     eligibilityCriteria: tournament.eligibilityCriteria || [],
+    wildcardStains: tournament.wildcardStains || [],
     juryUserIds: jury.map(j => j.userId.toString()),
     step: 1,
     maxStep: 5,
@@ -628,6 +664,8 @@ router.post('/tournament/:id/edit/step1', upload.tournament.single('thumbnail'),
   // the deadline has either passed or is already locked in via the scheduled sweeper job.
   const openDays    = tournament.status === 'open' ? parseInt(req.body.openDays, 10) : draft.openDays;
   const visibility  = req.body.visibility === 'private' ? 'private' : 'public';
+  const stains      = normalizeStains(req.body.stains);
+  const wildcardStains = normalizeWildcardStains(req.body.wildcardStains);
 
   const thumbnailUrl = req.file
     ? '/uploads/tournaments/' + req.file.filename
@@ -654,13 +692,13 @@ router.post('/tournament/:id/edit/step1', upload.tournament.single('thumbnail'),
     return res.render('tournaments/create', {
       title: 'Edit Tournament', activePage: 'tournaments', currentUser: req.currentUser,
       step: 1, maxStep: draft.maxStep || 1, errors,
-      formData: { ...draft, name, description, size: req.body.size, openDays, thumbnailUrl, visibility },
+      formData: { ...draft, name, description, size: req.body.size, openDays, thumbnailUrl, visibility, stains, wildcardStains },
       editing: true, tournamentId: tournament._id.toString(), tournamentStatus: tournament.status,
     });
   }
 
   req.session.tournamentEditDraft = {
-    ...draft, name, description, size, openDays, thumbnailUrl, visibility,
+    ...draft, name, description, size, openDays, thumbnailUrl, visibility, stains, wildcardStains,
     step: 2, maxStep: Math.max(2, draft.maxStep || 1),
   };
 
@@ -1038,10 +1076,54 @@ async function finalizeTournamentEdit(req, tournament) {
   // Persist basics last, once every other subsystem has already succeeded.
   await Tournament.updateOne({ _id: fresh._id }, { $set: {
     name: draft.name, description: draft.description, thumbnailUrl: draft.thumbnailUrl,
-    visibility: draft.visibility, size: draft.size, groupSize, groupCount,
-    eligibilityCriteria: draft.eligibilityCriteria, openDeadline,
+    visibility: draft.visibility, size: draft.size, groupSize, groupCount, stains: draft.stains || [],
+    eligibilityCriteria: draft.eligibilityCriteria, wildcardStains: draft.wildcardStains || [], openDeadline,
     'prizes.first': draft.prizes.first, 'prizes.second': draft.prizes.second, 'prizes.third': draft.prizes.third,
   } });
+}
+
+// Shared sort options + aggregation pipeline for browsing a tournament's TournamentEntry docs
+// (used by both the detail page's Entries row and the organizer's dedicated review queue) —
+// joins in the Entry, User, and follower-count data needed to sort/search by rating, rating
+// count, recency, or follower count.
+const TOURNAMENT_ENTRY_SORTS = {
+  recent:      { submittedAt: -1 },
+  oldest:      { submittedAt: 1 },
+  rating:      { 'entry.ratingAvg': -1 },
+  ratingCount: { 'entry.ratingCount': -1 },
+  followers:   { followerCount: -1 },
+};
+
+function buildTournamentEntryPipeline(tournamentId, approvalStatus, sort, search) {
+  const pipeline = [
+    { $match: { tournamentId, approvalStatus } },
+    { $lookup: { from: 'entries', localField: 'entryId', foreignField: '_id', as: 'entry' } },
+    { $unwind: '$entry' },
+    { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'user' } },
+    { $unwind: '$user' },
+  ];
+
+  if (search) {
+    pipeline.push({ $match: {
+      'user.username.value': { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' },
+    } });
+  }
+
+  pipeline.push(
+    { $lookup: {
+        from: 'follows', localField: 'userId', foreignField: 'followingId', as: 'followerDocs',
+        pipeline: [{ $project: { _id: 1 } }],
+    } },
+    { $addFields: { followerCount: { $size: '$followerDocs' } } },
+    { $sort: TOURNAMENT_ENTRY_SORTS[sort] },
+    { $project: {
+        approvalStatus: 1, submittedAt: 1, followerCount: 1, autoSubmitted: 1,
+        entryId: { _id: '$entry._id', title: '$entry.title', mediaType: '$entry.mediaType', mediaUrl: '$entry.mediaUrl', ratingAvg: '$entry.ratingAvg', ratingCount: '$entry.ratingCount' },
+        userId:  { _id: '$user._id', username: '$user.username', displayName: '$user.displayName', avatar: '$user.avatar' },
+    } },
+  );
+
+  return pipeline;
 }
 
 // ── GET /tournament/:id — detail ───────────────────────────────────────────
@@ -1069,7 +1151,7 @@ router.get('/tournament/:id', async (req, res) => {
       .lean(),
     TournamentMatch.find({ tournamentId: tournament._id }).populate('contestId').lean(),
     TournamentEntry.findOne({ tournamentId: tournament._id, userId: req.currentUser._id }).populate('entryId').lean(),
-    isOrganizer && tournament.status === 'cooldown'
+    isOrganizer && (tournament.status === 'open' || tournament.status === 'cooldown')
       ? TournamentEntry.countDocuments({ tournamentId: tournament._id, approvalStatus: 'pending' })
       : 0,
     isOrganizer
@@ -1086,16 +1168,25 @@ router.get('/tournament/:id', async (req, res) => {
       : false,
   ]);
 
-  const [comments, placements] = await Promise.all([
+  const entryOwnerIds = [...new Set(
+    entries.map(e => e.userId?._id?.toString()).filter(id => id && id !== req.currentUser._id.toString()),
+  )];
+
+  const [comments, placements, entryFollowDocs] = await Promise.all([
     loadTournamentComments(tournament._id),
     tournament.status === 'closed' ? loadTournamentPlacements(tournament._id) : {},
+    entryOwnerIds.length
+      ? Follow.find({ followerId: req.currentUser._id, followingId: { $in: entryOwnerIds } }).select('followingId').lean()
+      : [],
   ]);
+  const entryFollowingSet = new Set(entryFollowDocs.map(f => f.followingId.toString()));
 
   res.render('tournaments/detail', {
     title:      tournament.name,
     activePage: 'tournaments',
     currentUser: req.currentUser,
     tournament, groups, entries, matches, userEntry, isOrganizer, pendingCount, declinedJuryCount,
+    entryFollowingSet,
     isFollowing: !!isFollowing,
     isWatching: !!isWatching,
     isJuror: !!isJuror,
@@ -1435,16 +1526,18 @@ router.get('/tournament/:id/review', async (req, res) => {
     return res.status(403).render('404', { title: 'Not Found', currentUser: req.currentUser });
   }
 
-  const pendingEntries = await TournamentEntry.find({ tournamentId: tournament._id, approvalStatus: 'pending' })
-    .populate({ path: 'entryId', select: 'title mediaType mediaUrl ratingAvg ratingCount' })
-    .populate('userId', 'username displayName avatar')
-    .lean();
+  const sort   = TOURNAMENT_ENTRY_SORTS[req.query.sort] ? req.query.sort : 'recent';
+  const search = typeof req.query.q === 'string' ? req.query.q.trim().toLowerCase() : '';
+
+  const pendingEntries = await TournamentEntry.aggregate(
+    buildTournamentEntryPipeline(tournament._id, 'pending', sort, search),
+  );
 
   res.render('tournaments/review', {
     title:      'Review Candidates',
     activePage: 'tournaments',
     currentUser: req.currentUser,
-    tournament, pendingEntries,
+    tournament, pendingEntries, sort, search: req.query.q || '',
   });
 });
 

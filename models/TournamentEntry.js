@@ -11,6 +11,7 @@ const tournamentEntrySchema = new mongoose.Schema({
   eliminated:     { type: Boolean, default: false },
   submittedAt:    { type: Date, required: true },
   reviewedAt:     { type: Date, default: null },
+  autoSubmitted:  { type: Boolean, default: false },
 
   groupId:       { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentGroup', default: null },
   groupPoints:   { type: Number, default: 0 },

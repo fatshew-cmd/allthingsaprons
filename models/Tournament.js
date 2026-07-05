@@ -17,7 +17,12 @@ const tournamentSchema = new mongoose.Schema({
   groupSize:   { type: Number, required: true },
   groupCount:  { type: Number, required: true },
 
+  // General descriptive stains — like an entry's tags, shown on the tournament card/detail
+  // page for browsing. Independent of wildcardStains below (no requirement to overlap).
+  stains: { type: [String], default: [], validate: { validator: v => v.length <= 6, message: 'Maximum 6 stains allowed' } },
   eligibilityCriteria: { type: [criteriaSchema], default: [] },
+  // Any new entry tagged with one of these auto-drafts into the tournament while it's open.
+  wildcardStains: { type: [String], default: [], validate: { validator: v => v.length <= 2, message: 'Maximum 2 wildcard stains allowed' } },
 
   prizes: {
     first:  { type: Number, required: true, min: 350 },
@@ -29,6 +34,9 @@ const tournamentSchema = new mongoose.Schema({
   },
 
   status: { type: String, enum: ['open', 'cooldown', 'active', 'closed', 'canceled'], required: true },
+  // Set to 'group' on activation. Advancing to 'knockout'/'finale' happens once
+  // bracket generation exists (not built yet — see tournament-implementation-plan.md).
+  stage: { type: String, enum: ['group', 'knockout', 'finale'], default: null },
 
   openDeadline:     { type: Date, required: true },
   cooldownDeadline: { type: Date },
