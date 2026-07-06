@@ -1,0 +1,77 @@
+<%#
+  Shared tie-break entry-picker, used by both views/tournaments/jury-vote.ejs and
+  views/tournaments/organizer-vote.ejs.
+  Locals: tournamentId, matchId, entryA, entryB, headerTitle, bodyText, endpoint
+  (the URL suffix after /matches/:matchId/, e.g. 'jury-vote' or 'organizer-vote'),
+  successMessage.
+%>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <div class="flex items-center gap-3">
+      <a href="/tournament/<%= tournamentId %>" class="text-white/40 hover:text-white/70 transition-colors">
+        <iconify-icon icon="boxicons:arrow-back" width="18"></iconify-icon>
+      </a>
+      <h1 class="font-black text-xl tracking-tight m-0"><%= headerTitle %></h1>
+    </div>
+  </header>
+
+  <div class="px-5 py-6">
+    <p class="text-sm text-white/50 mb-5"><%= bodyText %></p>
+
+    <div class="grid grid-cols-2 gap-3" id="tie-break-entries">
+      <button type="button" class="tie-pick-btn flex flex-col gap-2 bg-shark-900 border border-white/10 hover:border-charm-500/50 rounded-md p-3 transition-colors" data-entry-id="<%= entryA._id %>">
+        <div class="aspect-square rounded-md overflow-hidden bg-shark-800">
+          <% if (entryA.mediaUrl) { %>
+            <img src="<%= entryA.mediaUrl %>" class="w-full h-full object-cover" alt="">
+          <% } %>
+        </div>
+        <span class="text-sm font-semibold text-white truncate">Entry A</span>
+      </button>
+
+      <button type="button" class="tie-pick-btn flex flex-col gap-2 bg-shark-900 border border-white/10 hover:border-charm-500/50 rounded-md p-3 transition-colors" data-entry-id="<%= entryB._id %>">
+        <div class="aspect-square rounded-md overflow-hidden bg-shark-800">
+          <% if (entryB.mediaUrl) { %>
+            <img src="<%= entryB.mediaUrl %>" class="w-full h-full object-cover" alt="">
+          <% } %>
+        </div>
+        <span class="text-sm font-semibold text-white truncate">Entry B</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var tournamentId    = <%- JSON.stringify(tournamentId.toString()) %>;
+  var matchId         = <%- JSON.stringify(matchId.toString()) %>;
+  var endpoint        = <%- JSON.stringify(endpoint) %>;
+  var successMessage  = <%- JSON.stringify(successMessage) %>;
+
+  document.getElementById('tie-break-entries').addEventListener('click', function (e) {
+    var btn = e.target.closest('.tie-pick-btn');
+    if (!btn) return;
+    document.querySelectorAll('.tie-pick-btn').forEach(function (b) { b.disabled = true; });
+
+    fetch('/api/tournaments/' + tournamentId + '/matches/' + matchId + '/' + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ votedForEntryId: btn.getAttribute('data-entry-id') }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.success) {
+          window.location.href = '/tournament/' + tournamentId + '?flash=' + encodeURIComponent(successMessage);
+        } else if (window.showToast) {
+          window.showToast((data && data.error) || 'Something went wrong.', 'error');
+          document.querySelectorAll('.tie-pick-btn').forEach(function (b) { b.disabled = false; });
+        }
+      })
+      .catch(function () {
+        if (window.showToast) window.showToast('Something went wrong.', 'error');
+        document.querySelectorAll('.tie-pick-btn').forEach(function (b) { b.disabled = false; });
+      });
+  });
+})();
+</script>

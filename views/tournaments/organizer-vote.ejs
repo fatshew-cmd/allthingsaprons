@@ -5,10 +5,10 @@
   matchId:        match._id,
   entryA:         entryA,
   entryB:         entryB,
-  headerTitle:    'Jury Tie-Break',
-  bodyText:       'This match tied. As a juror, your vote helps decide the winner. Your identity stays anonymous.',
-  endpoint:       'jury-vote',
-  successMessage: 'Your vote has been recorded.',
+  headerTitle:    'Break the Tie',
+  bodyText:       'The jury couldn\'t reach a majority in time. As organizer, your vote decides this match.',
+  endpoint:       'organizer-vote',
+  successMessage: 'Your decision has been recorded.',
 }) %>
 
 <%- include('../partials/appEnd') %>

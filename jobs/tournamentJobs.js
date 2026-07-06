@@ -2,10 +2,12 @@ const Tournament      = require('../models/Tournament');
 const TournamentEntry = require('../models/TournamentEntry');
 const TournamentGroup = require('../models/TournamentGroup');
 const TournamentJury  = require('../models/TournamentJury');
+const TournamentJuryVote = require('../models/TournamentJuryVote');
 const TournamentMatch = require('../models/TournamentMatch');
 const Contest         = require('../models/Contest');
 const ContestVote     = require('../models/ContestVote');
 const Notification    = require('../models/Notification');
+const User            = require('../models/User');
 const { creditWallet } = require('../utils/wallet');
 const notifyEntryLoopedIn = require('../utils/tournamentEntryLoop');
 
@@ -126,11 +128,77 @@ async function getVoteCounts(contestId) {
   return counts;
 }
 
+// Kicks off the jury tie-break chain: notify accepted jurors (never revealing which entries
+// are tied) and give them a 6h window to reach quorum before falling through to the organizer.
+// `juryDeadline` is the same Date the caller already stamped onto TournamentMatch.tieDeadline —
+// threaded through so the scheduled agenda job fires at exactly that instant, not a
+// microseconds-later re-computation of "now + 6h".
+async function initiateTieResolution(matchId, juryDeadline) {
+  const match = await TournamentMatch.findById(matchId).select('tournamentId').lean();
+  if (!match) return;
+
+  const jurors = await TournamentJury.find({ tournamentId: match.tournamentId, status: 'accepted' })
+    .select('userId').lean();
+
+  const notifications = jurors.map(j => ({
+    userId:  j.userId,
+    type:    'tournament_tie_jury',
+    payload: { tournamentId: match.tournamentId, matchId, url: '/tournament/' + match.tournamentId + '/jury-vote/' + matchId },
+  }));
+  if (notifications.length > 0) {
+    await Notification.insertMany(notifications, { ordered: false }).catch(() => {});
+  }
+
+  // Stamped so tournamentJuryExpiry can tell "jurors were actually notified" apart from "the
+  // process crashed before this point ran" — see its retry branch below.
+  await TournamentMatch.updateOne({ _id: matchId }, { $set: { juryNotifiedAt: new Date() } });
+
+  const agenda = require('./agenda');
+  await agenda.schedule(juryDeadline, 'tournament_jury_expiry', {
+    matchId: matchId.toString(),
+  });
+}
+
+// Called from the jury-vote route once a match's votes reach quorum (3). Re-entrant-safe:
+// the tieStatus: 'jury_pending' filter on the claiming update means only one concurrent
+// caller (two jurors hitting quorum in the same instant) actually resolves the match.
+// `votes` is an optional array of already-fetched TournamentJuryVote docs ({votedForEntryId})
+// — the jury-vote route already fetches these to compute the per-contestant vote counts it
+// notifies with, so it's threaded through to avoid a second identical query here.
+async function resolveJuryVote(matchId, votes) {
+  const match = await TournamentMatch.findById(matchId).select('tieStatus entryIdA entryIdB contestId').lean();
+  if (!match || match.tieStatus !== 'jury_pending') return; // already resolved
+
+  const juryVotes = votes || await TournamentJuryVote.find({ matchId }).select('votedForEntryId').lean();
+  const counts = {};
+  for (const vote of juryVotes) {
+    const key = vote.votedForEntryId.toString();
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  const countA = counts[match.entryIdA.toString()] || 0;
+  const countB = counts[match.entryIdB.toString()] || 0;
+
+  let winnerEntryId = null;
+  if (countA > countB) winnerEntryId = match.entryIdA;
+  else if (countB > countA) winnerEntryId = match.entryIdB;
+  else return; // still tied among jury (shouldn't happen at quorum 3) — let the 6h expiry hand off to the organizer
+
+  const claimed = await TournamentMatch.findOneAndUpdate(
+    { _id: matchId, tieStatus: 'jury_pending' },
+    { $set: { tieStatus: 'resolved' } },
+  );
+  if (!claimed) return; // a concurrent vote already resolved this
+
+  const agenda = require('./agenda');
+  await agenda.cancel({ name: 'tournament_jury_expiry', 'data.matchId': matchId.toString() });
+
+  await handleTournamentMatchClose(match.contestId, winnerEntryId);
+}
+
 // Fired (fire-and-forget) from jobs/contestJobs.js's closeContest whenever a closing
 // Contest has a tournamentId. Records the result onto TournamentMatch/TournamentEntry.
-// Knockout progression (Phase 6) and jury/organizer tie resolution (Phase 7) are not built
-// yet — a tie is flagged and left for a future session; a knockout match close is a no-op
-// beyond the win/loss bookkeeping below, since stage: 'knockout' never occurs until Phase 6.
+// A tie hands off to the jury/organizer/coin-flip chain (initiateTieResolution below);
+// this same function is called again with the eventual winner once that chain resolves.
 // `voteCounts` is an optional { entryId: count } map — closeContest already computes this
 // while determining the winner, so it's threaded through to avoid a second identical
 // aggregate; callers without it handy (e.g. crash-recovery reconciliation) can omit it.
@@ -139,9 +207,17 @@ async function handleTournamentMatchClose(contestId, winnerEntryId, voteCounts) 
   if (!match || match.status === 'closed') return;
 
   if (!winnerEntryId) {
-    match.status    = 'tie';
-    match.tieStatus = 'jury_pending';
-    await match.save();
+    // Atomic claim: this same function can be invoked concurrently for one match — e.g. the
+    // fire-and-forget call from contestJobs.js's closeContest racing sweeper.js's crash-recovery
+    // reconciliation (which runs on every server restart) — so only the caller that actually
+    // flips status → 'tie' initiates jury resolution. A concurrent loser just backs off here.
+    const tieDeadline = new Date(Date.now() + 6 * 60 * 60 * 1000);
+    const claimed = await TournamentMatch.findOneAndUpdate(
+      { _id: match._id, status: { $nin: ['tie', 'closed'] } },
+      { $set: { status: 'tie', tieStatus: 'jury_pending', tieDeadline } },
+    );
+    if (!claimed) return;
+    await initiateTieResolution(match._id, tieDeadline);
     return;
   }
 
@@ -339,7 +415,7 @@ async function resolveGroup(groupId) {
       ranked[ADVANCE_COUNT - 1] = winnerEntry;
       ranked[ADVANCE_COUNT]     = loserEntry;
     } else {
-      console.warn(`[resolveGroup] group ${groupId} has an unresolvable ${cluster.length}-way boundary tie — leaving unresolved (Phase 7 not built yet).`);
+      console.warn(`[resolveGroup] group ${groupId} has an unresolvable ${cluster.length}-way boundary tie — the jury system only breaks match ties, not group-ranking ties beyond a 2-way boundary, so this is left unresolved.`);
       return;
     }
   }
@@ -461,8 +537,9 @@ function loserTournamentEntryId(m) {
 }
 
 // Fired from handleTournamentMatchClose once a knockout-stage match closes. Progresses the
-// bracket round by round; 'Final'/'3rd' closing ends the tournament, but prize payout /
-// closing (Phase 8, closeTournament) isn't built yet, so that's a no-op beyond bookkeeping.
+// bracket round by round; 'Final'/'3rd' closing ends the tournament, handed off to
+// closeTournament (which itself checks whether the tournament's full podium is actually
+// decided yet, since Final and 3rd close independently and in either order).
 async function handleKnockoutMatchClose(match) {
   const winnerTEId = winnerTournamentEntryId(match);
   const loserTEId  = loserTournamentEntryId(match);
@@ -489,8 +566,7 @@ async function handleKnockoutMatchClose(match) {
   await TournamentEntry.findByIdAndUpdate(winnerTEId, { $set: { knockoutRound: match.knockoutRound } });
 
   if (match.knockoutRound === 'Final' || match.knockoutRound === '3rd') {
-    // Tournament ends here (Phase 8's closeTournament isn't built yet — no prize payout,
-    // no status transition to 'closed'; the tournament just stops progressing).
+    await closeTournament(match.tournamentId);
     return;
   }
 
@@ -546,46 +622,217 @@ async function handleKnockoutMatchClose(match) {
   }
 }
 
+async function tournamentOpenExpiry(tournamentId) {
+  const tournament = await Tournament.findOne({ _id: tournamentId, status: 'open' });
+  if (!tournament) return; // already transitioned
+
+  // Anyone who never responded to their jury invite is auto-accepted.
+  await autoAcceptPendingJury(tournamentId);
+
+  const acceptedJuryCount = await TournamentJury.countDocuments({ tournamentId, status: 'accepted' });
+  if (acceptedJuryCount < MIN_JURY) {
+    await cancelTournament(tournamentId, 'insufficient_jury');
+    return;
+  }
+
+  // Organizer review (approve/reject) happens during cooldown, not open — nothing
+  // is 'approved' yet at this point, so gate on how many candidates submitted at all.
+  const submittedCount = await TournamentEntry.countDocuments({ tournamentId: tournament._id });
+
+  if (submittedCount < tournament.size) {
+    await cancelTournament(tournament._id, 'insufficient_candidates');
+    return;
+  }
+
+  await transitionToCooldown(tournament._id);
+}
+
+async function tournamentCooldownExpiry(tournamentId) {
+  const tournament = await Tournament.findOne({ _id: tournamentId, status: 'cooldown' });
+  if (!tournament) return; // already transitioned/canceled
+
+  // Organizer must land on exactly `size` approved candidates during cooldown (no byes).
+  const approvedCount = await TournamentEntry.countDocuments({ tournamentId: tournament._id, approvalStatus: 'approved' });
+  if (approvedCount !== tournament.size) {
+    await cancelTournament(tournament._id, 'cooldown_incomplete');
+    return;
+  }
+
+  await activateTournament(tournament._id);
+}
+
+// 6h jury window expired without quorum (3 votes). Penalize non-voting accepted jurors
+// with a missedVotes increment (closeTournament turns that into a permanent juryBanned flag
+// once the tournament finishes) and hand off to the organizer for 3h.
+async function tournamentJuryExpiry(matchId) {
+  // If jurors were never actually notified — the process can crash between
+  // handleTournamentMatchClose's atomic tieStatus claim and initiateTieResolution's notify
+  // step — retry the jury phase from scratch instead of penalizing jurors for a vote they
+  // were never asked to cast.
+  const pendingMatch = await TournamentMatch.findOne({ _id: matchId, tieStatus: 'jury_pending' })
+    .select('juryNotifiedAt').lean();
+  if (pendingMatch && !pendingMatch.juryNotifiedAt) {
+    const retryDeadline = new Date(Date.now() + 6 * 60 * 60 * 1000);
+    await TournamentMatch.updateOne({ _id: matchId }, { $set: { tieDeadline: retryDeadline } });
+    await initiateTieResolution(matchId, retryDeadline);
+    return;
+  }
+
+  const organizerDeadline = new Date(Date.now() + 3 * 60 * 60 * 1000);
+
+  // Atomic claim: a juror's vote can reach quorum (resolveJuryVote) at nearly the same
+  // instant this 6h window elapses. Claiming jury_pending → organizer_pending here — before
+  // any side effects — means only one of the two ever proceeds; the loser just returns,
+  // instead of a losing `.save()` silently overwriting the winner's 'resolved' tieStatus.
+  const match = await TournamentMatch.findOneAndUpdate(
+    { _id: matchId, tieStatus: 'jury_pending' },
+    { $set: { tieStatus: 'organizer_pending', tieDeadline: organizerDeadline } },
+  );
+  if (!match) return; // already resolved by quorum
+
+  const allJurors = await TournamentJury.find({ tournamentId: match.tournamentId, status: 'accepted' })
+    .select('_id userId').lean();
+  const votedIds = await TournamentJuryVote.distinct('jurorId', { matchId: match._id });
+  const votedSet = new Set(votedIds.map(id => id.toString()));
+
+  const missedJuryIds = allJurors.filter(j => !votedSet.has(j.userId.toString())).map(j => j._id);
+  if (missedJuryIds.length > 0) {
+    await TournamentJury.updateMany({ _id: { $in: missedJuryIds } }, { $inc: { missedVotes: 1 } });
+  }
+
+  const tournament = await Tournament.findById(match.tournamentId).select('createdBy').lean();
+  await Notification.create({
+    userId:  tournament.createdBy,
+    type:    'tournament_tie_organizer',
+    payload: {
+      tournamentId: match.tournamentId,
+      matchId:      match._id,
+      url:          '/tournament/' + match.tournamentId + '/organizer-vote/' + match._id,
+    },
+  });
+
+  const agenda = require('./agenda');
+  await agenda.schedule(organizerDeadline, 'tournament_organizer_vote_expiry', {
+    matchId: matchId.toString(),
+  });
+}
+
+// 3h organizer window expired without a decision — platform coin flip resolves so no tie
+// can block progression more than 9h total (6h jury + 3h organizer).
+async function tournamentOrganizerVoteExpiry(matchId) {
+  const match = await TournamentMatch.findOne({ _id: matchId, tieStatus: 'organizer_pending' });
+  if (!match) return; // organizer voted in time
+
+  const claimed = await TournamentMatch.findOneAndUpdate(
+    { _id: matchId, tieStatus: 'organizer_pending' },
+    { $set: { tieStatus: 'resolved' } },
+  );
+  if (!claimed) return;
+
+  const winnerId = Math.random() < 0.5 ? match.entryIdA : match.entryIdB;
+  await handleTournamentMatchClose(match.contestId, winnerId);
+}
+
+// Credits 1st/2nd/3rd prizes, closes out the tournament, and bans jurors who missed a vote.
+// Called speculatively whenever a Final or 3rd-place match closes (they close independently,
+// in either order) and from the crash-recovery reconcile sweeper — the atomic status claim
+// below means only the caller that actually sees the full podium decided proceeds.
+async function closeTournament(tournamentId) {
+  const tournament = await Tournament.findById(tournamentId).select('size prizes status').lean();
+  if (!tournament || tournament.status === 'closed') return;
+
+  const needsThird = tournament.size !== 4;
+  const [finalMatch, thirdMatch] = await Promise.all([
+    TournamentMatch.findOne({ tournamentId, knockoutRound: 'Final', status: 'closed' }).lean(),
+    needsThird
+      ? TournamentMatch.findOne({ tournamentId, knockoutRound: '3rd', status: 'closed' }).lean()
+      : Promise.resolve(null),
+  ]);
+  if (!finalMatch) return; // podium not decided yet
+  if (needsThird && !thirdMatch) return;
+
+  // Atomic claim: Final and 3rd-place can each independently trigger this call (whichever
+  // closes last), and the reconcile sweeper can too — only the caller that flips
+  // status → 'closed' actually pays out and notifies; everyone else backs off.
+  const claimed = await Tournament.findOneAndUpdate(
+    { _id: tournamentId, status: { $ne: 'closed' } },
+    { $set: { status: 'closed' } },
+  );
+  if (!claimed) return;
+
+  const placements = [
+    { tournamentEntryId: winnerTournamentEntryId(finalMatch), place: 1, prize: tournament.prizes.first },
+    { tournamentEntryId: loserTournamentEntryId(finalMatch),  place: 2, prize: tournament.prizes.second },
+  ];
+  if (thirdMatch) {
+    placements.push({ tournamentEntryId: winnerTournamentEntryId(thirdMatch), place: 3, prize: tournament.prizes.third });
+  }
+
+  // Single query for every approved participant — the 2-3 placement winners are always a
+  // subset of this, so it also backs the userIdByTEId lookup below (no separate query needed).
+  const allParticipants = await TournamentEntry.find({ tournamentId, approvalStatus: 'approved' })
+    .select('userId').lean();
+  const userIdByTEId = {};
+  for (const e of allParticipants) userIdByTEId[e._id.toString()] = e.userId;
+
+  // Each placement's payout is independent — isolate failures the same way closeContest's
+  // per-beneficiary settlement does, so one bad credit (e.g. a transient WalletTransaction
+  // write error) can't skip the remaining placements, the winnersSet flag, the participant
+  // notifications, or the jury ban below. The tournament is already committed to 'closed' by
+  // the atomic claim above, so silently aborting here would strand it with no retry path.
+  for (const { tournamentEntryId, place, prize } of placements) {
+    const userId = userIdByTEId[tournamentEntryId.toString()];
+    if (!userId) continue;
+
+    try {
+      await creditWallet(userId, prize, {
+        pool:          'earnedCHL',
+        type:          'tournament_prize_payout',
+        source:        'tournament_close',
+        referenceId:   tournamentId,
+        referenceType: 'Tournament',
+      });
+
+      await Notification.create({
+        userId,
+        type:    'tournament_prize_awarded',
+        payload: { tournamentId, place, amountCHL: prize, url: '/tournament/' + tournamentId },
+      });
+    } catch (err) {
+      console.error('[closeTournament] payout failed for place', place, 'tournament', tournamentId, ':', err.message);
+    }
+  }
+
+  await Tournament.updateOne({ _id: tournamentId }, { $set: { 'prizes.winnersSet': true } });
+
+  const closedNotifications = allParticipants.map(e => ({
+    userId:  e.userId,
+    type:    'tournament_closed',
+    payload: { tournamentId, url: '/tournament/' + tournamentId },
+  }));
+  if (closedNotifications.length > 0) {
+    await Notification.insertMany(closedNotifications, { ordered: false }).catch(() => {});
+  }
+
+  // Post-tournament jury ban: anyone who missed a vote during this tournament is permanently
+  // barred from serving as jury again.
+  const bannedJurors = await TournamentJury.find({ tournamentId, missedVotes: { $gt: 0 } })
+    .select('userId').lean();
+  if (bannedJurors.length > 0) {
+    await User.updateMany(
+      { _id: { $in: bannedJurors.map(j => j.userId) } },
+      { $set: { juryBanned: true } },
+    );
+  }
+}
+
 function registerTournamentJobs(agenda) {
   agenda.define('tournament_open_expiry', async job => {
-    const { tournamentId } = job.attrs.data;
-    const tournament = await Tournament.findOne({ _id: tournamentId, status: 'open' });
-    if (!tournament) return; // already transitioned
-
-    // Anyone who never responded to their jury invite is auto-accepted.
-    await autoAcceptPendingJury(tournamentId);
-
-    const acceptedJuryCount = await TournamentJury.countDocuments({ tournamentId, status: 'accepted' });
-    if (acceptedJuryCount < MIN_JURY) {
-      await cancelTournament(tournamentId, 'insufficient_jury');
-      return;
-    }
-
-    // Organizer review (approve/reject) happens during cooldown, not open — nothing
-    // is 'approved' yet at this point, so gate on how many candidates submitted at all.
-    const submittedCount = await TournamentEntry.countDocuments({ tournamentId: tournament._id });
-
-    if (submittedCount < tournament.size) {
-      await cancelTournament(tournament._id, 'insufficient_candidates');
-      return;
-    }
-
-    await transitionToCooldown(tournament._id);
+    await tournamentOpenExpiry(job.attrs.data.tournamentId);
   });
 
   agenda.define('tournament_cooldown_expiry', async job => {
-    const { tournamentId } = job.attrs.data;
-    const tournament = await Tournament.findOne({ _id: tournamentId, status: 'cooldown' });
-    if (!tournament) return; // already transitioned/canceled
-
-    // Organizer must land on exactly `size` approved candidates during cooldown (no byes).
-    const approvedCount = await TournamentEntry.countDocuments({ tournamentId: tournament._id, approvalStatus: 'approved' });
-    if (approvedCount !== tournament.size) {
-      await cancelTournament(tournament._id, 'cooldown_incomplete');
-      return;
-    }
-
-    await activateTournament(tournament._id);
+    await tournamentCooldownExpiry(job.attrs.data.tournamentId);
   });
 
   agenda.define('open_tournament_match', async job => {
@@ -618,9 +865,19 @@ function registerTournamentJobs(agenda) {
       } },
     ], [entryA.userId._id, entryB.userId._id]);
   });
+
+  agenda.define('tournament_jury_expiry', async job => {
+    await tournamentJuryExpiry(job.attrs.data.matchId);
+  });
+
+  agenda.define('tournament_organizer_vote_expiry', async job => {
+    await tournamentOrganizerVoteExpiry(job.attrs.data.matchId);
+  });
 }
 
 module.exports = {
   registerTournamentJobs, cancelTournament, transitionToCooldown, activateTournament, autoAcceptPendingJury, MIN_JURY,
   handleTournamentMatchClose, checkGroupComplete, resolveGroup, handleKnockoutMatchClose,
+  initiateTieResolution, resolveJuryVote, closeTournament,
+  tournamentOpenExpiry, tournamentCooldownExpiry, tournamentJuryExpiry, tournamentOrganizerVoteExpiry,
 };

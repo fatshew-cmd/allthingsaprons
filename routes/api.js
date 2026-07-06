@@ -32,8 +32,10 @@ const ProfileShare            = require('../models/ProfileShare');
 const ProfileShareView        = require('../models/ProfileShareView');
 const Tournament              = require('../models/Tournament');
 const TournamentJury           = require('../models/TournamentJury');
+const TournamentJuryVote       = require('../models/TournamentJuryVote');
+const TournamentMatch          = require('../models/TournamentMatch');
 const TournamentEntry          = require('../models/TournamentEntry');
-const { activateTournament, autoAcceptPendingJury, MIN_JURY } = require('../jobs/tournamentJobs');
+const { activateTournament, autoAcceptPendingJury, MIN_JURY, resolveJuryVote, handleTournamentMatchClose } = require('../jobs/tournamentJobs');
 const estimateParticipantPool = require('../utils/estimateParticipantPool');
 const { submitEntryToTournament, checkTournamentPreflight, attemptTournamentAutoDraft } = require('../utils/tournamentSubmission');
 const { updateAffinity, updateCreatorAffinity, updateStainAffinity, SIGNAL_ANNOUNCEMENT_DISMISS, SIGNAL_ANNOUNCEMENT_CLICK } = require('../utils/affinityUpdater');
@@ -320,6 +322,111 @@ router.post('/tournaments/:id/entries/:eid/reject', async (req, res) => {
     type:    'tournament_entry_rejected',
     payload: { tournamentId: tournament._id, tournamentName: tournament.name, note: note || null, url: '/tournament/' + tournament._id },
   });
+
+  res.json({ success: true });
+});
+
+// ── POST /tournaments/:id/matches/:matchId/jury-vote — juror casts a tie-break vote ──
+router.post('/tournaments/:id/matches/:matchId/jury-vote', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.matchId)) {
+    return res.status(404).json({ error: 'Not found.' });
+  }
+
+  const match = await TournamentMatch.findOne({ _id: req.params.matchId, tournamentId: req.params.id });
+  if (!match) return res.status(404).json({ error: 'Match not found.' });
+  if (match.status !== 'tie' || match.tieStatus !== 'jury_pending') {
+    return res.status(400).json({ error: 'No active jury vote for this match.' });
+  }
+
+  const jurorRecord = await TournamentJury.findOne({
+    tournamentId: req.params.id, userId: req.session.userId, status: 'accepted',
+  }).lean();
+  if (!jurorRecord) return res.status(403).json({ error: 'You are not a jury member for this tournament.' });
+
+  const votedForEntryId = req.body.votedForEntryId;
+  if (![match.entryIdA.toString(), match.entryIdB.toString()].includes(votedForEntryId)) {
+    return res.status(400).json({ error: 'Invalid entry selection.' });
+  }
+
+  try {
+    await TournamentJuryVote.create({
+      tournamentId: req.params.id, matchId: match._id, jurorId: req.session.userId, votedForEntryId,
+    });
+  } catch (err) {
+    if (err.code === 11000) return res.status(400).json({ error: 'You have already cast your vote for this tie.' });
+    throw err;
+  }
+
+  // Tell each contestant how many votes they've received so far — never who voted or the count
+  // for the other side, so the running tally can't be reconstructed from two notifications.
+  const votes = await TournamentJuryVote.find({ matchId: match._id }).select('votedForEntryId').lean();
+  const countA = votes.filter(v => v.votedForEntryId.toString() === match.entryIdA.toString()).length;
+  const countB = votes.filter(v => v.votedForEntryId.toString() === match.entryIdB.toString()).length;
+
+  // A contestant's TournamentEntry can be gone if they deleted their account mid-tournament —
+  // don't let a missing side crash the vote that just succeeded; just skip notifying them.
+  const [teA, teB] = await Promise.all([
+    TournamentEntry.findById(match.tournamentEntryIdA).select('userId').lean(),
+    TournamentEntry.findById(match.tournamentEntryIdB).select('userId').lean(),
+  ]);
+  const voteReceivedNotifications = [];
+  if (teA) {
+    voteReceivedNotifications.push({ userId: teA.userId, type: 'tournament_jury_vote_received', payload: {
+        tournamentId: req.params.id, matchId: match._id, voteCount: countA, url: '/contest/' + match.contestId,
+    } });
+  }
+  if (teB) {
+    voteReceivedNotifications.push({ userId: teB.userId, type: 'tournament_jury_vote_received', payload: {
+        tournamentId: req.params.id, matchId: match._id, voteCount: countB, url: '/contest/' + match.contestId,
+    } });
+  }
+  if (voteReceivedNotifications.length > 0) {
+    await Notification.insertMany(voteReceivedNotifications, { ordered: false }).catch(() => {});
+  }
+
+  if (votes.length >= 3) {
+    await resolveJuryVote(match._id, votes);
+  }
+
+  res.json({ success: true });
+});
+
+// ── POST /tournaments/:id/matches/:matchId/organizer-vote — organizer breaks a tie the jury
+// couldn't resolve by quorum within its 6h window ────────────────────────────────────────
+router.post('/tournaments/:id/matches/:matchId/organizer-vote', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.matchId)) {
+    return res.status(404).json({ error: 'Not found.' });
+  }
+
+  const tournament = await Tournament.findById(req.params.id).select('createdBy').lean();
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (tournament.createdBy.toString() !== req.session.userId) {
+    return res.status(403).json({ error: 'Not authorized.' });
+  }
+
+  const match = await TournamentMatch.findOne({ _id: req.params.matchId, tournamentId: req.params.id }).lean();
+  if (!match) return res.status(404).json({ error: 'Match not found.' });
+  if (match.tieStatus !== 'organizer_pending') {
+    return res.status(400).json({ error: 'No active tie-break for this match.' });
+  }
+
+  const votedForEntryId = req.body.votedForEntryId;
+  if (![match.entryIdA.toString(), match.entryIdB.toString()].includes(votedForEntryId)) {
+    return res.status(400).json({ error: 'Invalid entry selection.' });
+  }
+
+  const claimed = await TournamentMatch.findOneAndUpdate(
+    { _id: match._id, tieStatus: 'organizer_pending' },
+    { $set: { tieStatus: 'resolved' } },
+  );
+  if (!claimed) return res.status(400).json({ error: 'This tie has already been resolved.' });
+
+  const agenda = require('../jobs/agenda'); // lazy — must load after mongoose.connect() in server.js
+  await agenda.cancel({ name: 'tournament_organizer_vote_expiry', 'data.matchId': match._id.toString() });
+
+  await handleTournamentMatchClose(match.contestId, votedForEntryId);
 
   res.json({ success: true });
 });

@@ -1630,9 +1630,50 @@ router.get('/tournament/:id/jury-vote/:matchId', async (req, res) => {
     Entry.findById(match.entryIdA).lean(),
     Entry.findById(match.entryIdB).lean(),
   ]);
+  // A contestant can have deleted their account mid-tournament, taking their Entry with it.
+  if (!entryA || !entryB) {
+    return res.redirect(`/tournament/${tournament._id}?flash=${encodeURIComponent('One of the entries in this match is no longer available.')}`);
+  }
 
   res.render('tournaments/jury-vote', {
     title:      'Jury Tie-Break',
+    activePage: 'tournaments',
+    currentUser: req.currentUser,
+    tournament, match, entryA, entryB,
+  });
+});
+
+// ── GET /tournament/:id/organizer-vote/:matchId — organizer tie-break vote page ────
+// Reached only after the 6h jury window expired without quorum (TournamentMatch.tieStatus
+// flips to 'organizer_pending' — see jobs/tournamentJobs.js's tournament_jury_expiry job).
+router.get('/tournament/:id/organizer-vote/:matchId', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.matchId)) {
+    return res.redirect('/tournaments');
+  }
+
+  const tournament = await Tournament.findById(req.params.id).lean();
+  if (!tournament) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  if (tournament.createdBy.toString() !== req.currentUser._id.toString()) {
+    return res.status(403).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  }
+
+  const match = await TournamentMatch.findOne({ _id: req.params.matchId, tournamentId: tournament._id }).lean();
+  if (!match || match.tieStatus !== 'organizer_pending') {
+    return res.redirect(`/tournament/${tournament._id}`);
+  }
+
+  const Entry = require('../models/Entry');
+  const [entryA, entryB] = await Promise.all([
+    Entry.findById(match.entryIdA).lean(),
+    Entry.findById(match.entryIdB).lean(),
+  ]);
+  // A contestant can have deleted their account mid-tournament, taking their Entry with it.
+  if (!entryA || !entryB) {
+    return res.redirect(`/tournament/${tournament._id}?flash=${encodeURIComponent('One of the entries in this match is no longer available.')}`);
+  }
+
+  res.render('tournaments/organizer-vote', {
+    title:      'Break the Tie',
     activePage: 'tournaments',
     currentUser: req.currentUser,
     tournament, match, entryA, entryB,

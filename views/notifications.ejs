@@ -139,6 +139,19 @@ function notifText(n) {
       return 'You advanced from your group and are moving forward in the tournament';
     case 'tournament_eliminated':
       return 'You were eliminated from the tournament';
+    case 'tournament_tie_jury':
+      return 'A match tied — cast your anonymous jury vote';
+    case 'tournament_tie_organizer':
+      return 'Jury vote didn\'t reach a majority — your tie-break decision is needed';
+    case 'tournament_jury_vote_received':
+      return 'Your tied match has received ' + (p.voteCount || 0) + ' jury vote' + (p.voteCount === 1 ? '' : 's') + ' so far';
+    case 'tournament_closed':
+      return 'Your tournament has ended — check out the final results';
+    case 'tournament_prize_awarded': {
+      var tpaPlace = p.place === 1 ? '1st' : p.place === 2 ? '2nd' : '3rd';
+      var tpaAmt   = p.amountCHL ? p.amountCHL.toLocaleString() : '0';
+      return 'You placed <strong>' + tpaPlace + '</strong> and earned <strong>' + tpaAmt + ' 🌶️</strong>';
+    }
     default:
       return 'New notification';
   }
@@ -181,6 +194,11 @@ function notifIcon(type) {
     case 'tournament_entry_match_closed': return 'boxicons:check-circle';
     case 'tournament_group_advance':    return 'boxicons:trophy';
     case 'tournament_eliminated':       return 'boxicons:x-circle';
+    case 'tournament_tie_jury':         return 'boxicons:group';
+    case 'tournament_tie_organizer':    return 'boxicons:crown';
+    case 'tournament_jury_vote_received': return 'boxicons:bar-chart-alt-2';
+    case 'tournament_closed':           return 'boxicons:check-circle';
+    case 'tournament_prize_awarded':    return 'boxicons:trophy';
     default:                         return 'boxicons:bell';
   }
 }

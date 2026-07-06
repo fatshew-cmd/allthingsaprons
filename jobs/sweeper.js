@@ -1,4 +1,5 @@
 const Contest              = require('../models/Contest');
+const Tournament           = require('../models/Tournament');
 const TournamentMatch      = require('../models/TournamentMatch');
 const { voidExpiredContest, closeContest } = require('./contestJobs');
 
@@ -54,6 +55,66 @@ async function runCloseSweeper(agenda) {
   }
 }
 
+// Shared by the four tournament sweeps below: find docs of `Model` matching `filter` whose
+// `deadlineField` is within the horizon, then either fire the handler immediately (deadline
+// already passed) or dedupe-and-schedule the one-time agenda job for it (deadline still ahead).
+async function sweepDeadline(agenda, { Model, filter, deadlineField, jobName, dataKey, now, horizon, handler }) {
+  const docs = await Model.find({ ...filter, [deadlineField]: { $lte: horizon } })
+    .select('_id ' + deadlineField).lean();
+
+  for (const doc of docs) {
+    if (doc[deadlineField] <= now) {
+      await handler(doc._id);
+    } else {
+      const existing = await agenda.jobs({
+        name: jobName, ['data.' + dataKey]: doc._id.toString(), nextRunAt: { $ne: null },
+      });
+      if (existing.length === 0) {
+        await agenda.schedule(doc[deadlineField], jobName, { [dataKey]: doc._id.toString() });
+      }
+    }
+  }
+}
+
+// Recovery net for the four tournament-side one-time agenda jobs — mirrors runVoidSweeper/
+// runCloseSweeper above. Each one-time job is already scheduled directly (at tournament
+// creation, cooldown transition, or tie kickoff) via jobs/tournamentJobs.js, but this covers
+// the case where that scheduled job doc was somehow lost (e.g. a redeploy that wiped the
+// agenda collection) by reading the deadline straight off the source-of-truth document.
+async function runTournamentSweeper(agenda) {
+  const now     = new Date();
+  const horizon = new Date(now.getTime() + WINDOW_MS);
+
+  const {
+    tournamentOpenExpiry, tournamentCooldownExpiry,
+    tournamentJuryExpiry, tournamentOrganizerVoteExpiry,
+  } = require('./tournamentJobs');
+
+  await sweepDeadline(agenda, {
+    Model: Tournament, filter: { status: 'open' }, deadlineField: 'openDeadline',
+    jobName: 'tournament_open_expiry', dataKey: 'tournamentId',
+    now, horizon, handler: tournamentOpenExpiry,
+  });
+
+  await sweepDeadline(agenda, {
+    Model: Tournament, filter: { status: 'cooldown' }, deadlineField: 'cooldownDeadline',
+    jobName: 'tournament_cooldown_expiry', dataKey: 'tournamentId',
+    now, horizon, handler: tournamentCooldownExpiry,
+  });
+
+  await sweepDeadline(agenda, {
+    Model: TournamentMatch, filter: { tieStatus: 'jury_pending' }, deadlineField: 'tieDeadline',
+    jobName: 'tournament_jury_expiry', dataKey: 'matchId',
+    now, horizon, handler: tournamentJuryExpiry,
+  });
+
+  await sweepDeadline(agenda, {
+    Model: TournamentMatch, filter: { tieStatus: 'organizer_pending' }, deadlineField: 'tieDeadline',
+    jobName: 'tournament_organizer_vote_expiry', dataKey: 'matchId',
+    now, horizon, handler: tournamentOrganizerVoteExpiry,
+  });
+}
+
 // Recovery for jobs/contestJobs.js's fire-and-forget tournament hook: if the process
 // crashed/restarted between a tournament Contest closing and handleTournamentMatchClose
 // finishing, the TournamentMatch is left stranded (still 'scheduled'/'active') even though
@@ -80,7 +141,12 @@ async function runTournamentMatchReconcileSweeper() {
 
 async function startSweeper(agenda) {
   agenda.define('contest_sweeper', async () => {
-    await Promise.all([runVoidSweeper(agenda), runCloseSweeper(agenda), runTournamentMatchReconcileSweeper()]);
+    await Promise.all([
+      runVoidSweeper(agenda),
+      runCloseSweeper(agenda),
+      runTournamentMatchReconcileSweeper(),
+      runTournamentSweeper(agenda),
+    ]);
   });
 
   await agenda.every('15 minutes', 'contest_sweeper');

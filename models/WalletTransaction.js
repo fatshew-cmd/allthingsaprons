@@ -18,6 +18,7 @@ const walletTransactionSchema = new mongoose.Schema({
       'manual_correction',
       'tournament_prize_hold',
       'tournament_prize_refund',
+      'tournament_prize_payout',
     ],
     required: true,
   },
@@ -35,7 +36,7 @@ const walletTransactionSchema = new mongoose.Schema({
 
   source: {
     type: String,
-    enum: ['package', 'custom', 'admin', 'contest_close', 'system', 'auto_payout', 'makeup_payout', 'manual_correction', 'tournament_creation', 'tournament_fund', 'tournament_cancel', 'tournament_edit'],
+    enum: ['package', 'custom', 'admin', 'contest_close', 'system', 'auto_payout', 'makeup_payout', 'manual_correction', 'tournament_creation', 'tournament_fund', 'tournament_cancel', 'tournament_edit', 'tournament_close'],
   },
 
   packageName: { type: String },
