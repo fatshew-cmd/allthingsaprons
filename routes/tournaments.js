@@ -16,6 +16,7 @@ const TournamentEntryLoop          = require('../models/TournamentEntryLoop');
 const WalletTransaction           = require('../models/WalletTransaction');
 const Notification                = require('../models/Notification');
 const Follow                      = require('../models/Follow');
+const Nomination                  = require('../models/Nomination');
 const requireAuth                 = require('../middleware/requireAuth');
 const requireApproved             = require('../middleware/requireApproved');
 const requireOrganizerEligibility = require('../middleware/requireOrganizerEligibility');
@@ -1119,7 +1120,7 @@ function buildTournamentEntryPipeline(tournamentId, approvalStatus, sort, search
     { $sort: TOURNAMENT_ENTRY_SORTS[sort] },
     { $project: {
         approvalStatus: 1, submittedAt: 1, followerCount: 1, autoSubmitted: 1,
-        entryId: { _id: '$entry._id', title: '$entry.title', mediaType: '$entry.mediaType', mediaUrl: '$entry.mediaUrl', ratingAvg: '$entry.ratingAvg', ratingCount: '$entry.ratingCount', tags: '$entry.tags' },
+        entryId: { _id: '$entry._id', title: '$entry.title', caption: '$entry.caption', mediaType: '$entry.mediaType', mediaUrl: '$entry.mediaUrl', ratingAvg: '$entry.ratingAvg', ratingCount: '$entry.ratingCount', takeOnCount: '$entry.takeOnCount', tags: '$entry.tags' },
         userId:  { _id: '$user._id', username: '$user.username', displayName: '$user.displayName', avatar: '$user.avatar' },
     } },
   );
@@ -1576,11 +1577,28 @@ router.get('/tournament/:id/review', async (req, res) => {
     buildTournamentEntryPipeline(tournament._id, 'pending', sort, search),
   );
 
+  const candidateUserIds = [...new Set(pendingEntries.map(pe => pe.userId?._id?.toString()).filter(Boolean))];
+  const [followingDocs, nominationCounts] = await Promise.all([
+    candidateUserIds.length
+      ? Follow.find({ followerId: req.currentUser._id, followingId: { $in: candidateUserIds } }).select('followingId').lean()
+      : [],
+    candidateUserIds.length
+      ? Nomination.aggregate([
+          { $match: { nomineeId: { $in: candidateUserIds.map(id => new mongoose.Types.ObjectId(id)) }, status: 'accepted' } },
+          { $group: { _id: '$nomineeId', count: { $sum: 1 } } },
+        ])
+      : [],
+  ]);
+  const followingSet = new Set(followingDocs.map(f => f.followingId.toString()));
+  const nominationCountMap = {};
+  nominationCounts.forEach(nc => { nominationCountMap[nc._id.toString()] = nc.count; });
+
   res.render('tournaments/review', {
     title:      'Review Candidates',
     activePage: 'tournaments',
     currentUser: req.currentUser,
     tournament, pendingEntries, sort, search: req.query.q || '',
+    followingSet, nominationCountMap,
   });
 });
 

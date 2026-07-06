@@ -259,11 +259,11 @@
           <p class="text-sm text-white/30 m-0">No entries yet.</p>
         </div>
         <% } else { %>
-        <div class="tournament-hscroll overflow-x-auto -mx-5 px-5 pb-1">
-          <div class="grid grid-flow-col auto-cols-[30%] gap-2">
+        <% var otherEntries = entries.filter(function (e2) { return !(userEntry && e2._id.toString() === userEntry._id.toString()); }); %>
+        <div class="flex gap-2 -mx-5 px-5 pb-1">
             <% if (userEntry) { %>
-            <div class="tournament-entry-nav sticky left-0 z-10 bg-shark-950 flex flex-col gap-1.5 cursor-pointer" data-nav="/entry/<%= userEntry.entryId?._id %>">
-              <div class="relative aspect-square rounded-md overflow-hidden bg-shark-800 transform-gpu">
+            <div class="tournament-entry-nav shrink-0 w-[30%] flex flex-col gap-1.5 cursor-pointer" data-nav="/entry/<%= userEntry.entryId?._id %>">
+              <div class="relative aspect-square rounded-md overflow-hidden bg-shark-800">
                 <% if (userEntry.approvalStatus === 'approved') { %>
                 <span class="absolute top-1.5 left-1.5 z-10 text-[10px] font-bold uppercase tracking-wide bg-green-500/90 text-white px-1.5 py-0.5 rounded-md">Approved</span>
                 <% } else { %>
@@ -296,9 +296,10 @@
               <% } %>
             </div>
             <% } %>
-            <% entries.forEach(function(e) {
-              if (userEntry && e._id.toString() === userEntry._id.toString()) return;
-            %>
+            <% if (otherEntries.length) { %>
+        <div class="tournament-hscroll overflow-x-auto flex-1 min-w-0">
+          <div class="grid grid-flow-col <%= userEntry ? 'auto-cols-[43%]' : 'auto-cols-[30%]' %> gap-2">
+            <% otherEntries.forEach(function(e) { %>
             <% var _eFollowing = entryFollowingSet.has(e.userId?._id?.toString()); %>
             <% var _eLoopedIn  = entryLoopedInSet.has(e._id.toString()); %>
             <% var _eShowMedia = e.approvalStatus === 'approved' || isOrganizer; %>
@@ -352,6 +353,8 @@
             </div>
             <% }) %>
           </div>
+        </div>
+            <% } %>
         </div>
         <% } %>
       </div>

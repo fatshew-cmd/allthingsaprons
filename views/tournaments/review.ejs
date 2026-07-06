@@ -2,15 +2,6 @@
 
 <div class="flex flex-col pb-20 md:pb-0">
 
-  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
-    <div class="flex items-center gap-3">
-      <a href="/tournament/<%= tournament._id %>" class="text-white/40 hover:text-white/70 transition-colors">
-        <iconify-icon icon="boxicons:arrow-back" width="18"></iconify-icon>
-      </a>
-      <h1 class="font-black text-xl tracking-tight m-0">Review Candidates</h1>
-    </div>
-  </header>
-
   <%
     var SORT_LABELS = {
       recent: 'Most recent', oldest: 'Oldest', rating: 'Highest rated',
@@ -50,28 +41,82 @@
     <% } else { %>
       <div class="flex flex-col gap-3" id="review-rows">
         <% pendingEntries.forEach(function(pe) { %>
-          <div class="flex items-center gap-3 bg-shark-900 border border-white/10 rounded-md p-3" data-entry-row="<%= pe._id %>">
-            <div class="w-14 h-14 rounded-md overflow-hidden bg-shark-800 shrink-0">
-              <% if (pe.entryId?.mediaUrl) { %>
-                <img src="<%= pe.entryId.mediaUrl %>" class="w-full h-full object-cover" alt="">
-              <% } %>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-start gap-3 bg-shark-900 border border-white/10 rounded-md p-3" data-entry-row="<%= pe._id %>">
+
+            <% var _candFollowing = followingSet.has(pe.userId?._id?.toString()); %>
+            <div class="flex flex-col gap-3 w-full sm:w-44 shrink-0">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <a href="/<%= pe.userId?.username?.value %>" class="flex items-center gap-2 min-w-0 flex-1 no-underline">
+                  <span class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center">
+                    <% if (pe.userId?.avatar?.value) { %>
+                      <img src="<%= pe.userId.avatar.value %>" class="w-full h-full object-cover" alt="">
+                    <% } else { %>
+                      <iconify-icon icon="boxicons:user-filled" width="16" style="color:#e680a6"></iconify-icon>
+                    <% } %>
+                  </span>
+                  <div class="min-w-0">
+                    <p class="text-sm font-semibold text-white truncate m-0"><%= pe.userId?.displayName?.value || pe.userId?.username?.value %></p>
+                    <p class="text-xs text-white/40 truncate m-0">@<%= pe.userId?.username?.value %></p>
+                  </div>
+                </a>
+                <button type="button" class="tournament-entry-follow-btn shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-colors cursor-pointer <%= _candFollowing ? 'text-white hover:text-red-400' : 'text-white hover:text-charm-400' %>"
+                  data-username="<%= pe.userId?.username?.value %>" data-following="<%= _candFollowing ? 'true' : 'false' %>">
+                  <iconify-icon icon="<%= _candFollowing ? 'boxicons:user-check' : 'boxicons:user-plus' %>" width="17"></iconify-icon>
+                </button>
+              </div>
+              <div class="flex items-center justify-between">
+                <div class="flex flex-col items-center flex-1">
+                  <span class="text-base font-bold leading-tight"><%= pe.followerCount || 0 %></span>
+                  <span class="text-[10px] text-white/40 mt-0.5">Followers</span>
+                </div>
+                <div class="flex flex-col items-center flex-1">
+                  <span class="text-base font-bold leading-tight"><%= pe.entryId?.ratingAvg ? pe.entryId.ratingAvg.toFixed(1) : '0' %></span>
+                  <span class="text-[10px] text-white/40 mt-0.5">Avg Rating</span>
+                </div>
+                <div class="flex flex-col items-center flex-1">
+                  <span class="text-base font-bold leading-tight"><%= nominationCountMap[pe.userId?._id?.toString()] || 0 %></span>
+                  <span class="text-[10px] text-white/40 mt-0.5">Nominations</span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button type="button" class="reject-btn flex-1 text-xs font-semibold px-3 py-1.5 rounded-md bg-white/8 text-white/60 hover:bg-red-500/15 hover:text-red-400 transition-colors">Reject</button>
+                <button type="button" class="approve-btn flex-1 text-xs font-semibold px-3 py-1.5 rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors">Approve</button>
+              </div>
             </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5">
-                <p class="text-sm font-semibold text-white truncate m-0"><%= pe.entryId?.title || 'Untitled entry' %></p>
-                <% if (pe.autoSubmitted) { %>
-                <% var matchedStains = (tournament.wildcardStains || []).filter(function (s) { return (pe.entryId?.tags || []).includes(s); }); %>
-                <% matchedStains.forEach(function (s) { %>
-                <span class="shrink-0 text-[10px] font-bold text-charm-400 bg-charm-500/10 border border-charm-500/20 rounded px-1.5 py-0.5">#<%= s %></span>
-                <% }) %>
+
+            <div class="h-px w-full sm:h-auto sm:w-px sm:self-stretch bg-white/10 shrink-0"></div>
+
+            <a href="/entry/<%= pe.entryId?._id %>" class="flex flex-col gap-1.5 min-w-0 flex-1 no-underline">
+              <div class="relative w-full aspect-square rounded-md overflow-hidden bg-shark-800 shrink-0">
+                <% if (pe.entryId?.mediaType === 'video') { %>
+                  <video src="<%= pe.entryId.mediaUrl %>" class="w-full h-full object-contain pointer-events-none" muted preload="none"></video>
+                  <iconify-icon icon="boxicons:play" width="22" class="absolute inset-0 m-auto text-white/90"></iconify-icon>
+                <% } else if (pe.entryId?.mediaUrl) { %>
+                  <img src="<%= pe.entryId.mediaUrl %>" class="w-full h-full object-contain" alt="">
                 <% } %>
               </div>
-              <p class="text-xs text-white/40 truncate m-0">@<%= pe.userId?.username?.value %> · <%= pe.entryId?.ratingAvg ? pe.entryId.ratingAvg.toFixed(1) : '—' %> avg (<%= pe.entryId?.ratingCount || 0 %> ratings) · <%= pe.followerCount || 0 %> followers</p>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <button type="button" class="reject-btn text-xs font-semibold px-3 py-1.5 rounded-md bg-white/8 text-white/60 hover:bg-red-500/15 hover:text-red-400 transition-colors">Reject</button>
-              <button type="button" class="approve-btn text-xs font-semibold px-3 py-1.5 rounded-md bg-charm-600 text-white hover:bg-charm-500 transition-colors">Approve</button>
-            </div>
+              <div class="min-w-0 max-w-full text-left">
+                <p class="text-base font-semibold text-white truncate m-0"><%= pe.entryId?.title || 'Untitled entry' %></p>
+                <% if (pe.entryId?.caption) { %>
+                <p class="text-xs text-white/50 line-clamp-2 m-0 mt-1"><%= pe.entryId.caption %></p>
+                <% } %>
+                <div class="flex items-center gap-4 mt-2">
+                  <span class="flex items-center gap-1.5 text-white/50">
+                    <iconify-icon icon="boxicons:bar-chart" width="15" class="shrink-0"></iconify-icon>
+                    <span class="text-xs font-medium">0</span>
+                  </span>
+                  <span class="flex items-center gap-1.5 text-amber-300">
+                    <iconify-icon icon="boxicons:star-filled" width="13" class="text-amber-400 shrink-0"></iconify-icon>
+                    <span class="text-xs font-semibold"><%= pe.entryId?.ratingAvg ? pe.entryId.ratingAvg.toFixed(1) : '0' %></span>
+                  </span>
+                  <span class="flex items-center gap-1.5 text-white/50">
+                    <iconify-icon icon="boxicons:git-compare" width="15" class="shrink-0"></iconify-icon>
+                    <span class="text-xs font-medium"><%= pe.entryId?.takeOnCount || 0 %></span>
+                  </span>
+                </div>
+              </div>
+            </a>
           </div>
         <% }) %>
       </div>
@@ -170,6 +215,41 @@
     var rejectBtn  = e.target.closest('.reject-btn');
     if (approveBtn) handleAction(approveBtn, 'approve');
     if (rejectBtn)  handleAction(rejectBtn, 'reject');
+
+    var followBtn = e.target.closest('.tournament-entry-follow-btn');
+    if (followBtn) {
+      if (followBtn.disabled) return;
+      followBtn.disabled = true;
+      var username  = followBtn.dataset.username;
+      var following = followBtn.dataset.following === 'true';
+      var url       = following ? '/unfollow/' + username : '/follow/' + username;
+      fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var nowFollowing = data.following;
+          followBtn.dataset.following = nowFollowing ? 'true' : 'false';
+          followBtn.classList.remove('hover:text-red-400', 'hover:text-charm-400');
+          followBtn.classList.add(nowFollowing ? 'hover:text-red-400' : 'hover:text-charm-400');
+          followBtn.querySelector('iconify-icon').setAttribute('icon', nowFollowing ? 'boxicons:user-check' : 'boxicons:user-plus');
+        })
+        .finally(function () { followBtn.disabled = false; });
+      return;
+    }
+
+    var copyBtn = e.target.closest('.wildcard-stain-copy-btn');
+    if (copyBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      var icon  = copyBtn.querySelector('iconify-icon');
+      var stain = copyBtn.closest('.wildcard-stain-badge').dataset.stain;
+      navigator.clipboard.writeText(stain).then(function () {
+        if (window.showToast) window.showToast('Copied #' + stain, 'success');
+        icon.setAttribute('icon', 'boxicons:check');
+        setTimeout(function () { icon.setAttribute('icon', 'boxicons:copy'); }, 1200);
+      }).catch(function () {
+        if (window.showToast) window.showToast('Could not copy', 'error');
+      });
+    }
   });
 
   function declineCapModal() {

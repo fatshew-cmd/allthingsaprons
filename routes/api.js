@@ -227,8 +227,9 @@ router.post('/tournaments/:id/entries/:eid/approve', async (req, res) => {
 });
 
 // Sends a just-approved entry back to `pending` — the organizer's "actually, not yet" undo,
-// distinct from reject (which notifies the submitter of a real decision). No notification here:
-// the submitter's status hasn't actually changed from their perspective, they're still pending.
+// distinct from reject (which notifies the submitter of a real decision). No new notification
+// here, but the earlier "approved" notification is deleted so the submitter isn't left staring
+// at a stale approval while their entry actually sits back at pending.
 router.post('/tournaments/:id/entries/:eid/revert', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.eid)) {
@@ -253,6 +254,12 @@ router.post('/tournaments/:id/entries/:eid/revert', async (req, res) => {
   entry.approvalStatus = 'pending';
   entry.reviewedAt = null;
   await entry.save();
+
+  await Notification.deleteMany({
+    userId: entry.userId,
+    type: 'tournament_entry_approved',
+    'payload.tournamentId': tournament._id,
+  });
 
   res.json({ success: true });
 });
