@@ -3,6 +3,7 @@ const TournamentEntry  = require('../models/TournamentEntry');
 const TournamentGroup  = require('../models/TournamentGroup');
 const TournamentMatch  = require('../models/TournamentMatch');
 const Contest          = require('../models/Contest');
+const Notification     = require('../models/Notification');
 const notifyEntryLoopedIn = require('./tournamentEntryLoop');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -137,4 +138,117 @@ async function generateGroupMatches(groupId) {
   return matches;
 }
 
-module.exports = { generateGroups, generateGroupMatches, circleMethodRounds };
+const KNOCKOUT_ROUND_BY_FIELD_SIZE = { 2: 'Final', 4: 'SF', 8: 'QF', 16: 'R16' };
+
+// Called once every TournamentGroup for a tournament is 'complete' (see resolveGroup in
+// jobs/tournamentJobs.js). Atomically claims the transition so two groups finishing in the
+// same sweep can't both trigger generation.
+async function generateKnockoutBracket(tournamentId) {
+  const tournament = await Tournament.findOneAndUpdate(
+    { _id: tournamentId, stage: 'group' },
+    { $set: { stage: 'knockout' } },
+    { new: true },
+  ).lean();
+  if (!tournament) return; // already generated, or not in group stage
+
+  const fieldSize  = tournament.groupCount * 2;
+  const roundLabel = KNOCKOUT_ROUND_BY_FIELD_SIZE[fieldSize];
+
+  const qualifiers = await TournamentEntry.find({ tournamentId, groupRank: { $in: [1, 2] } })
+    .populate('userId', 'username displayName')
+    .populate('groupId', 'label')
+    .lean();
+
+  const byGroup = {};
+  for (const q of qualifiers) {
+    const label = q.groupId.label;
+    if (!byGroup[label]) byGroup[label] = {};
+    byGroup[label][q.groupRank] = q;
+  }
+  const groupLabels = Object.keys(byGroup).sort();
+
+  // Cross-group seeding avoids an immediate round-1 rematch of two entries that already
+  // played each other in the round-robin: pair rank1 of one group against rank2 of its
+  // partner group (and vice versa). A lone leftover group (groupCount === 1) has no partner,
+  // so its own rank1 vs rank2 becomes the match directly — which is also the Final itself.
+  const pairings = [];
+  for (let i = 0; i < groupLabels.length; i += 2) {
+    const X = byGroup[groupLabels[i]];
+    const Ylabel = groupLabels[i + 1];
+    if (Ylabel) {
+      const Y = byGroup[Ylabel];
+      pairings.push([X[1], Y[2]]);
+      pairings.push([Y[1], X[2]]);
+    } else {
+      pairings.push([X[1], X[2]]);
+    }
+  }
+
+  if (roundLabel === 'Final') {
+    await Tournament.updateOne({ _id: tournamentId }, { $set: { stage: 'finale' } });
+  }
+
+  const now            = new Date();
+  const votingDeadline  = new Date(now.getTime() + DAY_MS);
+  const agenda          = require('../jobs/agenda');
+  const notifications   = [];
+
+  for (const [A, B] of pairings) {
+    const contest = await Contest.create({
+      createdBy:      tournament.createdBy,
+      visibility:     'public',
+      tournamentId,
+      status:         'active',
+      windowHours:    24,
+      votingDeadline,
+      entries: [
+        { entryId: A.entryId, userId: A.userId._id, submittedAt: now },
+        { entryId: B.entryId, userId: B.userId._id, submittedAt: now },
+      ],
+      lastActivityAt: now,
+    });
+
+    const match = await TournamentMatch.create({
+      tournamentId,
+      contestId:          contest._id,
+      stage:              'knockout',
+      knockoutRound:       roundLabel,
+      entryIdA:           A.entryId,
+      entryIdB:           B.entryId,
+      tournamentEntryIdA: A._id,
+      tournamentEntryIdB: B._id,
+      status:             'active',
+      scheduledAt:        now,
+      openedAt:           now,
+    });
+
+    await Promise.all([
+      agenda.schedule(votingDeadline, 'close_contest', { contestId: contest._id.toString() }),
+      TournamentEntry.updateMany(
+        { _id: { $in: [A._id, B._id] } },
+        { $set: { knockoutRound: roundLabel } },
+      ),
+    ]);
+
+    notifications.push(
+      { userId: A.userId._id, type: 'tournament_knockout_started', payload: { tournamentId, url: '/tournament/' + tournamentId } },
+      { userId: B.userId._id, type: 'tournament_knockout_started', payload: { tournamentId, url: '/tournament/' + tournamentId } },
+    );
+    await notifyEntryLoopedIn([
+      { tournamentEntryId: A._id, type: 'tournament_entry_match_live', payload: {
+          tournamentId, tournamentEntryId: A._id, matchId: match._id, contestId: contest._id,
+          opponentUsername: B.userId.username?.value, opponentDisplayName: B.userId.displayName?.value || B.userId.username?.value,
+          url: '/contest/' + contest._id,
+      } },
+      { tournamentEntryId: B._id, type: 'tournament_entry_match_live', payload: {
+          tournamentId, tournamentEntryId: B._id, matchId: match._id, contestId: contest._id,
+          opponentUsername: A.userId.username?.value, opponentDisplayName: A.userId.displayName?.value || A.userId.username?.value,
+          url: '/contest/' + contest._id,
+      } },
+    ], [A.userId._id, B.userId._id]);
+  }
+
+  await Notification.insertMany(notifications, { ordered: false }).catch(() => {});
+}
+
+module.exports = { generateGroups, generateGroupMatches, circleMethodRounds, generateKnockoutBracket };

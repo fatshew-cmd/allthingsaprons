@@ -1,4 +1,5 @@
 const Contest              = require('../models/Contest');
+const TournamentMatch      = require('../models/TournamentMatch');
 const { voidExpiredContest, closeContest } = require('./contestJobs');
 
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -53,9 +54,33 @@ async function runCloseSweeper(agenda) {
   }
 }
 
+// Recovery for jobs/contestJobs.js's fire-and-forget tournament hook: if the process
+// crashed/restarted between a tournament Contest closing and handleTournamentMatchClose
+// finishing, the TournamentMatch is left stranded (still 'scheduled'/'active') even though
+// its Contest already has a final status. Re-run the hook for any such match.
+async function runTournamentMatchReconcileSweeper() {
+  const staleMatches = await TournamentMatch.find({
+    status: { $in: ['scheduled', 'active'] },
+  }).select('contestId').lean();
+  if (!staleMatches.length) return;
+
+  const contests = await Contest.find({
+    _id: { $in: staleMatches.map(m => m.contestId) },
+    status: 'closed',
+  }).select('_id winnerEntryId').lean();
+  if (!contests.length) return;
+
+  const { handleTournamentMatchClose } = require('./tournamentJobs');
+  for (const c of contests) {
+    await handleTournamentMatchClose(c._id, c.winnerEntryId).catch(err => {
+      console.error('[runTournamentMatchReconcileSweeper] failed for contest', c._id, ':', err.message);
+    });
+  }
+}
+
 async function startSweeper(agenda) {
   agenda.define('contest_sweeper', async () => {
-    await Promise.all([runVoidSweeper(agenda), runCloseSweeper(agenda)]);
+    await Promise.all([runVoidSweeper(agenda), runCloseSweeper(agenda), runTournamentMatchReconcileSweeper()]);
   });
 
   await agenda.every('15 minutes', 'contest_sweeper');
@@ -63,4 +88,4 @@ async function startSweeper(agenda) {
   await agenda.now('contest_sweeper');
 }
 
-module.exports = { startSweeper };
+module.exports = { startSweeper, runTournamentMatchReconcileSweeper };

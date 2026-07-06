@@ -127,6 +127,18 @@ function notifText(n) {
       var terNote = p.note ? ' — “' + p.note + '”' : '';
       return 'Your entry wasn\'t selected for <strong>' + (p.tournamentName || 'a tournament') + '</strong>' + terNote;
     }
+    case 'tournament_live':
+      return 'Your tournament is now live — group matches have begun';
+    case 'tournament_entry_match_live':
+      return 'A tournament match is now live against <strong>' + (p.opponentDisplayName || 'their opponent') + '</strong>';
+    case 'tournament_entry_match_closed': {
+      var temcVerb = p.outcome === 'won' ? 'won' : p.outcome === 'lost' ? 'lost' : 'tied';
+      return 'The entry you\'re following ' + temcVerb + ' its match against <strong>' + (p.opponentDisplayName || 'their opponent') + '</strong>';
+    }
+    case 'tournament_group_advance':
+      return 'You advanced from your group and are moving forward in the tournament';
+    case 'tournament_eliminated':
+      return 'You were eliminated from the tournament';
     default:
       return 'New notification';
   }
@@ -164,6 +176,11 @@ function notifIcon(type) {
     case 'tournament_entry_submitted':  return 'boxicons:trophy';
     case 'tournament_entry_approved':   return 'boxicons:check-circle';
     case 'tournament_entry_rejected':   return 'boxicons:x-circle';
+    case 'tournament_live':             return 'boxicons:trophy';
+    case 'tournament_entry_match_live': return 'boxicons:play-circle';
+    case 'tournament_entry_match_closed': return 'boxicons:check-circle';
+    case 'tournament_group_advance':    return 'boxicons:trophy';
+    case 'tournament_eliminated':       return 'boxicons:x-circle';
     default:                         return 'boxicons:bell';
   }
 }

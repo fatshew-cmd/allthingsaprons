@@ -24,5 +24,8 @@ tournamentMatchSchema.index({ tournamentId: 1, groupId: 1 });
 tournamentMatchSchema.index({ contestId: 1 }, { unique: true });
 tournamentMatchSchema.index({ tournamentId: 1, status: 1 });
 tournamentMatchSchema.index({ tournamentId: 1, knockoutRound: 1 });
+// At most one tiebreaker match per group — guards against two concurrent resolveGroup
+// calls (jobs/tournamentJobs.js) both creating one for the same boundary tie.
+tournamentMatchSchema.index({ groupId: 1 }, { unique: true, partialFilterExpression: { isTiebreakerMatch: true } });
 
 module.exports = mongoose.model('TournamentMatch', tournamentMatchSchema);

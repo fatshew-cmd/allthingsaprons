@@ -34,9 +34,13 @@ const tournamentSchema = new mongoose.Schema({
   },
 
   status: { type: String, enum: ['open', 'cooldown', 'active', 'closed', 'canceled'], required: true },
-  // Set to 'group' on activation. Advancing to 'knockout'/'finale' happens once
-  // bracket generation exists (not built yet — see tournament-implementation-plan.md).
+  // Set to 'group' on activation, 'knockout' once the bracket is generated, 'finale' once
+  // the Final/3rd-place matches are created.
   stage: { type: String, enum: ['group', 'knockout', 'finale'], default: null },
+  // Atomic claim guarding knockout-round advancement: multiple matches in a round share one
+  // votingDeadline, so several can close in the same sweep — only the call that successfully
+  // flips this field (away from the round it's advancing from) generates the next round.
+  lastKnockoutRoundAdvanced: { type: String, enum: ['R16', 'QF', 'SF'], default: null },
 
   openDeadline:     { type: Date, required: true },
   cooldownDeadline: { type: Date },

@@ -204,6 +204,17 @@ async function closeContest(contestId) {
   } catch (err) {
     console.error('[closeContest] earnings settlement failed for contest', contest._id, ':', err.message);
   }
+
+  if (contest.tournamentId) {
+    const { handleTournamentMatchClose } = require('./tournamentJobs');
+    // Reuse the vote counts already computed above instead of making the hook re-aggregate.
+    const voteCounts = {};
+    for (const row of agg) voteCounts[row._id.toString()] = row.count;
+    // Fire and forget — don't let tournament logic block or error the main close path.
+    handleTournamentMatchClose(contest._id, winnerEntryId, voteCounts).catch(err => {
+      console.error('[closeContest] tournament hook failed for contest', contest._id, ':', err.message);
+    });
+  }
 }
 
 function registerContestJobs(agenda) {
