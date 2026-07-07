@@ -129,6 +129,8 @@ function notifText(n) {
     }
     case 'tournament_live':
       return 'Your tournament is now live — group matches have begun';
+    case 'tournament_knockout_started':
+      return 'You\'ve advanced to the knockout stage — your next match is starting';
     case 'tournament_entry_match_live':
       return 'A tournament match is now live against <strong>' + (p.opponentDisplayName || 'their opponent') + '</strong>';
     case 'tournament_entry_match_closed': {
@@ -143,6 +145,10 @@ function notifText(n) {
       return 'A match tied — cast your anonymous jury vote';
     case 'tournament_tie_organizer':
       return 'Jury vote didn\'t reach a majority — your tie-break decision is needed';
+    case 'tournament_group_tie_jury':
+      return 'A group ranking tied — cast your anonymous jury vote';
+    case 'tournament_group_tie_organizer':
+      return 'Jury vote didn\'t settle a group ranking — your tie-break decision is needed';
     case 'tournament_jury_vote_received':
       return 'Your tied match has received ' + (p.voteCount || 0) + ' jury vote' + (p.voteCount === 1 ? '' : 's') + ' so far';
     case 'tournament_closed':
@@ -190,12 +196,15 @@ function notifIcon(type) {
     case 'tournament_entry_approved':   return 'boxicons:check-circle';
     case 'tournament_entry_rejected':   return 'boxicons:x-circle';
     case 'tournament_live':             return 'boxicons:trophy';
+    case 'tournament_knockout_started':  return 'boxicons:bracket';
     case 'tournament_entry_match_live': return 'boxicons:play-circle';
     case 'tournament_entry_match_closed': return 'boxicons:check-circle';
     case 'tournament_group_advance':    return 'boxicons:trophy';
     case 'tournament_eliminated':       return 'boxicons:x-circle';
     case 'tournament_tie_jury':         return 'boxicons:group';
     case 'tournament_tie_organizer':    return 'boxicons:crown';
+    case 'tournament_group_tie_jury':      return 'boxicons:group';
+    case 'tournament_group_tie_organizer': return 'boxicons:crown';
     case 'tournament_jury_vote_received': return 'boxicons:bar-chart-alt-2';
     case 'tournament_closed':           return 'boxicons:check-circle';
     case 'tournament_prize_awarded':    return 'boxicons:trophy';

@@ -3,6 +3,7 @@ const TournamentEntry = require('../models/TournamentEntry');
 const TournamentGroup = require('../models/TournamentGroup');
 const TournamentJury  = require('../models/TournamentJury');
 const TournamentJuryVote = require('../models/TournamentJuryVote');
+const TournamentGroupTieVote = require('../models/TournamentGroupTieVote');
 const TournamentMatch = require('../models/TournamentMatch');
 const Contest         = require('../models/Contest');
 const ContestVote     = require('../models/ContestVote');
@@ -330,6 +331,193 @@ async function createTiebreakerMatch(group, teIdA, teIdB) {
   ], [teA.userId._id, teB.userId._id]);
 }
 
+// Notifies accepted jurors that a 3+-way group-ranking boundary tie needs their vote (each
+// juror casts one vote for whichever tied entry they'd rank highest — see resolveGroupJuryVote)
+// and schedules the 6h expiry. Mirrors initiateTieResolution above, but for a group's ranking
+// dispute rather than a single match.
+async function initiateGroupTieResolution(groupId, juryDeadline) {
+  const group = await TournamentGroup.findById(groupId).select('tournamentId').lean();
+  if (!group) return;
+
+  const jurors = await TournamentJury.find({ tournamentId: group.tournamentId, status: 'accepted' })
+    .select('userId').lean();
+
+  const notifications = jurors.map(j => ({
+    userId:  j.userId,
+    type:    'tournament_group_tie_jury',
+    payload: {
+      tournamentId: group.tournamentId, groupId,
+      url: '/tournament/' + group.tournamentId + '/group-jury-vote/' + groupId,
+    },
+  }));
+  if (notifications.length > 0) {
+    await Notification.insertMany(notifications, { ordered: false }).catch(() => {});
+  }
+
+  // Stamped so tournamentGroupJuryExpiry can tell "jurors were actually notified" apart from
+  // "the process crashed before this point ran" — same pattern as TournamentMatch.juryNotifiedAt.
+  await TournamentGroup.updateOne({ _id: groupId }, { $set: { juryNotifiedAt: new Date() } });
+
+  const agenda = require('./agenda');
+  await agenda.schedule(juryDeadline, 'tournament_group_jury_expiry', { groupId: groupId.toString() });
+}
+
+// Entry point resolveGroup calls the first time it finds a 3+-way boundary tie (group.tieStatus
+// is still null at that point — resolveGroup itself intercepts every subsequent call once
+// tieStatus is set, resolving from the stored snapshot instead of re-entering here). Always
+// returns null (paused) — either because this call just claimed the tie and kicked off the
+// jury phase, or because a concurrent resolveGroup call claimed it a moment earlier.
+async function resolveGroupTieCluster(group, cluster, slotsForCluster) {
+  const tieDeadline = new Date(Date.now() + 6 * 60 * 60 * 1000);
+  const claimed = await TournamentGroup.findOneAndUpdate(
+    { _id: group._id, tieStatus: null },
+    { $set: {
+        tieStatus: 'jury_pending', tieDeadline,
+        tiedEntryIds: cluster.map(c => c.id), tieSlotsForCluster: slotsForCluster,
+      } },
+  );
+  if (claimed) await initiateGroupTieResolution(group._id, tieDeadline);
+
+  return null;
+}
+
+// Called from the group-jury-vote API route once votes reach quorum (3). Re-entrant-safe via
+// the tieStatus: 'jury_pending' filter on the claiming update. `votes` is an optional array of
+// already-fetched TournamentGroupTieVote docs, threaded through to avoid a second identical query.
+async function resolveGroupJuryVote(groupId, votes) {
+  const group = await TournamentGroup.findById(groupId).select('tieStatus tiedEntryIds tieSlotsForCluster').lean();
+  if (!group || group.tieStatus !== 'jury_pending') return; // already resolved
+
+  const groupVotes = votes || await TournamentGroupTieVote.find({ groupId }).select('votedForTournamentEntryId').lean();
+  const counts = {};
+  for (const v of groupVotes) {
+    const key = v.votedForTournamentEntryId.toString();
+    counts[key] = (counts[key] || 0) + 1;
+  }
+
+  const order = group.tiedEntryIds.map(id => id.toString())
+    .sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+
+  // If the plurality left the advance/eliminate cutoff itself ambiguous (the entry that would
+  // advance and the one that wouldn't are tied on votes), don't guess — let the 6h expiry hand
+  // off to the organizer, same as a still-tied jury vote on a match (resolveJuryVote above).
+  const cutoff = group.tieSlotsForCluster;
+  if (cutoff > 0 && cutoff < order.length && (counts[order[cutoff - 1]] || 0) === (counts[order[cutoff]] || 0)) {
+    return;
+  }
+
+  const claimed = await TournamentGroup.findOneAndUpdate(
+    { _id: groupId, tieStatus: 'jury_pending' },
+    { $set: { tieStatus: 'resolved', tieResolvedOrder: order } },
+  );
+  if (!claimed) return; // a concurrent vote already resolved this
+
+  const agenda = require('./agenda');
+  await agenda.cancel({ name: 'tournament_group_jury_expiry', 'data.groupId': groupId.toString() });
+
+  await resolveGroup(groupId);
+}
+
+// 6h jury window expired without a decisive plurality. Penalize non-voting accepted jurors
+// (same missedVotes mechanism as tournamentJuryExpiry) and hand off to the organizer for 3h.
+async function tournamentGroupJuryExpiry(groupId) {
+  const pendingGroup = await TournamentGroup.findOne({ _id: groupId, tieStatus: 'jury_pending' })
+    .select('juryNotifiedAt').lean();
+  if (pendingGroup && !pendingGroup.juryNotifiedAt) {
+    const retryDeadline = new Date(Date.now() + 6 * 60 * 60 * 1000);
+    await TournamentGroup.updateOne({ _id: groupId }, { $set: { tieDeadline: retryDeadline } });
+    await initiateGroupTieResolution(groupId, retryDeadline);
+    return;
+  }
+
+  const organizerDeadline = new Date(Date.now() + 3 * 60 * 60 * 1000);
+
+  // Atomic claim: a juror's vote reaching a decisive plurality (resolveGroupJuryVote) can race
+  // this 6h expiry — only one of the two proceeds.
+  const group = await TournamentGroup.findOneAndUpdate(
+    { _id: groupId, tieStatus: 'jury_pending' },
+    { $set: { tieStatus: 'organizer_pending', tieDeadline: organizerDeadline } },
+  );
+  if (!group) return; // already resolved by the jury
+
+  const allJurors = await TournamentJury.find({ tournamentId: group.tournamentId, status: 'accepted' })
+    .select('_id userId').lean();
+  const votedIds = await TournamentGroupTieVote.distinct('jurorId', { groupId: group._id });
+  const votedSet = new Set(votedIds.map(id => id.toString()));
+
+  const missedJuryIds = allJurors.filter(j => !votedSet.has(j.userId.toString())).map(j => j._id);
+  if (missedJuryIds.length > 0) {
+    await TournamentJury.updateMany({ _id: { $in: missedJuryIds } }, { $inc: { missedVotes: 1 } });
+  }
+
+  const tournament = await Tournament.findById(group.tournamentId).select('createdBy').lean();
+  await Notification.create({
+    userId:  tournament.createdBy,
+    type:    'tournament_group_tie_organizer',
+    payload: {
+      tournamentId: group.tournamentId,
+      groupId:      group._id,
+      url:          '/tournament/' + group.tournamentId + '/group-organizer-vote/' + group._id,
+    },
+  });
+
+  const agenda = require('./agenda');
+  await agenda.schedule(organizerDeadline, 'tournament_group_organizer_vote_expiry', {
+    groupId: groupId.toString(),
+  });
+}
+
+// Called from the group-organizer-vote API route. `orderedIds` is the organizer's full
+// best-to-worst ordering of the tied cluster (must be exactly the disputed cluster, no more,
+// no less — resolveGroup only needs the relative order, not a fresh ranking of the whole group).
+// `tournamentId` scopes the lookup to the tournament the caller was already authorized against —
+// without it, a legitimate organizer of one tournament could resolve another tournament's tie
+// by supplying a foreign groupId.
+async function resolveGroupOrganizerVote(tournamentId, groupId, orderedIds) {
+  const group = await TournamentGroup.findOne({ _id: groupId, tournamentId, tieStatus: 'organizer_pending' }).lean();
+  if (!group) return false;
+
+  const validIds = new Set(group.tiedEntryIds.map(id => id.toString()));
+  const isPermutation = orderedIds.length === group.tiedEntryIds.length
+    && new Set(orderedIds).size === orderedIds.length
+    && orderedIds.every(id => validIds.has(id));
+  if (!isPermutation) return false;
+
+  const claimed = await TournamentGroup.findOneAndUpdate(
+    { _id: groupId, tieStatus: 'organizer_pending' },
+    { $set: { tieStatus: 'resolved', tieResolvedOrder: orderedIds } },
+  );
+  if (!claimed) return false; // already resolved (e.g. the 3h expiry beat this request)
+
+  const agenda = require('./agenda');
+  await agenda.cancel({ name: 'tournament_group_organizer_vote_expiry', 'data.groupId': groupId.toString() });
+
+  await resolveGroup(groupId);
+  return true;
+}
+
+// 3h organizer window expired without a decision — platform coin flip resolves so a
+// group-ranking tie can never block progression more than 9h total, same as a match tie.
+async function tournamentGroupOrganizerVoteExpiry(groupId) {
+  const group = await TournamentGroup.findOne({ _id: groupId, tieStatus: 'organizer_pending' }).lean();
+  if (!group) return; // organizer acted in time
+
+  const claimed = await TournamentGroup.findOneAndUpdate(
+    { _id: groupId, tieStatus: 'organizer_pending' },
+    { $set: { tieStatus: 'resolved' } },
+  );
+  if (!claimed) return;
+
+  const shuffled = [...group.tiedEntryIds];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  await TournamentGroup.updateOne({ _id: groupId }, { $set: { tieResolvedOrder: shuffled } });
+
+  await resolveGroup(groupId);
+}
+
 // Re-entrant: safe to call again once a tiebreaker match it created closes.
 async function resolveGroup(groupId) {
   const group = await TournamentGroup.findById(groupId);
@@ -383,40 +571,68 @@ async function resolveGroup(groupId) {
   }
 
   const ADVANCE_COUNT = 2;
-  const boundaryA = ranked[ADVANCE_COUNT - 1];
-  const boundaryB = ranked[ADVANCE_COUNT];
 
-  if (boundaryB && sameOnAllCriteria(boundaryA, boundaryB)) {
-    const cluster = ranked.filter(r => sameOnAllCriteria(r, boundaryA));
+  // A 3+-way group-ranking tie already in flight (or resolved but not yet applied here) is
+  // anchored to the snapshot taken when it was first raised — tiedEntryIds/tieResolvedOrder/
+  // tieSlotsForCluster — rather than a freshly recomputed cluster. Ratings have no deadline
+  // and can change during the 6-9h jury/organizer window; recomputing the cluster fresh on
+  // every call risked its size/membership drifting away from what was actually decided,
+  // which left the group permanently stuck (tieStatus 'resolved' but nothing left to trigger
+  // a fresh attempt). Using the stored snapshot makes resolution immune to that drift.
+  if (group.tieStatus) {
+    if (group.tieStatus !== 'resolved') return; // still pending jury vote / organizer decision / coin flip
 
-    if (cluster.length === 2) {
-      const key      = cluster.map(c => c.id).sort().join('_');
-      const tbMatch  = await TournamentMatch.findOne({
-        groupId, isTiebreakerMatch: true, status: 'closed',
-      }).lean();
-      const tbWinner = tbMatch && [tbMatch.tournamentEntryIdA.toString(), tbMatch.tournamentEntryIdB.toString()].sort().join('_') === key
-        ? (tbMatch.entryIdA.toString() === tbMatch.winnerId?.toString() ? tbMatch.tournamentEntryIdA : tbMatch.tournamentEntryIdB).toString()
-        : null;
+    const startIdx = ADVANCE_COUNT - group.tieSlotsForCluster;
+    const byId = {};
+    members.forEach(m => { byId[m._id.toString()] = { id: m._id.toString(), userId: m.userId }; });
+    const order = group.tieResolvedOrder.map(id => byId[id.toString()]).filter(Boolean);
 
-      if (!tbWinner) {
-        try {
-          await createTiebreakerMatch(group, cluster[0].id, cluster[1].id);
-        } catch (err) {
-          // Another concurrent resolveGroup call for this same group already created it
-          // (partial unique index on TournamentMatch enforces at most one per group) —
-          // that call is handling the pause, so just back off here too.
-          if (err.code !== 11000) throw err;
+    for (let i = 0; i < order.length; i++) ranked[startIdx + i] = order[i];
+  } else {
+    const boundaryA = ranked[ADVANCE_COUNT - 1];
+    const boundaryB = ranked[ADVANCE_COUNT];
+
+    if (boundaryB && sameOnAllCriteria(boundaryA, boundaryB)) {
+      const cluster = ranked.filter(r => sameOnAllCriteria(r, boundaryA));
+
+      if (cluster.length === 2) {
+        const key      = cluster.map(c => c.id).sort().join('_');
+        const tbMatch  = await TournamentMatch.findOne({
+          groupId, isTiebreakerMatch: true, status: 'closed',
+        }).lean();
+        const tbWinner = tbMatch && [tbMatch.tournamentEntryIdA.toString(), tbMatch.tournamentEntryIdB.toString()].sort().join('_') === key
+          ? (tbMatch.entryIdA.toString() === tbMatch.winnerId?.toString() ? tbMatch.tournamentEntryIdA : tbMatch.tournamentEntryIdB).toString()
+          : null;
+
+        if (!tbWinner) {
+          try {
+            await createTiebreakerMatch(group, cluster[0].id, cluster[1].id);
+          } catch (err) {
+            // Another concurrent resolveGroup call for this same group already created it
+            // (partial unique index on TournamentMatch enforces at most one per group) —
+            // that call is handling the pause, so just back off here too.
+            if (err.code !== 11000) throw err;
+          }
+          return; // paused until the tiebreaker match closes
         }
-        return; // paused until the tiebreaker match closes
-      }
 
-      const winnerEntry = cluster.find(c => c.id === tbWinner);
-      const loserEntry   = cluster.find(c => c.id !== tbWinner);
-      ranked[ADVANCE_COUNT - 1] = winnerEntry;
-      ranked[ADVANCE_COUNT]     = loserEntry;
-    } else {
-      console.warn(`[resolveGroup] group ${groupId} has an unresolvable ${cluster.length}-way boundary tie — the jury system only breaks match ties, not group-ranking ties beyond a 2-way boundary, so this is left unresolved.`);
-      return;
+        const winnerEntry = cluster.find(c => c.id === tbWinner);
+        const loserEntry   = cluster.find(c => c.id !== tbWinner);
+        ranked[ADVANCE_COUNT - 1] = winnerEntry;
+        ranked[ADVANCE_COUNT]     = loserEntry;
+      } else {
+        // 3+-way boundary tie: cluster always straddles the cutoff by construction (it contains
+        // both boundaryA at ADVANCE_COUNT-1 and boundaryB at ADVANCE_COUNT), so startIdx is always
+        // <= ADVANCE_COUNT-1 and the cluster always extends past ADVANCE_COUNT — slotsForCluster
+        // is therefore always strictly between 0 and cluster.length.
+        const startIdx = ranked.findIndex(r => sameOnAllCriteria(r, boundaryA));
+        const slotsForCluster = ADVANCE_COUNT - startIdx;
+
+        const order = await resolveGroupTieCluster(group, cluster, slotsForCluster);
+        if (!order) return; // paused on jury vote / organizer decision / coin flip
+
+        for (let i = 0; i < order.length; i++) ranked[startIdx + i] = order[i];
+      }
     }
   }
 
@@ -873,6 +1089,14 @@ function registerTournamentJobs(agenda) {
   agenda.define('tournament_organizer_vote_expiry', async job => {
     await tournamentOrganizerVoteExpiry(job.attrs.data.matchId);
   });
+
+  agenda.define('tournament_group_jury_expiry', async job => {
+    await tournamentGroupJuryExpiry(job.attrs.data.groupId);
+  });
+
+  agenda.define('tournament_group_organizer_vote_expiry', async job => {
+    await tournamentGroupOrganizerVoteExpiry(job.attrs.data.groupId);
+  });
 }
 
 module.exports = {
@@ -880,4 +1104,5 @@ module.exports = {
   handleTournamentMatchClose, checkGroupComplete, resolveGroup, handleKnockoutMatchClose,
   initiateTieResolution, resolveJuryVote, closeTournament,
   tournamentOpenExpiry, tournamentCooldownExpiry, tournamentJuryExpiry, tournamentOrganizerVoteExpiry,
+  resolveGroupJuryVote, resolveGroupOrganizerVote, tournamentGroupJuryExpiry, tournamentGroupOrganizerVoteExpiry,
 };

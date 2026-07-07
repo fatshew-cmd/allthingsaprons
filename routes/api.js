@@ -35,7 +35,12 @@ const TournamentJury           = require('../models/TournamentJury');
 const TournamentJuryVote       = require('../models/TournamentJuryVote');
 const TournamentMatch          = require('../models/TournamentMatch');
 const TournamentEntry          = require('../models/TournamentEntry');
-const { activateTournament, autoAcceptPendingJury, MIN_JURY, resolveJuryVote, handleTournamentMatchClose } = require('../jobs/tournamentJobs');
+const TournamentGroup          = require('../models/TournamentGroup');
+const TournamentGroupTieVote   = require('../models/TournamentGroupTieVote');
+const {
+  activateTournament, autoAcceptPendingJury, MIN_JURY, resolveJuryVote, handleTournamentMatchClose,
+  resolveGroupJuryVote, resolveGroupOrganizerVote,
+} = require('../jobs/tournamentJobs');
 const estimateParticipantPool = require('../utils/estimateParticipantPool');
 const { submitEntryToTournament, checkTournamentPreflight, attemptTournamentAutoDraft } = require('../utils/tournamentSubmission');
 const { updateAffinity, updateCreatorAffinity, updateStainAffinity, SIGNAL_ANNOUNCEMENT_DISMISS, SIGNAL_ANNOUNCEMENT_CLICK } = require('../utils/affinityUpdater');
@@ -427,6 +432,72 @@ router.post('/tournaments/:id/matches/:matchId/organizer-vote', async (req, res)
   await agenda.cancel({ name: 'tournament_organizer_vote_expiry', 'data.matchId': match._id.toString() });
 
   await handleTournamentMatchClose(match.contestId, votedForEntryId);
+
+  res.json({ success: true });
+});
+
+// ── POST /tournaments/:id/groups/:groupId/jury-vote — juror casts a top-pick vote in a
+// 3+-way group-ranking boundary tie (distinct from a match-tie vote above) ──────────────
+router.post('/tournaments/:id/groups/:groupId/jury-vote', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.groupId)) {
+    return res.status(404).json({ error: 'Not found.' });
+  }
+
+  const group = await TournamentGroup.findOne({ _id: req.params.groupId, tournamentId: req.params.id });
+  if (!group) return res.status(404).json({ error: 'Group not found.' });
+  if (group.tieStatus !== 'jury_pending') {
+    return res.status(400).json({ error: 'No active jury vote for this group.' });
+  }
+
+  const jurorRecord = await TournamentJury.findOne({
+    tournamentId: req.params.id, userId: req.session.userId, status: 'accepted',
+  }).lean();
+  if (!jurorRecord) return res.status(403).json({ error: 'You are not a jury member for this tournament.' });
+
+  const votedForTournamentEntryId = req.body.votedForTournamentEntryId;
+  if (!group.tiedEntryIds.some(id => id.toString() === votedForTournamentEntryId)) {
+    return res.status(400).json({ error: 'Invalid entry selection.' });
+  }
+
+  try {
+    await TournamentGroupTieVote.create({
+      tournamentId: req.params.id, groupId: group._id, jurorId: req.session.userId, votedForTournamentEntryId,
+    });
+  } catch (err) {
+    if (err.code === 11000) return res.status(400).json({ error: 'You have already cast your vote for this tie.' });
+    throw err;
+  }
+
+  const votes = await TournamentGroupTieVote.find({ groupId: group._id }).select('votedForTournamentEntryId').lean();
+  if (votes.length >= 3) {
+    await resolveGroupJuryVote(group._id, votes);
+  }
+
+  res.json({ success: true });
+});
+
+// ── POST /tournaments/:id/groups/:groupId/organizer-vote — organizer breaks a group-ranking
+// tie the jury couldn't resolve by a decisive plurality within its 6h window ────────────
+router.post('/tournaments/:id/groups/:groupId/organizer-vote', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.groupId)) {
+    return res.status(404).json({ error: 'Not found.' });
+  }
+
+  const tournament = await Tournament.findById(req.params.id).select('createdBy').lean();
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (tournament.createdBy.toString() !== req.session.userId) {
+    return res.status(403).json({ error: 'Not authorized.' });
+  }
+
+  const orderedTournamentEntryIds = req.body.orderedTournamentEntryIds;
+  if (!Array.isArray(orderedTournamentEntryIds) || !orderedTournamentEntryIds.length) {
+    return res.status(400).json({ error: 'Invalid ordering.' });
+  }
+
+  const resolved = await resolveGroupOrganizerVote(req.params.id, req.params.groupId, orderedTournamentEntryIds);
+  if (!resolved) return res.status(400).json({ error: 'This tie is no longer awaiting a decision, or the ordering was invalid.' });
 
   res.json({ success: true });
 });

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head><%- include('../../partials/head') %></head>
 <body class="flex overflow-hidden bg-zinc-950" style="height:100vh;font-family:'Sofia Sans',sans-serif">
@@ -6,24 +6,92 @@
   <%- include('../../partials/adminSidebar', { currentPage: 'tournaments' }) %>
 
   <div class="flex-1 flex flex-col overflow-hidden">
+    <main class="flex-1 overflow-y-auto p-8">
+      <div class="max-w-5xl mx-auto flex flex-col gap-6">
 
-    <main class="flex-1 overflow-y-auto p-8 flex items-start justify-center">
-      <div class="bg-zinc-900 border border-white/8 rounded-md p-12 max-w-md w-full text-center mt-8">
-        <div class="w-14 h-14 rounded-full bg-charm-500/10 flex items-center justify-center mx-auto mb-5">
-          <iconify-icon icon="boxicons:trophy" width="24" style="color:#c45c7a;display:block"></iconify-icon>
+        <div>
+          <h1 class="text-xl font-bold text-white m-0">Tournaments</h1>
+          <p class="text-sm text-zinc-400 m-0 mt-1">Read-only browse of all user-organized tournaments. There is no admin approval step — organizers launch directly.</p>
         </div>
-        <span class="inline-block px-2.5 py-1 rounded-md text-xs font-bold bg-white/8 text-zinc-500 mb-4">Phase 9</span>
-        <h2 class="text-lg font-bold text-white mt-0 mb-2">Tournament Management</h2>
-        <p class="text-sm text-zinc-400 mb-6 leading-relaxed">Read-only browse of all user-organized tournaments on the platform. There is no admin-created tournament type and no admin approval step — organizers launch directly.</p>
-        <ul class="text-sm text-zinc-400 text-left flex flex-col gap-2">
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>View all tournaments with status filter (open / cooldown / active / closed / canceled)</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Organizer, participant count, prize pool per tournament</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Link through to full read-only detail (groups, bracket, standings)</li>
-          <li class="flex items-center gap-2"><iconify-icon icon="boxicons:circle" width="13" style="color:#52525b;display:block"></iconify-icon>Force Cancel action, founder/superadmin only</li>
-        </ul>
+
+        <!-- Status filter -->
+        <div class="flex items-center gap-1 border-b border-white/8 -mb-3">
+          <a href="/admin/tournaments"
+            class="px-4 py-2.5 text-sm font-semibold no-underline transition-colors border-b-2 -mb-px <%= !statusFilter ? 'text-white border-violet-500' : 'text-zinc-500 border-transparent hover:text-zinc-300' %>">
+            All
+          </a>
+          <% statuses.forEach(function (s) { %>
+          <a href="/admin/tournaments?status=<%= s %>"
+            class="px-4 py-2.5 text-sm font-semibold no-underline transition-colors border-b-2 -mb-px capitalize <%= statusFilter === s ? 'text-white border-violet-500' : 'text-zinc-500 border-transparent hover:text-zinc-300' %>">
+            <%= s %>
+          </a>
+          <% }) %>
+        </div>
+
+        <% if (!tournaments.length) { %>
+        <div class="bg-zinc-900 border border-white/8 rounded-md p-16 text-center">
+          <iconify-icon icon="boxicons:trophy" width="28" style="color:#3f3f46;display:block;margin:0 auto 12px"></iconify-icon>
+          <p class="font-semibold text-zinc-500 m-0">No tournaments<% if (statusFilter) { %> with status "<%= statusFilter %>"<% } %></p>
+        </div>
+        <% } else { %>
+
+        <div class="bg-zinc-900 border border-white/8 rounded-md overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-white/8 text-left">
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Tournament</th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Organizer</th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Size</th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Status</th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Prize Pool</th>
+                <th class="px-5 py-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Created</th>
+                <th class="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+              <% var statusCls = {
+                open:     'bg-amber-500/15 text-amber-400 border-amber-500/25',
+                cooldown: 'bg-blue-500/15 text-blue-400 border-blue-500/25',
+                active:   'bg-green-500/15 text-green-400 border-green-500/25',
+                closed:   'bg-white/8 text-zinc-400 border-white/10',
+                canceled: 'bg-red-500/15 text-red-400 border-red-500/25',
+              }; %>
+              <% tournaments.forEach(function (t) { %>
+              <tr class="hover:bg-white/5 transition-colors cursor-pointer" onclick="window.location='/admin/tournaments/<%= t._id %>'">
+                <td class="px-5 py-3.5">
+                  <span class="font-semibold text-white"><%= t.name %></span>
+                </td>
+                <td class="px-5 py-3.5 text-zinc-400">
+                  <%= t.createdBy?.username?.value ? '@' + t.createdBy.username.value : '—' %>
+                </td>
+                <td class="px-5 py-3.5 text-zinc-400"><%= t.approvedCount %>/<%= t.size %></td>
+                <td class="px-5 py-3.5">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border capitalize <%= statusCls[t.status] || 'bg-white/8 text-zinc-400 border-white/10' %>">
+                    <%= t.status %>
+                  </span>
+                </td>
+                <td class="px-5 py-3.5 text-zinc-400 whitespace-nowrap">
+                  <%= ((t.prizes.first + t.prizes.second + (t.prizes.third || 0))).toLocaleString() %> CHL
+                </td>
+                <td class="px-5 py-3.5 text-zinc-400 text-sm whitespace-nowrap">
+                  <%= t.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
+                </td>
+                <td class="px-5 py-3.5 text-right">
+                  <a href="/admin/tournaments/<%= t._id %>" class="inline-flex items-center gap-1 text-sm font-semibold text-zinc-400 hover:text-white transition-colors no-underline">
+                    View
+                    <iconify-icon icon="boxicons:chevron-right" width="12" style="display:block"></iconify-icon>
+                  </a>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+
+        <% } %>
       </div>
     </main>
-
   </div>
+
 </body>
 </html>

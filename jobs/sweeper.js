@@ -1,6 +1,7 @@
 const Contest              = require('../models/Contest');
 const Tournament           = require('../models/Tournament');
 const TournamentMatch      = require('../models/TournamentMatch');
+const TournamentGroup      = require('../models/TournamentGroup');
 const { voidExpiredContest, closeContest } = require('./contestJobs');
 
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -88,6 +89,7 @@ async function runTournamentSweeper(agenda) {
   const {
     tournamentOpenExpiry, tournamentCooldownExpiry,
     tournamentJuryExpiry, tournamentOrganizerVoteExpiry,
+    tournamentGroupJuryExpiry, tournamentGroupOrganizerVoteExpiry,
   } = require('./tournamentJobs');
 
   await sweepDeadline(agenda, {
@@ -112,6 +114,18 @@ async function runTournamentSweeper(agenda) {
     Model: TournamentMatch, filter: { tieStatus: 'organizer_pending' }, deadlineField: 'tieDeadline',
     jobName: 'tournament_organizer_vote_expiry', dataKey: 'matchId',
     now, horizon, handler: tournamentOrganizerVoteExpiry,
+  });
+
+  await sweepDeadline(agenda, {
+    Model: TournamentGroup, filter: { tieStatus: 'jury_pending' }, deadlineField: 'tieDeadline',
+    jobName: 'tournament_group_jury_expiry', dataKey: 'groupId',
+    now, horizon, handler: tournamentGroupJuryExpiry,
+  });
+
+  await sweepDeadline(agenda, {
+    Model: TournamentGroup, filter: { tieStatus: 'organizer_pending' }, deadlineField: 'tieDeadline',
+    jobName: 'tournament_group_organizer_vote_expiry', dataKey: 'groupId',
+    now, horizon, handler: tournamentGroupOrganizerVoteExpiry,
   });
 }
 

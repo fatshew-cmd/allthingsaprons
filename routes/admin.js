@@ -25,6 +25,15 @@ const EntryReport             = require('../models/EntryReport');
 const UserReport              = require('../models/UserReport');
 const Contest                 = require('../models/Contest');
 const Notification            = require('../models/Notification');
+const Tournament               = require('../models/Tournament');
+const TournamentEntry          = require('../models/TournamentEntry');
+const TournamentGroup          = require('../models/TournamentGroup');
+const TournamentMatch          = require('../models/TournamentMatch');
+const TournamentJury           = require('../models/TournamentJury');
+const TournamentComment        = require('../models/TournamentComment');
+const TournamentCommentReport  = require('../models/TournamentCommentReport');
+const TournamentReport         = require('../models/TournamentReport');
+const { cancelTournament }     = require('../jobs/tournamentJobs');
 const upload         = require('../middleware/upload');
 
 router.get('/login', (req, res) => {
@@ -588,12 +597,77 @@ router.post('/verification/:id/reject', async (req, res) => {
   }
 });
 
-router.get('/tournaments', (req, res) => {
-  res.render('admin/tournaments/index', { title: 'Tournaments', currentPage: 'tournaments' });
+const TOURNAMENT_STATUSES = ['open', 'cooldown', 'active', 'closed', 'canceled'];
+
+router.get('/tournaments', requireDomain('tournaments'), async (req, res) => {
+  const statusFilter = TOURNAMENT_STATUSES.includes(req.query.status) ? req.query.status : null;
+
+  const tournaments = await Tournament.find(statusFilter ? { status: statusFilter } : {})
+    .populate('createdBy', 'username displayName')
+    .sort({ createdAt: -1 })
+    .limit(200)
+    .select('name status size prizes createdBy createdAt')
+    .lean();
+
+  const counts = await TournamentEntry.aggregate([
+    { $match: { tournamentId: { $in: tournaments.map(t => t._id) }, approvalStatus: 'approved' } },
+    { $group: { _id: '$tournamentId', count: { $sum: 1 } } },
+  ]);
+  const countByTournament = {};
+  counts.forEach(c => { countByTournament[c._id.toString()] = c.count; });
+  tournaments.forEach(t => { t.approvedCount = countByTournament[t._id.toString()] || 0; });
+
+  res.render('admin/tournaments/index', {
+    title: 'Tournaments', currentPage: 'tournaments',
+    tournaments, statusFilter, statuses: TOURNAMENT_STATUSES,
+  });
 });
 
-router.get('/tournaments/review', (req, res) => {
-  res.render('admin/tournaments/review', { title: 'Tournament Review', currentPage: 'tournament-review' });
+router.get('/tournaments/:id', requireDomain('tournaments'), async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.redirect('/admin/tournaments');
+
+  const tournament = await Tournament.findById(req.params.id)
+    .populate('createdBy', 'username displayName email')
+    .lean();
+  if (!tournament) return res.redirect('/admin/tournaments');
+
+  const [groups, matches, juryCount, approvedCount] = await Promise.all([
+    TournamentGroup.find({ tournamentId: tournament._id })
+      .populate({ path: 'memberIds', populate: { path: 'userId', select: 'username displayName' } })
+      .lean(),
+    TournamentMatch.find({ tournamentId: tournament._id })
+      .populate({ path: 'tournamentEntryIdA', populate: { path: 'userId', select: 'username displayName' } })
+      .populate({ path: 'tournamentEntryIdB', populate: { path: 'userId', select: 'username displayName' } })
+      .sort({ createdAt: 1 })
+      .lean(),
+    TournamentJury.countDocuments({ tournamentId: tournament._id, status: 'accepted' }),
+    TournamentEntry.countDocuments({ tournamentId: tournament._id, approvalStatus: 'approved' }),
+  ]);
+
+  // Force Cancel only ever does anything for open/cooldown — cancelTournament's own guard
+  // no-ops on active/closed/canceled, so don't offer a button that would silently do nothing.
+  const canForceCancel = tournament.status === 'open' || tournament.status === 'cooldown';
+
+  res.render('admin/tournaments/detail', {
+    title: tournament.name, currentPage: 'tournaments',
+    tournament, groups, matches, juryCount, approvedCount, canForceCancel,
+  });
+});
+
+router.post('/tournaments/:id/cancel', requireDomain(null), async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.redirect('/admin/tournaments');
+
+  await cancelTournament(req.params.id, 'admin_force_cancel');
+
+  logAuditEvent({
+    actorId:    req.session.adminId,
+    actorRole:  req.session.adminRole,
+    action:     'tournament_force_canceled',
+    entityType: 'tournament',
+    entityId:   req.params.id,
+  });
+
+  res.redirect('/admin/tournaments/' + req.params.id);
 });
 
 // ── Audit Log (supervisor+) ───────────────────────────────────────
@@ -712,9 +786,37 @@ router.get('/moderation', async (req, res) => {
       if (r.createdAt < contestCommentMap[cid].firstReportedAt) contestCommentMap[cid].firstReportedAt = r.createdAt;
     }
 
+    const rawTournamentCommentReports = await TournamentCommentReport.find({ status: 'pending' })
+      .populate({ path: 'tournamentCommentId', populate: [
+        { path: 'userId', select: 'username displayName avatar' },
+        { path: 'tournamentId', select: 'name _id' },
+      ]})
+      .populate('reportedBy', 'username displayName')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const tournamentCommentMap = {};
+    for (const r of rawTournamentCommentReports) {
+      if (!r.tournamentCommentId) continue;
+      const cid = r.tournamentCommentId._id.toString();
+      if (!tournamentCommentMap[cid]) {
+        tournamentCommentMap[cid] = {
+          commentId: r.tournamentCommentId._id,
+          body: r.tournamentCommentId.body,
+          author: r.tournamentCommentId.userId,
+          context: { type: 'tournament', ref: r.tournamentCommentId.tournamentId },
+          reporters: [],
+          firstReportedAt: r.createdAt,
+        };
+      }
+      tournamentCommentMap[cid].reporters.push(r.reportedBy);
+      if (r.createdAt < tournamentCommentMap[cid].firstReportedAt) tournamentCommentMap[cid].firstReportedAt = r.createdAt;
+    }
+
     const queue = [
       ...Object.values(commentMap),
       ...Object.values(contestCommentMap),
+      ...Object.values(tournamentCommentMap),
     ].sort((a, b) => b.reporters.length - a.reporters.length || a.firstReportedAt - b.firstReportedAt);
 
     // Entry queue
@@ -787,9 +889,34 @@ router.get('/moderation', async (req, res) => {
     const userQueue = Object.values(userReportMap)
       .sort((a, b) => b.reporters.length - a.reporters.length || a.firstReportedAt - b.firstReportedAt);
 
-    const activeTab = ['entries', 'users'].includes(req.query.tab) ? req.query.tab : 'comments';
+    // Tournament report queue (reports on the tournament itself, not its comments)
+    const rawTournamentReports = await TournamentReport.find({ status: 'pending' })
+      .populate('tournamentId', 'name status createdBy')
+      .populate('reportedBy', 'username displayName')
+      .sort({ createdAt: 1 })
+      .lean();
 
-    res.render('admin/moderation', { title: 'Moderation', currentPage: 'moderation', queue, entryQueue, userQueue, activeTab });
+    const tournamentReportMap = {};
+    for (const r of rawTournamentReports) {
+      if (!r.tournamentId) continue;
+      const tid = r.tournamentId._id.toString();
+      if (!tournamentReportMap[tid]) {
+        tournamentReportMap[tid] = {
+          tournament: r.tournamentId,
+          reporters: [],
+          firstReportedAt: r.createdAt,
+        };
+      }
+      tournamentReportMap[tid].reporters.push(r.reportedBy);
+      if (r.createdAt < tournamentReportMap[tid].firstReportedAt) tournamentReportMap[tid].firstReportedAt = r.createdAt;
+    }
+
+    const tournamentReportQueue = Object.values(tournamentReportMap)
+      .sort((a, b) => b.reporters.length - a.reporters.length || a.firstReportedAt - b.firstReportedAt);
+
+    const activeTab = ['entries', 'users', 'tournaments'].includes(req.query.tab) ? req.query.tab : 'comments';
+
+    res.render('admin/moderation', { title: 'Moderation', currentPage: 'moderation', queue, entryQueue, userQueue, tournamentReportQueue, activeTab });
   } catch (err) {
     console.error('Moderation queue error:', err);
     res.redirect('/admin');

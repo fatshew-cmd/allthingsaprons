@@ -25,6 +25,7 @@ const adminAuditLogSchema = new mongoose.Schema({
       'onboarding_entry_rejected',
       'user_role_changed',
       'user_banned',
+      'tournament_force_canceled',
     ],
   },
 

@@ -1,0 +1,13 @@
+<%- include('../partials/appStart', { title: title, activePage: 'tournaments' }) %>
+
+<%- include('../partials/groupTieBreakPicker', {
+  tournamentId:   tournament._id,
+  groupId:        group._id,
+  tiedEntries:    tiedEntries,
+  headerTitle:    'Jury Tie-Break',
+  bodyText:       'This group\'s ranking tied at the cutoff between advancing and being eliminated. As a juror, click whichever entry you\'d rank highest. Your identity stays anonymous.',
+  mode:           'jury',
+  successMessage: 'Your vote has been recorded.',
+}) %>
+
+<%- include('../partials/appEnd') %>

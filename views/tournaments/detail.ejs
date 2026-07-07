@@ -359,6 +359,34 @@
         <% } %>
       </div>
 
+      <%
+        var matchStatusMap = {
+          scheduled: { label: 'Scheduled',     cls: 'bg-amber-500/15 text-amber-400' },
+          active:    { label: 'Live',          cls: 'bg-green-500/15 text-green-400' },
+          tie:       { label: 'Tie — pending', cls: 'bg-amber-500/15 text-amber-400' },
+          closed:    { label: 'Closed',        cls: 'bg-white/10 text-white/50' },
+        };
+        function matchSide(te, winnerId) {
+          if (!te) return null;
+          return {
+            username:    te.userId?.username?.value,
+            displayName: te.userId?.displayName?.value || te.userId?.username?.value,
+            avatar:      te.userId?.avatar?.value,
+            mediaType:   te.entryId?.mediaType,
+            mediaUrl:    te.entryId?.mediaUrl,
+            isWinner:    !!(winnerId && te.entryId && winnerId.toString() === te.entryId._id.toString()),
+          };
+        }
+        var knockoutMatches   = matches.filter(function (m) { return m.stage === 'knockout'; });
+        var groupStageMatches = matches.filter(function (m) { return m.stage !== 'knockout'; });
+        var roundOrder  = ['R16', 'QF', 'SF', '3rd', 'Final'];
+        var roundLabels = { R16: 'Round of 16', QF: 'Quarterfinal', SF: 'Semifinal', '3rd': '3rd Place', Final: 'Final' };
+        var matchesByRound = {};
+        roundOrder.forEach(function (r) { matchesByRound[r] = []; });
+        knockoutMatches.forEach(function (m) { if (matchesByRound[m.knockoutRound]) matchesByRound[m.knockoutRound].push(m); });
+        var activeRounds = roundOrder.filter(function (r) { return matchesByRound[r].length; });
+      %>
+
       <!-- Section 2: groups -->
       <div class="flex flex-col gap-2 min-h-50">
         <p class="text-xs font-semibold text-white/35 uppercase tracking-wide m-0">Groups</p>
@@ -410,10 +438,60 @@
         <% } %>
       </div>
 
+      <!-- Section 2b: knockout bracket -->
+      <% if (activeRounds.length) { %>
+      <div class="flex flex-col gap-2 min-h-50">
+        <p class="text-xs font-semibold text-white/35 uppercase tracking-wide m-0">Bracket</p>
+        <div class="tournament-hscroll overflow-x-auto -mx-5 px-5 pb-1">
+          <div class="grid grid-flow-col auto-cols-[62%] xs:auto-cols-[45%] gap-3">
+            <% activeRounds.forEach(function (round) { %>
+            <div class="flex flex-col gap-2 min-w-0">
+              <p class="text-[11px] font-semibold text-white/50 uppercase tracking-wide m-0 truncate"><%= roundLabels[round] %></p>
+              <div class="flex flex-col gap-2">
+                <% matchesByRound[round].forEach(function (match) { %>
+                <%
+                  var bStatus = matchStatusMap[match.status] || { label: match.status, cls: 'bg-white/10 text-white/40' };
+                  var bLinkable = match.status !== 'scheduled' && match.contestId;
+                  var bSideA = matchSide(match.tournamentEntryIdA, match.winnerId);
+                  var bSideB = matchSide(match.tournamentEntryIdB, match.winnerId);
+                %>
+                <% if (bLinkable) { %><a href="/contest/<%= match.contestId._id %>" class="no-underline"><% } %>
+                <div class="bg-shark-900 border border-white/10 rounded-md p-2.5 flex flex-col gap-2">
+                  <span class="text-[11px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md self-start <%= bStatus.cls %>"><%= bStatus.label %></span>
+                  <% [bSideA, bSideB].forEach(function (side) { %>
+                  <% if (side) { %>
+                  <div class="flex items-center gap-1.5 min-w-0 <%= (match.status === 'closed' && !side.isWinner) ? 'opacity-40' : '' %>">
+                    <span class="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center">
+                      <% if (side.avatar) { %>
+                      <img src="<%= side.avatar %>" class="w-full h-full object-cover" alt="">
+                      <% } else { %>
+                      <iconify-icon icon="boxicons:user-filled" width="14" style="color:#e680a6"></iconify-icon>
+                      <% } %>
+                    </span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block text-xs font-semibold truncate leading-tight <%= side.isWinner ? 'text-charm-400' : 'text-white' %>"><%= side.displayName %></span>
+                    </span>
+                    <% if (side.isWinner) { %>
+                    <iconify-icon icon="boxicons:crown" width="14" class="shrink-0 text-charm-400"></iconify-icon>
+                    <% } %>
+                  </div>
+                  <% } %>
+                  <% }) %>
+                </div>
+                <% if (bLinkable) { %></a><% } %>
+                <% }) %>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+      <% } %>
+
       <!-- Section 3: occurring contests -->
       <div class="flex flex-col gap-2 min-h-50">
         <p class="text-xs font-semibold text-white/35 uppercase tracking-wide m-0">Contests</p>
-        <% if (!matches.length) { %>
+        <% if (!groupStageMatches.length) { %>
         <div class="flex-1 flex flex-col items-center justify-center gap-2 text-center">
           <iconify-icon icon="boxicons:bracket" width="28" class="text-white/15"></iconify-icon>
           <p class="text-sm text-white/30 m-0">No contests yet.</p>
@@ -421,26 +499,7 @@
         <% } else { %>
         <div class="tournament-hscroll overflow-x-auto -mx-5 px-5 pb-1">
           <div class="grid grid-flow-col auto-cols-[30%] gap-2">
-            <%
-              var matchStatusMap = {
-                scheduled: { label: 'Scheduled',     cls: 'bg-amber-500/15 text-amber-400' },
-                active:    { label: 'Live',          cls: 'bg-green-500/15 text-green-400' },
-                tie:       { label: 'Tie — pending', cls: 'bg-amber-500/15 text-amber-400' },
-                closed:    { label: 'Closed',        cls: 'bg-white/10 text-white/50' },
-              };
-              function matchSide(te, winnerId) {
-                if (!te) return null;
-                return {
-                  username:    te.userId?.username?.value,
-                  displayName: te.userId?.displayName?.value || te.userId?.username?.value,
-                  avatar:      te.userId?.avatar?.value,
-                  mediaType:   te.entryId?.mediaType,
-                  mediaUrl:    te.entryId?.mediaUrl,
-                  isWinner:    !!(winnerId && te.entryId && winnerId.toString() === te.entryId._id.toString()),
-                };
-              }
-            %>
-            <% matches.forEach(function (match) { %>
+            <% groupStageMatches.forEach(function (match) { %>
             <%
               var mStatus = matchStatusMap[match.status] || { label: match.status, cls: 'bg-white/10 text-white/40' };
               var isLinkable = match.status !== 'scheduled' && match.contestId;

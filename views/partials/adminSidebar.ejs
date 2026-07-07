@@ -128,13 +128,6 @@ const _avatar     = typeof adminAvatar !== 'undefined' ? adminAvatar : null;
       <iconify-icon icon="boxicons:trophy" width="14" style="flex-shrink:0;display:block"></iconify-icon>
       All Tournaments
     </a>
-
-    <% if (_isSuperadmin) { %>
-    <a href="/admin/tournaments/review" class="<%= lnk('tournament-review') %>">
-      <iconify-icon icon="boxicons:clipboard" width="14" style="flex-shrink:0;display:block"></iconify-icon>
-      Review Queue
-    </a>
-    <% } %>
     <% } %>
 
     <!-- Platform — superadmin + founder -->

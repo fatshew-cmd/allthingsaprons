@@ -1,0 +1,136 @@
+<%#
+  Shared tie-break picker for a 3+-way group-ranking boundary tie, used by both
+  views/tournaments/group-jury-vote.ejs and views/tournaments/group-organizer-vote.ejs.
+  Locals: tournamentId, groupId, tiedEntries (array of populated TournamentEntry docs, in
+  stable order), headerTitle, bodyText, mode ('jury' | 'organizer'), successMessage.
+
+  Jury mode: one click submits that entry as the juror's top pick.
+  Organizer mode: click entries in preferred order (best to worst) — each click assigns the
+  next rank number; Submit enables once every entry has been ranked.
+%>
+
+<div class="flex flex-col pb-20 md:pb-0">
+
+  <header class="sticky top-0 z-10 px-5 py-4 border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <div class="flex items-center gap-3">
+      <a href="/tournament/<%= tournamentId %>" class="text-white/40 hover:text-white/70 transition-colors">
+        <iconify-icon icon="boxicons:arrow-back" width="18"></iconify-icon>
+      </a>
+      <h1 class="font-black text-xl tracking-tight m-0"><%= headerTitle %></h1>
+    </div>
+  </header>
+
+  <div class="px-5 py-6">
+    <p class="text-sm text-white/50 mb-5"><%= bodyText %></p>
+
+    <div class="grid grid-cols-2 gap-3" id="group-tie-entries">
+      <% tiedEntries.forEach(function (te, i) { %>
+      <button type="button" class="group-tie-pick-btn relative flex flex-col gap-2 bg-shark-900 border border-white/10 hover:border-charm-500/50 rounded-md p-3 transition-colors" data-te-id="<%= te._id %>">
+        <span class="group-tie-rank-badge hidden absolute top-2 right-2 w-6 h-6 rounded-full bg-charm-500 text-white text-xs font-bold items-center justify-center"></span>
+        <div class="aspect-square rounded-md overflow-hidden bg-shark-800">
+          <% if (te.entryId?.mediaUrl) { %>
+            <img src="<%= te.entryId.mediaUrl %>" class="w-full h-full object-cover" alt="">
+          <% } %>
+        </div>
+        <span class="text-sm font-semibold text-white truncate">Entry <%= String.fromCharCode(65 + i) %></span>
+      </button>
+      <% }) %>
+    </div>
+
+    <% if (mode === 'organizer') { %>
+    <div class="flex items-center justify-between gap-3 mt-5">
+      <button type="button" id="group-tie-reset" class="text-sm text-white/40 hover:text-white/70 transition-colors cursor-pointer">Reset</button>
+      <button type="button" id="group-tie-submit" disabled class="px-5 py-2.5 rounded-md text-sm font-semibold bg-charm-600 text-charm-100 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-charm-500 transition-colors cursor-pointer">
+        Submit ranking
+      </button>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<script>
+(function () {
+  var tournamentId    = <%- JSON.stringify(tournamentId.toString()) %>;
+  var groupId         = <%- JSON.stringify(groupId.toString()) %>;
+  var mode            = <%- JSON.stringify(mode) %>;
+  var successMessage  = <%- JSON.stringify(successMessage) %>;
+  var container       = document.getElementById('group-tie-entries');
+  var totalEntries    = container.querySelectorAll('.group-tie-pick-btn').length;
+
+  function submitPayload(body) {
+    return fetch('/api/tournaments/' + tournamentId + '/groups/' + groupId + '/' + (mode === 'jury' ? 'jury-vote' : 'organizer-vote'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.success) {
+          window.location.href = '/tournament/' + tournamentId + '?flash=' + encodeURIComponent(successMessage);
+        } else if (window.showToast) {
+          window.showToast((data && data.error) || 'Something went wrong.', 'error');
+        }
+        return data;
+      })
+      .catch(function () {
+        if (window.showToast) window.showToast('Something went wrong.', 'error');
+      });
+  }
+
+  if (mode === 'jury') {
+    container.addEventListener('click', function (e) {
+      var btn = e.target.closest('.group-tie-pick-btn');
+      if (!btn) return;
+      document.querySelectorAll('.group-tie-pick-btn').forEach(function (b) { b.disabled = true; });
+      submitPayload({ votedForTournamentEntryId: btn.getAttribute('data-te-id') }).then(function (data) {
+        if (!data || !data.success) {
+          document.querySelectorAll('.group-tie-pick-btn').forEach(function (b) { b.disabled = false; });
+        }
+      });
+    });
+  } else {
+    var order = [];
+    var submitBtn = document.getElementById('group-tie-submit');
+
+    function render() {
+      document.querySelectorAll('.group-tie-pick-btn').forEach(function (b) {
+        var idx = order.indexOf(b.getAttribute('data-te-id'));
+        var badge = b.querySelector('.group-tie-rank-badge');
+        if (idx >= 0) {
+          badge.textContent = idx + 1;
+          badge.classList.remove('hidden');
+          badge.classList.add('flex');
+          b.classList.add('border-charm-500');
+        } else {
+          badge.classList.add('hidden');
+          badge.classList.remove('flex');
+          b.classList.remove('border-charm-500');
+        }
+      });
+      submitBtn.disabled = order.length !== totalEntries;
+    }
+
+    container.addEventListener('click', function (e) {
+      var btn = e.target.closest('.group-tie-pick-btn');
+      if (!btn) return;
+      var teId = btn.getAttribute('data-te-id');
+      var idx = order.indexOf(teId);
+      if (idx >= 0) order.splice(idx, 1);
+      else order.push(teId);
+      render();
+    });
+
+    document.getElementById('group-tie-reset').addEventListener('click', function () {
+      order = [];
+      render();
+    });
+
+    submitBtn.addEventListener('click', function () {
+      submitBtn.disabled = true;
+      submitPayload({ orderedTournamentEntryIds: order }).then(function (data) {
+        if (!data || !data.success) submitBtn.disabled = false;
+      });
+    });
+  }
+})();
+</script>

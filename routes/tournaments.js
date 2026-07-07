@@ -8,6 +8,7 @@ const TournamentGroup             = require('../models/TournamentGroup');
 const TournamentMatch             = require('../models/TournamentMatch');
 const TournamentJury              = require('../models/TournamentJury');
 const TournamentJuryVote          = require('../models/TournamentJuryVote');
+const TournamentGroupTieVote      = require('../models/TournamentGroupTieVote');
 const TournamentComment           = require('../models/TournamentComment');
 const TournamentCommentReport     = require('../models/TournamentCommentReport');
 const TournamentReport            = require('../models/TournamentReport');
@@ -1139,6 +1140,8 @@ router.get('/tournament/:id', async (req, res) => {
 
   const isOrganizer = !!tournament.createdBy && tournament.createdBy._id.toString() === req.currentUser._id.toString();
 
+  Tournament.updateOne({ _id: tournament._id }, { $inc: { viewCount: 1 } }).catch(() => {});
+
   const [groups, entries, matches, userEntry, pendingCount, declinedJuryCount, isFollowing, isLoopedIn, isJuror] = await Promise.all([
     TournamentGroup.find({ tournamentId: tournament._id })
       .populate({ path: 'memberIds', populate: [
@@ -1677,6 +1680,85 @@ router.get('/tournament/:id/organizer-vote/:matchId', async (req, res) => {
     activePage: 'tournaments',
     currentUser: req.currentUser,
     tournament, match, entryA, entryB,
+  });
+});
+
+// ── GET /tournament/:id/group-jury-vote/:groupId — juror vote page for a 3+-way ──
+// group-ranking boundary tie (distinct from the match-tie jury-vote page above).
+router.get('/tournament/:id/group-jury-vote/:groupId', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.groupId)) {
+    return res.redirect('/tournaments');
+  }
+
+  const [tournament, jurorRecord] = await Promise.all([
+    Tournament.findById(req.params.id).lean(),
+    TournamentJury.findOne({ tournamentId: req.params.id, userId: req.currentUser._id, status: 'accepted' }).lean(),
+  ]);
+  if (!tournament) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  if (!jurorRecord) return res.status(403).render('404', { title: 'Not Found', currentUser: req.currentUser });
+
+  const group = await TournamentGroup.findOne({ _id: req.params.groupId, tournamentId: tournament._id }).lean();
+  if (!group || group.tieStatus !== 'jury_pending') {
+    return res.redirect(`/tournament/${tournament._id}`);
+  }
+
+  const existingVote = await TournamentGroupTieVote.findOne({ groupId: group._id, jurorId: req.currentUser._id }).lean();
+  if (existingVote) {
+    return res.redirect(`/tournament/${tournament._id}?flash=${encodeURIComponent('You already voted on this tie.')}`);
+  }
+
+  const tiedEntries = await TournamentEntry.find({ _id: { $in: group.tiedEntryIds } })
+    .populate('entryId', 'mediaUrl mediaType')
+    .lean();
+  if (tiedEntries.length !== group.tiedEntryIds.length) {
+    return res.redirect(`/tournament/${tournament._id}?flash=${encodeURIComponent('One of the entries in this tie is no longer available.')}`);
+  }
+  // Keep the on-screen order stable across reloads and match tiedEntryIds's stored order.
+  const byId = {};
+  tiedEntries.forEach(te => { byId[te._id.toString()] = te; });
+  const orderedEntries = group.tiedEntryIds.map(id => byId[id.toString()]);
+
+  res.render('tournaments/group-jury-vote', {
+    title:      'Jury Tie-Break',
+    activePage: 'tournaments',
+    currentUser: req.currentUser,
+    tournament, group, tiedEntries: orderedEntries,
+  });
+});
+
+// ── GET /tournament/:id/group-organizer-vote/:groupId — organizer tie-break page for a
+// 3+-way group-ranking boundary tie the jury couldn't resolve within its 6h window ──────
+router.get('/tournament/:id/group-organizer-vote/:groupId', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.groupId)) {
+    return res.redirect('/tournaments');
+  }
+
+  const tournament = await Tournament.findById(req.params.id).lean();
+  if (!tournament) return res.status(404).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  if (tournament.createdBy.toString() !== req.currentUser._id.toString()) {
+    return res.status(403).render('404', { title: 'Not Found', currentUser: req.currentUser });
+  }
+
+  const group = await TournamentGroup.findOne({ _id: req.params.groupId, tournamentId: tournament._id }).lean();
+  if (!group || group.tieStatus !== 'organizer_pending') {
+    return res.redirect(`/tournament/${tournament._id}`);
+  }
+
+  const tiedEntries = await TournamentEntry.find({ _id: { $in: group.tiedEntryIds } })
+    .populate('entryId', 'mediaUrl mediaType')
+    .lean();
+  if (tiedEntries.length !== group.tiedEntryIds.length) {
+    return res.redirect(`/tournament/${tournament._id}?flash=${encodeURIComponent('One of the entries in this tie is no longer available.')}`);
+  }
+  const byId = {};
+  tiedEntries.forEach(te => { byId[te._id.toString()] = te; });
+  const orderedEntries = group.tiedEntryIds.map(id => byId[id.toString()]);
+
+  res.render('tournaments/group-organizer-vote', {
+    title:      'Break the Tie',
+    activePage: 'tournaments',
+    currentUser: req.currentUser,
+    tournament, group, tiedEntries: orderedEntries,
   });
 });
 

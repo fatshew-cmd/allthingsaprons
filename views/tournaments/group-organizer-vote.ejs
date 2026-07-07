@@ -1,0 +1,13 @@
+<%- include('../partials/appStart', { title: title, activePage: 'tournaments' }) %>
+
+<%- include('../partials/groupTieBreakPicker', {
+  tournamentId:   tournament._id,
+  groupId:        group._id,
+  tiedEntries:    tiedEntries,
+  headerTitle:    'Break the Tie',
+  bodyText:       'The jury couldn\'t settle this group\'s ranking in time. As organizer, click the entries in order from best to worst, then submit.',
+  mode:           'organizer',
+  successMessage: 'Your ranking has been recorded.',
+}) %>
+
+<%- include('../partials/appEnd') %>
