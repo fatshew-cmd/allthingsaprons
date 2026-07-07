@@ -94,12 +94,12 @@ June closed with the full standalone contest lifecycle, the chilli wallet econom
 
 | Item | Status |
 |---|---|
-| `Tournament` + `TournamentEntry` models | Superseded by `tournament-implementation-plan.md` — schema (Phase 1), creation flow (Phase 2, extended well beyond spec with an edit wizard + jury invite/accept/decline/replace + self-cancel), right panel wiring (Phase 9G), a social layer (comments/loop-in/report, Phase 9 Extensions), candidate submission + organizer approve/reject (Phase 3 Extensions, reworked 2026-07-05 to upload-time submission + wildcard auto-draft + explicit cap-reached choice), group assignment + round-robin match scheduling (Phase 4, done 2026-07-05 later), group-stage results/advancement (Phase 5, done 2026-07-06 later — a closing tournament match now writes win/loss/tie back onto `TournamentMatch`/`TournamentEntry` and groups resolve to advance/eliminate, with both a 2-way boundary tie (extra H2H match) and, as of 2026-07-06/7 uncommitted, a 3+-way boundary tie (full jury/organizer/coin-flip chain) now settled), knockout bracket generation (Phase 6, done the same 2026-07-06 commit as Phase 5 — cross-group-seeded bracket auto-generates once groups resolve and progresses round-by-round through Final/3rd, now with a real bracket visualization on `detail.ejs` as of the 07-06/7 uncommitted work), jury/organizer/coin-flip tie resolution (Phase 7, done 2026-07-06 later still — a genuine match tie runs the full 6h-jury → 3h-organizer → coin-flip chain, capped at 9h total), and prize payout (Phase 8, done — `closeTournament` credits winners and bans jurors with missed votes) are all live as of 2026-07-06; admin tournament management (also nominally Phase 8, `plans/July/july-action-plan.md`'s own Phase 8 section below) is now substantially built too (real `/admin/tournaments` list + new `/admin/tournaments/:id` detail + force-cancel), uncommitted as of 2026-07-06/7. See `tournament-implementation-plan.md`'s status header for the current breakdown, not this row. |
+| `Tournament` + `TournamentEntry` models | Superseded by `tournament-implementation-plan.md` — schema (Phase 1), creation flow (Phase 2, extended well beyond spec with an edit wizard + jury invite/accept/decline/replace + self-cancel), right panel wiring (Phase 9G), a social layer (comments/loop-in/report, Phase 9 Extensions), candidate submission + organizer approve/reject (Phase 3 Extensions, reworked 2026-07-05 to upload-time submission + wildcard auto-draft + explicit cap-reached choice), group assignment + round-robin match scheduling (Phase 4, done 2026-07-05 later), group-stage results/advancement (Phase 5, done 2026-07-06 later — a closing tournament match now writes win/loss/tie back onto `TournamentMatch`/`TournamentEntry` and groups resolve to advance/eliminate, with both a 2-way boundary tie (extra H2H match) and, as of 2026-07-06/7 uncommitted, a 3+-way boundary tie (full jury/organizer/coin-flip chain) now settled), knockout bracket generation (Phase 6, done the same 2026-07-06 commit as Phase 5 — cross-group-seeded bracket auto-generates once groups resolve and progresses round-by-round through Final/3rd, now with a real bracket visualization on `detail.ejs` as of the 07-06/7 uncommitted work), jury/organizer/coin-flip tie resolution (Phase 7, done 2026-07-06 later still — a genuine match tie runs the full 6h-jury → 3h-organizer → coin-flip chain, capped at 9h total), and prize payout (Phase 8, done — `closeTournament` credits winners and bans jurors with missed votes) are all live as of 2026-07-06; admin tournament management is now substantially built too (real `/admin/tournaments` list + new `/admin/tournaments/:id` detail + force-cancel), uncommitted as of 2026-07-06/7 — tracked as part of that doc's own Phase 9, not a separate numbered phase in this doc anymore (see the "Tournaments" section above for the renumbering note). See `tournament-implementation-plan.md`'s status header for the current breakdown, not this row. |
 | Pre-launch test bypasses | **On hold — not yet, still actively testing.** Must revert before any public release (see below) |
 | ~~`Retag` model~~ | Deleted 2026-07-01 — was never wired, no longer exists |
 | ~~Search page~~ | **Done 2026-07-01** — see Current State above |
-| Right panel — Ongoing Tournaments | Currently a skeleton — wired when tournaments are built (Phase 7) |
-| Admin Analytics page | Sidebar entry exists in design only — low priority, end of July |
+| ~~Right panel — Ongoing Tournaments~~ | **Done 2026-07-03** — see `tournament-implementation-plan.md`'s Phase 9G; this row was stale (previously still said "currently a skeleton") |
+| Admin Analytics page | Sidebar entry exists in design only — low priority, end of July (now Phase 11.1, renumbered — see below) |
 
 ---
 
@@ -122,9 +122,16 @@ These are not blocking July builds — they are blocking launch, and are current
 
 ## July Phases
 
-### Phase 7 — Tournaments (Player-Facing)
+### Tournaments (Player-Facing + Admin Management)
 
-The largest remaining feature. Reuses Contest infrastructure, agenda, wallet, and notifications heavily — no new primitives needed.
+**Fully superseded by `tournament-implementation-plan.md` — that doc is now the sole authoritative source for tournament phase numbers.** This section no longer carries its own "Phase 7"/"Phase 8" numbering (the original draft below has been collapsed) because `tournament-implementation-plan.md` independently owns Phases 1–9 for the entire tournament feature (schema through frontend/admin/notifications), and reusing 7/8 here for a different scope was creating numbering collisions between the two docs. Do not phase-number tournament work in this doc going forward — track it in the other doc only.
+
+**Status summary (2026-07-06/7, uncommitted unless noted):** the entire backend tournament gameplay loop is complete per `tournament-implementation-plan.md`'s Phases 1–8 — creation/funding, candidate submission + organizer review, group-stage play + both 2-way and 3+-way tie resolution, knockout bracket generation + progression, jury/organizer/coin-flip tie resolution (match-level and group-ranking-level alike), and prize payout. That doc's Phase 9 (frontend/admin/notifications) is also mostly done: browse/detail/create views, right panel wiring, the full social layer (comments/loop-in/report), a real knockout bracket visualization on `detail.ejs`, and `/admin/tournaments` (list + detail + force-cancel) are all live. Remaining known gaps, all tracked in that doc: no admin moderation queue reads `TournamentCommentReport`/`TournamentReport` yet (reports land in the DB with no moderator-facing surface); `views/tournaments/index.ejs` browse cards are uniform across tabs (no per-tab spots-filled/countdown/progress/winner details); and an unscheduled follow-up task exists for an organizer notification opt-out toggle. There is also no pre-launch admin review/approval gate for user-organized tournaments — the `pending_review` status from the original draft below was never implemented, so any organizer clearing `requireOrganizerEligibility`'s automated checks goes live with zero human intervention (the only admin lever is the reactive force-cancel).
+
+See `tournament-implementation-plan.md` directly for anything more specific — do not re-derive tournament status from this doc's own prose below, which is retained only as the original (now-superseded) spec draft for historical reference.
+
+<details>
+<summary>Original Phase 7/8 draft (superseded — click to expand)</summary>
 
 #### Models (already done)
 
@@ -138,176 +145,26 @@ Both `Tournament` and `TournamentEntry` are schema-complete. No changes needed.
 - `TournamentEntry.totalVotes`: primary ranking metric — updated whenever a tournament contest closes
 - `TournamentEntry.wins / losses`: for elimination threshold check
 
-#### Lifecycle
+**Lifecycle (as originally drafted — never implemented this way; see status summary above):**
 
 ```
 User-organized:  pending_funds → pending_review → open → cooldown → active → closed
 Platform:                                          open → cooldown → active → closed
 ```
 
----
+**Creation + Prize Funds, Tournament Browse + Detail, Entry Submission, Organizer Review, Round Generation + Activation, Contest Close Hook, Right Panel, Notifications, Admin Tournament Management** — all originally drafted here in full; every one of these areas has since been built (in most cases substantially diverging from this draft) and is now tracked exclusively in `tournament-implementation-plan.md`'s own Phases 1–9. The line-by-line original draft text has been removed from this doc to stop it from being read as current — consult that doc's status header instead.
 
-#### Phase 7.1 — Creation + Prize Funds
-
-**User-organized tournament creation:**
-- `GET /tournaments/create` + `views/tournaments/create.ejs`
-- Fields: name, description, maxParticipants, entry window (default 72h), cooldown (default 3h), round window (default 72h)
-- Prize structure: 1st/2nd/3rd amounts (default $1,000 / $400 / $100 in chillies, organizer sets)
-- `idVerified: true` required — redirect to `/verify-identity` if not
-- Organizer cannot submit an entry to their own tournament (enforced at submission time, not creation)
-- On creation: status → `pending_funds`. Prize commitment screen shows total chillies required.
-- **Stub fund commitment:** same pattern as wallet checkout — deducts from wallet immediately, sets `fundsHeld: true`, status → `pending_review`. CCBill will replace this later. If wallet balance is insufficient, block creation and prompt top-up.
-- On fund commitment: `WalletTransaction` (type: `tournament_prize_hold`, direction: `debit`) created; admin notified for review.
-
-**Platform tournament creation (admin only, founder + superadmin):**
-- `GET /admin/tournaments/create` + `views/admin/tournaments/create.ejs`
-- Same fields but `type: platform`, `fundsHeld: true` set immediately (no payment step), status → `open` directly.
-- No review step needed.
+</details>
 
 ---
 
-#### Phase 7.2 — Tournament Browse + Detail
-
-- `GET /tournaments` + `views/tournaments/index.ejs` — browse open/active/recently-closed tournaments. Cards show name, entry count, prize pool, status, countdown.
-- `GET /tournament/:id` + `views/tournaments/detail.ejs` — full detail page.
-  - `open` phase: shows approved entries, pending review count, entry window countdown, submit entry CTA
-  - `cooldown` phase: shows final participant list, rounds-start countdown
-  - `active` phase: matchup grid (all contests in this tournament), elimination tracker, live leaderboard by totalVotes
-  - `closed` phase: podium with 1st/2nd/3rd and vote counts
-- Add tournament link to sidebar nav.
-
 ---
 
-#### Phase 7.3 — Entry Submission During `open` Phase ✅ (done 2026-07-04, reworked 2026-07-05 — see `tournament-implementation-plan.md`'s "Phase 3 Extensions")
+### Phase 10 — Financial System Completion
 
-~~Submit entry to tournament from the tournament detail page or the standard `/submit` flow.~~ The 2026-07-04 build used a "Participate" button + modal on the detail page for picking an already-uploaded entry. **As of 2026-07-05** that modal is gone: "Participate" now just links to `/submit?tournamentId=<id>` (the standard submit flow, exactly as originally specced here), and `GET /submit` runs a pre-check (`checkTournamentPreflight` in the new `utils/tournamentSubmission.js`) to surface ineligibility before upload instead of filtering an entry picker. Separately, any new entry (uploaded through either `/submit` or `/entries`, tournament-targeted or not) auto-drafts into any other open tournament whose `wildcardStains` match one of its tags — not in the original spec at all, see "Stains & wildcard auto-draft" in the implementation doc.
+_(Renumbered from "Phase 9" to avoid colliding with `tournament-implementation-plan.md`'s own Phase 9 — see the Tournaments section above.)_
 
-- Submit entry to tournament from the tournament detail page or the standard `/submit` flow (pass `?tournamentId=<id>`)
-- On submission: create `TournamentEntry` with `approvalStatus: pending`, `submittedAt: now`
-- Entry owner cannot be the tournament organizer (enforced server-side)
-- User can only submit one entry per tournament
-- Entry must have `idVerified: true` owner
-- Notify organizer: `tournament_entry_submitted` notification → links to the organizer's review queue
-
----
-
-#### Phase 7.4 — Organizer Review ✅ (done 2026-07-04, batch-reviewed during cooldown — no 30-min timer, see below)
-
-`review.ejs` and its `GET /tournament/:id/review` route already existed as forward-compatible plumbing before today; the approve/reject POST routes that make it functional shipped today. Built per the batch-review design already noted in `tournament-implementation-plan.md`'s "What changes vs. old Phase 7/8" table (this was always the intended replacement for the 30-min timeout below, not a new divergence). **As of 2026-07-05**, review runs across both `open` and `cooldown` (not cooldown-only, as first built) so organizers of high-volume tournaments aren't forced to do it all inside the 24h window. No `missedReviews` counter, no 30-min timeout job, no `timed_out` approval status exist or are planned. Reaching the participant cap no longer auto-activates — it prompts the organizer with an explicit go-live-now/not-yet choice (see "Current State (July 5)" above). See `tournament-implementation-plan.md`'s "Phase 3 Extensions" for full detail.
-
-- `GET /tournament/:id/review` + `views/tournaments/review.ejs` — organizer only. Lists pending entries with media preview and 30-minute countdown per entry.
-- `POST /api/tournaments/:id/entries/:eid/approve` — set `approvalStatus: approved`, `reviewedAt: now`. Notify submitter.
-- `POST /api/tournaments/:id/entries/:eid/reject` — set `approvalStatus: rejected`, `reviewedAt: now`. Notify submitter with rejection message.
-- Organizer can optionally add a rejection note.
-
-**Organizer review timeout job (agenda) — not built, superseded by batch review above:**
-- Sweeper runs every 5 minutes. Finds `TournamentEntries` with `approvalStatus: pending` and `submittedAt < now - 30min`.
-- For each: set `approvalStatus: timed_out`. Notify submitter (they can resubmit elsewhere).
-- Increment `tournament.missedReviews`. If `missedReviews >= 3`:
-  - Set `tournament.status: canceled`
-  - Refund prize funds to organizer's wallet (`WalletTransaction` type: `tournament_prize_refund`)
-  - Notify all `pending` submitters to try another tournament
-  - Notify organizer their tournament was canceled
-
-**Entry window close (agenda) — superseded, actual behavior is the `tournament_open_expiry`/`tournament_cooldown_expiry` jobs in `jobs/tournamentJobs.js`:**
-- When `tournament.entryDeadline` passes: status → `cooldown`, `roundsStartAt` set to `entryDeadline + cooldownHours`.
-- Or when max approved capacity is reached: same transition.
-- If fewer than 2 approved entries: cancel tournament + refund.
-
----
-
-#### Phase 7.5 — Round Generation + Activation
-
-**Cooldown → Active transition (agenda job):**
-- At `roundsStartAt`: generate all round-robin matchups.
-- For N approved entries: create `N × (N-1) / 2` `Contest` docs, all with `tournamentId`, `status: active`, `votingDeadline: now + roundWindowHours`, visibility: `public`.
-- All matchups start simultaneously.
-- Set `tournament.status: active`.
-- Notify all participants: tournament is live.
-
-**Matchup generation logic:**
-- Take all `TournamentEntries` with `approvalStatus: approved`
-- Generate every unique pair `(A, B)` where A ≠ B
-- Create one `Contest` per pair with both entries embedded
-
----
-
-#### Phase 7.6 — Contest Close Hook (extend existing `close_contest` job)
-
-When a tournament contest closes (via the existing `close_contest` agenda job), add:
-1. Update `TournamentEntry.wins / losses` and `TournamentEntry.totalVotes` for both contestants
-2. **Elimination check:** `if wins < Math.floor((wins + losses) * 0.66)` → `eliminated: true`, notify contestant
-3. **Tie-breaker chain:** if vote counts are equal, create a replay Contest with `parentContestId` set and `windowHours` halved. Chain: 72h → 36h → 18h → 9h. After 3 replays still tied → notify organizer to decide via sudden death.
-4. **Tournament close check:** if all non-tie contests are resolved → determine winners by `totalVotes` → award prizes → set `tournament.status: closed`
-
-**Winner determination:**
-- Sort non-eliminated entries by `totalVotes` descending
-- 1st: highest `totalVotes`
-- 2nd: second highest
-- 3rd: third highest
-- Podium tie → organizer sudden death decision (notification sent)
-- Credit prize amounts to winners' `earnedCHL`, create `WalletTransaction` (type: `tournament_prize_payout`)
-
-**Attribution on tie-breaker chain:**
-- Attribution locks immediately when a tournament contest ends in a tie
-- No new contributions accepted during replays
-- Pays out 75/25 when the chain fully resolves
-
----
-
-#### Phase 7.7 — Right Panel — Ongoing Tournaments ✅ (done 2026-07-03, ahead of schedule)
-
-~~Replace the current skeleton in `views/partials/rightPanel.ejs` with real data~~ — done via `tournament-implementation-plan.md`'s Phase 9G, not this superseded Phase 7 breakdown. `injectRightPanelData` populates `activeTournaments` (limit 5, sorted by `activeAt` desc); `rightPanel.ejs` renders thumbnail-or-trophy-icon, name, and USD-formatted prize pool, linking to `/tournament/:id`. Shipped early since it only needed `Tournament.status: 'active'` to exist as a state, not real match data.
-
----
-
-#### Phase 7.8 — Tournament Notifications
-
-New notification types to add to the enum and render in `/notifications`:
-
-| Type | Trigger | Recipient |
-|---|---|---|
-| `tournament_entry_submitted` | User submits entry | Organizer |
-| `tournament_entry_approved` | Organizer approves | Submitter |
-| `tournament_entry_rejected` | Organizer rejects | Submitter |
-| `tournament_entry_timed_out` | Review window expired | Submitter |
-| `tournament_canceled` | 3 missed reviews | Organizer + all pending submitters |
-| `tournament_live` | Status → active | All approved participants |
-| `tournament_eliminated` | Entry eliminated | Contestant |
-| `tournament_tiebreaker` | Replay created | Both contestants |
-| `tournament_tiebreaker_sudden_death` | 3 replays all tied | Organizer |
-| `tournament_closed` | All contests resolved | All participants |
-| `tournament_prize_awarded` | Winner determined | 1st/2nd/3rd |
-
----
-
-#### Phase 7 Exit Criteria
-
-A user can create a tournament, fund it, submit entries, review them as organizer, run a full round-robin, and determine winners by total votes — with automatic lifecycle transitions and correct prize payouts.
-
----
-
-### Phase 8 — Admin Tournament Management ✅ mostly done (2026-07-06/7, uncommitted) — no review queue, see below
-
-#### Pages
-
-- **All Tournaments list:** ✅ `GET /admin/tournaments` + `views/admin/tournaments/index.ejs` — filterable by status (`open|cooldown|active|closed|canceled`), not paginated (capped at 200, sorted newest first) and not filterable by type (there's only one tournament type now — `pending_funds`/`pending_review`/`type: platform` vs `user_organized` never materialized as a real distinction in the live schema). Shows name, organizer, approved participant count, prize pool, status.
-- **Tournament detail:** ✅ `GET /admin/tournaments/:id` + `views/admin/tournaments/detail.ejs` — full read-only view: groups (with members), matches, jury count, approved count, organizer details. Also has a "Force Cancel" action (`POST /admin/tournaments/:id/cancel`, shown only for `open`/`cooldown`) that calls the existing `cancelTournament` job helper and logs a `tournament_force_canceled` audit event.
-- **User-organized review queue:** ❌ not built, and not applicable as specced — this assumed a `status: pending_review` state gating user-organized tournaments before they go live, but the live `Tournament.status` enum never grew that state (organizer-created tournaments go straight to `open`); there's nothing to review-queue. `views/admin/tournaments/review.ejs` and its sidebar "Review Queue" link were deleted rather than built out.
-
-#### Admin sidebar
-
-"All Tournaments" is present (founder + superadmin). "Review Queue" was removed — see above.
-
-#### Exit criteria
-
-Admin can browse all platform tournaments, drill into full tournament state (groups/matches/jury), and force-cancel a stuck `open`/`cooldown` tournament. Pre-launch review of user-organized tournaments was dropped as a concept, not deferred.
-
----
-
-### Phase 9 — Financial System Completion
-
-#### Phase 9.1 — CCBill Integration
+#### Phase 10.1 — CCBill Integration
 
 Replace the stub `/wallet/checkout` with a real CCBill redirect. All other wallet infrastructure (WalletTransaction, ContestContribution, ContestPayout, MonthlySnapshot, background jobs) remains unchanged.
 
@@ -322,7 +179,7 @@ Replace the stub `/wallet/checkout` with a real CCBill redirect. All other walle
 
 ---
 
-#### Phase 9.2 — Apron Trophy System
+#### Phase 10.2 — Apron Trophy System
 
 Contest trophies awarded at contest close based on margin of victory. Applies to both standalone and tournament contests.
 
@@ -366,7 +223,7 @@ After setting `winnerEntryId`, check:
 
 ---
 
-#### Phase 9.3 — Vote Economics (free vote 12h window + paid votes)
+#### Phase 10.3 — Vote Economics (free vote 12h window + paid votes)
 
 Currently every user gets one vote per contest freely. The designed system has a 12-hour free vote reset across all contests, plus paid votes using chillies.
 
@@ -391,13 +248,15 @@ Currently every user gets one vote per contest freely. The designed system has a
 - Previous vote removed. If it was a free vote: `User.lastFreeVoteAt` reset to what it was before (or null). If paid: chillies refunded to wallet.
 - New vote cast under normal rules
 
-**Note:** This phase depends on CCBill being live (Phase 9.1) since paid votes require a funded wallet. If 9.1 slips, implement the free vote 12h window first (no CCBill dependency) and add paid votes once CCBill lands.
+**Note:** This phase depends on CCBill being live (Phase 10.1) since paid votes require a funded wallet. If 10.1 slips, implement the free vote 12h window first (no CCBill dependency) and add paid votes once CCBill lands.
 
 ---
 
-### Phase 10 — Polish + Miscellaneous
+### Phase 11 — Polish + Miscellaneous
 
-#### Phase 10.1 — Admin Analytics Page
+_(Renumbered from "Phase 10" — see the renumbering note under Phase 10 above.)_
+
+#### Phase 11.1 — Admin Analytics Page
 
 `GET /admin/analytics` + `views/admin/analytics.ejs` — founder + superadmin.
 
@@ -414,13 +273,13 @@ Data sourced from direct MongoDB aggregations — no external analytics service.
 
 ---
 
-#### Phase 10.2 — Retag
+#### Phase 11.2 — Retag
 
 `models/Retag.js` is scaffolded but not wired. Defer until explicitly prioritized — the mechanic isn't documented in the platform spec well enough to build without a design session.
 
 ---
 
-#### Phase 10.3 — Search ✅ (done 2026-07-01)
+#### Phase 11.3 — Search ✅ (done 2026-07-01)
 
 ~~Wire up the existing `/search` stub with real query logic.~~
 
@@ -437,7 +296,7 @@ Data sourced from direct MongoDB aggregations — no external analytics service.
 
 ---
 
-#### Phase 10.4 — Dependency Phone-Home Audit
+#### Phase 11.4 — Dependency Phone-Home Audit
 
 Triggered 2026-07-02: noticed `dotenv` (v17.4.2) prints self-promotional console output on every boot and bundles agent-targeted `skills/*/SKILL.md` files nudging toward its paid sibling product `dotenvx`/`vestauth`. Confirmed that specific package isn't actually wired into anything (no `dotenvx`/`vestauth` in `package.json` or source — just marketing text), but it's a live example of a dependency embedding this kind of content, worth a broader look.
 
@@ -456,7 +315,7 @@ Triggered 2026-07-02: noticed `dotenv` (v17.4.2) prints self-promotional console
 | Open Challenges | Post-MVP — explicitly deferred after tournaments are solid |
 | Marketplace | Post-MVP |
 | Ratings Challenge | Removed from design — replaced by 3-replay chain |
-| Apron audience filter for Announcements | Requires Apron data to exist first — wire once Phase 9.2 is done (post-month) |
+| Apron audience filter for Announcements | Requires Apron data to exist first — wire once Phase 10.2 is done (post-month) |
 | **Private Tournaments** | Post-MVP — fully designed and documented in `tournament-spec.md` (see "Private Tournaments" section). Invite-only, not publicly discoverable, max 12 participants, permanent result privacy (prizes still show on winner profiles). Do not implement until explicitly prioritized. |
 
 ---

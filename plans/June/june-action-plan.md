@@ -146,7 +146,7 @@ What remains in Phase 6: tournament management pages (deferred to July).
 | Take On route simplified (July 1) | `GET /take-on/:id` now redirects to `/contest/:id` instead of rendering a separate page. Old `views/take-on.ejs` deleted. |
 | Affinity source prop wired (July 1) | Rating, bookmark, comment, and reply fetches in `ecScript.ejs` and `entryCard.ejs` now send `source: window.__ecSource` so the affinity updater's source multipliers apply correctly. Search page sets `window.__ecSource = 'search'` (1.3× multiplier). |
 | Dead code purge (July 1) | Deleted: `models/Retag.js`, `views/take-on.ejs`, `views/index.ejs`, `scripts/migrateWalletPools.js`, `scripts/correctWalletBalance.js`, `scripts/migrateAdminRoles.js`, `scripts/migrateEntryTitle.js`, `plans/May/ui-ux-vision.md`. All were orphaned, superseded, or already-ran one-off scripts. |
-| Search — fully wired (July 1) | `GET /api/search?q=<query>&category=<people\|entries\|contests\|tags>` — see July plan Phase 10.3 for full spec. Moved to done here; tracked as complete in the July plan. |
+| Search — fully wired (July 1) | `GET /api/search?q=<query>&category=<people\|entries\|contests\|tags>` — see July plan Phase 11.3 for full spec (renumbered from 10.3 — see `july-action-plan.md`'s Phase 10 renumbering note). Moved to done here; tracked as complete in the July plan. |
 
 ### What is not done yet
 - ~~Feed — Head To Head and Tournaments tabs~~ — removed entirely; feed is a flat ratings/discovery stream

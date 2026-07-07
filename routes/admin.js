@@ -927,10 +927,30 @@ router.get('/moderation', async (req, res) => {
 
 router.post('/moderation/comment-reports/:id/approve', async (req, res) => {
   const { id } = req.params;
-  const isContest = req.body.commentType === 'contest';
+  const isContest    = req.body.commentType === 'contest';
+  const isTournament = req.body.commentType === 'tournament';
 
   try {
-    if (isContest) {
+    if (isTournament) {
+      const comment = await TournamentComment.findById(id).select('userId tournamentId body').lean();
+      if (!comment) return res.redirect('/admin/moderation');
+
+      await Promise.all([
+        TournamentComment.deleteOne({ _id: id }),
+        TournamentComment.deleteMany({ parentId: id }),
+      ]);
+
+      const reports = await TournamentCommentReport.find({ tournamentCommentId: id, status: 'pending' }).select('reportedBy').lean();
+      await TournamentCommentReport.updateMany({ tournamentCommentId: id, status: 'pending' }, { $set: { status: 'approved' } });
+
+      const tcSnippet = (comment.body || '').slice(0, 60) + ((comment.body || '').length > 60 ? '…' : '');
+      const tcUrl     = comment.tournamentId ? `/tournament/${comment.tournamentId}` : '/notifications';
+      const notifs = [
+        { userId: comment.userId, type: 'comment_removed', payload: { tournamentId: comment.tournamentId?.toString() }, read: false },
+        ...reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'approved', snippet: tcSnippet, url: tcUrl }, read: false })),
+      ];
+      await Notification.insertMany(notifs, { ordered: false });
+    } else if (isContest) {
       const comment = await ContestComment.findById(id).select('userId contestId body').lean();
       if (!comment) return res.redirect('/admin/moderation');
 
@@ -975,10 +995,21 @@ router.post('/moderation/comment-reports/:id/approve', async (req, res) => {
 
 router.post('/moderation/comment-reports/:id/reject', async (req, res) => {
   const { id } = req.params;
-  const isContest = req.body.commentType === 'contest';
+  const isContest    = req.body.commentType === 'contest';
+  const isTournament = req.body.commentType === 'tournament';
 
   try {
-    if (isContest) {
+    if (isTournament) {
+      const tcRej = await TournamentComment.findById(id).select('tournamentId body').lean();
+      await TournamentComment.updateOne({ _id: id }, { $set: { hidden: false } });
+      const reports = await TournamentCommentReport.find({ tournamentCommentId: id, status: 'pending' }).select('reportedBy').lean();
+      await TournamentCommentReport.updateMany({ tournamentCommentId: id, status: 'pending' }, { $set: { status: 'rejected' } });
+
+      const tcRejSnippet = (tcRej?.body || '').slice(0, 60) + ((tcRej?.body || '').length > 60 ? '…' : '');
+      const tcRejUrl     = tcRej?.tournamentId ? `/tournament/${tcRej.tournamentId}` : '/notifications';
+      const notifs = reports.map(r => ({ userId: r.reportedBy, type: 'report_reviewed', payload: { outcome: 'rejected', snippet: tcRejSnippet, url: tcRejUrl }, read: false }));
+      if (notifs.length) await Notification.insertMany(notifs, { ordered: false });
+    } else if (isContest) {
       const ccRej = await ContestComment.findById(id).select('contestId body').lean();
       await ContestComment.updateOne({ _id: id }, { $set: { hidden: false } });
       const reports = await ContestCommentReport.find({ contestCommentId: id, status: 'pending' }).select('reportedBy').lean();
@@ -1106,6 +1137,19 @@ router.post('/moderation/user-reports/:uid/dismiss', async (req, res) => {
     console.error('User report dismiss error:', err);
   }
   res.redirect('/admin/moderation?tab=users');
+});
+
+// ── Tournament report moderation actions ─────────────────────────────────────
+
+router.post('/moderation/tournament-reports/:tid/dismiss', async (req, res) => {
+  const { tid } = req.params;
+  if (!mongoose.isValidObjectId(tid)) return res.redirect('/admin/moderation?tab=tournaments');
+  try {
+    await TournamentReport.updateMany({ tournamentId: tid, status: 'pending' }, { $set: { status: 'rejected' } });
+  } catch (err) {
+    console.error('Tournament report dismiss error:', err);
+  }
+  res.redirect('/admin/moderation?tab=tournaments');
 });
 
 router.get('/content', async (req, res) => {
