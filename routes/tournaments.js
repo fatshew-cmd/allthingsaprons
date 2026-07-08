@@ -6,6 +6,7 @@ const Tournament                  = require('../models/Tournament');
 const TournamentEntry             = require('../models/TournamentEntry');
 const TournamentGroup             = require('../models/TournamentGroup');
 const TournamentMatch             = require('../models/TournamentMatch');
+const ContestVote                 = require('../models/ContestVote');
 const TournamentJury              = require('../models/TournamentJury');
 const TournamentJuryVote          = require('../models/TournamentJuryVote');
 const TournamentGroupTieVote      = require('../models/TournamentGroupTieVote');
@@ -1184,6 +1185,38 @@ router.get('/tournament/:id', async (req, res) => {
       ? TournamentJury.exists({ tournamentId: tournament._id, userId: req.currentUser._id })
       : false,
   ]);
+
+  // Live group standings: mirror resolveGroup's tiebreak cascade (jobs/tournamentJobs.js) so the
+  // displayed order matches how advancement is actually decided. Members that already have a
+  // stored groupRank (their group finished and they advanced) keep that officially-resolved
+  // order; everyone else falls back to a live recompute from groupPoints/ratingAvg/ratingCount/
+  // totalVotesInGroup — the same fields resolveGroup itself sorts on before a group completes.
+  const closedGroupContestIds = matches
+    .filter(m => m.stage === 'group' && m.status === 'closed' && !m.isTiebreakerMatch)
+    .map(m => m.contestId?._id || m.contestId)
+    .filter(Boolean);
+  const groupVoteAgg = closedGroupContestIds.length
+    ? await ContestVote.aggregate([
+        { $match: { contestId: { $in: closedGroupContestIds } } },
+        { $group: { _id: '$entryId', count: { $sum: 1 } } },
+      ])
+    : [];
+  const votesByEntryId = {};
+  groupVoteAgg.forEach(row => { votesByEntryId[row._id.toString()] = row.count; });
+
+  groups.forEach(g => {
+    g.memberIds = (g.memberIds || []).slice().sort((a, b) => {
+      const rankA = a.groupRank || Infinity;
+      const rankB = b.groupRank || Infinity;
+      if (rankA !== rankB) return rankA - rankB;
+      const votesA = votesByEntryId[a.entryId?._id?.toString()] || 0;
+      const votesB = votesByEntryId[b.entryId?._id?.toString()] || 0;
+      return (b.groupPoints || 0) - (a.groupPoints || 0) ||
+             (b.entryId?.ratingAvg || 0) - (a.entryId?.ratingAvg || 0) ||
+             (b.entryId?.ratingCount || 0) - (a.entryId?.ratingCount || 0) ||
+             votesB - votesA;
+    });
+  });
 
   const entryOwnerIds = [...new Set(
     entries.map(e => e.userId?._id?.toString()).filter(id => id && id !== req.currentUser._id.toString()),

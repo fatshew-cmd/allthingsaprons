@@ -47,7 +47,7 @@ async function cancelTournament(tournamentId, reason) {
   await Notification.create({
     userId:  tournament.createdBy,
     type:    'tournament_canceled',
-    payload: { tournamentId, reason, url: '/tournament/' + tournamentId },
+    payload: { tournamentId, tournamentName: tournament.name, reason, url: '/tournament/' + tournamentId },
   });
 
   // Notify all approved + pending contestants
@@ -61,7 +61,7 @@ async function cancelTournament(tournamentId, reason) {
     .map(e => ({
       userId:  e.userId,
       type:    'tournament_canceled',
-      payload: { tournamentId, reason, url: '/tournaments' },
+      payload: { tournamentId, tournamentName: tournament.name, reason, url: '/tournament/' + tournamentId },
     }));
 
   if (contestantNotifications.length > 0) {
@@ -243,11 +243,16 @@ async function handleTournamentMatchClose(contestId, winnerEntryId, voteCounts) 
     const loserVotes  = counts[loserEntryId.toString()] || 0;
 
     const winnerInc = { wins: 1, totalVotes: winnerVotes };
-    if (match.stage === 'group') winnerInc.groupPoints = 1;
+    const loserInc  = { losses: 1, totalVotes: loserVotes };
+    if (match.stage === 'group') {
+      winnerInc.groupPoints = 1;
+      winnerInc.groupWins   = 1;
+      loserInc.groupLosses  = 1;
+    }
 
     await Promise.all([
       TournamentEntry.findByIdAndUpdate(winnerTEId, { $inc: winnerInc }),
-      TournamentEntry.findByIdAndUpdate(loserTEId, { $inc: { losses: 1, totalVotes: loserVotes } }),
+      TournamentEntry.findByIdAndUpdate(loserTEId, { $inc: loserInc }),
     ]);
   }
 
@@ -321,12 +326,12 @@ async function createTiebreakerMatch(group, teIdA, teIdB) {
     { tournamentEntryId: teA._id, type: 'tournament_entry_match_live', payload: {
         tournamentId: group.tournamentId, tournamentEntryId: teA._id, matchId: match._id, contestId: contest._id,
         opponentUsername: teB.userId.username?.value, opponentDisplayName: teB.userId.displayName?.value || teB.userId.username?.value,
-        url: '/contest/' + contest._id,
+        url: '/contest/' + contest._id, isTiebreaker: true,
     } },
     { tournamentEntryId: teB._id, type: 'tournament_entry_match_live', payload: {
         tournamentId: group.tournamentId, tournamentEntryId: teB._id, matchId: match._id, contestId: contest._id,
         opponentUsername: teA.userId.username?.value, opponentDisplayName: teA.userId.displayName?.value || teA.userId.username?.value,
-        url: '/contest/' + contest._id,
+        url: '/contest/' + contest._id, isTiebreaker: true,
     } },
   ], [teA.userId._id, teB.userId._id]);
 }

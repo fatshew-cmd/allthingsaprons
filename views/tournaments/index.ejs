@@ -121,27 +121,33 @@
   </a>
   <% } %>
 
-  <header class="sticky top-0 z-10 flex items-center justify-center border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
-    <button id="tab-active" onclick="switchTab('active')"
-      class="tab-btn tab-active text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
-      Active
-      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= activeTournaments.length %></span>
-    </button>
-    <button id="tab-open" onclick="switchTab('open')"
-      class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
-      Open
-      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= openTournaments.length %></span>
-    </button>
-    <button id="tab-closed" onclick="switchTab('closed')"
-      class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
-      Recently Closed
-      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= closedTournaments.length %></span>
-    </button>
-    <button id="tab-draft" onclick="switchTab('draft')"
-      class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
-      Draft
-      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= draft ? 1 : 0 %></span>
-    </button>
+  <header class="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-shark-950/95 backdrop-blur-sm">
+    <div class="flex items-center">
+      <button id="tab-active" onclick="switchTab('active')"
+        class="tab-btn tab-active text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
+        Active
+        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= activeTournaments.length %></span>
+      </button>
+      <button id="tab-open" onclick="switchTab('open')"
+        class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
+        Open
+        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= openTournaments.length %></span>
+      </button>
+      <button id="tab-closed" onclick="switchTab('closed')"
+        class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
+        Recently Closed
+        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= closedTournaments.length %></span>
+      </button>
+      <button id="tab-draft" onclick="switchTab('draft')"
+        class="tab-btn tab-inactive text-sm font-semibold px-5 h-12 flex items-center gap-1.5 transition-all cursor-pointer">
+        Draft
+        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50"><%= draft ? 1 : 0 %></span>
+      </button>
+    </div>
+    <a href="/tournaments/create?new=1"
+      class="shrink-0 text-sm font-semibold text-charm-400 hover:text-charm-300 transition-colors px-5 no-underline">
+      Create Tournament
+    </a>
   </header>
 
   <!-- Active -->
@@ -199,11 +205,6 @@
       </a>
     <% } %>
   </div>
-
-  <a href="/tournaments/create?new=1" title="Create tournament"
-    class="fixed bottom-5 right-5 xl:right-[calc((100vw-80rem)/2+21.25rem)] z-20 flex items-center justify-center w-12 h-12 bg-charm-500/15 hover:bg-charm-500/25 text-charm-400 rounded-md shadow-xl transition-colors no-underline">
-    <iconify-icon icon="boxicons:plus" width="22"></iconify-icon>
-  </a>
 
 </div>
 

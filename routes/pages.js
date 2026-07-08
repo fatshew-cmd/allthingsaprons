@@ -15,6 +15,7 @@ const ContestVote           = require('../models/ContestVote');
 const Nomination            = require('../models/Nomination');
 const Notification          = require('../models/Notification');
 const TournamentEntry       = require('../models/TournamentEntry');
+const TournamentMatch       = require('../models/TournamentMatch');
 const Tournament            = require('../models/Tournament');
 const Follow                = require('../models/Follow');
 const ContestLoop           = require('../models/ContestLoop');
@@ -1346,6 +1347,10 @@ router.get('/contest/:id', async (req, res) => {
     ? !!(await ContestLoop.exists({ contestId: contest._id, userId: req.session.userId }))
     : false;
 
+  const isTiebreakerMatch = contest.tournamentId
+    ? !!(await TournamentMatch.exists({ contestId: contest._id, isTiebreakerMatch: true }))
+    : false;
+
   const voidLabelMap = { expired: 'No Response', declined: 'Denied', canceled: 'Canceled', nominee_forfeit: 'Forfeited', nominator_forfeit: 'Forfeit Win' };
   const statusLabel = effectiveStatus === 'void'
     ? (voidLabelMap[contest.voidReason] || 'No Response')
@@ -1469,6 +1474,7 @@ router.get('/contest/:id', async (req, res) => {
     isNominator,
     isNominee,
     isLoopedIn,
+    isTiebreakerMatch,
     pendingTakeOnNomId,
     totalVotes,
     showVotes:   !!(myVote || effectiveStatus === 'closed'),

@@ -389,7 +389,6 @@
 
       <!-- Section 2: groups -->
       <div class="flex flex-col gap-2 min-h-50">
-        <p class="text-xs font-semibold text-white/35 uppercase tracking-wide m-0">Groups</p>
         <% if (!groups.length) { %>
         <div class="flex-1 flex flex-col items-center justify-center gap-2 text-center">
           <iconify-icon icon="boxicons:box" width="28" class="text-white/15"></iconify-icon>
@@ -397,38 +396,48 @@
         </div>
         <% } else { %>
         <div class="tournament-hscroll overflow-x-auto -mx-5 px-5 pb-1">
-          <div class="grid grid-flow-col auto-cols-[30%] gap-2">
+          <div class="grid grid-flow-col auto-cols-max gap-3">
             <% groups.forEach(function (g) { %>
-            <div class="bg-shark-900 border border-white/10 rounded-md p-2.5 flex flex-col gap-2.5">
-              <p class="text-xs font-semibold text-white/70 m-0 truncate"><%= g.label %></p>
-              <div class="flex flex-col gap-2">
+            <div class="bg-shark-900 border border-white/10 rounded-md p-3 flex flex-col gap-3">
+              <p class="text-xs font-semibold text-white/70 m-0">Group <%= g.label %></p>
+              <div class="flex flex-col gap-3">
                 <% (g.memberIds || []).forEach(function (m) { %>
-                <a href="/<%= m.userId?.username?.value %>" class="flex items-center gap-1.5 min-w-0 no-underline">
-                  <span class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center">
-                    <% if (m.userId?.avatar?.value) { %>
-                    <img src="<%= m.userId.avatar.value %>" class="w-full h-full object-cover" alt="">
-                    <% } else { %>
-                    <iconify-icon icon="boxicons:user-filled" width="16" style="color:#e680a6"></iconify-icon>
+                <% var _mFollowing = entryFollowingSet.has(m.userId?._id?.toString()); %>
+                <% var _mIsSelf    = !!(userEntry && m._id.toString() === userEntry._id.toString()); %>
+                <div class="flex flex-col gap-0 min-w-0">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <a href="/<%= m.userId?.username?.value %>" class="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-charm-950 flex items-center justify-center">
+                      <% if (m.userId?.avatar?.value) { %>
+                      <img src="<%= m.userId.avatar.value %>" class="w-full h-full object-cover" alt="">
+                      <% } else { %>
+                      <iconify-icon icon="boxicons:user-filled" width="16" style="color:#e680a6"></iconify-icon>
+                      <% } %>
+                    </a>
+                    <a href="/<%= m.userId?.username?.value %>" class="w-[140px] shrink-0 no-underline">
+                      <span class="block text-sm font-semibold text-white leading-tight break-words"><%= m.userId?.displayName?.value || m.userId?.username?.value %></span>
+                      <span class="block text-xs text-white/40 leading-tight break-words">@<%= m.userId?.username?.value %></span>
+                    </a>
+                    <% if (!_mIsSelf) { %>
+                    <button type="button" class="tournament-entry-follow-btn shrink-0 w-8 h-8 flex items-center justify-center rounded-md transition-colors cursor-pointer <%= _mFollowing ? 'text-white hover:text-red-400' : 'text-white hover:text-charm-400' %>"
+                      data-username="<%= m.userId?.username?.value %>" data-following="<%= _mFollowing ? 'true' : 'false' %>">
+                      <iconify-icon icon="<%= _mFollowing ? 'boxicons:user-check' : 'boxicons:user-plus' %>" width="18"></iconify-icon>
+                    </button>
                     <% } %>
-                  </span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block text-xs font-semibold text-white truncate leading-tight"><%= m.userId?.displayName?.value || m.userId?.username?.value %></span>
-                    <span class="block text-[11px] text-white/40 truncate leading-tight">@<%= m.userId?.username?.value %></span>
-                    <span class="block text-[11px] text-white/40 truncate leading-tight">
-                      <%= m.wins || 0 %>-<%= m.losses || 0 %> &middot; <%= m.groupPoints || 0 %> pts
-                      <% if (m.groupRank) { %> &middot; <span class="text-green-400">Advanced</span>
-                      <% } else if (m.eliminated) { %> &middot; <span class="text-white/40">Eliminated</span>
+                    <span class="shrink-0 w-14 h-14 rounded-md overflow-hidden bg-shark-800">
+                      <% if (m.entryId?.mediaType === 'video') { %>
+                      <video src="<%= m.entryId.mediaUrl %>" class="w-full h-full object-cover pointer-events-none" muted preload="none"></video>
+                      <% } else { %>
+                      <img src="<%= m.entryId?.mediaUrl %>" class="w-full h-full object-cover" alt="">
                       <% } %>
                     </span>
-                  </span>
-                  <span class="shrink-0 w-6 h-6 rounded-md overflow-hidden bg-shark-800">
-                    <% if (m.entryId?.mediaType === 'video') { %>
-                    <video src="<%= m.entryId.mediaUrl %>" class="w-full h-full object-cover pointer-events-none" muted preload="none"></video>
-                    <% } else { %>
-                    <img src="<%= m.entryId?.mediaUrl %>" class="w-full h-full object-cover" alt="">
+                  </div>
+                  <span class="block text-xs text-white/40 leading-tight whitespace-nowrap">
+                    <%= m.groupWins || 0 %>W-<%= m.groupLosses || 0 %>L &middot; <%= m.groupPoints || 0 %> pts
+                    <% if (m.groupRank) { %> &middot; <span class="text-green-400">Advanced</span>
+                    <% } else if (m.eliminated) { %> &middot; <span class="text-white/40">Eliminated</span>
                     <% } %>
                   </span>
-                </a>
+                </div>
                 <% }) %>
               </div>
             </div>

@@ -212,21 +212,21 @@
     <% if (firstPrizes > 0) { %>
     <div class="flex flex-col items-center">
       <span class="text-xl font-bold leading-tight"><%= formatStat(firstPrizes) %></span>
-      <span class="text-xs text-white/40 mt-0.5">1st Place</span>
+      <span class="text-xs text-white/40 mt-0.5">Velvet</span>
     </div>
     <% } %>
 
     <% if (secondPrizes > 0) { %>
     <div class="flex flex-col items-center">
       <span class="text-xl font-bold leading-tight"><%= formatStat(secondPrizes) %></span>
-      <span class="text-xs text-white/40 mt-0.5">2nd Place</span>
+      <span class="text-xs text-white/40 mt-0.5">Denim</span>
     </div>
     <% } %>
 
     <% if (thirdPrizes > 0) { %>
     <div class="flex flex-col items-center">
       <span class="text-xl font-bold leading-tight"><%= formatStat(thirdPrizes) %></span>
-      <span class="text-xs text-white/40 mt-0.5">3rd Place</span>
+      <span class="text-xs text-white/40 mt-0.5">Flannel</span>
     </div>
     <% } %>
 
@@ -605,13 +605,13 @@
       <% if (prizePlace) { %>
       <div class="shrink-0 text-right">
         <% if (prizePlace === 1) { %>
-        <span class="text-xs font-bold text-amber-400">1st Place</span>
+        <span class="text-xs font-bold text-amber-400">Velvet</span>
         <p class="text-xs text-white/40 mt-0.5">$<%= (tourn.prizes.first * 0.20).toFixed(2) %></p>
         <% } else if (prizePlace === 2) { %>
-        <span class="text-xs font-bold text-white/60">2nd Place</span>
+        <span class="text-xs font-bold text-white/60">Denim</span>
         <p class="text-xs text-white/40 mt-0.5">$<%= (tourn.prizes.second * 0.20).toFixed(2) %></p>
         <% } else { %>
-        <span class="text-xs font-bold text-amber-600/80">3rd Place</span>
+        <span class="text-xs font-bold text-amber-600/80">Flannel</span>
         <p class="text-xs text-white/40 mt-0.5">$<%= (tourn.prizes.third * 0.20).toFixed(2) %></p>
         <% } %>
       </div>

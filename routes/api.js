@@ -1500,7 +1500,7 @@ router.post('/contests/:id/vote', async (req, res) => {
   // is itself a tournament match, which is unaffected (that's how group/knockout matches are
   // normally decided, jury tie-break votes are a separate TournamentJuryVote mechanism).
   if (!contest.tournamentId) {
-    const juryTournamentIds = await TournamentJury.distinct('tournamentId', { userId: req.session.userId });
+    const juryTournamentIds = await TournamentJury.distinct('tournamentId', { userId: req.session.userId, status: 'accepted' });
     const [isActiveOrganizer, isActiveJuror] = await Promise.all([
       Tournament.exists({ createdBy: req.session.userId, status: { $in: ['open', 'cooldown', 'active'] } }),
       juryTournamentIds.length

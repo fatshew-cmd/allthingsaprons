@@ -116,7 +116,7 @@
                   <% (g.memberIds || []).forEach(function (m) { %>
                   <tr>
                     <td class="py-1.5 text-zinc-300"><%= m.userId?.username?.value ? '@' + m.userId.username.value : 'Anonymous' %></td>
-                    <td class="py-1.5 text-zinc-500 text-right whitespace-nowrap"><%= m.wins || 0 %>-<%= m.losses || 0 %> &middot; <%= m.groupPoints || 0 %> pts</td>
+                    <td class="py-1.5 text-zinc-500 text-right whitespace-nowrap"><%= m.groupWins || 0 %>W-<%= m.groupLosses || 0 %>L &middot; <%= m.groupPoints || 0 %> pts</td>
                     <td class="py-1.5 text-right whitespace-nowrap">
                       <% if (m.groupRank) { %><span class="text-green-400 text-xs font-semibold">Advanced</span>
                       <% } else if (m.eliminated) { %><span class="text-zinc-500 text-xs font-semibold">Eliminated</span>

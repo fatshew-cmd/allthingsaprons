@@ -115,7 +115,7 @@ function notifText(n) {
                    : p.reason === 'insufficient_candidates' ? 'not enough candidates applied'
                    : p.reason === 'cooldown_incomplete' ? 'candidate review wasn\'t finished in time'
                    : 'it was canceled';
-      return 'Tournament canceled — ' + tcReason;
+      return '<strong>' + (p.tournamentName || 'A tournament') + '</strong> was canceled — ' + tcReason;
     }
     case 'tournament_entry_removed':
       return 'You no longer meet the updated eligibility criteria for <strong>' + (p.tournamentName || 'a tournament') + '</strong> and have been removed';
@@ -132,7 +132,9 @@ function notifText(n) {
     case 'tournament_knockout_started':
       return 'You\'ve advanced to the knockout stage — your next match is starting';
     case 'tournament_entry_match_live':
-      return 'A tournament match is now live against <strong>' + (p.opponentDisplayName || 'their opponent') + '</strong>';
+      return p.isTiebreaker
+        ? 'Your group tied with <strong>' + (p.opponentDisplayName || 'an opponent') + '</strong> — a tie breaker contest is now live to decide who advances'
+        : 'A tournament match is now live against <strong>' + (p.opponentDisplayName || 'their opponent') + '</strong>';
     case 'tournament_entry_match_closed': {
       var temcVerb = p.outcome === 'won' ? 'won' : p.outcome === 'lost' ? 'lost' : 'tied';
       return 'The entry you\'re following ' + temcVerb + ' its match against <strong>' + (p.opponentDisplayName || 'their opponent') + '</strong>';

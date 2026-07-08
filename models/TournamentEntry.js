@@ -15,6 +15,8 @@ const tournamentEntrySchema = new mongoose.Schema({
 
   groupId:       { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentGroup', default: null },
   groupPoints:   { type: Number, default: 0 },
+  groupWins:     { type: Number, default: 0 },
+  groupLosses:   { type: Number, default: 0 },
   groupRank:     { type: Number, default: null },
   knockoutRound: { type: String, enum: ['R16', 'QF', 'SF', '3rd', 'Final'], default: null },
 }, { timestamps: true });
