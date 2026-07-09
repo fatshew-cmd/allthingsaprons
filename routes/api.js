@@ -209,6 +209,18 @@ router.post('/tournaments/:id/entries/:eid/approve', async (req, res) => {
   if (!loaded) return;
   const { tournament, entry } = loaded;
 
+  // A candidate whose underlying Entry was deleted (self-deletion, moderation removal, etc.)
+  // must never be approved: generateGroupMatches()/generateKnockoutBracket() later populate and
+  // directly dereference `entryId._id` with no null check, so an approved-but-orphaned candidate
+  // crashes bracket generation for the WHOLE tournament once cooldown expires — and worse, by
+  // then the tournament's status has already atomically flipped to 'active', permanently
+  // wedging it (nothing re-enters activation from 'active'). Rejecting an orphaned candidate is
+  // still allowed — that's the organizer's normal way to clear a dead entry from the queue.
+  const underlyingEntryExists = await Entry.exists({ _id: entry.entryId });
+  if (!underlyingEntryExists) {
+    return res.status(409).json({ error: "This candidate's entry no longer exists and cannot be approved. Reject it instead." });
+  }
+
   const approvedCount = await TournamentEntry.countDocuments({ tournamentId: tournament._id, approvalStatus: 'approved' });
   if (approvedCount >= tournament.size) {
     return res.status(400).json({ error: 'Tournament is already at capacity.' });
