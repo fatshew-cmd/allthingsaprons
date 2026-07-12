@@ -77,6 +77,12 @@ router.get('/tournaments', async (req, res) => {
   const openTournaments   = liveTournaments.filter(t => t.status === 'open' || t.status === 'cooldown');
   const activeTournaments = liveTournaments.filter(t => t.status === 'active');
 
+  await Promise.all([
+    attachSpotsFilled(openTournaments),
+    attachProgressLabel(activeTournaments),
+    attachWinners(closedTournaments),
+  ]);
+
   res.render('tournaments/index', {
     title:      'Tournaments',
     activePage: 'tournaments',
@@ -89,6 +95,94 @@ router.get('/tournaments', async (req, res) => {
     flashType: req.query.flashType === 'error' ? 'error' : 'success',
   });
 });
+
+// Mutates each open/cooldown tournament with `spotsFilled` — candidates submitted (open) or
+// approved (cooldown, since organizer batch-review is what actually fills the cap) — out of `size`.
+async function attachSpotsFilled(tournaments) {
+  if (!tournaments.length) return;
+  const rows = await TournamentEntry.aggregate([
+    { $match: { tournamentId: { $in: tournaments.map(t => t._id) }, approvalStatus: { $in: ['pending', 'approved'] } } },
+    { $group: { _id: { tournamentId: '$tournamentId', approvalStatus: '$approvalStatus' }, count: { $sum: 1 } } },
+  ]);
+  const countsByTournament = {};
+  rows.forEach(row => {
+    const tid = row._id.tournamentId.toString();
+    (countsByTournament[tid] = countsByTournament[tid] || { pending: 0, approved: 0 })[row._id.approvalStatus] = row.count;
+  });
+  tournaments.forEach(t => {
+    const c = countsByTournament[t._id.toString()] || { pending: 0, approved: 0 };
+    t.spotsFilled = t.status === 'cooldown' ? c.approved : (c.pending + c.approved);
+  });
+}
+
+const KNOCKOUT_ROUNDS = ['R16', 'QF', 'SF'];
+const KNOCKOUT_ROUND_LABELS = { R16: 'Round of 16', QF: 'Quarterfinal', SF: 'Semifinal', Final: 'Final' };
+
+// Mutates each active tournament with `progressLabel` — "Group Stage · X/Y played" while in the
+// group stage, or the current knockout round name (3rd + Final run together, so both map to "Final").
+async function attachProgressLabel(tournaments) {
+  if (!tournaments.length) return;
+  const matches = await TournamentMatch.find({ tournamentId: { $in: tournaments.map(t => t._id) } })
+    .select('tournamentId stage knockoutRound status')
+    .lean();
+  const matchesByTournament = {};
+  matches.forEach(m => {
+    const tid = m.tournamentId.toString();
+    (matchesByTournament[tid] = matchesByTournament[tid] || []).push(m);
+  });
+  tournaments.forEach(t => {
+    const tMatches = matchesByTournament[t._id.toString()] || [];
+    if (t.stage === 'group') {
+      const groupMatches = tMatches.filter(m => m.stage === 'group');
+      const closed = groupMatches.filter(m => m.status === 'closed').length;
+      t.progressLabel = groupMatches.length ? `Group Stage · ${closed}/${groupMatches.length} played` : 'Group Stage';
+      return;
+    }
+    const knockoutMatches = tMatches.filter(m => m.stage === 'knockout');
+    const hasFinale = knockoutMatches.some(m => m.knockoutRound === 'Final' || m.knockoutRound === '3rd');
+    let currentRound = null;
+    if (hasFinale) {
+      currentRound = 'Final';
+    } else {
+      currentRound = KNOCKOUT_ROUNDS.find(r => {
+        const roundMatches = knockoutMatches.filter(m => m.knockoutRound === r);
+        return roundMatches.length && roundMatches.some(m => m.status !== 'closed');
+      });
+      if (!currentRound) {
+        const reached = knockoutMatches.map(m => m.knockoutRound);
+        currentRound = KNOCKOUT_ROUNDS.filter(r => reached.includes(r)).pop() || null;
+      }
+    }
+    t.progressLabel = currentRound ? KNOCKOUT_ROUND_LABELS[currentRound] : 'Knockout';
+  });
+}
+
+// Mutates each closed tournament with `winner` (populated TournamentEntry of the Final match's
+// winner) — batched across all closed tournaments in one pass rather than per-tournament, since
+// this runs on the browse list. Mirrors the single-tournament logic in loadTournamentPlacements.
+async function attachWinners(tournaments) {
+  if (!tournaments.length) return;
+  const finals = await TournamentMatch.find({ tournamentId: { $in: tournaments.map(t => t._id) }, knockoutRound: 'Final' })
+    .select('tournamentId entryIdA entryIdB winnerId tournamentEntryIdA tournamentEntryIdB')
+    .lean();
+  const winnerTeIdByTournament = {};
+  finals.forEach(m => {
+    if (!m.winnerId) return;
+    winnerTeIdByTournament[m.tournamentId.toString()] =
+      m.entryIdA.toString() === m.winnerId.toString() ? m.tournamentEntryIdA : m.tournamentEntryIdB;
+  });
+  const winnerTeIds = Object.values(winnerTeIdByTournament);
+  if (!winnerTeIds.length) return;
+  const winnerEntries = await TournamentEntry.find({ _id: { $in: winnerTeIds } })
+    .populate('userId', 'username displayName avatar')
+    .lean();
+  const winnerEntryById = {};
+  winnerEntries.forEach(e => { winnerEntryById[e._id.toString()] = e; });
+  tournaments.forEach(t => {
+    const teId = winnerTeIdByTournament[t._id.toString()];
+    t.winner = teId ? winnerEntryById[teId.toString()] || null : null;
+  });
+}
 
 // ── GET /tournaments/create — resume at last-visited step, or start fresh ──
 // `?new=1` (the "+" FAB) explicitly discards any in-progress draft first — resuming is only

@@ -34,11 +34,6 @@
                       : t.status === 'cooldown' ? (t.cooldownDeadline ? new Date(t.cooldownDeadline).getTime() : null)
                       : null;
       var deadlineLabel = t.status === 'open' ? 'Closes in' : t.status === 'cooldown' ? 'Review closes in' : '';
-
-      var stageLabel = t.stage === 'group' ? 'Group Stage'
-                      : t.stage === 'knockout' ? 'Knockout'
-                      : t.stage === 'finale' ? 'Finale'
-                      : null;
   %>
   <a href="/tournament/<%= t._id %>"
     class="flex flex-col gap-3 px-5 py-4 border-b border-white/10 hover:bg-white/5 transition-colors no-underline">
@@ -81,6 +76,20 @@
       <iconify-icon icon="boxicons:chevron-right" width="18" class="text-white/20 shrink-0"></iconify-icon>
     </div>
 
+    <% if (t.status === 'closed' && t.winner) { %>
+    <div class="flex items-center gap-2 min-w-0">
+      <iconify-icon icon="boxicons:trophy" width="14" class="text-purple-400 shrink-0"></iconify-icon>
+      <div class="w-5 h-5 rounded-full bg-charm-950 flex items-center justify-center shrink-0 overflow-hidden">
+        <% if (t.winner.userId?.avatar?.value) { %>
+          <img src="<%= t.winner.userId.avatar.value %>" class="w-full h-full object-cover" alt="">
+        <% } else { %>
+          <iconify-icon icon="boxicons:user-filled" width="10" style="color:#e680a6"></iconify-icon>
+        <% } %>
+      </div>
+      <span class="text-xs text-white/60 truncate">Won by <span class="text-white font-semibold"><%= t.winner.userId?.displayName?.value || ('@' + (t.winner.userId?.username?.value || 'unknown')) %></span></span>
+    </div>
+    <% } %>
+
     <% if (t.description) { %>
     <p class="text-sm text-white/70 line-clamp-2 m-0"><%= t.description %></p>
     <% } %>
@@ -88,10 +97,10 @@
     <div class="flex items-center gap-4 text-sm text-white/60">
       <span class="flex items-center gap-2"><iconify-icon icon="boxicons:bar-chart" width="18" class="text-white/35"></iconify-icon><%= (t.viewCount || 0).toLocaleString() %></span>
       <% if (t.size) { %>
-        <span class="flex items-center gap-2"><iconify-icon icon="boxicons:group" width="18" class="text-white/35"></iconify-icon><%= t.size %></span>
+        <span class="flex items-center gap-2"><iconify-icon icon="boxicons:group" width="18" class="text-white/35"></iconify-icon><%= (t.status === 'open' || t.status === 'cooldown') && typeof t.spotsFilled === 'number' ? (t.spotsFilled + '/' + t.size) : t.size %></span>
       <% } %>
-      <% if (t.status === 'active' && stageLabel) { %>
-        <span class="flex items-center gap-2"><iconify-icon icon="boxicons:flag" width="18" class="text-white/35"></iconify-icon><%= stageLabel %></span>
+      <% if (t.status === 'active' && t.progressLabel) { %>
+        <span class="flex items-center gap-2"><iconify-icon icon="boxicons:flag" width="18" class="text-white/35"></iconify-icon><%= t.progressLabel %></span>
       <% } %>
       <% if (firstPrize) { %>
         <span class="flex items-center gap-2"><iconify-icon icon="boxicons:trophy-star-filled" width="18" class="text-purple-400"></iconify-icon><%= firstPrize %></span>
