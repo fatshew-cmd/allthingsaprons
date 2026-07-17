@@ -435,7 +435,7 @@ Only surfaces on step 2 when SB is insufficient. This is a tournament-gated $500
 amountCHL: Number — how many CHL to buy (must be > 0 and ≤ 500 CHL equivalent)
 ```
 
-For now (CCBill stub): deduct from nothing, credit `purchasedCHL` directly (same pattern as `/wallet/checkout` stub).
+For now (payment-gateway stub): deduct from nothing, credit `purchasedCHL` directly (same pattern as `/wallet/checkout` stub).
 
 Write a `WalletTransaction`:
 ```js
@@ -456,7 +456,7 @@ Write a `WalletTransaction`:
 
 On success: redirect back to `GET /tournaments/create/step2` with updated SB.
 
-When CCBill is live (`july-action-plan.md`'s Phase 10.1), this route redirects to CCBill with `returnUrl: /tournaments/create/step2` and `source=tournament_fund`.
+When Stripe is live (`july-action-plan.md`'s Phase 10.1), this route redirects to Stripe Checkout with `returnUrl: /tournaments/create/step2` and `source=tournament_fund`.
 
 ---
 

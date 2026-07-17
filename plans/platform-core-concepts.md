@@ -332,7 +332,7 @@ Three prizes are awarded at tournament close:
 
 **Relationship to tournament prizes (Section 4.5):** unchanged and additive. The organizer's upfront prize-fund commitment covers only the fixed 1st/2nd/3rd placement prizes (Golden/Silver/Red Apron). It does not need to cover per-vote contestant payouts — those are funded by credit spend, not by the organizer or platform.
 
-**All financial system decisions are locked** (as of June 17). See Section 9 for remaining open items (CCBill ToS verification, credit schema modeling).
+**All financial system decisions are locked** (as of June 17). See Section 9 for remaining open items (payment processor ToS verification, credit schema modeling).
 
 ---
 
@@ -844,7 +844,7 @@ Shows users the current user does not already follow. Excludes the current user 
 
 ## 11. Open Questions
 
-- **Payment processor:** CCBill selected as first option. Epoch does not support US-based businesses. Verify CCBill's current ToS covers the platform's content category and escrow/payout requirements before integrating. Now also the processor for credit purchases (Section 5), which pulls payment integration earlier than originally planned.
+- **Payment processor:** Stripe selected as first option to start testing with (switched from CCBill 2026-07-15 — Stripe is the more straightforward option available right now; Epoch does not support US-based businesses). Verify Stripe's current ToS/acceptable-use policy covers the platform's content category and escrow/payout requirements before integrating — mature-content platforms are a common point of friction with Stripe specifically, so this should be checked early. Now also the processor for credit purchases (Section 5), which pulls payment integration earlier than originally planned.
 - **Follow system:** A `follows` collection exists in the data model (follower/followee user relationships) but the feature is not yet documented. Scope, UI surface, and notification behavior TBD.
 - **Credits & contestant payouts (Section 5):** fully locked — exchange rate (1 credit = $0.20), 75/25 split, bundle pricing ($20/$50/$100/custom up to $500), attribution locked to original contest window only, all votes equal regardless of voter role.
 - **Apron payout funding source (Section 3.7):** funded from general platform resources — primarily the 25% cut from credit attribution spend, supplemented by sponsors or available reserves as needed. The collection thresholds (5/10/20) are intentionally designed to defer large payout events, giving the platform time to accumulate revenue before significant obligations come due.

@@ -175,18 +175,20 @@ Platform:                                          open → cooldown → active 
 
 _(Renumbered from "Phase 9" to avoid colliding with `tournament-implementation-plan.md`'s own Phase 9 — see the Tournaments section above.)_
 
-#### Phase 10.1 — CCBill Integration
+#### Phase 10.1 — Stripe Integration
 
-Replace the stub `/wallet/checkout` with a real CCBill redirect. All other wallet infrastructure (WalletTransaction, ContestContribution, ContestPayout, MonthlySnapshot, background jobs) remains unchanged.
+Replace the stub `/wallet/checkout` with real Stripe Checkout. All other wallet infrastructure (WalletTransaction, ContestContribution, ContestPayout, MonthlySnapshot, background jobs) remains unchanged.
+
+_(Switched from CCBill to Stripe 2026-07-15 — Stripe is the more straightforward option to start testing with. No CCBill-specific code had been built yet, so this is a clean pivot.)_
 
 **Scope:**
-- Verify CCBill ToS covers the platform's content category + escrow/payout requirements
-- Implement CCBill redirect from `/wallet/checkout` (pass package, amount, user identifier)
-- Handle CCBill callback/webhook: verify signature, credit `purchasedCHL`, write `WalletTransaction`
+- Verify Stripe ToS/acceptable-use policy covers the platform's content category + escrow/payout requirements
+- Implement Stripe Checkout redirect from `/wallet/checkout` (pass package, amount, user identifier)
+- Handle Stripe webhook: verify signature, credit `purchasedCHL`, write `WalletTransaction`
 - Error handling: failed payment → flash + redirect back to `/wallet/topup`
-- Tournament prize fund commitment via same CCBill flow (organizer pays at creation time)
+- Tournament prize fund commitment via same Stripe flow (organizer pays at creation time)
 
-**Note:** The fake stub (`POST /wallet/checkout` → immediate credit) and the tournament prize commitment stub (wallet deduct) both remain in place until CCBill is live and verified.
+**Note:** The fake stub (`POST /wallet/checkout` → immediate credit) and the tournament prize commitment stub (wallet deduct) both remain in place until Stripe is live and verified.
 
 ---
 
@@ -259,7 +261,7 @@ Currently every user gets one vote per contest freely. The designed system has a
 - Previous vote removed. If it was a free vote: `User.lastFreeVoteAt` reset to what it was before (or null). If paid: chillies refunded to wallet.
 - New vote cast under normal rules
 
-**Note:** This phase depends on CCBill being live (Phase 10.1) since paid votes require a funded wallet. If 10.1 slips, implement the free vote 12h window first (no CCBill dependency) and add paid votes once CCBill lands.
+**Note:** This phase depends on Stripe being live (Phase 10.1) since paid votes require a funded wallet. If 10.1 slips, implement the free vote 12h window first (no Stripe dependency) and add paid votes once Stripe lands.
 
 ---
 
@@ -336,7 +338,7 @@ Triggered 2026-07-02: noticed `dotenv` (v17.4.2) prints self-promotional console
 By July 31, the platform should support:
 - Full user-organized and platform tournament lifecycle end-to-end
 - Admin tournament review and management
-- Real CCBill payment for wallet top-ups and tournament prize commitments
+- Real Stripe payment for wallet top-ups and tournament prize commitments
 - Apron trophies awarded at contest close with monthly auto-settlement
 - 12-hour free vote window + paid vote support
 - Search wired with real results
